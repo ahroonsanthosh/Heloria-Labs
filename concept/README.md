@@ -1,15 +1,25 @@
-# Heloria Labs: immersive concept
+# Heloria Labs: site concepts
 
-A single-file prototype of a new helorialabs.com. Open `index.html` in a browser.
+## orbit/ (current direction)
 
-One WebGL particle system (Three.js) is the whole site. Scrolling is a descent toward a black hole, and the same particles re-form into each chapter:
+A playable universe. Open `orbit/index.html` in a browser.
 
-1. Horizon: lensed black hole with an orbiting accretion disk (the existing brand mark, made real)
-2. Kríos: a live formant spectrogram of a voice
-3. Ogive: a tangent-ogive rocket with its flight path
-4. Aetos: a radar dome with a 3 s sweep and 7 tracked contacts
-5. Crew: team portraits sampled into particles
-6. Join: a swarm that follows the cursor
-7. Signal: collapse to a singularity, contact address
+1. **Enter**: choose sound or silence.
+2. **Gate**: press and hold to collapse a star. It implodes into the Heloria black hole.
+3. **Story**: a short scroll sequence. The camera skims the accretion disk, then pulls back to reveal five stations in orbit.
+4. **Orbit**: you pilot a probe under real inverse-square gravity (WASD / arrows, drag to look, scroll to zoom; drag to fly on phones). Click any station label or use Map to autopilot. Fly close and press E to dock.
+5. **Stations**
+   - Kríos: take a practice sales call. A prospect pushes back three times (speech synthesis when sound is on), a live spectrogram reacts, and you answer out loud before the ring closes.
+   - Ogive: hold to launch a tangent-ogive rocket. Simulated G-class flight with drag, apogee, parachute and a flight summary.
+   - Aetos: a 40 second counter-drone round. Click contacts to designate and intercept them before they reach the centre.
+   - Crew: the team as particle portraits that scatter around the cursor and reassemble.
+   - Beacon: "Always looking for builders". Leave a signal (name + link) or copy the email.
+6. **Easter egg**: fly into the black hole. Spaghettification, then a hiring message from the other side.
 
-HUD reads real Schwarzschild values (r / r_s, time dilation, proper time) as you scroll. Optional generative sound (drone, voice formants on Kríos, radar ping on Aetos).
+Telemetry shows real Schwarzschild values: r in r_s, time dilation and proper time.
+
+The published artifact version also shows other live visitors' probes and stores signals. The real site would need a small backend (websocket presence and a form endpoint) for those two features.
+
+## descent/ (first pass)
+
+A scroll-driven particle morph. Superseded by orbit/.
