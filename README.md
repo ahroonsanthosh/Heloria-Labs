@@ -6,10 +6,10 @@ six stations. Four of them are the lab's projects, each with a game built from t
 
 | Station | Project | Game |
 | --- | --- | --- |
-| Kríos | [krios.ie](https://krios.ie), voice practice for sales teams | Dead Air: turn-taking on a sales call |
-| Aetos | [Aetos](https://github.com/ahroonsanthosh/Aetos), counter-drone command software | Hold the Sky: identify and intercept |
-| Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: match the camera to the map |
-| Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design, fly, open the chute at the top |
+| Kríos | [krios.ie](https://krios.ie), voice practice for sales teams | Dead Air: answer a buyer at the right moment and stop inside the bracket |
+| Aetos | [Aetos](https://github.com/ahroonsanthosh/Aetos), counter-drone command software | Hold the Sky: read the radar, identify, intercept, never hit a friendly |
+| Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: find the drone on the map from its camera, then see the correlation surface |
+| Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design the rocket, launch, open the chute at the top |
 
 Crew and Beacon (join us, contact) complete the system. Fly into the black hole for the last page.
 
@@ -45,6 +45,9 @@ tools/
   build.py                 builds docs/ (GitHub Pages) and dist/heloria.html (single file)
   test/shot.cjs            headless playtest and screenshot harness
   test/buttons.cjs         clicks every button on the site and checks nothing covers it
+  test/monkey.cjs          plays every game with random clicks, taps, drags and keys
+  test/audit-buttons.cjs   lists controls with no click handler of their own
+  test/docs-smoke.cjs      serves docs/ under a sub-path and checks it boots
 archive/                   earlier prototypes
 ```
 
@@ -60,6 +63,8 @@ Test (needs Node and Playwright with Chromium):
 ```bash
 node tools/test/shot.cjs --html dist/heloria.html --out /tmp/btn --scenario tools/test/buttons.cjs
 node tools/test/shot.cjs --html dist/heloria.html --out /tmp/btn --scenario tools/test/buttons.cjs --mobile
+node tools/test/shot.cjs --html dist/heloria.html --out /tmp/monkey --scenario tools/test/monkey.cjs
+node tools/test/docs-smoke.cjs docs
 ```
 
 ## Notes
