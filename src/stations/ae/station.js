@@ -244,9 +244,9 @@ const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
   if(!labCx||labMode===+mob) return; labMode=+mob;
   const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
-  const fs=mob?33:19, sy=mob?1.1:1.3; x.font=`${fs}px "Michroma", sans-serif`;
+  const fs=mob?38:22, sy=mob?1.1:1.3; x.font=`900 ${fs}px "Doto", monospace`; x.strokeStyle='#fff'; x.lineWidth=Math.max(1,fs*.06); x.lineJoin='round';
   // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
-  const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.fillText(t,0,0); x.restore(); };
+  const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.strokeText(t,0,0); x.fillText(t,0,0); x.restore(); };
   for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
   for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.24:.14), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left'); }
   labTex.needsUpdate=true;
@@ -263,7 +263,7 @@ function heightTex(){
   const t=new T.DataTexture(data,N,N,T.RedFormat,T.UnsignedByteType); t.magFilter=t.minFilter=T.LinearFilter; t.generateMipmaps=false; t.needsUpdate=true; return t;
 }
 st.build=async function(){
-  try{ await Promise.race([document.fonts.load('20px "Michroma"'),wait(1500)]); }catch(e){}
+  try{ await Promise.race([document.fonts.load('900 20px "Doto"'),wait(1500)]); }catch(e){}
   labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
   labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},

@@ -35,7 +35,10 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* ---- loader ---- */
   rec(await until(() => document.querySelector('#load').classList.contains('ready')), 'loader becomes ready');
   await covered('#load', 'loader');
-  await tap('#enter', 'Enter'); rec(await until(() => window.__heloria.S.mode === 'story'), 'Enter starts the story');
+  rec(await page.evaluate(() => document.querySelectorAll('#load button,#load a').length === 0 && document.querySelector('#load').innerText.replace(/\s+/g, ' ').trim().split(' ').length <= 5), 'opening screen is only the mark and a prompt');
+  if (mobile) await tap('#begin', 'Tap to begin'); else { await page.mouse.move(640, 400); await page.mouse.wheel(0, 240); }
+  rec(await until(() => window.__heloria.S.mode !== 'load'), mobile ? 'a tap begins' : 'a scroll begins');
+  rec(await until(() => window.__heloria.S.mode === 'story'), 'the story starts');
   await wait(1500);
 
   /* ---- story ---- */
@@ -51,8 +54,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* ---- hub ---- */
   await covered('#hub', 'orbit');
   await covered('#chrome', 'chrome');
-  await tap('#snd', 'Sound toggle'); rec(await H(h => !document.querySelector('#snd').classList.contains('live')), 'sound mutes');
-  await tap('#snd', 'Sound toggle'); rec(await H(h => document.querySelector('#snd').classList.contains('live')), 'sound unmutes');
+  rec(await page.evaluate(() => !document.querySelector('#snd')), 'no sound indicator anywhere');
   // station labels and edge markers set autopilot
   const ids = await H(h => h.STA.map(s => s.id));
   let apOk = 0;
