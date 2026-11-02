@@ -5,11 +5,15 @@ const CH=[ // camera shots of the hole: position, look-at, field of view, drift
   {p:[12,64,62],l:[-12,-6,6],f:34,dr:.15,sys:1,narP:[0,96,52],narL:[0,-3,-2]},
   {p:[1.05,.24,1.95],l:[-.25,.08,0],f:64,dr:.12,sys:0,narP:[.3,.42,3.3],narL:[-.05,.3,0]}
 ];
-const story={busy:0,acc:0,from:mkPose(),to:mkPose(),k:1,blocks:$$('#story .ch'),rail:$$('#rail button'),creep:0};
+const story={busy:0,acc:0,from:mkPose(),to:mkPose(),k:1,blocks:$$('#story .ch'),rail:$$('#rail button'),creep:0,px:0,py:0};
 function chPose(i,out,t){ const c=CH[i], nar=NARROW(); const P=nar?c.narP:c.p, L=nar?c.narL:c.l;
   const a=Math.sin(t*.07)*c.dr*.12; out.p.set(P[0]*Math.cos(a)-P[2]*Math.sin(a),P[1]+Math.sin(t*.11)*c.dr*.25,P[0]*Math.sin(a)+P[2]*Math.cos(a));
   if(i===3) out.p.multiplyScalar(1-story.creep*.18);
-  tv[0].set(L[0],L[1],L[2]); lookQ(out.p,tv[0],out.q); out.fov=c.f; return out; }
+  tv[0].set(L[0],L[1],L[2]);
+  // the camera leans with the pointer; the traced lensing shifts with it, which is what makes the hole feel real
+  if(story.px||story.py){ const d=out.p.distanceTo(tv[0]), k=d*(i===2?.04:.065); tv[1].subVectors(tv[0],out.p).normalize(); tv[2].crossVectors(tv[1],UPV).normalize(); tv[3].crossVectors(tv[2],tv[1]);
+    out.p.addScaledVector(tv[2],story.px*k).addScaledVector(tv[3],story.py*k*.6); }
+  lookQ(out.p,tv[0],out.q); out.fov=c.f; return out; }
 function goChapter(i){
   if(S.mode!=='story') return; if(i>3){ escape(); return; } i=clamp(i,0,3); if(i===S.ch||story.busy>0) return;
   const prev=S.ch; S.ch=i; story.busy=1.15; story.k=0; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov;
@@ -42,6 +46,7 @@ story.rail.forEach((b,k)=>b.addEventListener('click',()=>goChapter(k)));
 $('#skip').addEventListener('click',()=>{ if(S.mode==='story') escape(); });
 const _sp=mkPose();
 function storyUpdate(rdt,t){
+  if(!RM){ story.px=damp(story.px,mouse.on?mouse.nx:0,1.6,rdt); story.py=damp(story.py,mouse.on?mouse.ny:0,1.6,rdt); }
   story.busy-=rdt; story.k=Math.min(1,story.k+rdt/1.6);
   if(S.ch===3) story.creep=Math.min(1,story.creep+rdt/14);
   chPose(S.ch,_sp,t); const k=E.io(story.k);
