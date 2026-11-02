@@ -47,13 +47,13 @@ function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math
   for(let i=0;i<TRL;i++){ U.trailPos[i*3]=P.p.x;U.trailPos[i*3+1]=0;U.trailPos[i*3+2]=P.p.z; } U.trailG.attributes.position.needsUpdate=true; U.probe.position.copy(P.p); }
 function toHub(){
   if(S.mode!=='story'&&S.mode!=='beyond') return;
-  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true);
+  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true); S.callWait=Math.max(S.callWait,2.2);
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true; A.whine(0);
 }
 
 /* ---------- horizon ---------- */
-function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); }
+function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); callOff(); }
 /* past the horizon: Earth. The fall ends in white, and the white opens on the rocket coming down through the clouds */
 function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; toHub(); return; }
   S.mode='station'; S.stId='cr'; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.flash=1; post.uniforms.uStretch.value=0; post.uniforms.uIrisCol.value.set('#FFC392'); cine(false);
@@ -99,11 +99,11 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at a station, or fall into the hole.'); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at any station. Then the horizon opens.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
-    hubPhysics(dt);
+    hubPhysics(dt); if(S.mode==='hub'){ callUpdate(dt); sealUpdate(dt); }
     if(S.mode==='hub'){ chasePose(chase); hubBase.p.lerp(chase.p,1-Math.exp(-5*dt)); hubBase.q.slerp(chase.q,1-Math.exp(-6*dt));
       hubCam.position.copy(hubBase.p); hubCam.quaternion.copy(hubBase.q);
       const P=S.probe, sp=P.v.length(), turn=angDiff(P.head,S.lastHead??P.head)/Math.max(dt,1e-3), yr=(S.yaw-(S.lastYaw??S.yaw))/Math.max(dt,1e-3); S.lastHead=P.head; S.lastYaw=S.yaw;
@@ -160,4 +160,4 @@ function jump(id){
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,SB,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};

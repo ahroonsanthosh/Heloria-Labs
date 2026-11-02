@@ -151,6 +151,15 @@ const A=(()=>{
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
       s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.setValueAtTime(clamp(p,-1,1),t0); pn.pan.linearRampToValueAtTime(clamp(-p*.6,-1,1),t0+1.); a.connect(pn); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.4; pn.connect(sg); sg.connect(revIn); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+1.2); },
+    /* a station calling you: a bell at its own beacon note, placed on the side where it is */
+    call(i,p,g=.05){ if(!on||muted||!ctx) return; const f=note(i), t0=ctx.currentTime; let pn=null;
+      if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.9; pn.connect(sg); sg.connect(revIn); }
+      [[1,1,1.8],[2.003,.32,1],[3.01,.1,.55]].forEach(([m,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*m;
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.01); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+d+.05); }); },
+    /* the seal breaking: a glassy snap, then the pieces falling away */
+    crack(){ noise(.35,.32,7000,1400,'highpass',.7,0,.5); noise(1.8,.28,1600,50,'lowpass',.9,.03,.6); tone(1760,1.1,.03,'triangle',820,0,.8); tone(2637,.8,.018,'sine',1240,.05,.8); },
+    /* the seal straining before it goes: a low groan that rises */
+    strain(){ tone(55,1,.16,'sawtooth',110,0,.4,.6); noise(1,.12,120,900,'bandpass',2,0,.4); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
     chord(){ [0,2,4,7].forEach((k,j)=>this.chime(10+k,j*.07)); },
     buzz(){ tone(92,.3,.11,'sawtooth',60); noise(.22,.12,900,200); },
@@ -558,15 +567,17 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
   for(let r=7.5;r<=31;r+=1.25){ const N=Math.max(80,Math.floor(r*9)); for(let k=0;k<N;k++){ const a0=k/N*TAU,a1=(k+1)/N*TAU; v.push(Math.cos(a0)*r,0,Math.sin(a0)*r,Math.cos(a1)*r,0,Math.sin(a1)*r); } }
   for(let s=0;s<56;s++){ const a=s/56*TAU; for(let k=0;k<60;k++){ const r0=7.5+k*.4, r1=7.5+(k+1)*.4; v.push(Math.cos(a)*r0,0,Math.sin(a)*r0,Math.cos(a)*r1,0,Math.sin(a)*r1); } }
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(v),3)); g.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
-  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uC:{value:new T.Color('#B9A58E')}};
+  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uShock:{value:-9},uC:{value:new T.Color('#B9A58E')}};
   U.grid=new T.LineSegments(g,new T.ShaderMaterial({uniforms:U.gridU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
-    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[${NST}]; uniform float uTime,uOp; varying float vA;
+    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[${NST}]; uniform float uTime,uOp,uShock; varying float vA;
     void main(){ vec3 p=position; float r=length(p.xz); float y=-1.4-14./(r+1.5);
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
+      // the seal breaking sends one wave out across the whole system
+      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(31.,20.,uShock):0.; y-=.7*sk;
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
-      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
+      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
       gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`uniform vec3 uC; varying float vA; void main(){ gl_FragColor=vec4(uC*vA,1.); }`}));
   U.grid.frustumCulled=false; U.scene.add(U.grid);
@@ -629,8 +640,10 @@ STA.forEach((s,si)=>{
     const tip=add(new T.Mesh(new T.SphereGeometry(.09,16,10),LM(C,{emit:2.2}))); tip.position.y=1.05;
     add(pts(cloud(1800,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=1.05;o[2]=Math.sin(a);}),PM({size:.05,color:C,body:'float t=fract(aR.y*.999+uTime*.35+floor(aR.y*3.)/3.); p.xz*=t*2.4; b=(1.-t)*.9;'})));
   }
-  // soft halo, and a dock ring that only shows when you are close enough to dock
-  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,body:'b=.08;'})));
+  // soft halo, which glows when the station is calling you, and a dock ring that only shows when you are close enough to dock
+  s.callU={uCall:{value:0}};
+  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,uniforms:s.callU,decl:'uniform float uCall;',
+    body:'float pl=fract(uTime/2.4); b=.08+uCall*(.3+.9*exp(-pl*5.)); sz=1.+uCall*.8;'})));
   s.orbit=new T.LineLoop(ringGeo(s.R,480),dashMat(C,`float df=mod(uAng-vAng,6.28318); float a=(.025+.45*exp(-df*2.))*step(.45,fract(vAng*uR*1.4));`)); s.orbit.material.uniforms.uR.value=s.R; U.scene.add(s.orbit);
   s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=.86*uNear*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(new Float32Array([0,-.95,0,0,-3.2,0]),3)); tg.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
@@ -646,6 +659,17 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
+/* a station calling you: two rings of light go out from it, one after the other, in time with its bell */
+U.callRing=pts(cloud(Math.floor(240*Q+120),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=(r[1]-.5)*.05;o[2]=Math.sin(a);}),PM({size:.12,color:'#ffffff',uniforms:{uK:{value:0}},decl:'uniform float uK;',
+  body:`float ph=fract(uTime/2.4-step(.5,aR.w)*.18); p.xz*=.8+ph*7.; b=uK*pow(1.-ph,1.7)*1.25*smoothstep(0.,.05,ph)*(step(.5,aR.w)>.5?.55:1.); sz=1.2;`}));
+U.callRing.visible=false; U.scene.add(U.callRing);
+/* the seal's pieces, flung out when it breaks */
+U.shardU={uT:{value:-1}};
+U.shard=pts(cloud(Math.floor(520*Q+220),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=0;o[2]=Math.sin(a);}),PM({size:.1,color:'#FF6A3D',uniforms:U.shardU,decl:'uniform float uT;',
+  body:`float t=max(uT,0.), sp=1.2+aR.y*aR.y*10.; p.xz*=2.4+sp*t*(1.-.14*t); p.y=(aR.z-.5)*t*(.6+aR.w*2.); col=mix(vec3(1.,.93,.8),uCol,smoothstep(.05,.6,t)); b=step(0.,uT)*exp(-t*(1.1+aR.x))*(1.1+aR.w); sz=.8+aR.w;`}));
+U.scene.add(U.shard);
+/* the seal: a dashed ring just outside the horizon that holds the probe off until it has docked at one station */
+U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -701,12 +725,12 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*S.sealK; U.shard.material.uniforms.uOp.value=k; U.callRing.material.uniforms.uOp.value=k;
 }
 
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
 const S={mode:'load',ch:0,chT:0,t:0,tau:0,hold:0,form:0,formT:null,flash:0,intro:0,introT:0,yaw:.5,zoom:1,iris:0,arrive:0,shake:0,ca:0,rdt:0,games:0,
-  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0};
+  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0, sealK:1, call:null, callK:0, callWait:1.6, callT:0};
 const keys=new Set();
 const tv=[...Array(10)].map(()=>new T.Vector3());
 const _m=new T.Matrix4(), UPV=new T.Vector3(0,1,0);
@@ -718,7 +742,9 @@ const hubBase={p:new T.Vector3(0,1.2,70),q:new T.Quaternion()};
 function chasePose(out){
   const P=S.probe, D=12.5*S.zoom, H=5.4*S.zoom;
   out.p.set(P.p.x+Math.sin(S.yaw)*D,H,P.p.z+Math.cos(S.yaw)*D);
-  tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9; lookQ(out.p,tv[0],out.q); out.fov=36; return out;
+  tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9;
+  if(SB.look>0) tv[0].multiplyScalar(1-SB.look*.5);   // while the seal breaks, the camera turns a little toward the hole
+  lookQ(out.p,tv[0],out.q); out.fov=36; return out;
 }
 
 /* ---------- input ---------- */
@@ -747,9 +773,10 @@ const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick')
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
 addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
-/* the hole as a destination: open from the start; what is on the other side is Earth */
+/* the hole as a destination: sealed until you have docked at one station; what is on the other side is Earth */
 const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
-function autopilot(s){ if(S.mode!=='hub') return; if(S.near===s) return dock(s); S.ap=s; toast(s===HOLE?'Autopilot · into the horizon':'Autopilot · '+s.name); A.blip(); }
+const holeOpen=()=>S.docked.size>=1, SEALTINT=new T.Color(.06,.015,0);
+function autopilot(s){ if(S.mode!=='hub') return; if(s===HOLE&&!holeOpen()) return; if(S.near===s) return dock(s); S.ap=s; toast(s===HOLE?'Autopilot · into the horizon':'Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
@@ -780,14 +807,18 @@ function hubPhysics(dt){
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
   if(S.ap&&S.ap!==HOLE){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in by accident
-  if(r<1.35){ crossHorizon(); return; }
+  // until you have docked somewhere, the horizon is sealed: the probe bounces off it
+  if(!holeOpen()){ const rr=Math.hypot(P.p.x,P.p.z);
+    if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
+      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast('The horizon is sealed · dock at any station first'); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
+  else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
   if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3).add(P.p); for(let k=0;k<Math.ceil(P.thr*4*Q);k++) U.exhaust.emit(tv[4],1,.5,null,0,.6); }
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
-  U.dustU.uC.value.copy(P.p); U.dustU.uV.value.copy(P.v); U.gridU.uProbe.value.copy(P.p);
+  U.dustU.uC.value.copy(P.p); U.dustU.uV.value.copy(P.v); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
   U.fenceU.uPA.value=Math.atan2(P.p.z,P.p.x); U.fenceU.uNear.value=sstep(RB-6,RB-1,r);
   // proximity
   let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<2.6?1:0,6,dt); });
@@ -844,14 +875,16 @@ function labelsUpdate(){
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
       const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
       s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
+      s.el.classList.toggle('call',S.call===s&&S.callK>.5);
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
       let dx=sx-W/2, dy=sy-H/2; if(behind){dx=-dx;dy=-dy;} const a=Math.atan2(dy,dx);
       const k=Math.min(hw/Math.max(1e-6,Math.abs(Math.cos(a))),hh/Math.max(1e-6,Math.abs(Math.sin(a))));
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
+      s.edge.classList.toggle('call',S.call===s&&S.callK>.5);
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
-  { const H_=HOLE.el; if(S.mode==='hub'||S.mode==='tohub'){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
+  { const H_=HOLE.el; if(holeOpen()&&S.sealK<1&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
       if(p.z<1&&sx>40&&sx<W-40&&sy>70&&sy<H-60){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(SEAL).project(hubCam); const sz=clamp(Math.abs((tv[2].x-p.x)*.5*W)*2,40,170);
         H_.style.display=''; H_.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; H_.style.setProperty('--s',sz.toFixed(0)+'px'); H_.classList.add('near'); H_.classList.toggle('flip',sx>W-200); H_.classList.toggle('low',sy-sz/2<74);
         } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
@@ -879,7 +912,8 @@ function radarDraw(){
   rx.setLineDash([2,6]); rx.strokeStyle='rgba(238,233,223,.2)'; rx.beginPath(); rx.arc(0,0,14*k,0,TAU); rx.stroke(); rx.setLineDash([]);
   rx.strokeStyle='rgba(255,195,146,.5)'; rx.beginPath(); rx.arc(0,0,RB*k,0,TAU); rx.stroke(); rx.fillStyle='rgba(255,195,146,.18)'; rx.beginPath(); rx.arc(0,0,6.6*k,0,TAU); rx.arc(0,0,1.65*k,0,TAU,true); rx.fill();
   rx.fillStyle='#000'; rx.strokeStyle='#FFC392'; rx.beginPath(); rx.arc(0,0,1.43*k,0,TAU); rx.fill(); rx.stroke();
-  { rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
+  if(S.sealK<1){ rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
+  else { rx.strokeStyle='rgba(255,86,54,.55)'; rx.setLineDash([3,4]); rx.beginPath(); rx.arc(0,0,SEAL*k,0,TAU); rx.stroke(); rx.setLineDash([]); }
   peerList.forEach(p=>{ const pr=p.presence||{}; if(p.sameTab||typeof pr.x!=='number') return; rx.fillStyle='rgba(255,195,146,.8)'; rx.fillRect(pr.x*k-2,pr.z*k-2,4,4); });
   STA.forEach(s=>{ const x=s.pos.x*k, y=s.pos.z*k; rx.fillStyle=s.color; rx.beginPath(); rx.arc(x,y,S.ap===s?9:7,0,TAU); rx.fill();
     if(S.docked.has(s.id)){ rx.strokeStyle=s.color; rx.beginPath(); rx.arc(x,y,12,0,TAU); rx.stroke(); }
@@ -892,7 +926,7 @@ rc.addEventListener('click',e=>{
   const b=rc.getBoundingClientRect(), sc=rc.width/b.width; let x=(e.clientX-b.left)*sc-rc.width/2, y=(e.clientY-b.top)*sc-rc.width/2;
   const c=Math.cos(-S.yaw), s=Math.sin(-S.yaw); const wx=x*c-y*s, wy=x*s+y*c; const k=(rc.width/2-16)/RB;
   let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} });
-  if(Math.hypot(wx,wy)<Math.min(bd,34)) best=HOLE; if(best) autopilot(best);
+  if(holeOpen()&&Math.hypot(wx,wy)<Math.min(bd,34)) best=HOLE; if(best) autopilot(best);
 });
 function updateQuest(){}
 
@@ -901,7 +935,7 @@ let TR=null;
 function dock(s){
   if(S.mode!=='hub') return;
   const st=ST[s.id]; if(!st) return;
-  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
+  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; callOff(); A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
   TR={t:0,s,st,dir:tv[0].copy(hubCam.position).sub(s.pos).setY(0).normalize().clone()};
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   S.stId=s.id; S.st=st; st.enter(); S.stSnap=true; S.arrive=1;
@@ -947,7 +981,50 @@ function undockUpdate(rdt,dt){
   else { hubPhysics(dt); chasePose(chase); const k=E.io(clamp((t-1.1)/1.3,0,1)); hubCam.position.lerpVectors(fromP.p,chase.p,k); hubCam.quaternion.slerpQuaternions(fromP.q,chase.q,k); hubCam.fov=lerp(28,36,k); hubCam.updateProjectionMatrix(); }
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
-  if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); }
+  if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.callWait=Math.max(S.callWait,2.5);
+    if(holeOpen()&&S.sealK>=1) sealBreak(); }
+}
+
+/* ---------- a station calls you: the nearest one you have not played rings its bell and sends out rings of light ----------
+   No words: you see it pulse, you hear which side it is on, and you go. When you have played it, the next one starts. */
+const _cp=new T.Vector3(), WHITE3=new T.Color(1,1,1);
+function callOff(){ S.callK=0; U.callRing.visible=false; STA.forEach(x=>x.callU.uCall.value=0); }
+function callUpdate(dt){
+  const P=S.probe, open=STA.filter(s=>!S.docked.has(s.id));
+  S.callWait-=dt; S.callT+=dt;
+  let want=S.call;
+  if(want&&S.docked.has(want.id)) want=null;
+  if(S.ap&&S.ap!==HOLE) want=S.docked.has(S.ap.id)?null:S.ap;           // flying somewhere already: that is the one, or none
+  else if(open.length&&S.callWait<=0){ const dist=s=>s.pos.distanceTo(P.p);
+    const best=open.reduce((a,b)=>dist(b)<dist(a)?b:a);
+    if(!want||(dist(best)<dist(want)*.5&&dist(best)<8&&S.callT>6)) want=best; }   // keep calling the same one unless you are right by another
+  if(!open.length||SB.t>=0) want=null;
+  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; if(want) U.callRing.material.uniforms.uCol.value.copy(want.c).lerp(WHITE3,.45); }
+  const s=S.call, d=s?s.pos.distanceTo(P.p):99, k=s&&d>2.8?1:0;
+  S.callK=damp(S.callK,k,k?1.6:5,dt);
+  STA.forEach(x=>{ x.callU.uCall.value=damp(x.callU.uCall.value,x===s?S.callK:0,4,dt); });
+  U.callRing.visible=!!s&&S.callK>.01; U.callRing.material.uniforms.uK.value=S.callK;
+  if(s){ U.callRing.position.copy(s.pos);
+    // the bell, once a ring: louder as you get close, softer if you have been ignoring it a while
+    const beat=Math.floor(G.uTime.value/2.4); if(beat!==S.callBeat){ S.callBeat=beat;
+      if(S.callK>.4&&A.ctx){ _cr.setFromMatrixColumn(hubCam.matrixWorld,0); _cp.copy(s.pos).sub(P.p); _cp.y=0; const pan=clamp(_cp.dot(_cr)/Math.max(d,.5)*1.3,-1,1);
+        const g=(.022+.034*(1-sstep(4,26,d)))*(1-.55*sstep(20,45,S.callT))*S.callK; A.call(BEACON_NOTES[s.idx],pan,g); setTimeout(()=>{ if(S.call===s&&S.mode==='hub') A.call(BEACON_NOTES[s.idx]+5,pan,g*.45); },430); } } }
+}
+
+/* ---------- the seal breaking: the first time you come back from a station, the ring round the horizon strains, cracks and lets go.
+   One wave runs out across the whole system. ---------- */
+const SB={t:-1,look:0}, OPENTINT=new T.Color(0,.025,.06);
+function sealBreak(){ if(SB.t>=0||S.sealK<1) return; SB.t=0; SB.crack=SB.chord=SB.said=false; A.strain(); }
+function sealUpdate(dt){
+  if(SB.t<0){ SB.look=damp(SB.look,0,3,dt); return; }
+  SB.t+=dt; const t=SB.t;
+  SB.look=sstep(0,.8,t)*(1-sstep(3.4,4.6,t));
+  if(t<1){ U.sealU.uNear.value=Math.max(U.sealU.uNear.value,sstep(0,.95,t)); S.shake=Math.max(S.shake,.16*sstep(.2,1,t)); A.roar(.22*sstep(0,1,t)); }
+  else if(!SB.crack){ SB.crack=true; S.sealK=0; U.shardU.uT.value=0; U.gridU.uShock.value=SEAL; A.roar(0); A.crack(); A.boom(); S.flash=Math.max(S.flash,.3); feedback(.6,1.6,OPENTINT); }
+  if(SB.crack){ const k=t-1; U.shardU.uT.value=k; U.gridU.uShock.value=k<2.8?SEAL+k*11:-9;
+    if(k>1.2&&!SB.chord){ SB.chord=true; A.chord(); }
+    if(k>2.2&&!SB.said){ SB.said=true; toast('The horizon is open. Fall in when you are ready.'); }
+    if(k>3.6){ U.shardU.uT.value=-1; SB.t=-1; } }
 }
 
 /* ================= STORY: four chapters, one gesture each ================= */
@@ -3555,9 +3632,12 @@ function grid(A,x,z){ const fx=(x+CAPR)/CS, fz=(z+CAPR)/CS, i=clamp(Math.floor(f
 /* ---------- light: three tones of sun with cast shadows, a little sky from above, haze far away ---------- */
 const N2=`float h2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   float vn2(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y); }`;
-const NEAR=`void nearFade(vec3 w){ float k=smoothstep(.7,1.25,distance(cameraPosition,w)); if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
+const NEAR=`uniform vec3 uPly; uniform float uCut;
+  void nearFade(vec3 w){ float k=smoothstep(.7,1.25,distance(cameraPosition,w));
+    if(uCut>.5){ vec3 ab=uPly-cameraPosition; float L2=dot(ab,ab); if(L2>.25){ float t=dot(w-cameraPosition,ab)/L2; if(t>0.&&t<.95) k=min(k,smoothstep(.5,.66,length(w-cameraPosition-ab*t))); } }
+    if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
 const SHN=LO?1536:2048;
-const LU={uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0}};
+const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0}};
 const LIGHT=`uniform vec3 uSun,uSky,uFog; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg;
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
@@ -3581,8 +3661,8 @@ const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varyi
 const TOON_F=`uniform vec3 uC; uniform float uOp; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
   void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(toon(uC*vC,n,vW),uOp); }`;
 const mcache=new Map();
-function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc?1:0)+'|'+C3(color).getHexString(); if(!o.fresh&&mcache.has(key)) return mcache.get(key);
-  const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
+function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc?1:0)+'|'+(o.fig?1:0)+'|'+C3(color).getHexString(); if(!o.fresh&&mcache.has(key)) return mcache.get(key);
+  const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op},uCut:{value:o.fig?0:1}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
   if(!o.fresh) mcache.set(key,m); return m; }
 /* what the ink pass sees: the normal and the distance of every surface; what the sun sees: only depth */
 const INK_F=`varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
@@ -3591,7 +3671,9 @@ const FLAT_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; ${NEAR} void ma
 const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:TOON_V(),fragmentShader:FLAT_F});
 
 /* ---------- one big mesh for everything that never moves: houses, roads, trees, fences, the lighthouse ---------- */
-const KP=[],KN=[],KC=[], kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
+const KITS={main:{P:[],N:[],C:[]}}; let KP=KITS.main.P, KN=KITS.main.N, KC=KITS.main.C; const kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
+/* what goes into the static mesh can be sent to a landmark's own mesh instead, so it can be shown, hidden and grown on its own */
+function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; }
 function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal; kNM.getNormalMatrix(M); const col=C3(c);
   for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); } }
 function ktri(a,b,c,n,col){ const C=C3(col); for(const p of [a,b,c]){ KP.push(p.x,p.y,p.z); KN.push(n.x,n.y,n.z); KC.push(C.r,C.g,C.b); } }
@@ -3637,7 +3719,7 @@ function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); 
 function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post!==false;
   if(post){ box(M,'#6d5544',-w*.38,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',w*.38,0,-.04,.08,y+h/2,.08); }
   const ox=o.x||0; box(M,o.board||'#5b4636',ox,y-h/2-.03,-.06,w+.1,h+.06,.06);
-  const mat=new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
+  const mat=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
   const m=new T.Mesh(new T.PlaneGeometry(w,h),mat); m.matrixAutoUpdate=false; m.matrix.copy(sub(M,ox,y,-.025)); m.userData.cast=true; sc.add(m); return m; }
 
 /* ---------- prefabs ---------- */
@@ -3654,7 +3736,7 @@ function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o
   (o.win||[-w*.3,w*.3]).forEach((wx,i)=>windowAt(M,wx,1.42,d/2,0,{flowers:o.flowers&&i===0,trim:tr}));
   if(o.up) (o.win||[-w*.3,w*.3]).concat([o.doorX||0]).forEach(wx=>windowAt(M,wx,h-.85,d/2,0,{trim:tr}));
   windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
-  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+1); return M; }
+  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+(o.flat?.35:(o.rh||1.3)+.3)); return M; }  // as tall as the ridge
 function lamp(x,z){ const M=frameAt(x,z,0); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
   box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(x,z,.2,1.2); }
 function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
@@ -3680,15 +3762,20 @@ function wires(){ for(let i=0;i<POLES.length-1;i++){ const A=POLES[i], B=POLES[i
 
 /* ---------- the town ---------- */
 function coastR(bx,bz,margin){ const L=Math.hypot(bx,bz), ux=bx/L, uz=bz/L; for(let r=6;r<24;r+=.1){ if(isle(at(ux*r,uz*r))<.03) return [ux*(r-margin),uz*(r-margin)]; } return [ux*14,uz*14]; }
-const MARKS={};
-let PH, AE, KR;
+/* ---------- the landmarks: each station you have played in orbit stands here; the rest are empty plots, a plinth or a bare pad ---------- */
+const MK={}, seen=new Set();
+function mark(id,x,z,y=0){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); const base=at(x,z).multiplyScalar(R+y); return MK[id]={id,g,base,obs:[],k:1,st:'off',t:0}; }
+function markObs(id,h0){ const o=OBS[OBS.length-1]; MK[id].obs.push({o,h:o.h,h0}); }   // the obstacle just added: full height when built, h0 when not
+function markScale(m,k){ m.k=k; const b=m.base; m.g.matrix.makeScale(k,k,k).setPosition(b.x*(1-k),b.y*(1-k),b.z*(1-k)); m.g.matrixWorldNeedsUpdate=true; }
+let PH, AE, KR, BE;
 function buildTown(){
   /* the square: Kríos, as a glass sculpture with a voice turning inside it */
-  { const M=frameAt(0,0,0); cyl(M,'#c9c1b3',0,0,0,1.55,.16); cyl(M,'#ddd6c8',0,.16,0,1.28,.14); put(M,'cyl','#e9e3d7',0,.3+.55,0,.34,1.1,.34); cyl(M,'#bba987',0,1.38,0,.42,.08);
-    const g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(sub(M,0,2.05,0)); sc.add(g);
+  { const M=frameAt(0,0,0); cyl(M,'#c9c1b3',0,0,0,1.55,.16); cyl(M,'#ddd6c8',0,.16,0,1.28,.14); const mk=mark('kr',0,0,.3);
+    kitTo('kr'); put(M,'cyl','#e9e3d7',0,.3+.55,0,.34,1.1,.34); cyl(M,'#bba987',0,1.38,0,.42,.08); kitTo();
+    const g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(sub(M,0,2.05,0)); mk.g.add(g);
     const orb=new T.Mesh(new T.SphereGeometry(.64,32,20),toonMat('#bcd8e6',{op:.42,fresh:true})); g.add(orb);
     const bars=new T.InstancedMesh(new T.BoxGeometry(.05,1,.05),toonMat('#3f6fd0'),28); bars.userData.dyn=true; g.add(bars); KR={g,bars,M};
-    sign(sub(M,0,0,-1.95,Math.PI),'KRÍOS',{sub:'rehearse the calls that matter',w:1.7,h:.62,y:.95}); obs(0,0,1.6,2.6); MARKS.kr={x:0,z:0}; }
+    sign(sub(M,0,0,-1.95,Math.PI),'KRÍOS',{sub:'rehearse the calls that matter',w:1.7,h:.62,y:.95}); obs(0,0,1.6,2.6); markObs('kr',.4); }
   [[1.9,1.9],[-1.9,1.9],[1.9,-1.9],[-1.9,-1.9]].forEach(([x,z])=>bench(x*1.45,z*1.45,yawTo(x,z,0,0)));
   for(let k=0;k<26;k++){ const a=k/26*TAU, r=1.85+rnd()*.25; if(Math.abs(Math.sin(a))<.16||Math.abs(Math.cos(a))<.16) continue; const M=frameAt(Math.cos(a)*r,Math.sin(a)*r,0); put(M,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f','#b9a2e0'][k%5],0,.12,0,.13,.11,.13); put(M,'blob',LEAF[2],0,.04,0,.16,.08,.16); }
   [[-4,4,1.3],[4.1,-3.7,1.15],[4.6,4.3,1],[-4.6,-3.9,1.05]].forEach(([x,z,s])=>tree(x,z,s));
@@ -3706,7 +3793,12 @@ function buildTown(){
   { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); house(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',flat:true,w:4.8,d:3.2,h:3,doorX:1.65,win:[-1.9],
       extra:(M,w,d,h)=>{ box(M,'#8c9599',-.35,.2,d/2+.02,2.1,2.1,.05); for(let k=0;k<11;k++) box(M,'#a9b2b5',-.35,.3+k*.18,d/2+.05,2,.04,.03); box(M,'#59646a',-.35,2.3,d/2+.04,2.3,.12,.08);
         sign(sub(M,-.35,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
-        [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4)); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); } }); }
+        [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4)); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9);
+        /* Beacon: a mast on the roof that keeps calling out */
+        const B=sub(M,1.4,h+.26,-.7), bw=new T.Vector3(1.4,h+.26,-.7).applyMatrix4(M); const mk=MK.be=mark('be',0,0); mk.base.copy(bw); kitTo('be');
+        box(B,'#59646a',0,0,0,.7,.08,.7); for(const [lx,lz] of [[-.2,-.2],[.2,-.2],[0,.22]]) put(B,'cyl8','#8c9599',lx*.5,1.5,lz*.5,.035,3,.035,0,lz*.06,-lx*.06);
+        for(let k=0;k<6;k++) cyl(B,'#8c9599',0,.4+k*.45,0,.16-k*.018,.03,'cyl8'); kitTo();
+        const lt=new T.Mesh(new T.SphereGeometry(.1,12,8),flatMat('#ff8a2a')); lt.matrixAutoUpdate=false; lt.matrix.copy(sub(B,0,3.08,0)); mk.g.add(lt); BE={lt}; } }); }
   // the café
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); house(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
@@ -3716,30 +3808,30 @@ function buildTown(){
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
   { const M=frameAt(PAD[0],PAD[1],0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); } obs(PAD[0],PAD[1],1.3,4.5); }
   /* Pharos: a lighthouse on the cliff */
-  { const [x,z]=coastR(15,4.2,2.3); const M=frameAt(x,z,yawTo(x,z,0,0)); cyl(M,'#bdb5a8',0,0,0,1.15,.5);
+  { const [x,z]=coastR(15,4.2,2.3); const M=frameAt(x,z,yawTo(x,z,0,0)); cyl(M,'#bdb5a8',0,0,0,1.15,.5); const mk=mark('ph',x,z,.5); kitTo('ph');
     for(let k=0;k<6;k++) put(M,'tcyl',k%2?'#cf4a36':'#f4efe6',0,.5+k*.72+.36,0,.84-k*.06,.72,.84-k*.06);
     cyl(M,'#3e4448',0,4.82,0,.92,.1); for(let k=0;k<14;k++){ const a=k/14*TAU; box(M,'#3e4448',Math.cos(a)*.86,4.92,Math.sin(a)*.86,.03,.36,.03); } cyl(M,'#3e4448',0,5.26,0,.88,.03);
     cyl(M,'#e7f1ef',0,4.92,0,.5,.62); put(M,'cone','#cf4a36',0,5.54+.3,0,.66,.6,.66); put(M,'sph','#3e4448',0,6.2,0,.08,.08,.08);
     const beam=new T.Mesh(new T.CylinderGeometry(.03,.36,6,12,1,true).rotateZ(Math.PI/2).translate(3,0,0),toonMat('#fff4c8',{op:.18,fresh:true})); beam.material.depthWrite=false; beam.layers.set(1);
-    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); sc.add(bg); PH={beam};
+    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); mk.g.add(bg); PH={beam}; kitTo();
     const yy=yawTo(x,z,0,0), rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; house(x+ix*.6+iz*2.7,z+iz*.6-ix*2.7,yy,{wall:'#f4efe6',roof:'#cf4a36',w:2.2,d:2,h:2,win:[-.6],doorX:.5,chim:false});
-    sign(sub(M,-1.6,0,1.6,.3),'PHAROS',{sub:'finds its way without GPS',w:1.7,h:.62,y:.95}); obs(x,z,1.25,6); MARKS.ph={x,z}; SEGS.push([10.6,1.7,x-1.2,z-.3,.55]); }
+    sign(sub(M,-1.6,0,1.6,.3),'PHAROS',{sub:'finds its way without GPS',w:1.7,h:.62,y:.95}); obs(x,z,1.25,6); markObs('ph',.6); SEGS.push([10.6,1.7,x-1.2,z-.3,.55]); }
   /* Ogive: a rocket on its pad, with the tower beside it */
   { const [x,z]=coastR(8.8,13.4,3.2); const yaw=yawTo(x,z,5,8.6), M=frameAt(x,z,yaw); box(M,'#c3bdb2',0,0,0,3.2,.22,3.2); box(M,'#6f6a64',0,.22,0,1,.02,1);
-    const r=sub(M,0,.22,0); cyl(r,'#f4f0e8',0,.3,0,.3,2.5); cyl(r,'#2f3336',0,1.9,0,.305,.12); put(r,'cone','#ef8a3c',0,2.8+.42,0,.3,.84,.3);
+    const mk=mark('og',x,z,.22); kitTo('og'); const r=sub(M,0,.22,0); cyl(r,'#f4f0e8',0,.3,0,.3,2.5); cyl(r,'#2f3336',0,1.9,0,.305,.12); put(r,'cone','#ef8a3c',0,2.8+.42,0,.3,.84,.3);
     for(let k=0;k<4;k++){ const a=k*Math.PI/2+.785; box(r,'#ef8a3c',Math.cos(a)*.38,0,Math.sin(a)*.38,.32,.62,.04,-a); } box(r,'#2f3336',0,1.3,.29,.16,.16,.05);
     const Gt=sub(M,1.15,.22,0); [[-.32,-.32],[.32,-.32],[-.32,.32],[.32,.32]].forEach(([gx,gz])=>box(Gt,'#c8664b',gx,0,gz,.08,4,.08));
     for(let k=1;k<8;k++){ box(Gt,'#c8664b',0,k*.5,-.32,.64,.05,.05); box(Gt,'#c8664b',0,k*.5,.32,.64,.05,.05); box(Gt,'#c8664b',-.32,k*.5,0,.05,.05,.64); box(Gt,'#c8664b',.32,k*.5,0,.05,.05,.64); }
-    box(Gt,'#8c3f2e',0,4,0,.8,.08,.8); box(Gt,'#c8664b',-.55,2.55,0,.8,.08,.12);
-    sign(sub(M,-.6,0,2.1),'OGIVE',{sub:'AI tools for OpenRocket',w:1.7,h:.62,y:.95}); obs(x,z,1.9,4); MARKS.og={x,z}; SEGS.push([6.2,10,x-1.4,z-1.5,.55]); }
+    box(Gt,'#8c3f2e',0,4,0,.8,.08,.8); box(Gt,'#c8664b',-.55,2.55,0,.8,.08,.12); kitTo();
+    sign(sub(M,-.6,0,2.1),'OGIVE',{sub:'AI tools for OpenRocket',w:1.7,h:.62,y:.95}); obs(x,z,1.9,4); markObs('og',.3); SEGS.push([6.2,10,x-1.4,z-1.5,.55]); }
   /* Aetos: a radar on the rocks, turning */
   { const [x,z]=coastR(-10.2,-11.6,2.6); const yaw=yawTo(x,z,0,0), M=frameAt(x,z,yaw);
     [[0,0,1.6],[.9,.5,1.1],[-.8,.4,1.2],[.3,-.9,1.1],[-.5,-.8,.9]].forEach(([rx,rz,s])=>put(M,'rock',rnd()<.5?'#a49e94':'#928c83',rx,.5*s,rz,.95*s,.75*s,.9*s,rnd()*3,.2,.1));
-    cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); const hd=new T.Group(); hd.matrixAutoUpdate=false; sc.add(hd);
+    const mk=mark('ae',x,z,1); kitTo('ae'); cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); kitTo(); const hd=new T.Group(); hd.matrixAutoUpdate=false; mk.g.add(hd);
     const dish=new T.Mesh(new T.SphereGeometry(.78,28,12,0,TAU,0,Math.PI*.32),toonMat('#f2f4f2',{side:T.DoubleSide})); dish.rotation.x=-1.25; dish.position.z=.08; hd.add(dish);
     hd.add(new T.Mesh(new T.BoxGeometry(.24,.24,.3),toonMat('#9aa3ab'))); hd.add(new T.Mesh(new T.CylinderGeometry(.018,.018,.6,6).rotateX(-1.25+Math.PI/2).translate(0,.1,.32),toonMat('#9aa3ab')));
     AE={hd,M:sub(M,0,2.9,0)};
-    sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); MARKS.ae={x,z}; SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
+    sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); markObs('ae',1.4); SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
   /* the jetty, out from the beach */
   { const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), yaw=Math.atan2(-(b[1]-a[1]),b[0]-a[0]); DECK=Math.max(grid(GH,a[0],a[1]),-.55);
     for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2);
@@ -3836,7 +3928,7 @@ const SHM=new T.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:
   fragmentShader:`varying vec2 vU; void main(){ float r=length(vU-.5)*2.; gl_FragColor=vec4(.12,.18,.16,(1.-smoothstep(.55,1.,r))*.32); }`});
 const capG=new Map(); const CAPS=(r,l)=>{ const k=r+'|'+l; if(!capG.has(k)) capG.set(k,new T.CapsuleGeometry(r,l,4,10)); return capG.get(k); };
 const SPH=new T.SphereGeometry(1,20,14), BOXG=new T.BoxGeometry(1,1,1);
-function mesh(g,c,x=0,y=0,z=0,sx=1,sy=sx,sz=sx){ const m=new T.Mesh(g,toonMat(c)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); return m; }
+function mesh(g,c,x=0,y=0,z=0,sx=1,sy=sx,sz=sx){ const m=new T.Mesh(g,toonMat(c,{fig:true})); m.position.set(x,y,z); m.scale.set(sx,sy,sz); return m; }
 const HAIR={
   curly:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.186,20,12,0,TAU,0,Math.PI*.55),c,0,.02,-.01); cap.rotation.x=-.2; h.add(cap);
     for(let k=0;k<54;k++){ const ph=Math.acos(1-(k+.5)/54*1.25), th=k*2.39996, x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th); if(ph>.95&&z>.2) continue; if(ph>1.25) continue; h.add(mesh(SPH,c,x*.183,y*.183+.025,z*.183-.012,.042+(k%3)*.007)); } },
@@ -3854,24 +3946,42 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
   const eyes=[-1,1].map(s=>{ const e=mesh(CAPS(.016,.022),'#1d1712',s*.062,.012,.152); head.add(e); return e; });
   [-1,1].forEach(s=>{ const b=mesh(BOXG,o.hairC,s*.064,.07,.158,.065,.016,.02); b.rotation.z=-s*.12; head.add(b); });
   head.add(mesh(SPH,o.skin,0,-.03,.17,.024,.022,.02));
-  const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c')); mo.position.set(0,-.08,.152); head.add(mo);
+  const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c',{fig:true})); mo.position.set(0,-.08,.152); head.add(mo);
   HAIR[o.hair](head,o.hairC);
   if(o.pack){ body.add(mesh(BOXG,o.pack,0,.8,-.17,.24,.3,.12)); body.add(mesh(BOXG,'#3f4b58',0,.93,-.235,.2,.05,.03)); }
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
   g.userData={legs,arms,head,body,eyes}; return g; }
+/* what each of us says depends on what you have played up there: your landmark stands, or we tell you it is still to come */
+const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
+const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+function linesFor(i){ const has=id=>S.docked.has(id), left=Object.keys(NAME).filter(id=>!has(id)).map(id=>NAME[id]), back=MET.has(i);
+  if(i===0){ const last='And this is me. Come and say hello properly.';
+    if(back){ const fr=FRESH.map(id=>NAME[id]);
+      return ['You\'re back!',fr.length?`You played ${andList(fr)} up there, so ${fr.length>1?'they\'re':'it\'s'} built now. Go and have a look.`:'Nothing new has gone up since last time. Every station you play up there gets built down here.',
+        left.length?`There's still ${andList(left)} to play. Each one goes up here too.`:'That\'s every station played, so the whole town is built. Thank you for coming all this way.',last]; }
+    return ['Oh, hello! You came through the hole.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
+      'Here\'s the thing: every station you play up there gets built down here.',
+      has('ae')?'That radar on the rocks is Aetos, mine. You played it, so it\'s up and turning. When the sky fills with drones, it works out which one actually matters.'
+               :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters. Play it up there and the radar goes up.',
+      has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, it keeps going, and it knows when it doesn\'t know.'
+               :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Play it and the lighthouse goes up.',
+      `Abraham is in the square${has('kr')?' by Kríos':''}, and Michael is up by ${has('og')?'his rocket':'the launch pad'}. Go and say hi.`,last]; }
+  if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
+    has('og')?'This rocket is Ogive, my project: AI tools for OpenRocket. You flew it, so here it stands. Say what you want the rocket to do, and it works the design until it does.'
+             :'This empty pad is for Ogive, my project: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does. Fly it up there and the rocket stands here.',
+    'That\'s me. Come and find me.'];
+  return [back?'Hi again!':'Hi, I\'m Abraham.',
+    has('kr')?'The glass sculpture is Kríos, my project. You played it, so here it is. Reps rehearse the calls that matter against a buyer who answers back.'
+             :'This empty plinth is for Kríos, my project. Reps rehearse the calls that matter against a buyer who answers back. Play it up there and it stands here.',
+    'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
-    look:{shirt:'#f1eee8',collar:'#dcd7ce',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814'},
-    lines:['Oh, hello! You came through the hole.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
-      'That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.',
-      'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, it keeps going, and it knows when it doesn\'t know.',
-      'Abraham is in the square with Kríos, and Michael is up by his rocket. Go and say hi.','And this is me. Come and say hello properly.']},
+    look:{shirt:'#f1eee8',collar:'#dcd7ce',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
-    look:{shirt:'#2b2a29',short:true,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#6b4a32'},
-    lines:['Hey, I\'m Michael.','This rocket is Ogive, my project: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does.','That\'s me. Come and find me.']},
+    look:{shirt:'#2b2a29',short:true,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#6b4a32'}},
   {name:'Abraham Sabu Kurian',first:'Abraham',li:'https://www.linkedin.com/in/abraham-sabu-kurian/',at:[1.3,-2.7],face:[1.3,-8],pitch:470,
-    look:{shirt:'#2c2b2a',pants:'#3b3f48',shoes:'#2b2b2e',skin:'#8f5f40',hair:'quiff',hairC:'#1d1612'},
-    lines:['Hi, I\'m Abraham.','The glass sculpture is Kríos, my project. Reps rehearse the calls that matter against a buyer who answers back.','That\'s me. Say hi any time.']}];
+    look:{shirt:'#2c2b2a',pants:'#3b3f48',shoes:'#2b2b2e',skin:'#8f5f40',hair:'quiff',hairC:'#1d1612'}}];
+CREW.forEach((c,i)=>c.lines=linesFor(i));
 let people=[], me=null;
 function buildPeople(){
   people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,dir:at(x,z),f:tang(at(x,z),at(c.face[0],c.face[1]),new T.Vector3()),near:false,greeted:false,wave:0,blink:2+i}; });
@@ -3888,7 +3998,7 @@ const HULL_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; varying vec3 vC
   void main(){ nearFade(vW); if(!gl_FrontFacing){ gl_FragColor=vec4(.13,.12,.13,1.); return; } gl_FragColor=vec4(toon(uC,normalize(vN),vW),1.); }`;
 function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); RK.g=g;
   const add=(m,x,y,z)=>{ m.position.set(x,y,z); g.add(m); return m; };
-  const hullM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')}},LU),vertexShader:TOON_V(),fragmentShader:HULL_F,side:T.DoubleSide});
+  const hullM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')},uCut:{value:1}},LU),vertexShader:TOON_V(),fragmentShader:HULL_F,side:T.DoubleSide});
   add(new T.Mesh(new T.CylinderGeometry(rAt(BAND),rAt(RKB),BAND-RKB,40,1,true,GAP,TAU-2*GAP),hullM),0,(RKB+BAND)/2,0);
   add(new T.Mesh(new T.ConeGeometry(rAt(BAND),RKH-(BAND-RKB),40,1,true),hullM),0,BAND+(RKH-(BAND-RKB))/2,0);
   add(new T.Mesh(new T.CircleGeometry(rAt(FLOOR)-.02,32).rotateX(-Math.PI/2),toonMat('#6a6560')),0,FLOOR,0);
@@ -3926,16 +4036,12 @@ function puffsUpdate(dt){ for(const p of RK.puffs){ if(p.t>=p.life){ p.m.visible
 /* the landing: out of the hole, a long braking curve, a hover, a soft touchdown, the hatch drops, and out you walk */
 const CUT={on:false,t:0,look:new T.Vector3()}, CAMC=[PAD[0]+2.6,PAD[1]+6.6];
 function rocketLanded(){ rocketPose(padTop,PADU); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
-function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.hgt=C.HGT; C.zoom=1; C.dragT=9; P.tgt=null; P.speed=0;
-  [P.x,P.z]=START; C.dist=camLimit(START[0],START[1],P.u,P.f,C.D0()); P.h=standH(START[0],START[1]); C.base.copy(P.u).multiplyScalar(R+P.h); }
+function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.zoom=1; C.dragT=9; C.tk=0; P.tgt=null; P.speed=0;
+  [P.x,P.z]=START; P.h=standH(START[0],START[1]); C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dist=rigLimit(START[0],START[1],P.u,P.f,C.pitch,C.D0()); }
 function endCut(){ CUT.on=false; el.classList.remove('cut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
 function skipCut(){ if(CUT.on){ CUT.t=T_END; endCut(); } }
 st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.landed=false; CUT.door=false; CUT.ph=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
 function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
-/* how far back the camera can sit behind a point before something tall is in the way */
-function camLimit(px,pz,u,f,D0){ let lim=D0; const [cx,cz]=loc(V.copy(u).multiplyScalar(R).addScaledVector(f,-1).normalize()), bx=cx-px, bz=cz-pz, bl=Math.hypot(bx,bz)||1, ux=bx/bl, uz=bz/bl;
-  for(const o of OBS){ if(o.h<1.3) continue; const ox=o.x-px, oz=o.z-pz, tt=ox*ux+oz*uz; if(tt<.2||tt>lim+o.r) continue; const dd=Math.abs(ox*uz-oz*ux); if(dd<o.r+.35) lim=Math.min(lim,Math.max(1.7,tt-Math.sqrt(Math.max(0,(o.r+.35)**2-dd*dd))-.3)); }
-  return lim; }
 /* the walk out, as distance from the middle of the rocket toward the hatch: along the floor, down the ramp, onto the pad */
 const rampY=z=>z<HINGE_Z?FLOOR:z<RAMP_END?FLOOR-(z-HINGE_Z)*Math.tan(DROP):0;
 const cT=new T.Vector3(), cG=new T.Vector3(), cL=new T.Vector3(), cF=new T.Vector3();
@@ -3963,11 +4069,12 @@ function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
   const lk=sstep(T_LAND-.6,T_LAND+.6,c); cL.copy(fPos).addScaledVector(fAx,1.4); cG.copy(padTop).addScaledVector(up,1.5).addScaledVector(RKN,.7); CUT.look.copy(cL).lerp(cG,lk);
   st.camP.copy(cT); st.camL.copy(CUT.look);
   const bk=E.io(clamp((c-T_CAM)/(T_END-T_CAM),0,1));
-  if(bk>0){ at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); const D1=camLimit(START[0],START[1],V2,V3,C.D0()), a0=Math.atan2(CAMC[0]-START[0],CAMC[1]-START[1]), r0=Math.hypot(CAMC[0]-START[0],CAMC[1]-START[1]), a1=Math.atan2(-FACE[0],-FACE[1]);
-    let da=a1-a0; da=Math.atan2(Math.sin(da),Math.cos(da)); const a=a0+da*bk, r=lerp(r0,D1,bk);
-    camAt(START[0]+Math.sin(a)*r,START[1]+Math.cos(a)*r,lerp(1.45,C.HGT,bk),cG); st.camP.copy(cG);
-    at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); cL.copy(V2).multiplyScalar(R+standH(START[0],START[1])+C.LOOKH).addScaledVector(V3,C.LOOKF); st.camL.copy(CUT.look).lerp(cL,bk); }
-  stUp.copy(at(lerp(CAMC[0],START[0],bk),lerp(CAMC[1],START[1],bk))); stCam.up.copy(stUp); UPU.value.copy(stUp); S.stSnap=true;
+  if(bk>0){ at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); const hs=standH(START[0],START[1]);
+    V4.copy(V2).multiplyScalar(R+hs+C.HEAD); rigPose(V4,V2,V3,C.PITCH,rigLimit(START[0],START[1],V2,V3,C.PITCH,C.D0()),cG,cL);
+    const [ex,ez]=loc(camW.copy(cG).normalize()), eh=cG.length()-R-standH(ex,ez), a0=Math.atan2(CAMC[0]-START[0],CAMC[1]-START[1]), r0=Math.hypot(CAMC[0]-START[0],CAMC[1]-START[1]), a1=Math.atan2(ex-START[0],ez-START[1]), r1=Math.hypot(ex-START[0],ez-START[1]);
+    let da=a1-a0; da=Math.atan2(Math.sin(da),Math.cos(da)); const a=a0+da*bk, r=lerp(r0,r1,bk);
+    camAt(START[0]+Math.sin(a)*r,START[1]+Math.cos(a)*r,lerp(1.45,eh,bk),cT); st.camP.copy(cT); st.camL.copy(CUT.look).lerp(cL,bk); }
+  stUp.copy(at(lerp(CAMC[0],START[0],bk),lerp(CAMC[1],START[1],bk))); stCam.up.copy(stUp); UPU.value.copy(stUp); S.stSnap=true; LU.uPly.value.copy(st.camP);
   puffsUpdate(dt);
   if(c>=T_END) endCut(); }
 
@@ -4042,13 +4149,27 @@ st.build=async function(){
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
-  const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(KP,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(KN,3)); kg.setAttribute('color',new T.Float32BufferAttribute(KC,3));
-  const kit=new T.Mesh(kg,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); kit.frustumCulled=false; kit.userData.cast=true; sc.add(kit); KP.length=KN.length=KC.length=0;
+  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true});
+  for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
+    const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
+  kitTo();
   registerInk(); st.built=true; };
 
 /* ---------- walking on a sphere ---------- */
 const player={u:at(START[0],START[1]),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:START[0],z:START[1]};
-const C={f:new T.Vector3(0,0,1),dist:4.3,hgt:2,zoom:1,dragT:9,base:new T.Vector3(),HGT:2,LOOKH:1.15,LOOKF:2.4,D0:()=>(innerHeight>innerWidth?5.2:4.3)*C.zoom};
+/* ---------- the camera: an orbit rig round a point at your head. Everything about it is smoothed in its own terms (which way
+   it looks, how far down, how far back, what it centres on), so it never cuts a corner, bobs on a kerb or swings about.
+   It follows lazily when you walk forward and holds still when you step sideways or back; it never fights a drag; it only
+   comes in for houses and big landmarks, and trees or poles between it and you fade out instead. ---------- */
+const C={f:new T.Vector3(0,0,1),pitch:.34,pEff:.34,dist:4.6,zoom:1,dragT:9,tgt:new T.Vector3(),mid:new T.Vector3(),camH:0,tk:0,tf:new T.Vector3(),PITCH:.34,HEAD:1.15,
+  D0:()=>(innerHeight>innerWidth?5.6:4.6)*C.zoom};
+function rigPose(target,u,f,pitch,dist,oP,oL){ oP.copy(target).addScaledVector(f,-Math.cos(pitch)*dist).addScaledVector(u,Math.sin(pitch)*dist); return oL&&oL.copy(target).addScaledVector(f,1.6).addScaledVector(u,-.25); }
+/* how far back the rig can sit before a house or a big landmark is in the way of the line to your head */
+function rigLimit(px,pz,u,f,pitch,D){ const cp=Math.cos(pitch), tp=Math.tan(pitch); let lim=D*cp;
+  const [cx,cz]=loc(V.copy(u).multiplyScalar(R).addScaledVector(f,-1).normalize()), bx=cx-px, bz=cz-pz, bl=Math.hypot(bx,bz)||1, ux=bx/bl, uz=bz/bl;
+  for(const o of OBS){ if(o.r<.6||o.h<1.8) continue; const ox=o.x-px, oz=o.z-pz, tt=ox*ux+oz*uz; if(tt<.2||tt>lim+o.r) continue; if(C.HEAD+tt*tp>o.h+.15) continue;
+    const dd=Math.abs(ox*uz-oz*ux); if(dd<o.r+.35) lim=Math.min(lim,Math.max(1.5,tt-Math.sqrt(Math.max(0,(o.r+.35)**2-dd*dd))-.3)); }
+  return lim/cp; }
 function rot(f,u,a){ V.crossVectors(u,f); return f.multiplyScalar(Math.cos(a)).addScaledVector(V,Math.sin(a)).normalize(); }
 function walk(P,dist){ const th=dist/R, c=Math.cos(th), s=Math.sin(th); V.copy(P.u); P.u.multiplyScalar(c).addScaledVector(P.f,s).normalize(); P.f.multiplyScalar(c).addScaledVector(V,-s); P.f.addScaledVector(P.u,-P.u.dot(P.f)).normalize(); }
 const tang=(u,to,o)=>o.copy(to).addScaledVector(u,-u.dot(to)).normalize();
@@ -4056,20 +4177,22 @@ function walkable(x,z){ if(onJetty(x,z)) return true; const h=grid(GH,x,z); if(h
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ball=new T.Sphere(new T.Vector3(),R), hits=[];
 function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); hits.length=0; ray.layers.set(0);
   ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o) return people.find(p=>p.g===o); } return null; }
-let down=null, hov=null, started=false, cardT=0;
+let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
+const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
+  if(look&&e.pointerId===look.id){ turnBy(e.clientX-look.lx,e.clientY-look.ly); look.lx=e.clientX; look.ly=e.clientY; return; }
   if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>7) down.moved=true;
     if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
-    else if(down.moved){ rot(C.f,player.u,-dx*.0065); C.hgt=clamp(C.hgt-(e.clientY-down.ly)*.008,1,3.8); C.dragT=0; began(); }
+    else if(down.moved){ turnBy(dx,e.clientY-down.ly); began(); }
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
-addEventListener('pointerup',e=>{ if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   const p=pickPerson(e); if(p) openTalk(p,p.lines.length-1); });
-addEventListener('pointercancel',()=>{ down=null; stickOff(); });
+addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
@@ -4079,7 +4202,7 @@ const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crIm
 const TALK={p:null,i:0,shown:0,txt:'',acc:0};
 function page(){ const p=TALK.p, last=TALK.i>=p.lines.length-1; TALK.txt=p.lines[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent=''; tk.classList.toggle('last',last); tk.classList.add('typing');
   if(last){ tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
-function openTalk(p,i=0){ TALK.p=p; TALK.i=i; tkN.textContent=i>=p.lines.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
+function openTalk(p,i=0){ MET.add(p.i); TALK.p=p; TALK.i=i; tkN.textContent=i>=p.lines.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
   player.tgt=null; A.chime(5+p.i*2,0,.035); began(); }
 function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; tkT.textContent=TALK.txt; tk.classList.remove('typing'); return; }
   if(TALK.i<TALK.p.lines.length-1){ TALK.i++; if(TALK.i>=TALK.p.lines.length-1) tkN.textContent=TALK.p.name; page(); A.tick(); } else closeTalk(); }
@@ -4091,13 +4214,33 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){ nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 
+/* ---------- landmarks: shown if you have played the station; one you have just played springs up the first time you see it ---------- */
+const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
+function marksEnter(){ const all=!S.ready; FRESH=[];   // all: the loader, which builds everything once so it is compiled
+  for(const id in MK){ const m=MK[id], has=all||S.docked.has(id);
+    m.st=!has?'off':(all||seen.has(id))?'on':'wait'; if(m.st==='wait') FRESH.push(id);
+    m.g.visible=m.st==='on'; markScale(m,1); m.obs.forEach(q=>q.o.h=m.st==='on'?q.h:q.h0); }
+  people.forEach(p=>{ p.lines=linesFor(p.i); }); baked=false; }
+const mkU=new T.Vector3(), mkE=new T.Vector3(), mkF=new T.Vector3(), mkP=new T.Vector3(), mkV=new T.Vector3();
+const backOut=u=>{ const c=1.9; return 1+(c+1)*Math.pow(u-1,3)+c*Math.pow(u-1,2); };
+function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
+  if(m.st==='wait'&&!CUT.on){ mkU.copy(m.base).normalize(); V.copy(m.base).addScaledVector(mkU,1.4).project(stCam); const [mx,mz]=loc(mkU);
+    if(Math.hypot(player.x-mx,player.z-mz)<17&&V.z<1&&Math.abs(V.x)<.8&&Math.abs(V.y)<.8){ m.st='grow'; m.t=0; m.g.visible=true; markScale(m,.001); m.obs.forEach(q=>q.o.h=q.h);
+      // the same bell that called you up there, and a ring of dust where it comes up
+      const s0=STA.find(x=>x.id===id); A.call(s0?BEACON_NOTES[s0.idx]:12,0,.06); A.pop(); S.shake=Math.max(S.shake,.12);
+      mkE.crossVectors(mkU,Math.abs(mkU.y)<.9?UPY:V2.set(1,0,0)).normalize(); mkF.crossVectors(mkU,mkE);
+      for(let k=0;k<12;k++){ const a=k/12*TAU+Math.random()*.3, c=Math.cos(a), sn=Math.sin(a); mkV.copy(mkE).multiplyScalar(c).addScaledVector(mkF,sn);
+        mkP.copy(m.base).addScaledVector(mkV,MKR[id]).addScaledVector(mkU,.15); puff(mkP,mkV.multiplyScalar(1.6+Math.random()).addScaledVector(mkU,.35),.2+Math.random()*.14,1.3); } } }
+  if(m.st==='grow'){ m.t+=dt; const u=clamp(m.t/1.25,0,1); markScale(m,Math.max(.001,backOut(u)));
+    if(u>=1){ m.st='on'; seen.add(id); markScale(m,1); baked=false; } } } }   // the sun's shadows are drawn again with it in
+
 /* ---------- lifecycle ---------- */
 let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
 st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; });
-  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · walk up to someone to talk';
-  stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
+  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
+  marksEnter(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ CUT.on=false; el.classList.remove('cut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
@@ -4109,7 +4252,7 @@ function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(wal
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
   d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
   if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016); }
-let talkK=0, talkSide=0, talkAng=1.15;
+
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
   const port=innerHeight>innerWidth, fov=port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
   if(CUT.on) cutUpdate(dt,t); else {
@@ -4132,32 +4275,33 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
   P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)?2:rd<RW+SW?1:0); }
-  // the camera: behind you and a little above. It turns to follow you when you walk forward, holds still when you walk
-  // sideways or toward it, comes in rather than looking through a wall, and you can drag it round or scroll to zoom
+  // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
-  const fw=Math.max(0,P.f.dot(C.f));
-  if(P.speed>.3&&C.dragT>1.2&&!TALK.p){ C.f.lerp(P.f,1-Math.exp(-2.6*fw*fw*Math.min(1,P.speed/2.7)*dt)); tang(P.u,C.f,C.f); }
-  const D0=C.D0(), lim=camLimit(P.x,P.z,P.u,C.f,D0);
-  C.dist=damp(C.dist,lim,lim<C.dist?8:1.8,dt);
-  C.base.lerp(V.copy(P.u).multiplyScalar(R+P.h),1-Math.exp(-12*dt));
-  stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
-  const rise=(D0-C.dist)*.3;   // pulled in by a wall or a tree: rise a little to see over it
-  st.camP.copy(C.base).addScaledVector(P.u,C.hgt+rise).addScaledVector(C.f,-C.dist);
-  st.camL.copy(C.base).addScaledVector(P.u,C.LOOKH).addScaledVector(C.f,C.LOOKF);
-  // while talking: over your shoulder, so you see their face
-  const tp=TALK.p; talkK=damp(talkK,tp?1:0,2.6,dt); const tE=talkK*talkK*(3-2*talkK);
-  if(tp&&talkK>.001){ const a=V2.copy(tp.dir).sub(P.u).normalize(), sd=camR.crossVectors(P.u,a).normalize(), mid=camW.copy(P.u).add(tp.dir).normalize().multiplyScalar(R+P.h);
-    if(talkSide===0){ const lean=Math.sign(sd.dot(V3.copy(stCam.position).sub(mid)))||1, [mx,mz]=loc(V3.copy(mid).normalize()); let best=-9;
-      for(const sg of [lean,-lean]) for(const an of [1.15,.85,1.45,.55]){ let c=9; const [sx,sz]=loc(V3.copy(mid).addScaledVector(sd,3.1*Math.sin(an)*sg).addScaledVector(a,-3.1*Math.cos(an)).normalize());
-        for(const o of OBS){ if(o.h<1.3) continue; for(const k of [.35,.6,.8,1]) c=Math.min(c,Math.hypot(mx+(sx-mx)*k-o.x,mz+(sz-mz)*k-o.z)-o.r); }
-        c-=Math.abs(an-1.15)*.25; if(c>best+.05){ best=c; talkSide=sg; talkAng=an; } } }
-    camT.copy(mid).addScaledVector(P.u,1.55).addScaledVector(sd,3.1*Math.sin(talkAng)*talkSide).addScaledVector(a,-3.1*Math.cos(talkAng)); st.camP.lerp(camT,tE);
-    camT.copy(mid).addScaledVector(P.u,1.0).addScaledVector(a,.3); st.camL.lerp(camT,tE);
+  if(P.speed>.3&&C.dragT>2.5&&!TALK.p){ const sg=Math.sign(V.crossVectors(C.f,P.f).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(P.f),-1,1));
+    if(a>.12&&a<2.3) rot(C.f,P.u,sg*Math.min(a,1.05*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*(1-a/3.2)*dt)); }
+  // talking: centre between the two of you, turned to see you both a little from the side; afterwards it simply stays turned
+  const tp=TALK.p; C.tk=damp(C.tk,tp?1:0,2.4,dt); const tE=C.tk*C.tk*(3-2*C.tk);
+  C.camH=damp(C.camH,P.h,3,dt); camT.copy(P.u).multiplyScalar(R+C.camH+C.HEAD);
+  if(tp){ V2.copy(tp.dir).multiplyScalar(R+standH(tp.x,tp.z)+C.HEAD); C.mid.copy(camT).lerp(V2,.5); tang(P.u,V3.copy(V2).sub(camT),V4);
+    const [mx,mz]=loc(camW.copy(C.mid).normalize());
+    if(!TALK.side){ let best=-9; for(const sg of [1,-1]){ const f=rot(V3.copy(V4),P.u,.95*sg), sc=rigLimit(mx,mz,P.u,f,.2,4)-Math.acos(clamp(f.dot(C.f),-1,1))*.6; if(sc>best){ best=sc; TALK.side=sg; } } }
+    rot(C.tf.copy(V4),P.u,.95*TALK.side); const sg=Math.sign(V.crossVectors(C.f,C.tf).dot(P.u))||1, aa=Math.acos(clamp(C.f.dot(C.tf),-1,1)); rot(C.f,P.u,sg*aa*(1-Math.exp(-2.6*dt)));
     tang(P.u,tp.dir,V4); const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4); rot(P.f,P.u,clamp(Math.atan2(s,c),-6*dt,6*dt)); }
-  else if(talkK<.02) talkSide=0;
+  else TALK.side=0;
+  camT.lerp(C.mid,tE);
+  const pitch=lerp(C.pitch,.2,tE), D=lerp(C.D0(),4,tE), [tx,tz]=loc(camW.copy(camT).normalize()), lim=rigLimit(tx,tz,P.u,C.f,pitch,D);
+  // pressed against a house while you move: slide slowly round to whichever side is more open
+  if(lim<D*.55&&P.speed>.3&&!tp&&C.dragT>1.2){ let best=lim, bs=0; for(const a of [.45,-.45,.9,-.9]){ const l2=rigLimit(tx,tz,P.u,rot(V3.copy(C.f),P.u,a),pitch,D); if(l2>best+.3){ best=l2; bs=a; } }
+    if(bs) rot(C.f,P.u,Math.sign(bs)*Math.min(Math.abs(bs),.8*dt)); }
+  C.pEff=damp(C.pEff,pitch,2.5,dt);
+  C.dist=damp(C.dist,lim,lim<C.dist?7:1.6,dt);
+  C.tgt.lerp(camT,1-Math.exp(-14*dt));
+  stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
+  rigPose(C.tgt,stUp,C.f,C.pEff,C.dist,st.camP,st.camL);
+  LU.uPly.value.copy(P.u).multiplyScalar(R+P.h+1);   // what the camera must always see: you
   S.stSnap=true; // the camera does its own smoothing
   }
-  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt);
+  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
   people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT);
     if(d<1.75&&!p.greeted&&!TALK.p&&!CUT.on&&P.speed<1.6) openTalk(p,0);
@@ -4172,6 +4316,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   // things that move: the radar, the lighthouse, the voice inside Kríos, the birds
   if(AE){ AE.hd.matrix.copy(AE.M).multiply(Mf.makeRotationY(t*.8)); AE.hd.matrixWorldNeedsUpdate=true; }
   if(PH) PH.beam.rotation.y=t*.9;
+  if(BE) BE.lt.visible=(t/1.6)%1<.3;
   if(KR){ for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); } KR.bars.instanceMatrix.needsUpdate=true; }
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
@@ -4179,7 +4324,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   A.music(CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; A.chirp((Math.random()-.5)*1.6); }
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))); A.wind(.03+P.speed*.008);
 };
-st._dbg={LU,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={LU,MK,seen,linesFor,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
 /* ===== station be ===== */
@@ -4385,13 +4530,13 @@ function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math
   for(let i=0;i<TRL;i++){ U.trailPos[i*3]=P.p.x;U.trailPos[i*3+1]=0;U.trailPos[i*3+2]=P.p.z; } U.trailG.attributes.position.needsUpdate=true; U.probe.position.copy(P.p); }
 function toHub(){
   if(S.mode!=='story'&&S.mode!=='beyond') return;
-  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true);
+  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true); S.callWait=Math.max(S.callWait,2.2);
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true; A.whine(0);
 }
 
 /* ---------- horizon ---------- */
-function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); }
+function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); callOff(); }
 /* past the horizon: Earth. The fall ends in white, and the white opens on the rocket coming down through the clouds */
 function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; toHub(); return; }
   S.mode='station'; S.stId='cr'; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.flash=1; post.uniforms.uStretch.value=0; post.uniforms.uIrisCol.value.set('#FFC392'); cine(false);
@@ -4437,11 +4582,11 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at a station, or fall into the hole.'); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at any station. Then the horizon opens.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
-    hubPhysics(dt);
+    hubPhysics(dt); if(S.mode==='hub'){ callUpdate(dt); sealUpdate(dt); }
     if(S.mode==='hub'){ chasePose(chase); hubBase.p.lerp(chase.p,1-Math.exp(-5*dt)); hubBase.q.slerp(chase.q,1-Math.exp(-6*dt));
       hubCam.position.copy(hubBase.p); hubCam.quaternion.copy(hubBase.q);
       const P=S.probe, sp=P.v.length(), turn=angDiff(P.head,S.lastHead??P.head)/Math.max(dt,1e-3), yr=(S.yaw-(S.lastYaw??S.yaw))/Math.max(dt,1e-3); S.lastHead=P.head; S.lastYaw=S.yaw;
@@ -4498,6 +4643,6 @@ function jump(id){
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,SB,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
 
 })();

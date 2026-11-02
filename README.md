@@ -2,7 +2,7 @@
 
 The website of Heloria Labs, a software lab in Ireland. It is a small playable universe: you fall towards a
 ray-traced black hole through a four-chapter story, escape into orbit, fly a probe around the system and dock at
-six stations. Four of them are the lab's projects, each with a game built from the project's real idea:
+five stations. Four of them are the lab's projects, each with a game built from the project's real idea:
 
 | Station | Project | Game |
 | --- | --- | --- |
@@ -11,10 +11,15 @@ six stations. Four of them are the lab's projects, each with a game built from t
 | Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: find the drone on the map from its camera, then see the correlation surface |
 | Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design the rocket, launch, open the chute at the top |
 
-Beacon (join us, contact) completes the system. The black hole is open from the start: fall in whenever you like and
-you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out. Ahroon is by
-Aetos, Abraham by Kríos and Michael by Ogive; walk up to talk, or click one of them for the photo and LinkedIn. You walk
-the way you fly: WASD or the arrows, or the stick on a touch screen. The Orbit button takes you back.
+Beacon (join us, contact) completes the system. Nothing tells you where to go: the nearest station you have not
+played calls you, with rings of light and a bell you can place by ear. The black hole is sealed until you have played
+one station; the first time you come back, the seal cracks and lets go.
+Fall in and you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out.
+Every station you have played is built there (Kríos in the square, Aetos on the rocks, Pharos on the cliff, Ogive on
+its pad, Beacon on the workshop roof), springing up the first time you see it; the rest are empty plots. Ahroon is by
+Aetos, Abraham by Kríos and Michael by Ogive, and each talks about what you have built; walk up to talk, or click one
+of them for the photo and LinkedIn. You walk the way you fly: WASD or the arrows, or the stick on a touch screen. The
+Orbit button takes you back.
 
 ## Deploy on GitHub Pages
 

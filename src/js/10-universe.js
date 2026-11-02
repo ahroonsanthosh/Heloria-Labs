@@ -25,15 +25,17 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
   for(let r=7.5;r<=31;r+=1.25){ const N=Math.max(80,Math.floor(r*9)); for(let k=0;k<N;k++){ const a0=k/N*TAU,a1=(k+1)/N*TAU; v.push(Math.cos(a0)*r,0,Math.sin(a0)*r,Math.cos(a1)*r,0,Math.sin(a1)*r); } }
   for(let s=0;s<56;s++){ const a=s/56*TAU; for(let k=0;k<60;k++){ const r0=7.5+k*.4, r1=7.5+(k+1)*.4; v.push(Math.cos(a)*r0,0,Math.sin(a)*r0,Math.cos(a)*r1,0,Math.sin(a)*r1); } }
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(v),3)); g.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
-  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uC:{value:new T.Color('#B9A58E')}};
+  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uShock:{value:-9},uC:{value:new T.Color('#B9A58E')}};
   U.grid=new T.LineSegments(g,new T.ShaderMaterial({uniforms:U.gridU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
-    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[${NST}]; uniform float uTime,uOp; varying float vA;
+    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[${NST}]; uniform float uTime,uOp,uShock; varying float vA;
     void main(){ vec3 p=position; float r=length(p.xz); float y=-1.4-14./(r+1.5);
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
+      // the seal breaking sends one wave out across the whole system
+      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(31.,20.,uShock):0.; y-=.7*sk;
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
-      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
+      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
       gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`uniform vec3 uC; varying float vA; void main(){ gl_FragColor=vec4(uC*vA,1.); }`}));
   U.grid.frustumCulled=false; U.scene.add(U.grid);
@@ -96,8 +98,10 @@ STA.forEach((s,si)=>{
     const tip=add(new T.Mesh(new T.SphereGeometry(.09,16,10),LM(C,{emit:2.2}))); tip.position.y=1.05;
     add(pts(cloud(1800,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=1.05;o[2]=Math.sin(a);}),PM({size:.05,color:C,body:'float t=fract(aR.y*.999+uTime*.35+floor(aR.y*3.)/3.); p.xz*=t*2.4; b=(1.-t)*.9;'})));
   }
-  // soft halo, and a dock ring that only shows when you are close enough to dock
-  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,body:'b=.08;'})));
+  // soft halo, which glows when the station is calling you, and a dock ring that only shows when you are close enough to dock
+  s.callU={uCall:{value:0}};
+  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,uniforms:s.callU,decl:'uniform float uCall;',
+    body:'float pl=fract(uTime/2.4); b=.08+uCall*(.3+.9*exp(-pl*5.)); sz=1.+uCall*.8;'})));
   s.orbit=new T.LineLoop(ringGeo(s.R,480),dashMat(C,`float df=mod(uAng-vAng,6.28318); float a=(.025+.45*exp(-df*2.))*step(.45,fract(vAng*uR*1.4));`)); s.orbit.material.uniforms.uR.value=s.R; U.scene.add(s.orbit);
   s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=.86*uNear*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(new Float32Array([0,-.95,0,0,-3.2,0]),3)); tg.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
@@ -113,6 +117,17 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
+/* a station calling you: two rings of light go out from it, one after the other, in time with its bell */
+U.callRing=pts(cloud(Math.floor(240*Q+120),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=(r[1]-.5)*.05;o[2]=Math.sin(a);}),PM({size:.12,color:'#ffffff',uniforms:{uK:{value:0}},decl:'uniform float uK;',
+  body:`float ph=fract(uTime/2.4-step(.5,aR.w)*.18); p.xz*=.8+ph*7.; b=uK*pow(1.-ph,1.7)*1.25*smoothstep(0.,.05,ph)*(step(.5,aR.w)>.5?.55:1.); sz=1.2;`}));
+U.callRing.visible=false; U.scene.add(U.callRing);
+/* the seal's pieces, flung out when it breaks */
+U.shardU={uT:{value:-1}};
+U.shard=pts(cloud(Math.floor(520*Q+220),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=0;o[2]=Math.sin(a);}),PM({size:.1,color:'#FF6A3D',uniforms:U.shardU,decl:'uniform float uT;',
+  body:`float t=max(uT,0.), sp=1.2+aR.y*aR.y*10.; p.xz*=2.4+sp*t*(1.-.14*t); p.y=(aR.z-.5)*t*(.6+aR.w*2.); col=mix(vec3(1.,.93,.8),uCol,smoothstep(.05,.6,t)); b=step(0.,uT)*exp(-t*(1.1+aR.x))*(1.1+aR.w); sz=.8+aR.w;`}));
+U.scene.add(U.shard);
+/* the seal: a dashed ring just outside the horizon that holds the probe off until it has docked at one station */
+U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -168,5 +183,5 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*S.sealK; U.shard.material.uniforms.uOp.value=k; U.callRing.material.uniforms.uOp.value=k;
 }
