@@ -1,6 +1,6 @@
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
 const S={mode:'load',ch:0,chT:0,t:0,tau:0,hold:0,form:0,formT:null,flash:0,intro:0,introT:0,yaw:.5,zoom:1,iris:0,arrive:0,shake:0,ca:0,rdt:0,games:0,
-  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0};
+  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0, sealK:1, call:null, callK:0, callWait:1.6, callT:0};
 const keys=new Set();
 const tv=[...Array(10)].map(()=>new T.Vector3());
 const _m=new T.Matrix4(), UPV=new T.Vector3(0,1,0);
@@ -12,7 +12,9 @@ const hubBase={p:new T.Vector3(0,1.2,70),q:new T.Quaternion()};
 function chasePose(out){
   const P=S.probe, D=12.5*S.zoom, H=5.4*S.zoom;
   out.p.set(P.p.x+Math.sin(S.yaw)*D,H,P.p.z+Math.cos(S.yaw)*D);
-  tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9; lookQ(out.p,tv[0],out.q); out.fov=36; return out;
+  tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9;
+  if(SB.look>0) tv[0].multiplyScalar(1-SB.look*.5);   // while the seal breaks, the camera turns a little toward the hole
+  lookQ(out.p,tv[0],out.q); out.fov=36; return out;
 }
 
 /* ---------- input ---------- */
@@ -143,14 +145,16 @@ function labelsUpdate(){
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
       const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
       s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
+      s.el.classList.toggle('call',S.call===s&&S.callK>.5);
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
       let dx=sx-W/2, dy=sy-H/2; if(behind){dx=-dx;dy=-dy;} const a=Math.atan2(dy,dx);
       const k=Math.min(hw/Math.max(1e-6,Math.abs(Math.cos(a))),hh/Math.max(1e-6,Math.abs(Math.sin(a))));
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
+      s.edge.classList.toggle('call',S.call===s&&S.callK>.5);
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
-  { const H_=HOLE.el; if(holeOpen()&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
+  { const H_=HOLE.el; if(holeOpen()&&S.sealK<1&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
       if(p.z<1&&sx>40&&sx<W-40&&sy>70&&sy<H-60){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(SEAL).project(hubCam); const sz=clamp(Math.abs((tv[2].x-p.x)*.5*W)*2,40,170);
         H_.style.display=''; H_.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; H_.style.setProperty('--s',sz.toFixed(0)+'px'); H_.classList.add('near'); H_.classList.toggle('flip',sx>W-200); H_.classList.toggle('low',sy-sz/2<74);
         } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
@@ -178,7 +182,7 @@ function radarDraw(){
   rx.setLineDash([2,6]); rx.strokeStyle='rgba(238,233,223,.2)'; rx.beginPath(); rx.arc(0,0,14*k,0,TAU); rx.stroke(); rx.setLineDash([]);
   rx.strokeStyle='rgba(255,195,146,.5)'; rx.beginPath(); rx.arc(0,0,RB*k,0,TAU); rx.stroke(); rx.fillStyle='rgba(255,195,146,.18)'; rx.beginPath(); rx.arc(0,0,6.6*k,0,TAU); rx.arc(0,0,1.65*k,0,TAU,true); rx.fill();
   rx.fillStyle='#000'; rx.strokeStyle='#FFC392'; rx.beginPath(); rx.arc(0,0,1.43*k,0,TAU); rx.fill(); rx.stroke();
-  if(holeOpen()){ rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
+  if(S.sealK<1){ rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
   else { rx.strokeStyle='rgba(255,86,54,.55)'; rx.setLineDash([3,4]); rx.beginPath(); rx.arc(0,0,SEAL*k,0,TAU); rx.stroke(); rx.setLineDash([]); }
   peerList.forEach(p=>{ const pr=p.presence||{}; if(p.sameTab||typeof pr.x!=='number') return; rx.fillStyle='rgba(255,195,146,.8)'; rx.fillRect(pr.x*k-2,pr.z*k-2,4,4); });
   STA.forEach(s=>{ const x=s.pos.x*k, y=s.pos.z*k; rx.fillStyle=s.color; rx.beginPath(); rx.arc(x,y,S.ap===s?9:7,0,TAU); rx.fill();
@@ -201,7 +205,7 @@ let TR=null;
 function dock(s){
   if(S.mode!=='hub') return;
   const st=ST[s.id]; if(!st) return;
-  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
+  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; callOff(); A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
   TR={t:0,s,st,dir:tv[0].copy(hubCam.position).sub(s.pos).setY(0).normalize().clone()};
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   S.stId=s.id; S.st=st; st.enter(); S.stSnap=true; S.arrive=1;
@@ -247,6 +251,48 @@ function undockUpdate(rdt,dt){
   else { hubPhysics(dt); chasePose(chase); const k=E.io(clamp((t-1.1)/1.3,0,1)); hubCam.position.lerpVectors(fromP.p,chase.p,k); hubCam.quaternion.slerpQuaternions(fromP.q,chase.q,k); hubCam.fov=lerp(28,36,k); hubCam.updateProjectionMatrix(); }
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
-  if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
-    if(holeOpen()&&!S.holeToast){ S.holeToast=true; setTimeout(()=>{ toast('The horizon is open. Fall in when you are ready.'); A.chord(); },700); } }
+  if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.callWait=Math.max(S.callWait,2.5);
+    if(holeOpen()&&S.sealK>=1) sealBreak(); }
+}
+
+/* ---------- a station calls you: the nearest one you have not played rings its bell and sends out rings of light ----------
+   No words: you see it pulse, you hear which side it is on, and you go. When you have played it, the next one starts. */
+const _cp=new T.Vector3(), WHITE3=new T.Color(1,1,1);
+function callOff(){ S.callK=0; U.callRing.visible=false; STA.forEach(x=>x.callU.uCall.value=0); }
+function callUpdate(dt){
+  const P=S.probe, open=STA.filter(s=>!S.docked.has(s.id));
+  S.callWait-=dt; S.callT+=dt;
+  let want=S.call;
+  if(want&&S.docked.has(want.id)) want=null;
+  if(S.ap&&S.ap!==HOLE) want=S.docked.has(S.ap.id)?null:S.ap;           // flying somewhere already: that is the one, or none
+  else if(open.length&&S.callWait<=0){ const dist=s=>s.pos.distanceTo(P.p);
+    const best=open.reduce((a,b)=>dist(b)<dist(a)?b:a);
+    if(!want||(dist(best)<dist(want)*.5&&dist(best)<8&&S.callT>6)) want=best; }   // keep calling the same one unless you are right by another
+  if(!open.length||SB.t>=0) want=null;
+  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; if(want) U.callRing.material.uniforms.uCol.value.copy(want.c).lerp(WHITE3,.45); }
+  const s=S.call, d=s?s.pos.distanceTo(P.p):99, k=s&&d>2.8?1:0;
+  S.callK=damp(S.callK,k,k?1.6:5,dt);
+  STA.forEach(x=>{ x.callU.uCall.value=damp(x.callU.uCall.value,x===s?S.callK:0,4,dt); });
+  U.callRing.visible=!!s&&S.callK>.01; U.callRing.material.uniforms.uK.value=S.callK;
+  if(s){ U.callRing.position.copy(s.pos);
+    // the bell, once a ring: louder as you get close, softer if you have been ignoring it a while
+    const beat=Math.floor(G.uTime.value/2.4); if(beat!==S.callBeat){ S.callBeat=beat;
+      if(S.callK>.4&&A.ctx){ _cr.setFromMatrixColumn(hubCam.matrixWorld,0); _cp.copy(s.pos).sub(P.p); _cp.y=0; const pan=clamp(_cp.dot(_cr)/Math.max(d,.5)*1.3,-1,1);
+        const g=(.022+.034*(1-sstep(4,26,d)))*(1-.55*sstep(20,45,S.callT))*S.callK; A.call(BEACON_NOTES[s.idx],pan,g); setTimeout(()=>{ if(S.call===s&&S.mode==='hub') A.call(BEACON_NOTES[s.idx]+5,pan,g*.45); },430); } } }
+}
+
+/* ---------- the seal breaking: the first time you come back from a station, the ring round the horizon strains, cracks and lets go.
+   One wave runs out across the whole system, and through the shadow you can see a blue world. ---------- */
+const SB={t:-1,look:0}, OPENTINT=new T.Color(0,.025,.06);
+function sealBreak(){ if(SB.t>=0||S.sealK<1) return; SB.t=0; SB.crack=SB.chord=SB.said=false; A.strain(); }
+function sealUpdate(dt){
+  if(SB.t<0){ SB.look=damp(SB.look,0,3,dt); return; }
+  SB.t+=dt; const t=SB.t;
+  SB.look=sstep(0,.8,t)*(1-sstep(3.4,4.6,t));
+  if(t<1){ U.sealU.uNear.value=Math.max(U.sealU.uNear.value,sstep(0,.95,t)); S.shake=Math.max(S.shake,.16*sstep(.2,1,t)); A.roar(.22*sstep(0,1,t)); }
+  else if(!SB.crack){ SB.crack=true; S.sealK=0; U.shardU.uT.value=0; U.gridU.uShock.value=SEAL; A.roar(0); A.crack(); A.boom(); S.flash=Math.max(S.flash,.3); feedback(.6,1.6,OPENTINT); }
+  if(SB.crack){ const k=t-1; U.shardU.uT.value=k; U.gridU.uShock.value=k<2.8?SEAL+k*11:-9; BH.u.uOpen.value=Math.max(BH.u.uOpen.value,sstep(0,2.4,k));
+    if(k>1.2&&!SB.chord){ SB.chord=true; A.chord(); }
+    if(k>2.2&&!SB.said){ SB.said=true; toast('The horizon is open. Fall in when you are ready.'); }
+    if(k>3.6){ U.shardU.uT.value=-1; SB.t=-1; } }
 }
