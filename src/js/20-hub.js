@@ -282,7 +282,7 @@ function callUpdate(dt){
 }
 
 /* ---------- the seal breaking: the first time you come back from a station, the ring round the horizon strains, cracks and lets go.
-   One wave runs out across the whole system, and through the shadow you can see a blue world. ---------- */
+   One wave runs out across the whole system. ---------- */
 const SB={t:-1,look:0}, OPENTINT=new T.Color(0,.025,.06);
 function sealBreak(){ if(SB.t>=0||S.sealK<1) return; SB.t=0; SB.crack=SB.chord=SB.said=false; A.strain(); }
 function sealUpdate(dt){
@@ -291,7 +291,7 @@ function sealUpdate(dt){
   SB.look=sstep(0,.8,t)*(1-sstep(3.4,4.6,t));
   if(t<1){ U.sealU.uNear.value=Math.max(U.sealU.uNear.value,sstep(0,.95,t)); S.shake=Math.max(S.shake,.16*sstep(.2,1,t)); A.roar(.22*sstep(0,1,t)); }
   else if(!SB.crack){ SB.crack=true; S.sealK=0; U.shardU.uT.value=0; U.gridU.uShock.value=SEAL; A.roar(0); A.crack(); A.boom(); S.flash=Math.max(S.flash,.3); feedback(.6,1.6,OPENTINT); }
-  if(SB.crack){ const k=t-1; U.shardU.uT.value=k; U.gridU.uShock.value=k<2.8?SEAL+k*11:-9; BH.u.uOpen.value=Math.max(BH.u.uOpen.value,sstep(0,2.4,k));
+  if(SB.crack){ const k=t-1; U.shardU.uT.value=k; U.gridU.uShock.value=k<2.8?SEAL+k*11:-9;
     if(k>1.2&&!SB.chord){ SB.chord=true; A.chord(); }
     if(k>2.2&&!SB.said){ SB.said=true; toast('The horizon is open. Fall in when you are ready.'); }
     if(k>3.6){ U.shardU.uT.value=-1; SB.t=-1; } }

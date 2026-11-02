@@ -47,7 +47,7 @@ function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math
   for(let i=0;i<TRL;i++){ U.trailPos[i*3]=P.p.x;U.trailPos[i*3+1]=0;U.trailPos[i*3+2]=P.p.z; } U.trailG.attributes.position.needsUpdate=true; U.probe.position.copy(P.p); }
 function toHub(){
   if(S.mode!=='story'&&S.mode!=='beyond') return;
-  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true); S.callWait=Math.max(S.callWait,2.2); BH.u.uOpen.value=S.sealK<1?1:0;
+  S.mode='tohub'; S.hubT=0; spawnProbe(); A.whoosh(true,1.8,.2); cine(true); S.callWait=Math.max(S.callWait,2.2);
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true; A.whine(0);
 }
@@ -117,7 +117,7 @@ function frame(now){
   else if(S.mode==='docking'){ dockUpdate(rdt); }
   else if(S.mode==='undocking'){ undockUpdate(rdt,dt); if(S.mode==='hub'||(TR&&TR.t>1.1)){ labelsUpdate(); radarDraw(); } }
   else if(S.mode==='falling'){
-    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); BH.u.uOpen.value=1+k*k*2.4; // the world on the other side comes up to meet you A.whine(k*(1-sstep(.8,1,k))); A.update(t,{pad:0,sub:.7*(1-k)}); // the orbit's score does not follow you in
+    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); A.whine(k*(1-sstep(.8,1,k))); A.update(t,{pad:0,sub:.7*(1-k)}); // the orbit's score does not follow you in
     const P=S.probe; P.p.multiplyScalar(1-dt*1.1); U.probe.position.copy(P.p);
     hubCam.position.lerp(tv[2].set(P.p.x*1.4,.8,P.p.z*1.4+.01),dt*2); hubCam.lookAt(0,0,0); hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
     const c=tv[3].set(0,0,0).project(hubCam); post.uniforms.uSC.value.set(c.x*.5+.5,c.y*.5+.5);

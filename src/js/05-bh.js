@@ -17,11 +17,11 @@ const BH={RS:.55, scale:Q<1?.5:.9, cap:Q<1?.7:1, steps:Q<1?120:180};   // trace 
 if(window.__TEST&&!window.__HQ) { BH.scale=.22; BH.steps=90; }   // __HQ: a test that wants real-resolution stills
 BH.rt=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,minFilter:T.LinearFilter,magFilter:T.LinearFilter,depthBuffer:false});
 BH.u={uCam:{value:new T.Vector3(0,2,30)},uEsc:{value:60},uBasis:{value:new T.Matrix3()},uTan:{value:.4},uAsp:{value:1},uTime:G.uTime,
-  uRin:{value:3.},uRout:{value:12.},uTmax:{value:5600},uBeam:{value:.9},uDisk:{value:1},uSky:{value:1},uExpo:{value:1},uHold:{value:0},uStar:{value:0},uSpin:{value:1},uOpen:{value:0},tSky:{value:null}};
+  uRin:{value:3.},uRout:{value:12.},uTmax:{value:5600},uBeam:{value:.9},uDisk:{value:1},uSky:{value:1},uExpo:{value:1},uHold:{value:0},uStar:{value:0},uSpin:{value:1},tSky:{value:null}};
 BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader:`precision highp float;
-  uniform samplerCube tSky; uniform vec3 uCam; uniform mat3 uBasis; uniform float uEsc,uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin,uOpen; varying vec2 vUv;
+  uniform samplerCube tSky; uniform vec3 uCam; uniform mat3 uBasis; uniform float uEsc,uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin; varying vec2 vUv;
   ${GLSL_BB}
   const vec3 GN=vec3(.42,.86,-.29);   // the galactic band's pole: tilted against the disk so the band crosses the sky diagonally
   float h1(float n){return fract(sin(n)*43758.5453);}
@@ -39,16 +39,11 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
         c+=blackbody(temp)*smoothstep(sz,0.,dd)*br*(.55+.45*h3(id+4.4)); } }
     return c; }
   vec3 sky(vec3 d){ return (textureCube(tSky,d).rgb+stars(d))*uSky; }
-  // what is on the other side, once the seal has gone: a blue world seen through the shadow, brightest where light leaks in at its edge
-  vec3 beyond(vec3 n,float b){ float rim=smoothstep(1.2,2.6,b); float c=cos(uTime*.04), s=sin(uTime*.04); vec3 q=vec3(c*n.x-s*n.z,n.y,s*n.x+c*n.z);
-    float land=smoothstep(.5,.54,fbm(q*2.2+3.1)), cl=smoothstep(.56,.72,fbm(q*3.6+vec3(uTime*.015,1.7,0.)));
-    vec3 w=mix(vec3(.07,.24,.5),vec3(.2,.4,.22),land); w=mix(w,vec3(.78,.86,.92),cl*.75);
-    return (w*(.16+.55*rim)+vec3(.32,.64,1.)*pow(rim,6.)*.55)*uOpen*(.92+.08*sin(uTime*1.6)); }
   void main(){
     vec2 uv=(vUv*2.-1.)*vec2(uAsp,1.)*uTan;
     vec3 rd=normalize(uBasis*vec3(uv,-1.));
     vec3 p=uCam, v=rd; vec3 hv=cross(p,v); float h2=dot(hv,hv);
-    vec3 col=vec3(0.); float a=0., fell=0.; vec3 hp=vec3(0.);
+    vec3 col=vec3(0.); float a=0.;
     float rin=uRin, rout=uRout;
     for(int i=0;i<${BH.steps};i++){
       float r=length(p);
@@ -77,12 +72,11 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
           if(a>.995) break;
         }
       }
-      if(r<1.){ fell=1.-a; hp=p; a=1.; break; }
+      if(r<1.){ a=1.; break; }
       if(r>uEsc&&dot(p,v)>0.) break;   // heading out past the disk and the camera: the rest of the bend is negligible
     }
     vec3 d=normalize(v);
     col+=(1.-a)*sky(d);
-    if(uOpen>0.&&fell>0.) col+=fell*beyond(normalize(hp),sqrt(h2));
     // collapse glow: a star before it falls in (used by the entrance)
     col+=uStar*vec3(1.,.86,.7)*.0;
     gl_FragColor=vec4(col*uExpo,1.);

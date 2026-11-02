@@ -13,7 +13,7 @@ five stations. Four of them are the lab's projects, each with a game built from 
 
 Beacon (join us, contact) completes the system. Nothing tells you where to go: the nearest station you have not
 played calls you, with rings of light and a bell you can place by ear. The black hole is sealed until you have played
-one station; the first time you come back, the seal cracks and lets go, and a blue world shows through the shadow.
+one station; the first time you come back, the seal cracks and lets go.
 Fall in and you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out.
 Every station you have played is built there (Kríos in the square, Aetos on the rocks, Pharos on the cliff, Ogive on
 its pad, Beacon on the workshop roof), springing up the first time you see it; the rest are empty plots. Ahroon is by
