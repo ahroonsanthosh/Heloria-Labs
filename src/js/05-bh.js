@@ -14,29 +14,31 @@ function blackbodyJS(k){ const t=clamp(k,1000,40000)/100; const c=v=>clamp(v,0,1
   const b=t>=66?1:(t<=19?0:c(.54320678911*Math.log(t-10)-1.19625408914));
   return new T.Color(r,g,b); }
 const BH={RS:.55, scale:Q<1?.5:.9, cap:Q<1?.7:1, steps:Q<1?120:180};   // trace resolution: scale x device pixels, never above cap x CSS pixels
-if(window.__TEST) { BH.scale=.22; BH.steps=90; }
+if(window.__TEST&&!window.__HQ) { BH.scale=.22; BH.steps=90; }   // __HQ: a test that wants real-resolution stills
 BH.rt=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,minFilter:T.LinearFilter,magFilter:T.LinearFilter,depthBuffer:false});
 BH.u={uCam:{value:new T.Vector3(0,2,30)},uEsc:{value:60},uBasis:{value:new T.Matrix3()},uTan:{value:.4},uAsp:{value:1},uTime:G.uTime,
-  uRin:{value:3.},uRout:{value:12.},uTmax:{value:5600},uBeam:{value:.9},uDisk:{value:1},uSky:{value:1},uExpo:{value:1},uHold:{value:0},uStar:{value:0},uSpin:{value:1}};
+  uRin:{value:3.},uRout:{value:12.},uTmax:{value:5600},uBeam:{value:.9},uDisk:{value:1},uSky:{value:1},uExpo:{value:1},uHold:{value:0},uStar:{value:0},uSpin:{value:1},tSky:{value:null}};
 BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader:`precision highp float;
-  uniform vec3 uCam; uniform mat3 uBasis; uniform float uEsc,uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin; varying vec2 vUv;
+  uniform samplerCube tSky; uniform vec3 uCam; uniform mat3 uBasis; uniform float uEsc,uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin; varying vec2 vUv;
   ${GLSL_BB}
+  const vec3 GN=vec3(.42,.86,-.29);   // the galactic band's pole: tilted against the disk so the band crosses the sky diagonally
   float h1(float n){return fract(sin(n)*43758.5453);}
   float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
   float n3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
   float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n3(p);p*=2.07;a*=.5;}return s;}
-  vec3 sky(vec3 d){
-    vec3 c=vec3(0.);
-    // stars: hashed cells on the direction sphere
-    for(int k=0;k<2;k++){ float sc=k==0?90.:220.; vec3 q=d*sc; vec3 id=floor(q); vec3 f=fract(q)-.5;
-      float h=h3(id+float(k)*13.); if(h>.965-float(k)*.012){ vec3 o=vec3(h3(id+1.7),h3(id+3.1),h3(id+5.3))-.5; float dd=length(f-o*.7);
-        float t=mix(3200.,14000.,pow(h3(id+9.),2.)); c+=blackbody(t)*smoothstep(.12,0.,dd)*(k==0?1.6:.7)*(.6+.4*sin(uTime*(1.+h*4.)+h*40.)); } }
-    float band=exp(-pow(dot(d,normalize(vec3(.32,1.,.18))),2.)*7.);
-    float n=fbm(d*2.4+3.); float m=fbm(d*5.5-7.);
-    c+=vec3(.05,.045,.06)*n*n*1.4+vec3(.16,.12,.1)*band*pow(m,2.6)*.9+vec3(.04,.07,.11)*pow(fbm(d*1.6+11.),3.)*.8;
-    return c*uSky; }
+  // stars: three magnitudes on hashed cells of the direction sphere, colour from temperature, denser along the galactic band
+  vec3 stars(vec3 d){
+    vec3 c=vec3(0.); float band=exp(-pow(dot(d,GN),2.)*9.);
+    for(int k=0;k<3;k++){ float sc=k==0?60.:(k==1?140.:300.); vec3 q=d*sc; vec3 id=floor(q); vec3 f=fract(q)-.5;
+      float h=h3(id+float(k)*13.); float th=k==0?.975:(k==1?.955-band*.05:.93-band*.12);
+      if(h>th){ vec3 o=vec3(h3(id+1.7),h3(id+3.1),h3(id+5.3))-.5; float dd=length(f-o*.7);
+        float tt=h3(id+9.); float temp=k==0?mix(3800.,16000.,tt*tt):mix(2800.,9000.,tt);
+        float sz=k==0?.11:(k==1?.085:.07), br=k==0?2.2:(k==1?.85:.38);
+        c+=blackbody(temp)*smoothstep(sz,0.,dd)*br*(.55+.45*h3(id+4.4)); } }
+    return c; }
+  vec3 sky(vec3 d){ return (textureCube(tSky,d).rgb+stars(d))*uSky; }
   void main(){
     vec2 uv=(vUv*2.-1.)*vec2(uAsp,1.)*uTan;
     vec3 rd=normalize(uBasis*vec3(uv,-1.));
@@ -79,6 +81,70 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
     col+=uStar*vec3(1.,.86,.7)*.0;
     gl_FragColor=vec4(col*uExpo,1.);
   }`});
+
+/* ================= THE SKY, DRAWN ONCE =================
+   A faint galactic band with dust lanes and star clouds, a few distant galaxies (one large spiral), and two faint
+   nebulae. Rendered into a cube at boot; the tracer samples it for every ray that escapes, so all of it is lensed. */
+BH.makeSky=function(){
+  const N=window.__TEST&&!window.__HQ?256:(Q<1?512:768);
+  const rt=new T.WebGLCubeRenderTarget(N,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter});
+  const cam=new T.CubeCamera(.1,10,rt), sc=new T.Scene();
+  const G_=[ // galaxies: direction, angular radius (rad), inclination, position angle, kind (0 spiral, 1 elliptical, 2 edge-on), arms seed
+    // the orbit camera looks down past the plane, so most of them sit below it, where you will actually see them
+    [[.61,-.43,.66],.11,1.0,.6,0,1.3],[[-.78,-.3,.4],.034,.5,2.1,0,4.2],[[.1,-.5,-.83],.027,.9,1.2,0,2.7],
+    [[-.45,-.35,.82],.042,1.48,.4,2,0],[[.88,-.2,-.46],.015,.4,0,1,0],[[-.6,.35,-.7],.019,.7,1.9,1,0],[[.05,-.72,-.6],.023,1.15,2.6,0,6.1]];
+  const glsl=G_.map(g=>{ const d=new T.Vector3(...g[0]).normalize(); return `galaxy(d,vec3(${d.x.toFixed(4)},${d.y.toFixed(4)},${d.z.toFixed(4)}),${g[1].toFixed(4)},${g[2].toFixed(3)},${g[3].toFixed(3)},${g[4].toFixed(1)},${g[5].toFixed(2)})`; }).join('+');
+  const mat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,
+    vertexShader:`varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`precision highp float; varying vec3 vD;
+    ${GLSL_BB}
+    const vec3 GN=vec3(.42,.86,-.29);
+    float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+    float n3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
+    float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<6;i++){s+=a*n3(p);p*=2.03;a*=.5;}return s;}
+    float h2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    vec3 galaxy(vec3 d,vec3 c,float R,float inc,float pa,float kind,float seed){
+      float cd=dot(d,c); if(cd<cos(R*2.6)) return vec3(0.);
+      vec3 e1=normalize(cross(c,abs(c.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.))), e2=cross(c,e1);
+      vec2 q=vec2(dot(d,e1),dot(d,e2))/max(cd,.2)/R;
+      float cp=cos(pa), sp=sin(pa); q=vec2(cp*q.x-sp*q.y,sp*q.x+cp*q.y);
+      if(kind>1.5){ // edge-on: a thin luminous disk split by a dark dust lane
+        float rr=abs(q.x), z=q.y;
+        float disk=exp(-rr*2.6)*exp(-abs(z)*26.)*1.3+exp(-dot(q,q)*14.)*.9;
+        float lane=1.-.85*exp(-pow(z*40.+.25,2.))*smoothstep(1.,.15,rr);
+        return mix(vec3(1.,.82,.62),vec3(.78,.86,1.),smoothstep(.1,.7,rr))*disk*lane*.22; }
+      q.y/=max(cos(inc),.12);
+      float r=length(q), th=atan(q.y,q.x);
+      if(kind>.5){ // elliptical: a smooth warm glow
+        return vec3(1.,.8,.6)*exp(-pow(r,.62)*4.2)*.35; }
+      float arms=pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)),2.6);
+      float knots=smoothstep(.986,1.,h2(floor(q*46.)+seed))*arms*smoothstep(.95,.25,r);
+      float dust=1.-.55*pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55),5.)*smoothstep(.12,.4,r);
+      float disk=exp(-r*3.1)*(.35+.9*arms)*dust;
+      float bulge=exp(-r*r*55.);
+      vec3 col=vec3(.75,.84,1.)*disk*.8+vec3(1.,.83,.6)*bulge*.9+vec3(1.,.55,.5)*knots*.45;
+      return col*.22*smoothstep(1.4,.6,r); }
+    vec3 nebula(vec3 d,vec3 c,float R,vec3 tint){
+      float cd=dot(d,c); if(cd<cos(R*1.6)) return vec3(0.);
+      float a=acos(clamp(cd,-1.,1.))/R; float f=fbm(d*9.+c*3.), g=fbm(d*23.-c*5.);
+      float m=smoothstep(1.2,.2,a)*smoothstep(.45,.85,f)*(.6+.8*g);
+      return tint*m; }
+    void main(){
+      vec3 d=normalize(vD);
+      // the galactic band: diffuse light, clumped star clouds, dark dust lanes along its middle
+      float bz=dot(d,GN), band=exp(-bz*bz*9.), core=exp(-bz*bz*40.);
+      float clouds=fbm(d*7.+2.), fine=fbm(d*31.-4.);
+      float lanes=smoothstep(.42,.7,fbm(d*5.5+vec3(9.,3.,1.)))*core;
+      vec3 c=vec3(.005,.0055,.007)*(.5+fbm(d*1.7+11.));
+      c+=mix(vec3(.9,.82,.7),vec3(.72,.78,.95),clouds)*band*(.008+.03*pow(clouds,2.4)+.03*pow(fine,3.))*(1.-.85*lanes);
+      // two faint nebulae in deep amber, a hint of hydrogen glow, no more
+      c+=nebula(d,normalize(vec3(-.55,.18,-.81)),.32,vec3(.035,.011,.006))+nebula(d,normalize(vec3(.62,-.5,-.55)),.22,vec3(.026,.012,.006));
+      c+=${glsl};
+      gl_FragColor=vec4(c,1.); }`});
+  sc.add(new T.Mesh(new T.BoxGeometry(2,2,2),mat));
+  cam.update(renderer,sc); mat.dispose(); sc.children[0].geometry.dispose();
+  BH.u.tSky.value=rt.texture; BH.skyRT=rt;
+};
 BH.quad=new T.Mesh(new T.PlaneGeometry(2,2),BH.mat); BH.quad.frustumCulled=false; BH.scene=new T.Scene(); BH.scene.add(BH.quad);
 BH.resize=function(){ const k=Math.min(DPR*BH.scale,BH.cap); BH.rt.setSize(Math.max(2,Math.floor(innerWidth*k)),Math.max(2,Math.floor(innerHeight*k))); };
 BH.render=function(cam){

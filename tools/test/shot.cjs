@@ -18,6 +18,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const mobile = !!opt.mobile; const vp = mobile ? { width: 390, height: 844 } : { width: +(opt.w || 1280), height: +(opt.h || 800) };
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });
+  if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });   // --hq: full-resolution black hole and sky, for stills
   const page = await ctx.newPage(); const errors = [];
   page.on('pageerror', e => { errors.push('pageerror: ' + e.message); console.log('PAGEERROR', e.message); });
   page.on('console', m => { if (m.type() === 'error') { errors.push('console: ' + m.text()); console.log('CONSOLE', m.text().slice(0, 300)); } });
