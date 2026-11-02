@@ -2,20 +2,27 @@
 
 ## orbit/ (current direction)
 
-A playable universe. Open `orbit/index.html` in a browser. Source lives in `orbit/src/` (`head.html` for markup and styles, `js/` for the modules); rebuild with `python3 concept/orbit/src/build.py`.
+A playable universe. Open `orbit/index.html` in a browser. Source lives in `orbit/src/` (`head.html` for markup and styles, `js/` for the modules, `img/` for the crew cutouts, `font/` for Departure Mono under the SIL OFL). Rebuild with `python3 concept/orbit/src/build.py`.
 
-1. **Enter**: choose sound or silence. Every scene, shader and texture is built and compiled during this loader, so nothing hitches later.
-2. **Gate**: press and hold to collapse a star. The frame warms and darkens while you hold, then snaps back as it implodes into the black hole.
-3. **Story**: a short scroll sequence with kinetic type. The camera skims the disk, then pulls back to reveal the system.
-4. **Orbit**: pilot a probe under inverse-square gravity over a spacetime grid that dents under every mass. It has an asteroid belt lit by the disk, a system boundary, a radar minimap, targeting labels, off-screen markers and autopilot. Fly close and press E to dock.
-5. **Docking**: the camera flies at the station, then an iris opens into the station's own world. Undocking reverses it.
-6. **Stations**
-   - Kríos, *Clear Signal*: steer your voice across a live spectrogram, catch the words that sell, dodge the filler words. Streak multiplier, clarity meter, 60 seconds.
-   - Ogive, *Apogee*: design a rocket (motor, nose length, fins, ballast) to peak at a target altitude, then deploy the chute at the top. Three flights per target. "Ask Ogive" runs a real optimiser over a few thousand simulated designs.
-   - Aetos, *Hold the Sky*: three waves of drones against three sites. The radar sweep classifies contacts, interceptors are limited, the jammer drops swarms, and hitting a friendly costs you.
-   - Crew: particle portraits that scatter and reassemble; hover to focus.
-   - Beacon: transmit a signal (name and a link) or copy the email.
-7. **Easter egg**: fly into the black hole.
+**Look.** The black hole is ray traced: light rays are bent through Schwarzschild spacetime in a shader, with a thin accretion disk, Doppler beaming and gravitational redshift, and a lensed sky behind it. Colour comes from one blackbody scale: the disk runs from white-hot to ember, and each station takes its colour from a point on the same scale (Kríos 24,000 K down to Beacon 1,850 K). Type is Doto (dot-matrix display), Departure Mono (interface) and Martian Mono (body).
+
+**Flow.**
+1. Loader: every world and shader is built behind it, so nothing hitches later. One button: enter with sound. A mute toggle stays in the corner.
+2. The word *Heloria* falls into the hole and the camera arrives at the hero.
+3. Four chapters, one scroll gesture each, ending on a proximity alarm. Scrolling fires the engine and throws you into orbit.
+4. Orbit: fly a probe over a spacetime grid that dents under every mass. Radar, targeting labels, autopilot, a boundary. Fly close and press E to dock.
+5. Docking flies the camera at the station and opens an iris into its world.
+
+**Stations and games.**
+- Kríos, *Dead Air*: a buyer speaks with a real formant voice. Wait for them to finish (a pause mid-sentence is not your turn), then hold to answer and stop inside the bracket.
+- Bowshock, *Shock Line*: a finned rocket in a supersonic tunnel. Shape the nose cone so its shock grazes the fin tips. Shocks come from the Taylor-Maccoll conical-flow equation (20 degree cone at Mach 2 gives 37.8 degrees, matching NACA 1135).
+- Aetos, *Hold the Sky*: three waves, three sites, identify before you intercept.
+- Pharos, *Lost Signal*: GPS is jammed. The downward camera goes through rectify and describe; you do the match on a generated Irish landscape. Later rounds add a spoofed GNSS fix.
+- Ogive, *Apogee*: design on an OpenRocket-style side view (drag the nose and fins, trim ballast, watch CG and CP from Barrowman), then fly to a target altitude and open the chute at the top. "Ask Ogive" searches a few thousand simulated designs.
+- Crew: dot-matrix portraits that resolve into photographs as you point at them.
+- Beacon: transmit a signal or copy the email.
+
+Fly into the black hole for the easter egg.
 
 The published artifact version also shows other visitors' probes live and stores signals. The real site would need a small backend for those two features.
 
