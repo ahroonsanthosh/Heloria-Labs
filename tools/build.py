@@ -6,6 +6,7 @@
   python3 tools/build.py --single dist/x.html # one self-contained HTML document
   python3 tools/build.py --artifact out.html  # page content only, for a claude.ai artifact
   python3 tools/build.py --only kr --single /tmp/kr.html   # just one station (fast testing)
+  python3 tools/build.py --src journey/src --artifact out.html   # the journey version, built from its own source tree
 """
 import argparse, base64, glob, json, os, re, shutil
 
@@ -24,7 +25,8 @@ def parts(only):
     ids = [i for i in ORDER if os.path.isdir(os.path.join(SRC, 'stations', i)) and (not only or i in only)]
     css = read('css/core.css') + '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.css' % i) for i in ids)
     html = read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids))
-    js = '\n'.join(read('js/' + f) for f in CORE_JS)
+    core = CORE_JS + (['26-journey.js'] if os.path.exists(os.path.join(SRC, 'js', '26-journey.js')) else [])   # the journey version adds its director
+    js = '\n'.join(read('js/' + f) for f in core)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')
     # station data files (json) become globals: DATA['og/table'] etc.
@@ -88,7 +90,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--docs'); ap.add_argument('--single'); ap.add_argument('--artifact'); ap.add_argument('--only')
     ap.add_argument('--inline-three', action='store_true')
+    ap.add_argument('--src', help='build from another source tree, e.g. journey/src (the default is src/)')
     a = ap.parse_args()
+    global SRC
+    if a.src: SRC = a.src if os.path.isabs(a.src) else os.path.join(ROOT, a.src)
     only = set(a.only.split(',')) if a.only else None
     if not (a.docs or a.single or a.artifact):
         a.docs = 'docs'; a.single = 'dist/heloria.html'

@@ -177,6 +177,11 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 .slab.flip .tx::before{left:auto;right:-14px}
 .slab.low .tx{top:calc(var(--s)*.5 + 8px)}
 @keyframes spin{to{transform:rotate(90deg)}}
+/* a station calling you: its brackets kick out in time with the bell, and its marker at the screen edge brightens */
+.slab.call:not(.near) .rt{opacity:1;animation:callp 2.4s var(--ease) infinite}
+.edge.call{animation:calle 2.4s ease-out infinite}
+@keyframes callp{0%{transform:scale(1)}10%{transform:scale(1.4)}38%,100%{transform:scale(1)}}
+@keyframes calle{0%,45%,100%{filter:none}10%{filter:brightness(1.8) drop-shadow(0 0 6px var(--acc))}}
 .edge{position:absolute;left:0;top:0;display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%);font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;color:var(--acc);white-space:nowrap;pointer-events:auto;text-shadow:0 0 6px rgba(5,5,4,.95),0 0 16px rgba(5,5,4,.7)}
 .edge svg{width:11px;height:11px;flex:none}
 #dockp{position:absolute;left:50%;bottom:calc(var(--gb) + 64px);transform:translateX(-50%)}
@@ -292,7 +297,7 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
   .cap{top:17%}
   .brand .ui{display:none}
 }
-@media (prefers-reduced-motion:reduce){.grain,#cue i,.slab.near .rt{animation:none}}
+@media (prefers-reduced-motion:reduce){.grain,#cue i,.slab.near .rt,.slab.call .rt,.edge.call{animation:none}}
 
 /* ---------- base reset for standalone hosting ---------- */
 html,body{margin:0;padding:0}
