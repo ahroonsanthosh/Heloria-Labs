@@ -77,6 +77,7 @@ const A=(()=>{
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:.7,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:.7,.3); sndUI(); },
     get muted(){return muted},
+    _lv(){ if(!ctx) return null; const r=x=>+x.value.toFixed(4); return {pad:r(n.padG.gain),sub:r(n.subG.gain),wind:r(n.wind.g.gain),thrust:r(n.thrust.g.gain),roar:r(n.roar.g.gain),hiss:r(n.hiss.g.gain),whine:r(n.teng.gain)}; }, // test hook: current levels
     update(t,p){ // p: {sub, wind, pad}
       if(!ctx) return;
       if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
@@ -521,7 +522,7 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
-/* the seal: a dashed ring just outside the horizon that stops the probe until every station has been visited */
+/* the seal: a dashed ring just outside the horizon that stops the probe until the four projects have been visited */
 U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
@@ -562,7 +563,7 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(S.docked.size>=NST?0:1);
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(holeOpen()?0:1);
 }
 
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
@@ -608,9 +609,9 @@ const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick')
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
 addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
-/* the hole as a destination: sealed until every station has been visited */
+/* the hole as a destination: sealed until the four projects have been visited (Crew and Beacon are optional) */
 const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
-const holeOpen=()=>S.docked.size>=NST, SEALTINT=new T.Color(.06,.015,0);
+const PROJ=['kr','ae','ph','og'], projDone=()=>PROJ.filter(id=>S.docked.has(id)).length, holeOpen=()=>projDone()>=PROJ.length, SEALTINT=new T.Color(.06,.015,0);
 function autopilot(s){ if(S.mode!=='hub') return; if(s===HOLE&&!holeOpen()) return; if(S.near===s) return dock(s); S.ap=s; toast(s===HOLE?'Autopilot · into the horizon':'Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
@@ -642,10 +643,10 @@ function hubPhysics(dt){
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
   if(S.ap&&S.ap!==HOLE){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in by accident
-  // the horizon stays sealed until every station has been visited: the probe bounces off it
+  // the horizon stays sealed until every project has been visited: the probe bounces off it
   if(!holeOpen()){ const rr=Math.hypot(P.p.x,P.p.z);
     if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
-      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast(`The horizon is sealed · visit every station first · ${S.docked.size} / ${NST}`); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
+      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast(`The horizon is sealed · visit all four projects first · ${projDone()} / ${PROJ.length}`); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
   else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
@@ -677,7 +678,7 @@ STA.forEach(s=>{
 });
 /* the horizon gets a label of its own once it is open */
 { const el=document.createElement('button'); el.type='button'; el.className='slab hole'; el.style.setProperty('--acc',HOLE.color); el.dataset.cur='Fall';
-  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every station visited · fall in</span><span class="dist"></span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
+  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every project visited · fall in</span><span class="dist"></span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
   el.style.display='none'; el.addEventListener('click',()=>autopilot(HOLE)); $('#labels').appendChild(el); HOLE.el=el; HOLE.distEl=$('.dist',el); }
 const _edges=[]; let _rb=null, _rbK='';
 function radarBox(){ const key=innerWidth+'x'+innerHeight; if(_rbK!==key){ const r=$('#radar').getBoundingClientRect(); if(r.width<1) return null; _rb={l:r.left-30,t:r.top-30,r:r.right+10,b:r.bottom+10}; _rbK=key; } return _rb; }
@@ -742,7 +743,7 @@ rc.addEventListener('click',e=>{
   if(holeOpen()&&Math.hypot(wx,wy)<Math.min(bd,34)) best=HOLE; if(best) autopilot(best);
 });
 $('#dots').innerHTML=STA.map(()=>'<i></i>').join('');
-function updateQuest(){ $('#qtxt').textContent=holeOpen()?'All visited · the horizon is open':`${S.docked.size} / ${NST} visited`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
+function updateQuest(){ $('#qtxt').textContent=holeOpen()?'Projects visited · the horizon is open':`${projDone()} / ${PROJ.length} projects visited`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
 
 /* ---------- docking: fly in, iris open into the station world ---------- */
 let TR=null;
@@ -795,7 +796,7 @@ function undockUpdate(rdt,dt){
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
   if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
-    if(holeOpen()&&!S.allDone){ S.allDone=true; setTimeout(()=>{ toast('Every station visited. The horizon is open: fall in.'); A.chord(); },700); } }
+    if(holeOpen()&&!S.allDone){ S.allDone=true; setTimeout(()=>{ toast('Every project visited. The horizon is open: fall in.'); A.chord(); },700); } }
 }
 
 /* ================= STORY: four chapters, one gesture each ================= */
@@ -2701,7 +2702,7 @@ function simApo(dd,sign){ const f=newF(dd,sign||1); for(let i=0;i<9000;i++){ ste
 /* ---------- state ---------- */
 let d={motor:'G',LD:2.5,fin:1,bal:0}, DC=design(d), target=280, hist=[], ai=null;
 let phase='design', F=null, NAT=null, busy=false, searchId=0, tw=null, cdT=0, cdN=0, simClock=0, tScale=1, ffMax=1, landT=0, ign=0, done=false;
-let emitAcc=0, pathAcc=0, pathN=0, chuteK=0, slowOn=false, cineOn=false, ev={}, ladX=-2.3, maxH=0, snap=true, keyT=0;
+let vT=0, emitAcc=0, pathAcc=0, pathN=0, chuteK=0, slowOn=false, cineOn=false, ev={}, ladX=-2.3, maxH=0, snap=true, keyT=0;
 const V1=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3(), V5=new T.Vector3(), NZ=new T.Vector3(), RC=new T.Vector3();
 const CP=new T.Vector3(), CL=new T.Vector3(), CA=new T.Vector3(), CB=new T.Vector3(), CC=new T.Vector3(), CD=new T.Vector3();
 const P0={x:0,y:0,z:0}, P1={x:0,y:0,z:0}, P2={x:0,y:0,z:0}, P3={x:0,y:0,z:0}, P4={x:0,y:0,z:0}, P5={x:0,y:0,z:0};
@@ -3204,15 +3205,15 @@ function flightStep(dt,rd,t){
   let want=1;
   if(!F.chute&&F.t>NAT.tApo-1.15&&F.t<NAT.tApo+1.0) want=.26;
   if(F.chute&&F.t<F.deployT+.4) want=.3;
-  if(F.chute&&F.t>F.deployT+2&&!F.landed){ if(ffMax===1) ffMax=clamp((F.h-25)/(Math.max(2.5,-F.vy)*4.5),1,22); want=1+(ffMax-1)*sstep(5,32,F.h); }
+  if(F.chute&&F.t>F.deployT+2&&!F.landed){ if(ffMax===1) ffMax=clamp((F.h-25)/(Math.max(2.5,-F.vy)*4.5),1,9); want=1+(ffMax-1)*sstep(5,32,F.h); }
   tScale=damp(tScale,want,want<tScale?6:3,rd);
-  const sdt=dt*tScale; simClock+=sdt;
+  const sdt=dt*tScale; simClock+=sdt; vT+=rd; // vT: real time, for motion that must not speed up with the fast-forward
   const ph=F.h, px0=F.x; let rem=sdt; while(rem>1e-7){ const h=Math.min(.01,rem); stepF(F,h); rem-=h; }
   if(F.t>240&&!F.landed){ F.h=0; F.landed=true; }
   const th=thrustAt(F.d.motor,F.t), thN=th/(D.M.I/D.M.tb);
   // rocket pose
   let pitch, roll=F.t*1.4;
-  if(F.chute){ chuteK=Math.min(1,chuteK+sdt/.55); const sw=.22*Math.sin(F.t*1.7)+.08*Math.sin(F.t*3.1); pitch=lerp(F.tumble?-F.t*9:-F.th,1.25+sw,E.o(chuteK)); roll=F.deployT*1.4; }
+  if(F.chute){ chuteK=Math.min(1,chuteK+sdt/.55); const sw=.11*Math.sin(vT*1.25)+.035*Math.sin(vT*2.1); pitch=lerp(F.tumble?-F.t*9:-F.th,1.25+sw,E.o(chuteK)); roll=F.deployT*1.4; }
   else pitch=F.tumble?-F.t*9:-F.th;
   rocket.rotation.set(0,roll,pitch); rocket.scale.setScalar(FS); rocket.position.set(F.x*SCF,F.h*SCF+PADY+pivotL*FS,0);
   rocket.updateMatrixWorld(true); rkW(0,-.25,0,NZ);
@@ -3247,9 +3248,9 @@ function flightStep(dt,rd,t){
   // canopy: inflate with a little overshoot, breathe, sway with the wind
   if(F.chute){ centreOf(RC); axisOf(rocket.rotation.z,V1); V2.copy(RC).addScaledVector(V1,(Lh*.25)*FS);
     V3.set(V2.x+.25,V2.y+1.0,0); if(chuteK<.05) chP.copy(V2); chP.lerp(V3,1-Math.exp(-7*sdt));
-    const k=chuteK, o=k<1?1-Math.pow(1-k,3)*Math.cos(k*7):1, br=Math.sin(F.t*4.2)*(F.torn?.18:.035);
+    const k=chuteK, o=k<1?1-Math.pow(1-k,3)*Math.cos(k*7):1, br=Math.sin(vT*2.4)*(F.torn?.16:.025);
     canopy.scale.set(lerp(.1,F.torn?.45:1,o)*(1+br),lerp(1.7,F.torn?.8:1,o)*(1-br*.8),lerp(.1,F.torn?.3:1,o)*(1+br));
-    chute.position.copy(chP); chute.rotation.set(.05*Math.sin(F.t*1.1),F.t*.25,-.12-.08*Math.sin(F.t*1.7)); chute.scale.setScalar(.95);
+    chute.position.copy(chP); chute.rotation.set(.04*Math.sin(vT*.9),vT*.14,-.1-.05*Math.sin(vT*1.25+.6)); chute.scale.setScalar(.95);
     cordP[0]=chP.x; cordP[1]=chP.y; cordP[2]=chP.z; cordP[3]=V2.x; cordP[4]=V2.y; cordP[5]=V2.z; cordG.attributes.position.needsUpdate=true; }
   // sound
   const air=Math.hypot(F.vx-WIND,F.vy);
@@ -3359,23 +3360,35 @@ const sc=st.scene, el=st.el, tagWrap=$('#tags'), tags=$$('#tags .tag'), people=[
 let lmx=-1, lmy=-1, focus=0, armed=false, moved=false, enterT=performance.now(), nar=false, cardB=240, glow=null, mx0=0, my0=0, hov=-1;
 const L={D:10.2,wpp:.01}, FACE=new T.Vector2(.5,.8), hitUv=new T.Vector2(), _p=new T.Vector3(), ray=new T.Raycaster(), ndc=new T.Vector2();
 const vert=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`;
-/* each cell is a dot sized by the photo's brightness; in focus the cells swell, merge and give way to the photograph,
-   starting from where you pointed and spreading out */
+/* a printed halftone that becomes the photograph. Fine round dots on a rotated grid, sized by brightness and
+   antialiased. In focus the dots swell from where you pointed until they merge, carrying the photograph itself, so
+   the hand-over is seamless. A thin warm rim light finds the silhouette; the base fades out instead of cutting off. */
 const frag=`uniform sampler2D tP; uniform float uOn,uF,uSeed,uCells,uLo,uHi,uDim; uniform vec2 uM,uO; uniform vec3 uInk,uHot; varying vec2 vUv;
   float h(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233))+uSeed)*43758.5453); }
+  float lum(vec3 c){ return dot(c,vec3(.3,.59,.11)); }
   void main(){
-    vec2 g=vec2(uCells,uCells*1.3), id=floor(vUv*g), cu=(id+.5)/g, f=fract(vUv*g)-.5;
-    vec4 cs=texture2D(tP,cu); float l=pow(clamp((dot(cs.rgb,vec3(.3,.59,.11))-uLo)/max(.02,uHi-uLo),0.,1.),.72), n=h(id);
+    const float ANG=.2618; mat2 R=mat2(cos(ANG),-sin(ANG),sin(ANG),cos(ANG)), Ri=mat2(cos(ANG),sin(ANG),-sin(ANG),cos(ANG));
+    vec2 asp=vec2(1.,1.3), q=R*(vUv*asp)*uCells, id=floor(q), f=fract(q)-.5, cu=(Ri*((id+.5)/uCells))/asp;
+    vec4 cs=texture2D(tP,clamp(cu,0.,1.)); float l=pow(clamp((lum(cs.rgb)-uLo)/max(.02,uHi-uLo),0.,1.),.8), n=h(id);
     float lit=step(n,uOn*1.15-.1);
-    float d=length((cu-uO)*vec2(1.,1.3)), rv=clamp((uF*2.15-d*1.35-n*.3)*2.4,0.,1.);
-    float grow=smoothstep(.2,0.,length((cu-uM)*vec2(1.,1.3)))*.16*(1.-rv);
-    float r=mix((.15+.36*l+grow)*lit,.8,rv*rv);
-    float dt=(1.-smoothstep(r-.09,r,length(f)))*cs.a;
-    vec3 dotc=mix(uInk,uHot,l*l*l)*(.38+.75*l)*uDim;
-    vec4 ph=texture2D(tP,vUv); float pl=dot(ph.rgb,vec3(.3,.59,.11)); vec3 photo=mix(vec3(pl),ph.rgb,.85)*vec3(1.05,.99,.93);
-    float pr=smoothstep(.4,1.,rv);
-    vec3 c=mix(dotc,photo,pr); float a=mix(dt,ph.a,pr);
-    c+=uHot*(1.-abs(rv-.5)*2.)*step(.01,rv)*step(rv,.99)*cs.a*.4;
+    // reveal: spreads from the pointed spot, a little ragged so it reads as dots arriving, not a wipe
+    float d=length((cu-uO)*asp), rv=clamp((uF*2.1-d*1.3-n*.22)*2.2,0.,1.);
+    float near=smoothstep(.22,0.,length((cu-uM)*asp))*(1.-rv);
+    float r=sqrt(l)*.5*(.35+.65*lit)+near*.08;      // area follows brightness, like ink on paper
+    r=mix(r,.76,smoothstep(0.,1.,rv));               // in focus the dots swell until they overlap
+    float dist=length(f), aa=max(fwidth(dist),.02);
+    float dotm=(1.-smoothstep(r-aa,r+aa,dist))*step(.002,cs.a)*lit;
+    vec4 ph=texture2D(tP,vUv); float pa=ph.a;
+    vec3 photo=mix(vec3(lum(ph.rgb)),ph.rgb,.82); photo=pow(photo,vec3(1.05))*vec3(1.02,1.,.97);
+    float pr=smoothstep(.55,1.,rv);
+    vec3 ink=uInk*(.32+.6*l)*uDim;
+    vec3 c=mix(ink,photo,smoothstep(.15,.9,rv));      // the dots carry the photograph as they grow
+    float a=mix(dotm*cs.a,pa,pr);
+    // a hairline of warm light from the upper right on the person in focus
+    float a2=texture2D(tP,vUv+vec2(.0045,.003)).a; float rim=clamp(pa-a2,0.,1.)*pr;
+    c+=uHot*rim*.85;
+    // the base dissolves instead of ending in a hard cut
+    float base=smoothstep(.0,.2,vUv.y); a*=base;
     gl_FragColor=vec4(c*a,a); }`;
 /* per photo levels in linear light, so a dark jumper and a white one both draw a full dot pattern */
 function levels(img){
@@ -3390,16 +3403,14 @@ st.build=async function(){
   const texs=await Promise.all(PHOTOS.map(src=>new Promise(res=>loader.load(src,t=>{ t.colorSpace=T.SRGBColorSpace; t.minFilter=T.LinearFilter; t.generateMipmaps=false; res(t); },undefined,()=>res(null)))));
   texs.forEach((tx,k)=>{ const lv=tx?levels(tx.image):[0,1];
     const u={tP:{value:tx},uOn:{value:0},uF:{value:0},uSeed:{value:k*7.3},uCells:{value:44},uLo:{value:lv[0]},uHi:{value:lv[1]},uDim:{value:1},
-      uM:{value:new T.Vector2(9,9)},uO:{value:FACE.clone()},uInk:{value:new T.Color('#FF9B3D')},uHot:{value:new T.Color('#FFE6CF')}};
+      uM:{value:new T.Vector2(9,9)},uO:{value:FACE.clone()},uInk:{value:new T.Color('#EEE9DF')},uHot:{value:new T.Color('#FFB477')}};
     const m=new T.Mesh(PG,new T.ShaderMaterial({uniforms:u,vertexShader:vert,fragmentShader:frag,transparent:true,depthWrite:false,premultipliedAlpha:true,
       blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneMinusSrcAlphaFactor}));
     m.visible=!!tx; sc.add(m); meshes.push(m); people.push({m,u,f:0,fz:0,on:0,x:0,y:0,z:0,s:1,tx:0,ty:0,ts:1,cells:44}); });
-  // a warm light behind whoever is in focus
-  glow=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShaderMaterial({uniforms:{uOp:{value:0},uC:{value:new T.Color('#FF9B3D')}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+  // a faint warm light behind whoever is in focus, kept low so the photograph does the work
+  glow=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShaderMaterial({uniforms:{uOp:{value:0},uC:{value:new T.Color('#FFE2C4')}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
     vertexShader:vert,fragmentShader:`uniform float uOp; uniform vec3 uC; varying vec2 vUv; void main(){ float r=length((vUv-.5)*vec2(1.,1.12))*2.; gl_FragColor=vec4(uC*pow(max(0.,1.-r),2.4)*uOp,1.); }`}));
-  glow.position.z=-.9; glow.renderOrder=-1; sc.add(glow);
-  // a floor of light beneath them
-  sc.add(pts(cloud(Math.floor(4200*Q+800),(i,r,o)=>{o[0]=(r[0]-.5)*24;o[1]=-2.5-r[2]*.2;o[2]=(r[1]-.5)*8-1;}),PM({size:.04,color:'#FF9B3D',body:'b=.09*smoothstep(12.,2.,abs(p.x))*(.6+.4*sin(uTime*.8+p.x*2.+aR.y*6.));'})));
+  glow.position.z=-1.4; glow.renderOrder=-1; sc.add(glow);
   $('#crLede').textContent=FINE?'Point at someone to see them properly.':'Tap someone to see them. Tap again for LinkedIn.';
   measure(); layout(); people.forEach(p=>{ p.x=p.tx; p.y=p.ty; p.s=p.ts; });
 };
@@ -3409,9 +3420,9 @@ function measure(){ const r=$('.card',el).getBoundingClientRect(); cardB=r.botto
 function layout(){
   const W=innerWidth, H=innerHeight, D=nar?16:10.2, wpp=2*D*Math.tan(18*Math.PI/180)/H; L.D=D; L.wpp=wpp;
   if(!nar){ const top=cardB+30, bot=H-(H<720?140:172), hgt=clamp(bot-top,200,480), w=hgt/PH, gap=Math.max(w*1.1,Math.min(W*.28,w*1.26));
-    people.forEach((p,k)=>{ const cx=W/2+(k-1)*gap, cy=top+hgt/2; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round(w/6.4),24,60); }); }
+    people.forEach((p,k)=>{ const cx=W/2+(k-1)*gap, cy=top+hgt/2; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round(w/4.1),40,96); }); }
   else { const top=cardB+14, bot=H-24, av=bot-top, fh=av*.44, oh=(av-fh)/2; let y=top;
-    people.forEach((p,k)=>{ const rh=k===focus?fh:oh, ph=rh-12, w=ph/PH, cx=22+w/2, cy=y+rh/2; y+=rh; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round((oh-12)/PH/5.2),20,40); }); }
+    people.forEach((p,k)=>{ const rh=k===focus?fh:oh, ph=rh-12, w=ph/PH, cx=22+w/2, cy=y+rh/2; y+=rh; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round((oh-12)/PH/3.6),26,60); }); }
 }
 window.__crLayout=()=>{ measure(); layout(); };
 
@@ -3466,9 +3477,9 @@ st.update=function(dt,t){
     p.on=E.o(clamp((age-.08-k*.14)/1.1,0,1));
     const m=p.m, s=p.s*(1+.05*p.fz); m.position.set(p.x,p.y,(nar?.3:.45)*p.fz-(isF?0:.15)); m.scale.set(s,s,1);
     m.rotation.y=(fine?mouse.nx:Math.sin(t*.25+k*2.1)*.35)*.09; m.rotation.x=(fine?-mouse.ny:Math.sin(t*.2+k)*.2)*.05;
-    u.uOn.value=p.on; u.uF.value=p.f; u.uDim.value=damp(u.uDim.value,isF?1:.52,4,dt); u.uCells.value=p.cells; if(hov!==k) u.uM.value.set(9,9); }
+    u.uOn.value=p.on; u.uF.value=p.f; u.uDim.value=damp(u.uDim.value,isF?1:.62,4,dt); u.uCells.value=p.cells; if(hov!==k) u.uM.value.set(9,9); }
   const fp=people[focus]; glow.position.x=damp(glow.position.x,fp.x,5,dt); glow.position.y=damp(glow.position.y,fp.y,5,dt);
-  const gs=fp.s*2.6; glow.scale.set(gs,gs*1.2,1); glow.material.uniforms.uOp.value=.2*Math.min(1,age/1.2);
+  const gs=fp.s*2.2; glow.scale.set(gs,gs*1.3,1); glow.material.uniforms.uOp.value=.05*Math.min(1,age/1.2);
   // parallax: the camera leans with the pointer; on touch it breathes
   const px=fine?mouse.nx*.34:Math.sin(t*.13)*.07, py=fine?mouse.ny*.18:Math.cos(t*.11)*.05;
   st.camP.set(px,py,L.D); st.camL.set(px*.25,py*.25,0);
@@ -3478,9 +3489,6 @@ st.update=function(dt,t){
     _p.project(stCam); const x=(_p.x*.5+.5)*innerWidth, y=(-_p.y*.5+.5)*innerHeight;
     tags[k].style.transform=nar?`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(0,-50%)`:`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,0)`; }
 };
-/* workaround for a core gap: the shared Orbit button (#back) has no click handler in src/js, so it did nothing on any
-   station. Undocking twice is harmless (undock() returns unless docked), so this stays correct if core adds its own. */
-{ const b=$('#back'); if(b) b.addEventListener('click',()=>{ if(S.mode==='station') undock(); }); }
 st._dbg={get focus(){return focus;},get moved(){return moved;},people:()=>people.map(p=>({f:+p.f.toFixed(3),on:+p.on.toFixed(3),x:+p.m.position.x.toFixed(2),y:+p.m.position.y.toFixed(2),s:+p.m.scale.x.toFixed(2),cells:p.cells})),
   screen:k=>{ const m=people[k].m; _p.set(m.position.x,m.position.y+m.scale.y*.15,m.position.z).project(stCam); return {x:(_p.x*.5+.5)*innerWidth,y:(-_p.y*.5+.5)*innerHeight}; }};
 })();
@@ -3689,7 +3697,7 @@ function toHub(){
 }
 
 /* ---------- horizon ---------- */
-function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); }
+function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); }
 function hzLeave(){ unreveal($('#horizon .h')); show('#horizon',false); post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; }
 $('#hzBack').addEventListener('click',()=>{ hzLeave(); S.mode='story'; toHub(); toast('Respawned at 19 rs'); });
 $('#hzBeacon').addEventListener('click',()=>{ hzLeave(); const b=BEACON; S.mode='hub'; spawnProbe(b.R+2.4,b.a); chasePose(chase); hubBase.p.copy(chase.p); hubBase.q.copy(chase.q); hubCam.position.copy(chase.p); hubCam.quaternion.copy(chase.q); show('#hub',true); cine(false); dock(b); });
@@ -3731,7 +3739,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast(`Visit all ${NST} stations. Then the horizon opens.`); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Visit all four projects. Then the horizon opens.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -3743,12 +3751,12 @@ function frame(now){
   else if(S.mode==='docking'){ dockUpdate(rdt); }
   else if(S.mode==='undocking'){ undockUpdate(rdt,dt); if(S.mode==='hub'||(TR&&TR.t>1.1)){ labelsUpdate(); radarDraw(); } }
   else if(S.mode==='falling'){
-    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); A.whine(k); A.thrust(0);
+    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); A.whine(k*(1-sstep(.8,1,k))); A.update(t,{pad:0,sub:.7*(1-k)}); // the orbit's score does not follow you in
     const P=S.probe; P.p.multiplyScalar(1-dt*1.1); U.probe.position.copy(P.p);
     hubCam.position.lerp(tv[2].set(P.p.x*1.4,.8,P.p.z*1.4+.01),dt*2); hubCam.lookAt(0,0,0); hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
     const c=tv[3].set(0,0,0).project(hubCam); post.uniforms.uSC.value.set(c.x*.5+.5,c.y*.5+.5);
     S.flash=Math.max(S.flash,sstep(.75,1,k));
-    if(k>=1){ S.mode='beyond'; A.whine(0); U.probe.visible=U.trail.visible=false; cine(false);
+    if(k>=1){ S.mode='beyond'; A.hush(); A.update(t,{pad:0,sub:0}); setTimeout(()=>{ if(S.mode==='beyond') A.chord(); },500); U.probe.visible=U.trail.visible=false; cine(false);
       $('#hzStats').innerHTML=statsHTML([['Proper time',fmtT(S.tau)],['Stations docked',S.docked.size+' / '+NST],['Games played',S.games]]); show('#horizon',true); reveal($('#horizon .h')); }
   }
   // camera shake, flashes, grade
@@ -3787,6 +3795,6 @@ function jump(id){
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s.color); st.enter(); show('#station',true); st.showUI(); where(s.name); return true;
 }
-window.__heloria={jump,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,jump,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
 
 })();
