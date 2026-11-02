@@ -88,10 +88,8 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const dockedNear = await until(() => window.__heloria.S.mode === 'station', null, 180000); rec(dockedNear, mobile ? 'Dock button docks' : 'E docks');
   if (dockedNear) { await wait(2500); await tap('#back', 'Orbit button after docking'); await until(() => window.__heloria.S.mode === 'hub', null, 180000); await wait(800); }
 
-  /* ---- the horizon is sealed until every station has been visited ---- */
-  await H(h => { h.S.ap = null; const P = h.S.probe; P.p.set(1.6, 0, 0); P.v.set(0, 0, 0); });
-  await wait(4000);
-  rec(await H(h => h.S.mode === 'hub' && Math.hypot(h.S.probe.p.x, h.S.probe.p.z) > 2), 'the horizon is sealed before every station is visited');
+  /* ---- the horizon is open from the start: nothing bounces you off it (falling in is tested at the end) ---- */
+  rec(await H(h => typeof h.crossHorizon === 'function' && !document.querySelector('#qtxt') && !document.querySelector('#horizon')), 'no checkpoint: no counter, no horizon page');
   await H(h => { const P = h.S.probe; P.p.set(10.5, 0, 0); P.v.set(0, 0, Math.sqrt(60 / 10.5)); });
   await wait(1500);
 
@@ -130,15 +128,40 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     await wait(800);
   }
 
-  /* ---- horizon: open once every station is visited ---- */
-  await H(h => h.STA.forEach(s => h.S.docked.add(s.id)));
+  /* ---- the horizon is open from the start; falling in lands you on Earth ---- */
+  rec(await H(h => !h.STA.some(s => s.id === 'cr')), 'Earth is not a station in orbit');
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); });
-  rec(await until(() => window.__heloria.S.mode === 'beyond', null, 180000), 'falling in reaches the horizon page');
-  await wait(1500); await covered('#horizon', 'horizon');
-  await tap('#hzBack', 'Return to orbit'); rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'Return to orbit works');
-  await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); });
-  await until(() => window.__heloria.S.mode === 'beyond', null, 180000); await wait(1500);
-  await tap('#hzBeacon', 'Leave a signal'); rec(await until(() => window.__heloria.S.stId === 'be', null, 180000), 'Leave a signal docks at the Beacon');
+  rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'cr', null, 180000), 'falling in lands you on Earth');
+  rec(await H(h => h.ST.cr._dbg.cut().on), 'Earth opens with the rocket landing');
+  await wait(1500); await shot((mobile ? 'm-' : '') + 'earth-landing'); await covered('.st-cr', 'Earth landing');
+  await tap('#crSkip', 'Skip the landing'); rec(await until(() => !window.__heloria.ST.cr._dbg.cut().on, null, 20000), 'Skip ends the landing');
+  await wait(1500);
+  { const id = 'cr';
+    { // Earth: click one of us in town; the conversation opens on the page with the photo and LinkedIn; See you closes it
+      const xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
+      if (mobile) await page.touchscreen.tap(xy[0], xy[1]); else await page.mouse.click(xy[0], xy[1]);
+      rec(await until(() => { const t = document.querySelector('#crTalk'); return t.classList.contains('on') && t.classList.contains('last'); }, null, 20000), 'cr: clicking a person opens their photo and LinkedIn');
+      await wait(900); await covered('#crTalk', 'cr conversation'); await linkCheck('#crTalk', 'cr conversation');
+      rec(await page.evaluate(() => /linkedin\.com\/in\//.test(document.querySelector('#crLink').href) && /^data:image|^https?:/.test(document.querySelector('#crImg').src)), 'cr: the conversation has the photo and LinkedIn');
+      await shot((mobile ? 'm-' : '') + 'cr-talk');
+      await tap('#crClose', 'cr See you'); rec(await until(() => !document.querySelector('#crTalk').classList.contains('on'), null, 20000), 'cr: See you closes the conversation');
+      // walking up to someone starts a conversation by itself
+      await H(h => { const st = h.ST.cr, d = st._dbg; d.people[0].greeted = false; d.player.tgt = d.at(d.people[0].x, d.people[0].z).multiplyScalar(24); for (let i = 0; i < 200 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
+      rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.i === 0 && T.p.first === 'Ahroon'; }), 'cr: walking up to someone starts a conversation');
+      await H(h => h.ST.cr._dbg.closeTalk()); await wait(600);
+      // walking with the stick, the same one that flies the rocket: press, drag, and you walk that way
+      await H(h => h.ST.cr._dbg.place());
+      const moved = await H(h => { const st = h.ST.cr, d = st._dbg, c = h.renderer.domElement, x0 = d.player.x, z0 = d.player.z, X = innerWidth / 2, Y = innerHeight * .6;
+        const ev = (t, x, y) => new PointerEvent(t, { pointerId: 77, pointerType: 'touch', clientX: x, clientY: y, bubbles: true });
+        c.dispatchEvent(ev('pointerdown', X, Y)); window.dispatchEvent(ev('pointermove', X, Y - 30)); window.dispatchEvent(ev('pointermove', X, Y - 45));
+        const shown = !document.querySelector('#crStick').hidden; for (let i = 0; i < 45; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); }
+        window.dispatchEvent(ev('pointerup', X, Y - 45)); return { shown, dist: Math.hypot(d.player.x - x0, d.player.z - z0), hidden: document.querySelector('#crStick').hidden }; });
+      rec(moved.shown && moved.hidden && moved.dist > 1, 'the touch stick walks you, and goes away when you let go', JSON.stringify(moved));
+    }
+  }
+  await covered('#station > #back', 'Earth back button');
+  await tap('#back', 'Earth Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub' || window.__heloria.S.mode === 'tohub', null, 180000), 'the Orbit button takes you from Earth back to orbit');
+  rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'back in orbit and flying');
 
   const fails = results.filter(r => !r.ok);
   console.log('\nSUMMARY ' + (results.length - fails.length) + ' passed, ' + fails.length + ' failed');

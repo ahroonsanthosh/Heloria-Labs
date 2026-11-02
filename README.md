@@ -11,8 +11,10 @@ six stations. Four of them are the lab's projects, each with a game built from t
 | Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: find the drone on the map from its camera, then see the correlation surface |
 | Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design the rocket, launch, open the chute at the top |
 
-Crew and Beacon (join us, contact) complete the system. The horizon stays sealed until you have visited the four
-projects; then fall into the black hole for the last page.
+Beacon (join us, contact) completes the system. The black hole is open from the start: fall in whenever you like and
+you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out. Ahroon is by
+Aetos, Abraham by Kríos and Michael by Ogive; walk up to talk, or click one of them for the photo and LinkedIn. You walk
+the way you fly: WASD or the arrows, or the stick on a touch screen. The Orbit button takes you back.
 
 ## Deploy on GitHub Pages
 
@@ -36,7 +38,7 @@ python3 -m http.server --directory docs 8000
 
 ```
 src/
-  head.html, body.html     page shell: loader, story, orbit HUD, horizon page, chrome
+  head.html, body.html     page shell: loader, story, orbit HUD, chrome
   css/core.css             shared styles
   js/                      core: renderer and post-processing, ray-traced black hole, orbit, story, station framework, main loop
   stations/<id>/           one folder per station: station.html, station.css, station.js (+ data)
