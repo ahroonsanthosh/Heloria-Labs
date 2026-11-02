@@ -107,19 +107,17 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 
 /* ---------- loader / enter ---------- */
 #load{z-index:40;pointer-events:auto;background:var(--void);transition:opacity 1.4s var(--ease),visibility 1.4s}
-#load .tl,#load .tr{position:absolute;top:var(--gt)}
-#load .tl{left:var(--gl)} #load .tr{right:var(--gr);text-align:right}
 #mark{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);font-size:clamp(64px,15vw,260px);white-space:nowrap;letter-spacing:-.03em;transition:font-weight .4s steps(4)}
 #mark .c{display:inline-block;transition:transform 1.4s var(--io),opacity 1.2s var(--io),filter 1.2s}
 #load.go #mark .c{transform:translate(var(--tx),var(--ty)) scale(.05);opacity:0;filter:blur(6px)}
-#load .bot{position:absolute;left:var(--gl);right:var(--gr);bottom:var(--gb);display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:16px}
-#load .bot>:last-child{text-align:right}
-#ldBar{width:min(320px,42vw);height:1px;background:var(--hair2);position:relative}
-#ldBar i{position:absolute;inset:0;background:var(--ink);transform-origin:0 50%;transform:scaleX(var(--p,0))}
-#enterBox{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.62);transform:translateX(-50%);display:grid;justify-items:center;gap:14px;opacity:0;transition:opacity .8s var(--ease)}
-#enterBox{pointer-events:none}
-#load.ready #enterBox{opacity:1;pointer-events:auto}
-#load.go #enterBox{opacity:0;transition-duration:.3s}
+/* the only words on the opening screen: a small prompt that appears once everything is built */
+#begin{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);display:flex;align-items:center;gap:12px;color:var(--ink2);opacity:0;transition:opacity 1.2s var(--ease);white-space:nowrap}
+#begin i{position:relative;width:1px;height:26px;background:var(--hair2);overflow:hidden}
+#begin i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--ink);animation:beginDrip 1.8s var(--io) infinite}
+@keyframes beginDrip{to{top:100%}}
+#load.ready #begin{opacity:1}
+#load.go #begin{opacity:0;transition-duration:.3s}
+#load.ready{cursor:default}
 
 /* ---------- story ---------- */
 #story .ch{position:absolute;inset:0;pointer-events:none}
@@ -150,12 +148,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 .brand{display:flex;align-items:baseline;gap:10px}
 .brand b{font:800 20px/1 var(--disp);font-variation-settings:"ROND" 100;letter-spacing:-.01em}
 .sp{flex:1}
-.snd{display:flex;align-items:center;gap:10px}
 .bars{display:flex;gap:2px;align-items:flex-end;height:10px}
 .bars i{width:2px;background:currentColor;height:3px}
-.snd.live .bars i{animation:eq .9s ease-in-out infinite alternate}
-.snd.live .bars i:nth-child(2){animation-delay:-.3s}.snd.live .bars i:nth-child(3){animation-delay:-.6s}.snd.live .bars i:nth-child(4){animation-delay:-.15s}
-@keyframes eq{from{height:2px}to{height:10px}}
 #toast{position:absolute;left:50%;top:calc(var(--gt) + 50px);transform:translateX(-50%);padding:10px 16px;border:1px solid var(--hair2);background:rgba(5,5,4,.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);white-space:nowrap;transition:opacity .5s,transform .6s var(--ease)}
 #toast.off{opacity:0;transform:translate(-50%,-8px)}
 

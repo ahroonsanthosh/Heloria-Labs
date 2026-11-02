@@ -4,9 +4,9 @@ const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
 async function boot(){
-  const mark=$('#mark'), pct=$('#ldPct'), txt=$('#ldTxt');
+  const mark=$('#mark'), txt={set textContent(v){}}; // the mark's weight is the progress bar
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
-  const setP=v=>{ $('#ldBar').style.setProperty('--p',v); pct.textContent=String(Math.round(v*100)).padStart(3,'0'); mark.style.fontWeight=Math.round(100+700*v); };
+  const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
@@ -20,13 +20,13 @@ async function boot(){
   for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
     try{ renderer.compile(st.scene,stCam); }catch(e){} renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
-  setP(1); txt.textContent='Ready'; $('#load').classList.add('ready'); $('#enter').focus({preventScroll:true}); S.ready=true;
+  setP(1); $('#load').classList.add('ready'); S.ready=true;
 }
 
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell(); $('#enter').blur();
+  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
@@ -34,8 +34,13 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); $('#frame').classList.add('on'); },900);
 }
-$('#enter').addEventListener('click',enter);
-addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&(e.code==='Enter'||e.code==='Space')){ e.preventDefault(); enter(); } });
+/* the way in: scroll, swipe, tap, click or a key */
+$('#beginT').textContent=FINE?'Scroll to begin':'Swipe up to begin';
+addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
+{ let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
+  addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
+$('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
+addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&['Enter','Space','ArrowDown','PageDown'].includes(e.code)){ e.preventDefault(); enter(); } });
 
 /* ---------- into orbit ---------- */
 function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math.sin(a)*r); const vc=Math.sqrt(GM/r); P.v.set(-Math.sin(a)*vc,0,Math.cos(a)*vc); P.head=Math.atan2(-P.v.x,-P.v.z); S.yaw=Math.atan2(P.p.x,P.p.z);
