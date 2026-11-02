@@ -104,72 +104,114 @@
     <div class="notes">
       <div class="note"><span class="k ui">Aetos</span><span class="v"><b>Command</b>Counter-drone software. One picture of the airspace, every track accounted for.</span></div>
       <div class="note"><span class="k ui">The loop</span><span class="v">Detect, identify, decide, act. Fast, and never at the wrong target.</span></div>
-      <div class="note"><span class="k ui">The game</span><span class="v">Three waves, three sites. The radar sweep identifies contacts. Never fire on a friendly.</span></div>
+      <div class="note"><span class="k ui">The game</span><span class="v">Three waves, three sites to defend. The sweep identifies each contact. Never fire on a friendly.</span></div>
     </div>
     <div class="card"><span class="idx ui"><span>00 / 00</span><span>6,600 K</span></span><h2 class="disp pw">Aetos</h2><p class="lede fade" style="--fd:400ms">When the sky fills with drones, the hard part is not shooting. It is knowing which one to shoot.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Hold the Sky</b><span class="ui s mute" id="aeBest">Best 0</span></div><button class="btn pri hit play" data-play type="button" data-cur="Play" aria-label="Play Hold the Sky">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
+    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Hold the Sky</b><span class="ui s mute" id="aeBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Hold the Sky">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
     <div class="ghud">
-      <div class="gtc"><span class="ui" id="aeWave">Wave 1 / 3</span><div class="meter" id="aeWaveM"><i></i></div></div>
-      <div class="gtr"><span class="ui mute">Score</span><span class="num" id="aeScore">0</span></div>
-      <div class="c2"><div class="hd ui"><span>Tracks</span><span id="aeCount">0 active</span></div><table><tbody id="aeTable"></tbody></table></div>
-      <div id="aeMarks"></div>
-      <div class="arm hit"><div class="ammo ui"><span class="mute">Interceptors</span><div class="pips" id="aePips"></div></div><button class="hold jam" id="aeJam" type="button" data-cur="Jam"><span>Jam<br><kbd>Space</kbd></span></button></div>
+      <div class="ae-marks" id="aeMarks" aria-hidden="true"></div>
+      <div class="pops" id="aePops"></div>
+      <div class="ae-top"><div class="ae-wv"><span class="ui" id="aeWave">Wave 1 / 3</span><span class="ui mute" id="aeWaveN">Scouts inbound</span></div><div class="ae-meter"><i id="aeWaveM"></i></div><span class="ui s ae-hint" id="aeHint">Click a track or a row to engage</span></div>
+      <div class="ae-warn" id="aeWarn" role="status" aria-live="polite"><span class="ui">Threat</span><b class="ui" id="aeWarnT">Airfield</b></div>
+      <div class="ae-score"><span class="ui mute">Score</span><span class="num" id="aeScore">0</span></div>
+      <div class="ae-tbl hit" role="group" aria-label="Tracks, sorted by time to impact">
+        <div class="ae-th ui"><span>Tracks</span><span class="mute" id="aeCount">0</span></div>
+        <div class="ae-cols ui"><span>Track</span><span>Class</span><span>Range</span><span>Impact</span></div>
+        <div id="aeRows"></div>
+        <div class="ae-key ui"><span><i class="h"></i>Hostile</span><span><i class="f"></i>Friend</span><span><i class="u"></i>Unknown</span></div>
+      </div>
+      <div class="ae-arm hit">
+        <div class="ae-ammo"><span class="ui s mute">Interceptors</span><div class="ae-pips" id="aePips"></div></div>
+        <button class="ae-jam" id="aeJam" type="button" data-cur="Jam" aria-label="Jam, key Space"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="bg" cx="40" cy="40" r="38"/><circle class="fg" id="aeJamP" cx="40" cy="40" r="38"/></svg><span class="t"><b id="aeJamT">Jam</b><kbd>Space</kbd></span></button>
+      </div>
       <div class="banner" id="aeBanner"></div>
     </div>
-    <div class="res" role="dialog" aria-label="Defence result"><div class="l"><span class="ui acc">After action report · <span id="aeNew"></span></span><h3 class="disp grade" id="aeG">Airspace held</h3><div class="score" id="aeFinal">0</div></div><div class="r"><div class="stats" id="aeStats"></div><p id="aeP"></p></div><div class="acts"><button class="btn pri" data-play type="button">Defend again</button><button class="btn" data-back type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">GitHub</a></div></div>
+    <div class="res" role="dialog" aria-label="Defence result"><div class="l"><span class="ui acc">After action report · <span id="aeNew"></span></span><h3 class="disp grade" id="aeG">Sky held</h3><div class="score" id="aeFinal">0</div></div><div class="r"><div class="stats" id="aeStats"></div><p id="aeP"></p></div><div class="acts"><button class="btn pri" data-play data-key="ok" type="button">Defend again</button><button class="btn" data-back data-key="ok" type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">GitHub</a></div></div>
   </article>
 
 <article class="st st-ph is-menu" data-st="ph">
     <div class="notes">
       <div class="note"><span class="k ui">Pharos</span><span class="v"><b>GPS-free</b>Finds a drone by matching its downward camera to free satellite and aerial maps.</span></div>
-      <div class="note"><span class="k ui">Real flight · 13 min</span><span class="v"><b>92%</b>Trusted within 25 m, on a fixed-wing farmland survey. Trusted but wrong: none.</span></div>
+      <div class="note"><span class="k ui">Real flight · 13 min</span><span class="v"><b>92%</b>Trusted within 25 m on a fixed-wing flight. Trusted but wrong: never.</span></div>
       <div class="note"><span class="k ui">Hardware</span><span class="v">A laptop CPU. No trained models, no paid maps.</span></div>
     </div>
     <div class="card"><span class="idx ui"><span>00 / 00</span><span>4,300 K</span></span><h2 class="disp pw">Pharos</h2><p class="lede fade" style="--fd:400ms">When GPS is jammed, spoofed or gone, it keeps going. And it knows when it doesn't know.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Lost Signal</b><span class="ui s mute" id="phBest">Best 0</span></div><button class="btn pri hit play" data-play type="button" data-cur="Play" aria-label="Play Lost Signal">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
+    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Lost Signal</b><span class="ui s mute" id="phBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Lost Signal">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
     <div class="ghud">
-      <div class="gtl"><span class="ui mute" id="phRound">Fix 1 / 5</span><span class="num sm" id="phUnc">± 40 m</span><span class="ui mute">GPS jammed. Where is the drone?</span></div>
+      <div class="gtl"><span class="ui acc" id="phRound">Fix 1 / 5</span><span class="num sm" id="phUnc">± 256 m</span><span class="ui mute" id="phUncL">GPS jammed · dead reckoning</span></div>
       <div class="gtr"><span class="ui mute">Score</span><span class="num" id="phScore">0</span></div>
-      <div class="feed hit"><span class="ui mute">Downward camera</span><div class="box"><canvas id="phFeed" width="320" height="320"></canvas></div><div class="stage ui s"><span data-s="0">Raw</span><span data-s="1">Rectify</span><span data-s="2">Describe</span><span data-s="3">Match</span></div></div>
-      <div class="gbc"><span class="ui mute" id="phHelp">Find the camera's view on the map and click it</span></div>
+      <div class="phf hit" id="phF">
+        <div class="hd ui s"><span>Downward camera</span><span class="mute" id="phFrm">Frame 0412</span></div>
+        <div class="box" id="phBox" data-cur="Skip"><canvas id="phFeed" width="300" height="300" aria-label="Downward camera frame"></canvas><span class="t1 ui s" id="phTele">Hdg 047° · Tilt 22°</span><span class="t2 ui s" id="phTele2">Alt 120 m</span><i class="cx" aria-hidden="true"></i></div>
+        <ol class="stg ui s" aria-label="Pharos pipeline"><li><b>01</b>Raw</li><li><b>02</b>Rectify</li><li><b>03</b>Describe</li><li><b>04</b>Match</li></ol>
+        <p class="fcap" id="phCap" aria-live="polite"></p>
+      </div>
+      <div class="phm" aria-hidden="true">
+        <span class="mk ring ui s" id="phRing">± 256 m</span>
+        <span class="mk gnss" id="phGnss"><i></i><em class="ui s" id="phGnssL">GNSS fix · ± 3 m</em></span>
+        <span class="mk ln" id="phLn"></span>
+        <span class="mk click" id="phClk"><i></i></span>
+        <span class="mk truth" id="phTru"><i></i><em class="ui s">Truth</em></span>
+        <span class="mk dist" id="phDist">0 m</span>
+      </div>
+      <div class="gbc"><p class="help" id="phHelp" aria-live="polite">Watch the pipeline</p><span class="keys ui s mute" id="phKeys"></span><button class="btn hit nx" id="phNext" type="button" data-key="ok" data-cur="Next">Next fix <kbd>Space</kbd></button></div>
       <div class="pops" id="phPops"></div>
       <div class="banner" id="phBanner"></div>
     </div>
-    <div class="res" role="dialog" aria-label="Navigation result"><div class="l"><span class="ui acc">Five fixes · <span id="phNew"></span></span><h3 class="disp grade" id="phG">Trusted</h3><div class="score" id="phFinal">0</div></div><div class="r"><div class="stats" id="phStats"></div><p id="phP"></p></div><div class="acts"><button class="btn pri" data-play type="button">Fly again</button><button class="btn" data-back type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">GitHub</a></div></div>
+    <div class="res" role="dialog" aria-label="Navigation result"><div class="l"><span class="ui acc">Five fixes · <span id="phNew"></span></span><h3 class="disp grade" id="phG">Trusted</h3><div class="score" id="phFinal">0</div><ol class="fx ui s" id="phFx"></ol></div><div class="r"><div class="stats" id="phStats"></div><p id="phP"></p></div><div class="acts"><button class="btn pri" data-play data-key="ok" type="button">Play again</button><button class="btn" data-back data-key="ok" type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">GitHub</a></div></div>
   </article>
 
-<article class="st st-og is-menu" data-st="og">
+<article class="st st-og is-menu ph-design" data-st="og">
     <div class="notes">
       <div class="note"><span class="k ui">Ogive</span><span class="v"><b>OpenRocket + AI</b>Describe the rocket you want and iterate the design toward apogee and stability.</span></div>
-      <div class="note"><span class="k ui">Nose</span><span class="v" id="ogNoseNote"><b>Tangent ogive</b>L/D 2.5</span></div>
-      <div class="note"><span class="k ui">The game</span><span class="v">Hit a target altitude in three flights. Then open the chute at the top.</span></div>
+      <div class="note"><span class="k ui">Stability</span><span class="v" id="ogStabNote"><b>1.91 cal</b>The centre of pressure sits behind the centre of gravity, by Barrowman's equations.</span></div>
+      <div class="note"><span class="k ui">The game</span><span class="v">Drag the nose and fins, pick a motor, then hit a target altitude in three flights.</span></div>
     </div>
     <div class="card"><span class="idx ui"><span>00 / 00</span><span>3,100 K</span></span><h2 class="disp pw">Ogive</h2><p class="lede fade" style="--fd:400ms">AI tools for OpenRocket. Say what you want the rocket to do, and let it work the design until it does.</p></div>
     <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Apogee</b><span class="ui s mute" id="ogBest">Best 0</span></div><button class="btn pri hit play" data-play type="button" data-cur="Play" aria-label="Play Apogee">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
     <div class="ghud">
-      <div class="gtl"><span class="ui mute">Target apogee</span><span class="num" id="ogTarget">250 m</span><span class="ui mute" id="ogTries">Flight 1 / 3</span><span class="ui acc" id="ogLast"></span></div>
-      <div class="cgcp" id="ogCgcp"><div class="dimline" id="ogDim"></div><div class="m" id="ogCG"><span class="cg"></span><span class="ui s">CG</span></div><div class="m" id="ogCP"><span class="cp"></span><span class="ui s" style="color:var(--alarm)">CP</span></div><div class="stab ui" id="ogStabL"><span id="ogStab">2.1 cal</span><span class="mute s" id="ogStabW">Stable</span></div></div>
-      <div class="handle" id="ogHN"><span class="ui s">Nose length</span></div>
-      <div class="handle" id="ogHF"><span class="ui s">Fin span</span></div>
-      <div class="ogbar hit">
-        <div class="grp"><span class="ui s mute">Motor</span><div class="seg" id="ogMotor"><button type="button" data-m="F" aria-pressed="false">F</button><button type="button" data-m="G" aria-pressed="true">G</button><button type="button" data-m="H" aria-pressed="false">H</button></div></div>
-        <div class="grp"><span class="ui s mute">Nose ballast</span><div class="stepper"><button type="button" id="ogBm" aria-label="Less ballast">−</button><output id="ogBal">0 g</output><button type="button" id="ogBp" aria-label="More ballast">+</button></div></div>
-        <div class="grp"><span class="ui s mute" id="ogMass">Mass 0.62 kg</span><button class="btn" id="ogAsk" type="button" data-cur="Ask">Ask Ogive</button></div>
-        <button class="hold" id="ogHold" type="button" data-cur="Hold" aria-label="Hold to launch"><span>Hold to<br>launch</span></button>
+      <div class="gtl ogtl">
+        <span class="ui mute">Target apogee</span>
+        <span class="num" id="ogTarget">280 m</span>
+        <span class="ui"><span id="ogTries">Flight 1 / 3</span><span class="mute og-wind"> · Wind 3.5 m/s <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M0 4h10M7 1l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></span></span>
+        <div class="oggauge" id="ogGauge" aria-hidden="true"></div>
+        <span class="ui og-ast" id="ogAst">Ogive's design · assisted</span>
       </div>
-      <p class="ui acc" id="ogAI" style="position:absolute;left:50%;bottom:calc(var(--gb) + 128px);transform:translateX(-50%);margin:0;text-align:center;width:min(640px,90vw)" aria-live="polite"></p>
-      <div class="alt"><span class="ui mute">Altitude</span><span class="num" id="ogA">0</span><span class="ui mute" id="ogV">+0.0 m/s</span><span class="ui mute" id="ogT">T+ 0.0 s</span></div>
-      <div class="gbc" id="ogPrompt"><span class="ui"><kbd>Space</kbd> or tap to open the chute at the top</span></div>
+      <div class="ogcd" id="ogCD" aria-live="assertive"><span class="ui acc" id="ogCDk">Launch in</span><b class="disp tick" id="ogCDn">3</b></div>
+      <div class="ogcap" id="ogCap" aria-live="polite"><span class="ui acc" id="ogCapK"></span><span class="ui" id="ogCapV"></span></div>
+      <div class="ogcg" id="ogCgcp" aria-hidden="true">
+        <i class="rl" id="ogRail"></i><i class="dr" id="ogDrCG"></i><i class="dr cp" id="ogDrCP"></i><i class="dm" id="ogDim"></i>
+        <div class="m cg" id="ogCG"><span class="sym"></span></div><span class="ml ui s" id="ogCGl">CG</span>
+        <div class="m cp" id="ogCP"><span class="sym"></span></div><span class="ml ui s cp" id="ogCPl">CP</span>
+        <div class="stab" id="ogStabL"><b class="ui" id="ogStab">1.91 cal</b><span class="ui s mute" id="ogStabW">Stable</span></div>
+      </div>
+      <div class="handle hit" id="ogHN" tabindex="0" role="slider" aria-label="Nose length, L/D" aria-valuemin="1.5" aria-valuemax="4" aria-valuenow="2.5" data-cur="Drag"><i class="pl"></i><i class="d"></i><i class="ar a"></i><i class="ar b"></i><span class="lb"><span class="ui s">Nose length</span><b class="ui s" id="ogHNv">L/D 2.50</b></span></div>
+      <div class="handle hit" id="ogHF" tabindex="0" role="slider" aria-label="Fin span, millimetres" aria-valuemin="45" aria-valuemax="113" aria-valuenow="75" data-cur="Drag"><i class="pl"></i><i class="d"></i><i class="ar a"></i><i class="ar b"></i><span class="lb"><span class="ui s">Fin span</span><b class="ui s" id="ogHFv">75 mm</b></span></div>
+      <div class="ogfoot">
+        <div class="ogdock hit">
+          <div class="ogsay" id="ogSay" aria-live="polite"><canvas id="ogPlot" width="232" height="88" aria-hidden="true"></canvas><p class="ui" id="ogAI"></p></div>
+          <div class="ogbar">
+            <div class="grp"><span class="ui s mute">Motor</span><div class="seg" id="ogMotor" role="group" aria-label="Motor"><button type="button" data-m="F" data-key="ok" aria-pressed="false">F</button><button type="button" data-m="G" data-key="ok" aria-pressed="true">G</button><button type="button" data-m="H" data-key="ok" aria-pressed="false">H</button></div><span class="ui s mute" id="ogMotS">58 N·s · 1.7 s burn</span></div>
+            <div class="grp"><span class="ui s mute">Nose ballast</span><div class="stepper"><button type="button" id="ogBm" data-key="ok" aria-label="Less ballast">−</button><output id="ogBal">0 g</output><button type="button" id="ogBp" data-key="ok" aria-label="More ballast">+</button></div><span class="ui s mute" id="ogMass">0.53 kg · Cd 0.46</span></div>
+            <button class="btn og-ask" id="ogAsk" type="button" data-cur="Ask" data-key="ok"><span id="ogAskT">Ask Ogive</span></button>
+          </div>
+        </div>
+        <button class="btn pri hit play og-launch" id="ogLaunch" type="button" data-cur="Launch" data-key="ok"><span id="ogLaunchT">Launch</span><kbd>Space</kbd></button>
+      </div>
+      <div class="alt"><span class="ui mute">Altitude</span><span class="num" id="ogA">0</span><span class="ui mute" id="ogV">+0.0 m/s</span><span class="ui mute" id="ogT">T+ 0.0 s</span><span class="ui acc" id="ogX"></span></div>
+      <div class="ogring" id="ogRing" aria-hidden="true"><i class="o" id="ogRingO"></i><i class="i"></i></div>
+      <div class="pops" id="ogPops"></div>
+      <div class="ogchute" id="ogPrompt"><button class="btn pri hit" id="ogChute" type="button" data-cur="Chute" data-key="ok">Open chute</button><span class="ui mute" id="ogPromptT"><kbd>Space</kbd> or tap anywhere, right at the top</span></div>
     </div>
-    <div class="res" role="dialog" aria-label="Flight result"><div class="l"><span class="ui acc"><span id="ogResEb">Flight 1 / 3</span> · <span id="ogNew"></span></span><h3 class="disp grade" id="ogG">On target</h3><div class="score" id="ogFinal">0</div></div><div class="r"><div class="stats" id="ogStats"></div><p id="ogP"></p></div><div class="acts"><button class="btn pri" id="ogAgain" type="button">Adjust and fly again</button><button class="btn" id="ogNewT" type="button">New target</button><button class="btn" data-back type="button">Back to orbit</button></div></div>
+    <div class="res" role="dialog" aria-label="Flight result"><div class="l"><span class="ui acc"><span id="ogResEb">Flight 1 / 3</span> · <span id="ogNew"></span></span><h3 class="disp grade" id="ogG">On target</h3><div class="score" id="ogFinal">0</div></div><div class="r"><div class="stats" id="ogStats"></div><p id="ogP"></p></div><div class="acts"><button class="btn pri" id="ogAgain" type="button" data-key="ok">Adjust and fly again</button><button class="btn" id="ogNewT" type="button" data-key="ok">New target</button><button class="btn" data-back type="button" data-key="ok">Back to orbit</button></div></div>
   </article>
 
 <article class="st st-cr is-menu" data-st="cr">
-    <div class="card" style="bottom:auto;top:calc(var(--gt) + 96px)"><span class="idx ui"><span>00 / 00</span><span>2,400 K</span></span><h2 class="disp pw long">Three builders.</h2><p class="lede fade" style="--fd:400ms">Point at someone to see them properly.</p></div>
+    <div class="card"><span class="idx ui"><span>00 / 00</span><span>2,400 K</span></span><h2 class="disp pw long">Three builders.</h2><p class="lede fade" style="--fd:400ms" id="crLede">Point at someone to see them properly.</p></div>
     <div id="tags">
-      <a class="tag hit" href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener" data-cur="Profile"><span class="n ui">01</span><b>Ahroon<br>Santhosh</b><span class="ui">LinkedIn ↗</span></a>
-      <a class="tag hit" href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener" data-cur="Profile"><span class="n ui">02</span><b>Michael<br>Sweeney Heffernan</b><span class="ui">LinkedIn ↗</span></a>
-      <a class="tag hit" href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener" data-cur="Profile"><span class="n ui">03</span><b>Abraham<br>Sabu Kurian</b><span class="ui">LinkedIn ↗</span></a>
+      <a class="tag hit" href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener" data-cur="Profile" aria-label="Ahroon Santhosh on LinkedIn"><span class="n ui">01</span><b><span class="pw">Ahroon</span> <span class="pw">Santhosh</span></b><span class="ui li">LinkedIn ↗</span></a>
+      <a class="tag hit" href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener" data-cur="Profile" aria-label="Michael Sweeney Heffernan on LinkedIn"><span class="n ui">02</span><b><span class="pw">Michael</span> <span class="pw">Sweeney Heffernan</span></b><span class="ui li">LinkedIn ↗</span></a>
+      <a class="tag hit" href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener" data-cur="Profile" aria-label="Abraham Sabu Kurian on LinkedIn"><span class="n ui">03</span><b><span class="pw">Abraham</span> <span class="pw">Sabu Kurian</span></b><span class="ui li">LinkedIn ↗</span></a>
     </div>
   </article>
 
@@ -178,13 +220,13 @@
       <span class="idx ui"><span>00 / 00</span><span>1,850 K</span></span>
       <h2 class="disp pw long">Always looking for builders.</h2>
       <p class="lede fade" style="--fd:300ms">No CV, no job titles. Show us something you've built. Your signal joins the orbit.</p>
-      <form class="sig fade" id="sig" style="--fd:450ms">
-        <label class="ui mute" for="sgName">Your name<input id="sgName" maxlength="40" autocomplete="name" required></label>
-        <label class="ui mute" for="sgLink">Link to something you built<input id="sgLink" maxlength="200" type="url" placeholder="https://" required></label>
-        <canvas id="sgWave" width="900" height="68" aria-hidden="true"></canvas>
-        <div class="acts" style="align-items:center"><button class="btn pri" type="submit" id="sgBtn" data-cur="Send">Transmit signal</button><span class="ui mute" id="sgOut" aria-live="polite"></span></div>
+      <form class="sig fade" id="sig" style="--fd:450ms" novalidate>
+        <label class="ui mute fld" for="sgName"><span class="fldt">Your name</span><input id="sgName" name="name" maxlength="40" autocomplete="name" required></label>
+        <label class="ui mute fld" for="sgLink"><span class="fldt">Link to something you built</span><input id="sgLink" name="link" maxlength="200" type="url" inputmode="url" autocomplete="url" placeholder="https://" required></label>
+        <div class="wave"><canvas id="sgWave" width="900" height="68" aria-hidden="true"></canvas><div class="wl ui s"><span id="sgLvl">Type to charge the signal</span><span class="mute" id="sgPct">000</span></div></div>
+        <div class="acts"><button class="btn pri" type="submit" id="sgBtn" data-cur="Send" data-key="ok"><span class="bt">Transmit signal</span></button><span class="ui mute" id="sgOut" aria-live="polite"></span></div>
       </form>
-      <div class="fade" style="--fd:600ms;display:grid;gap:8px"><span class="ui mute">Or write to us</span><button class="mail" id="mail" type="button" data-cur="Copy">contact@helorialabs.com</button><span class="ui s mute" id="copied" aria-live="polite">Click the address to copy it</span></div>
+      <div class="fade mailrow" style="--fd:600ms"><span class="ui mute">Or write to us</span><button class="mail" id="mail" type="button" data-cur="Copy" data-key="ok">contact@helorialabs.com</button><span class="ui s mute" id="copied" aria-live="polite">Click the address to copy it</span></div>
       <p class="ui s dim fade" style="--fd:700ms;margin:0">Heloria Labs Limited · Company no. 821585 · Ireland · © 2026</p>
     </div>
   </article>
