@@ -11,7 +11,8 @@ six stations. Four of them are the lab's projects, each with a game built from t
 | Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: find the drone on the map from its camera, then see the correlation surface |
 | Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design the rocket, launch, open the chute at the top |
 
-Crew and Beacon (join us, contact) complete the system. Fly into the black hole for the last page.
+Crew and Beacon (join us, contact) complete the system. The horizon stays sealed until you have visited the four
+projects; then fall into the black hole for the last page.
 
 ## Deploy on GitHub Pages
 
