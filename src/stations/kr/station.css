@@ -1,0 +1,9 @@
+/* kríos */
+.cap{position:absolute;left:50%;top:21%;transform:translateX(-50%);width:min(980px,calc(100vw - 48px));text-align:center;display:grid;gap:14px;justify-items:center}
+.cap .who{color:var(--acc)}
+.cap .line{font:800 clamp(28px,3.6vw,56px)/1.02 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;text-wrap:balance}
+.cap .line .w{opacity:.14;transition:opacity .12s}
+.cap .line .w.on{opacity:1}
+.cap .line .w.pause{color:var(--hot)}
+.cap .hintl{min-height:1.4em;color:var(--mute)}
+.grade-pop{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);font:800 clamp(30px,3vw,46px)/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;white-space:nowrap;pointer-events:none}

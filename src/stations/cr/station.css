@@ -1,0 +1,7 @@
+/* crew */
+.tag{position:absolute;left:0;top:0;transform:translate(-50%,0);display:grid;justify-items:center;gap:8px;pointer-events:auto;white-space:nowrap;text-align:center;transition:opacity .5s}
+.tag b{font:800 clamp(22px,2.1vw,34px)/.95 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;transition:color .4s}
+.tag .n{color:var(--acc)}
+.tag span{color:var(--mute);transition:color .3s}
+.tag.f b{color:var(--acc)}.tag.f span{color:var(--ink)}
+.tag.dim{opacity:.4}

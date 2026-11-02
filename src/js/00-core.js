@@ -1,6 +1,8 @@
 /* ================= CORE ================= */
 const PHOTOS = __PHOTOS__;
 const T = window.THREE;
+/* runtime services that only exist inside a claude.ai artifact (shared db, user id); null on a normal website */
+const RT={db:null,me:null,signals:0};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)), lerp=(a,b,t)=>a+(b-a)*t;
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
@@ -277,7 +279,11 @@ addEventListener('pointermove',e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.
 document.addEventListener('mouseleave',()=>{ mouse.on=false; G.uMouse.value.set(9,9); });
 document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(!t||t.matches('input')) return; curT.textContent=t.dataset.cur||(t.id==='radar'?'Fly':'Open'); curEl.classList.add('big'); if(!t._tk){ A.tick(); t._tk=1; setTimeout(()=>t._tk=0,120);} });
 document.addEventListener('pointerout',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(t&&!t.contains(e.relatedTarget)) curEl.classList.remove('big'); });
-document.addEventListener('click',e=>{ if(e.target.closest('button,a')) A.click(); },true);
+document.addEventListener('click',e=>{ const b=e.target.closest('button,a'); if(!b) return; A.click();
+  /* a mouse click must not leave focus behind: otherwise Space or Enter, used as game keys, would press this button again */
+  if(e.detail>0) setTimeout(()=>b.blur(),0); },true);
+/* game keys never activate whatever button happens to have focus */
+addEventListener('keydown',e=>{ if((e.code==='Space'||e.code==='Enter')&&document.activeElement&&document.activeElement.matches&&document.activeElement.matches('button')&&document.activeElement.dataset.key!=='ok'&&(S.mode==='station'||S.mode==='hub')){ document.activeElement.blur(); } },true);
 function cursorTick(){ if(!FINE) return; crx=lerp(crx,mouse.x,.22); cry=lerp(cry,mouse.y,.22); curEl.style.transform=`translate(${crx}px,${cry}px)`; curD.style.transform=`translate(${mouse.x}px,${mouse.y}px)`; }
 function cursorAim(on){ curEl.classList.toggle('aim',!!on); }
 function cine(on){ document.body.classList.toggle('cine',on); }

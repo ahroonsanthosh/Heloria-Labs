@@ -1,0 +1,26 @@
+/* ogive */
+.ogbar{position:absolute;left:50%;bottom:calc(var(--gb) + 8px);transform:translateX(-50%);display:flex;gap:28px;align-items:center;padding:14px 18px;border:1px solid var(--hair2);background:rgba(5,5,4,.66);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:opacity .4s}
+.ogbar .grp{display:grid;gap:8px}
+.seg{display:flex}
+.seg button{height:32px;min-width:38px;padding:0 10px;border:1px solid var(--hair2);font:400 12px/1 var(--ui)}
+.seg button+button{border-left:0}
+.seg button[aria-pressed=true]{background:var(--acc);color:#0a0806;border-color:var(--acc)}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{width:28px;height:28px;border:1px solid var(--hair2);font:400 14px/1 var(--ui)}
+.stepper output{min-width:56px;text-align:center;font:400 13px/1 var(--ui)}
+.st-og.flying .ogbar,.st-og.flying .handle,.st-og.flying .cgcp{opacity:0;pointer-events:none!important}
+.handle{position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;display:grid;place-items:center;pointer-events:auto;cursor:grab;transition:opacity .4s}
+.handle::before{content:"";width:12px;height:12px;border:1px solid var(--acc);background:var(--void);transform:rotate(45deg)}
+.handle:hover::before,.handle.drag::before{background:var(--acc)}
+.handle span{position:absolute;left:24px;top:-4px;white-space:nowrap;color:var(--acc)}
+.cgcp{position:absolute;inset:0;pointer-events:none;transition:opacity .4s}
+.cgcp .m{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:6px}
+.cgcp .cg{width:18px;height:18px;border-radius:50%;border:1px solid var(--ink);background:conic-gradient(var(--ink) 0 25%,transparent 0 50%,var(--ink) 0 75%,transparent 0)}
+.cgcp .cp{width:18px;height:18px;border-radius:50%;border:1px solid var(--alarm);display:grid;place-items:center}
+.cgcp .cp::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--alarm)}
+.cgcp .dimline{position:absolute;left:0;top:0;height:1px;background:var(--ink2);transform-origin:0 50%}
+.cgcp .stab{position:absolute;left:0;top:0;transform:translate(-50%,0);display:grid;justify-items:center;gap:4px;white-space:nowrap}
+.alt{position:absolute;right:calc(var(--gr) + 6px);top:50%;transform:translateY(-50%);display:grid;gap:4px;justify-items:end;text-align:right;transition:opacity .4s;opacity:0}
+.st-og.flying .alt{opacity:1}
+#ogPrompt{opacity:0;transition:opacity .3s}
+.st-og.flying #ogPrompt{opacity:1}

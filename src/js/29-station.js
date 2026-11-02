@@ -6,7 +6,7 @@ function mkStation(id,impl){
   const el=$(`.st[data-st=${id}]`);
   const st=Object.assign({id,el,scene:new T.Scene(),camP:new T.Vector3(0,3,12),camL:new T.Vector3(0,0,0),arrive:new T.Vector3(0,2.5,8),state:'menu',anchors:[],gameT:0,
     setState(s){ this.state=s; el.classList.remove('is-menu','is-play','is-res'); el.classList.add('is-'+s);
-      if(s==='menu'&&el.classList.contains('on')) reveal($('.card',el)); if(s!=='play') cursorAim(false); if(this.holdCtl) this.holdCtl.reset(); },
+      if(s==='menu'&&el.classList.contains('on')) reveal($('.card',el)); if(s!=='play') cursorAim(false); },
     showUI(){ el.classList.add('on'); this.setState('menu'); },
     hideUI(){ unreveal($('.card',el)); el.classList.remove('is-play','is-res'); setTimeout(()=>{ if(S.stId!==id||S.mode!=='station') el.classList.remove('on'); },700); },
     result(o){ // o: {grade, score, key, stats, text, assisted}
@@ -19,10 +19,9 @@ function mkStation(id,impl){
     },
     build(){}, enter(){}, exit(){}, update(){}, play(){}, abort(){}
   },impl);
-  $$('[data-play]',el).forEach(b=>b.addEventListener('click',()=>{ A.whoosh(true,.7,.14); st.play(); }));
+  st.start=()=>{ if(S.mode!=='station'||S.stId!==id) return; A.stinger(2); A.whoosh(true,.8,.14); st.play(); };
+  $$('[data-play]',el).forEach(b=>b.addEventListener('click',st.start));
   $$('[data-back]',el).forEach(b=>b.addEventListener('click',()=>undock()));
-  const hb=$('[data-hold]',el);
-  if(hb) st.holdCtl=holdControl(hb,.75,()=>{ A.stinger(2); A.whoosh(true,.9,.16); st.play(); },{key:'Enter',enabled:()=>S.mode==='station'&&S.stId===id&&st.state==='menu',onProgress:p=>{ if(p>0) A.hiss(p); else A.hiss(0); }});
   // every station sits in the same sky: a sparse starfield with a faint warm haze toward the hole
   st.scene.add(pts(cloud(Math.floor(1800*Q+400),(i,r,o)=>{const a=r[0]*TAU,b=Math.acos(2*r[1]-1),R=90+r[2]*40;o[0]=Math.sin(b)*Math.cos(a)*R;o[1]=Math.cos(b)*R;o[2]=Math.sin(b)*Math.sin(a)*R;}),
     PM({size:.75,color:'#E8DECF',body:'b=.14+.7*pow(aR.x,7.); col=mix(uCol,vec3(.75,.84,1.),aR.y*.6);'})));
@@ -50,3 +49,6 @@ function popAt(container,v3,text,cls){
 function statsHTML(rows){ return rows.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join(''); }
 function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0); if(tint) post.uniforms.uTint.value.add(tint); }
 function showBanner(el,h,sub){ el.innerHTML=`<span class="ui acc fade">${sub||''}</span><h3 class="disp pw">${h}</h3>`; prepPW($('h3',el)); reveal(el); clearTimeout(el._t); el._t=setTimeout(()=>unreveal(el),1500); }
+
+/* Enter starts the game from a station's title screen */
+addEventListener('keydown',e=>{ if(e.code!=='Enter'||e.repeat||S.mode!=='station'||!S.st||S.st.state!=='menu') return; if(e.target.closest&&e.target.closest('input,textarea,a,button')) return; e.preventDefault(); S.st.start(); });

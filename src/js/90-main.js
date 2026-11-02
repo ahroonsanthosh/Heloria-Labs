@@ -1,5 +1,5 @@
 /* ================= FLOW + LOOP ================= */
-let peerList=[], room=null, db=null, me=null, lastPres=0;
+let peerList=[], room=null, lastPres=0;
 const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
@@ -11,13 +11,13 @@ async function boot(){
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
   BH.render(hubCam); renderer.setRenderTarget(null); setP(.1);
-  const steps=[['Kríos','kr'],['Bowshock','bs'],['Aetos','ae'],['Pharos','ph'],['Ogive','og'],['Crew','cr'],['Beacon','be']];
-  for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); await ST[steps[i][1]].build(); setP(.1+.5*(i+1)/steps.length); }
+  const steps=[['Kríos','kr'],['Bowshock','bs'],['Aetos','ae'],['Pharos','ph'],['Ogive','og'],['Crew','cr'],['Beacon','be']].filter(x=>ST[x[1]]);
+  for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
   txt.textContent='Compiling shaders'; await nextFrame();
   universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=true;
   try{ renderer.compile(U.scene,hubCam); }catch(e){} renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
   universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=false; setP(.7);
-  for(const [nm,id] of steps){ const st=ST[id]; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
+  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
     try{ renderer.compile(st.scene,stCam); }catch(e){} renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   setP(1); txt.textContent='Ready'; $('#load').classList.add('ready'); $('#enter').focus({preventScroll:true}); S.ready=true;
@@ -53,20 +53,6 @@ function hzLeave(){ unreveal($('#horizon .h')); show('#horizon',false); post.uni
 $('#hzBack').addEventListener('click',()=>{ hzLeave(); S.mode='story'; toHub(); toast('Respawned at 19 rs'); });
 $('#hzBeacon').addEventListener('click',()=>{ hzLeave(); const b=STA[6]; S.mode='hub'; spawnProbe(b.R+2.4,b.a); chasePose(chase); hubBase.p.copy(chase.p); hubBase.q.copy(chase.q); hubCam.position.copy(chase.p); hubCam.quaternion.copy(chase.q); show('#hub',true); cine(false); dock(b); });
 
-/* ---------- beacon: mail + signals ---------- */
-$('#mail').addEventListener('click',async()=>{ const out=$('#copied');
-  try{ await navigator.clipboard.writeText('contact@helorialabs.com'); out.textContent='Copied to clipboard'; }
-  catch(e){ const r=document.createRange(); r.selectNodeContents($('#mail')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent='Selected. Press Ctrl+C or ⌘C'; }
-  setTimeout(()=>out.textContent='Click the address to copy it',2600); });
-$('#sig').addEventListener('submit',async e=>{
-  e.preventDefault(); const out=$('#sgOut'); const name=$('#sgName').value.trim().slice(0,40), link=$('#sgLink').value.trim().slice(0,200);
-  if(!name||!/^https?:\/\/\S+\.\S+/.test(link)){ out.textContent='Add your name and a full link starting with https://'; A.beep(220); return; }
-  if(!db||!me){ out.textContent='Signals need a signed-in view. Email us instead.'; return; }
-  $('#sgBtn').disabled=true; out.textContent='Transmitting'; ST.be.fire(); A.launch();
-  try{ await db.collection('signals').doc(me).set({name,link,t:Date.now()}); out.textContent='Signal received. It is orbiting the beacon.'; A.chord(); S.flash=Math.max(S.flash,.25); }
-  catch(err){ out.textContent='That did not send. Email us instead.'; }
-  $('#sgBtn').disabled=false;
-});
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
   let k=0; peerList.forEach(p=>{ if(p.sameTab||k>=MAXP) return; const pr=p.presence||{}; if(typeof pr.x!=='number'||typeof pr.z!=='number'||pr.mode!=='hub') return; U.peerPos.set([pr.x,0,pr.z],k*3); k++; });
@@ -76,9 +62,9 @@ function drawPeers(){
 (async()=>{
   if(!window.claude||!window.claude.use) return;
   try{ room=await window.claude.use('room'); if(room) room.onPeers(c=>{ peerList=c.peers; drawPeers(); },()=>{ room=null; }); }catch(e){ room=null; }
-  try{ db=await window.claude.use('db'); const user=await window.claude.use('user'); me=user?await user.id():null;
-    if(db) db.collection('signals').orderBy('t','desc').limit(200).onSnapshot(s=>{ U.sigU.uCount.value=s.size; ST.be.setCount(s.size); $('#sgOut').textContent=s.size?`${s.size} ${s.size===1?'signal':'signals'} in orbit`:''; },()=>{});
-  }catch(e){ db=null; }
+  try{ RT.db=await window.claude.use('db'); const user=await window.claude.use('user'); RT.me=user?await user.id():null;
+    if(RT.db) RT.db.collection('signals').orderBy('t','desc').limit(200).onSnapshot(s=>{ U.sigU.uCount.value=s.size; RT.signals=s.size; ST.be&&ST.be.setCount&&ST.be.setCount(s.size); },()=>{});
+  }catch(e){ RT.db=null; }
 })();
 window.__onResize=()=>{ window.__crLayout&&window.__crLayout(); };
 
@@ -135,7 +121,7 @@ function frame(now){
   // station update + its smoothed camera
   const needB=S.st&&S.iris>0, needA=S.iris<2.5;
   if(S.st&&(needB||S.mode==='docking')){
-    S.st.update(dt,t); if(S.st.holdCtl&&S.st.state==='menu') S.st.holdCtl.tick(rdt);
+    S.st.update(dt,t);
     const target=tv[5].copy(S.st.camP).addScaledVector(S.st.arrive,S.arrive);
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
@@ -152,4 +138,12 @@ function frame(now){
 hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0);
 requestAnimationFrame(frame);
 boot();
-window.__heloria={S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+/* test helper: straight into a station with no transitions */
+function jump(id){
+  const s=STA.find(x=>x.id===id), st=ST[id]; if(!s||!st||!S.ready) return false;
+  ['#load','#story','#hub','#horizon'].forEach(q=>show(q,false)); show('#chrome',true); $('#frame').classList.add('on'); A.start();
+  if(S.st&&S.st!==st){ S.st.abort(); S.st.exit(); S.st.el.classList.remove('on'); }
+  S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
+  post.uniforms.uIrisCol.value.set(s.color); st.enter(); show('#station',true); st.showUI(); where(s.name); return true;
+}
+window.__heloria={jump,S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};

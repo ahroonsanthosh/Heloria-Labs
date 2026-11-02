@@ -1,0 +1,10 @@
+/* beacon */
+.sig{display:grid;gap:16px;max-width:460px}
+.sig label{display:grid;gap:6px}
+.sig input{width:100%;padding:8px 0 10px;border:0;border-bottom:1px solid var(--hair2);background:transparent;outline:none;font:300 16px/1.2 var(--body);user-select:text;-webkit-user-select:text;transition:border-color .3s}
+.sig input:focus{border-color:var(--acc)}
+#sgWave{width:100%;height:34px;display:block}
+.mail{font:800 clamp(26px,2.6vw,40px)/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;text-align:left;overflow-wrap:anywhere;transition:color .3s}
+.mail:hover{color:var(--acc)}
+.st-be .card{max-width:min(620px,52vw);bottom:auto;top:calc(var(--gt) + 96px)}
+.st-cr .card h2{font-size:clamp(36px,4vw,68px)}
