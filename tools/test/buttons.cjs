@@ -59,7 +59,8 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   for (const id of ids) {
     const vis = await H((h, id) => { const s = h.STA.find(x => x.id === id); return s.el.style.display !== 'none' ? 'label' : (s.edge.style.display !== 'none' ? 'edge' : ''); }, id);
     if (!vis) continue;
-    const ok = await H((h, id) => { const s = h.STA.find(x => x.id === id); const el = s.el.style.display !== 'none' ? s.el : s.edge; const r = el.getBoundingClientRect(); return [r.left + Math.min(r.width, 60) / 2 + 4, r.top + Math.min(r.height, 30) / 2 + 2]; }, id);
+    if (await H((h, id) => h.STA.find(x => x.id === id).el.classList.contains('under'), id)) continue;
+    const ok = await H((h, id) => { const s = h.STA.find(x => x.id === id); const el = s.el.style.display !== 'none' ? s.el.querySelector('.tx b') : s.edge; const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, id);
     await H(h => { h.S.ap = null; });
     try { await page.mouse.click(ok[0], ok[1]); } catch (e) {}
     await wait(300);

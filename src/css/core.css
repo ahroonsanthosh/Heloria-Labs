@@ -178,7 +178,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 .slab .tx{position:absolute;left:calc(var(--s)*.5 + 14px);top:calc(var(--s)*-.5 - 1px);display:grid;gap:4px;white-space:nowrap;text-align:left;pointer-events:auto;padding:2px 6px 6px 0;text-shadow:0 0 6px rgba(5,5,4,.95),0 0 16px rgba(5,5,4,.7)}
 .slab{transition:opacity .35s}
 .slab.under{opacity:.18;pointer-events:none}
-.slab.under .tx{pointer-events:none}
+.slab .rt{pointer-events:auto}
+.slab.under .tx,.slab.under .rt{pointer-events:none}
 .slab .tx::before{content:"";position:absolute;left:-14px;top:8px;width:10px;height:1px;background:var(--acc);opacity:.8}
 .slab b{font:400 13px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase}
 .slab .sub,.slab .dist{font:400 10px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
