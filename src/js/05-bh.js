@@ -13,15 +13,15 @@ function blackbodyJS(k){ const t=clamp(k,1000,40000)/100; const c=v=>clamp(v,0,1
   const g=t<=66?c(.39008157876*Math.log(t)-.63184144378):c(1.12989086089*Math.pow(t-60,-.0755148492));
   const b=t>=66?1:(t<=19?0:c(.54320678911*Math.log(t-10)-1.19625408914));
   return new T.Color(r,g,b); }
-const BH={RS:.55, scale:Q<1?.42:.6, steps:Q<1?110:170};
+const BH={RS:.55, scale:Q<1?.5:.9, cap:Q<1?.7:1, steps:Q<1?120:180};   // trace resolution: scale x device pixels, never above cap x CSS pixels
 if(window.__TEST) { BH.scale=.22; BH.steps=90; }
 BH.rt=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,minFilter:T.LinearFilter,magFilter:T.LinearFilter,depthBuffer:false});
-BH.u={uCam:{value:new T.Vector3(0,2,30)},uBasis:{value:new T.Matrix3()},uTan:{value:.4},uAsp:{value:1},uTime:G.uTime,
+BH.u={uCam:{value:new T.Vector3(0,2,30)},uEsc:{value:60},uBasis:{value:new T.Matrix3()},uTan:{value:.4},uAsp:{value:1},uTime:G.uTime,
   uRin:{value:3.},uRout:{value:12.},uTmax:{value:5600},uBeam:{value:.9},uDisk:{value:1},uSky:{value:1},uExpo:{value:1},uHold:{value:0},uStar:{value:0},uSpin:{value:1}};
 BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader:`precision highp float;
-  uniform vec3 uCam; uniform mat3 uBasis; uniform float uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin; varying vec2 vUv;
+  uniform vec3 uCam; uniform mat3 uBasis; uniform float uEsc,uTan,uAsp,uTime,uRin,uRout,uTmax,uBeam,uDisk,uSky,uExpo,uHold,uStar,uSpin; varying vec2 vUv;
   ${GLSL_BB}
   float h1(float n){return fract(sin(n)*43758.5453);}
   float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
@@ -45,7 +45,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
     float rin=uRin, rout=uRout;
     for(int i=0;i<${BH.steps};i++){
       float r=length(p);
-      float dt=clamp(.07*r*r/(r+2.),.012,3.);
+      float dt=clamp(.07*r*r/(r+2.),.012,max(3.,r*.08));
       vec3 pp=p;
       vec3 acc=-1.5*h2*p/pow(r,5.);
       v+=acc*dt; p+=v*dt;
@@ -71,7 +71,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
         }
       }
       if(r<1.){ a=1.; break; }
-      if(r>420.) break;
+      if(r>uEsc&&dot(p,v)>0.) break;   // heading out past the disk and the camera: the rest of the bend is negligible
     }
     vec3 d=normalize(v);
     col+=(1.-a)*sky(d);
@@ -80,11 +80,11 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
     gl_FragColor=vec4(col*uExpo,1.);
   }`});
 BH.quad=new T.Mesh(new T.PlaneGeometry(2,2),BH.mat); BH.quad.frustumCulled=false; BH.scene=new T.Scene(); BH.scene.add(BH.quad);
-BH.resize=function(){ BH.rt.setSize(Math.max(2,Math.floor(innerWidth*DPR*BH.scale)),Math.max(2,Math.floor(innerHeight*DPR*BH.scale))); };
+BH.resize=function(){ const k=Math.min(DPR*BH.scale,BH.cap); BH.rt.setSize(Math.max(2,Math.floor(innerWidth*k)),Math.max(2,Math.floor(innerHeight*k))); };
 BH.render=function(cam){
   cam.updateMatrixWorld(); const e=cam.matrixWorld.elements;
   BH.u.uBasis.value.set(e[0],e[4],e[8], e[1],e[5],e[9], e[2],e[6],e[10]);
-  BH.u.uCam.value.copy(cam.position).multiplyScalar(1/BH.RS);
+  BH.u.uCam.value.copy(cam.position).multiplyScalar(1/BH.RS); BH.u.uEsc.value=Math.max(26,BH.u.uCam.value.length()*1.08);
   BH.u.uTan.value=Math.tan(cam.fov*Math.PI/360); BH.u.uAsp.value=cam.aspect;
   renderer.setRenderTarget(BH.rt); renderer.render(BH.scene,ortho);
 };

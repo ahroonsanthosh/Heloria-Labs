@@ -48,9 +48,12 @@ input{font:inherit;color:var(--ink)}
 .lede{margin:0;font:300 clamp(13px,1.05vw,15px)/1.7 var(--body);font-variation-settings:"wdth" 87.5;color:var(--ink2);max-width:44ch;text-wrap:pretty}
 .acc{color:var(--acc)}
 /* dot-matrix power-on: each glyph lights up from tiny dots, in a scattered order */
-.pw .c{display:inline-block;opacity:0;font-weight:100;transition:opacity .08s steps(2),font-weight .5s steps(5);transition-delay:var(--d,0ms)}
-.pw.on .c{opacity:1;font-weight:inherit}
-.pw.off .c{opacity:0;font-weight:100;transition:opacity .25s steps(3),font-weight .25s steps(3);transition-delay:calc(var(--d,0ms)*.25)}
+/* dot-matrix power-on: a thin copy of each glyph lights first, then the full glyph fades over it (opacity only, no relayout) */
+.pw .c{position:relative;display:inline-block}
+.pw .c .lo{position:absolute;left:0;top:0;font-weight:200;opacity:0;transition:opacity .08s steps(2);transition-delay:var(--d,0ms)}
+.pw .c .hi{opacity:0;transition:opacity .36s steps(3);transition-delay:calc(var(--d,0ms) + 110ms)}
+.pw.on .c .lo,.pw.on .c .hi{opacity:1}
+.pw.off .c .lo,.pw.off .c .hi{opacity:0;transition:opacity .22s steps(3);transition-delay:calc(var(--d,0ms)*.25)}
 .pw .wd{display:inline-block;white-space:nowrap}
 .fade{opacity:0;transform:translateY(10px);transition:opacity .7s var(--ease),transform .9s var(--ease);transition-delay:var(--fd,0ms)}
 .on .fade,.fade.on{opacity:1;transform:none}
@@ -112,7 +115,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #ldBar{width:min(320px,42vw);height:1px;background:var(--hair2);position:relative}
 #ldBar i{position:absolute;inset:0;background:var(--ink);transform-origin:0 50%;transform:scaleX(var(--p,0))}
 #enterBox{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.62);transform:translateX(-50%);display:grid;justify-items:center;gap:14px;opacity:0;transition:opacity .8s var(--ease)}
-#load.ready #enterBox{opacity:1}
+#enterBox{pointer-events:none}
+#load.ready #enterBox{opacity:1;pointer-events:auto}
 #load.go #enterBox{opacity:0;transition-duration:.3s}
 
 /* ---------- story ---------- */
@@ -297,3 +301,16 @@ html,body{margin:0;padding:0}
 .btn.play{height:54px;padding:0 26px;font-size:12px;letter-spacing:.1em;gap:14px}
 .btn.play .ar{width:12px;height:12px}
 .btn.play:hover .ar{transform:translateX(3px)}
+
+/* ---------- no WebGL: a plain, readable page ---------- */
+#nogl{display:none}
+html.nogl,html.nogl body{overflow:auto;height:auto;touch-action:auto;user-select:text;-webkit-user-select:text}
+html.nogl #nogl{display:block;position:relative;z-index:50;max-width:760px;margin:0 auto;padding:calc(var(--gt) + 40px) var(--gr) 80px var(--gl)}
+html.nogl .layer,html.nogl #gl,html.nogl .grain,html.nogl #cur,html.nogl #curd,html.nogl .frame{display:none!important}
+html.nogl,html.nogl *{cursor:auto!important}
+#nogl h1{font-size:clamp(56px,14vw,120px);margin:0 0 18px}
+#nogl section{margin-top:44px;display:grid;gap:12px}
+#nogl ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--hair2)}
+#nogl li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+#nogl li a{color:var(--ink)} #nogl li a:hover{color:var(--hot)}
+#nogl li span{color:var(--mute)}

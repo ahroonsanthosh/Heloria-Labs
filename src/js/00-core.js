@@ -1,6 +1,10 @@
 /* ================= CORE ================= */
 const PHOTOS = __PHOTOS__;
 const T = window.THREE;
+/* without three.js or WebGL there is no universe: show the plain page and stop */
+function noGL(){ document.documentElement.classList.add('nogl'); throw new Error('Heloria: WebGL unavailable, showing the plain page'); }
+if(!T) noGL();
+{ const c=document.createElement('canvas'); let ok=false; try{ ok=!!(c.getContext('webgl2')||c.getContext('webgl')); }catch(e){} if(!ok) noGL(); }
 /* runtime services that only exist inside a claude.ai artifact (shared db, user id); null on a normal website */
 const RT={db:null,me:null,signals:0};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -50,7 +54,8 @@ const A=(()=>{
     n.wind=mk('bandpass',700,.8); n.thrust=mk('bandpass',240,1.1); n.roar=mk('lowpass',380,.9); n.hiss=mk('highpass',3000,.5);
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
   }
-  const set=(p,v,tc=.08)=>{ if(ctx) p.setTargetAtTime(v,ctx.currentTime,tc); };
+  const last=new WeakMap();
+  const set=(p,v,tc=.08)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
   function tone(f,dur,g=.08,type='sine',f2=0,delay=0,send=0,atk=.008){
     if(!on) return; const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(comp);
@@ -113,14 +118,14 @@ $('#snd').addEventListener('click',()=>A.toggle());
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');
-const renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
-const DPRMAX=Math.min(devicePixelRatio||1, Q<1?1.5:1.75);
+let renderer; try{ renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'}); }catch(e){ noGL(); }
+const DPRMAX=Math.min(devicePixelRatio||1, Q<1?1.5:1.6);
 let DPR=window.__TEST?1:DPRMAX;
 renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const hubCam=new T.PerspectiveCamera(36,1,.1,900), stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
-const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:4});
+const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:2});
 const rtA=mkRT(), rtB=mkRT();
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
@@ -171,8 +176,8 @@ addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResiz
 const QM={buf:[],cool:0,
   tick(ms,now){ if(window.__TEST) return; this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
     const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-    if(avg>23){ if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
-    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.7)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
+    if(avg>23){ if(rtA.samples>0){ rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
+    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.9)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
 
 /* ---------- particle + material toolkit ---------- */
 const GLH=`vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}
@@ -245,7 +250,9 @@ function prepPW(el){
   if(!el||el.dataset.sp) return; el.dataset.sp=1; const txt=el.textContent.trim(); el.setAttribute('aria-label',txt); el.textContent='';
   const n=txt.replace(/ /g,'').length; const order=[...Array(n).keys()].sort(()=>Math.random()-.5); let i=0;
   txt.split(' ').forEach((w,wi,arr)=>{ const wd=document.createElement('span'); wd.className='wd'; wd.setAttribute('aria-hidden','true');
-    for(const ch of w){ const c=document.createElement('span'); c.className='c'; c.textContent=ch; c.style.setProperty('--d',(order[i++]/n*520+Math.random()*80|0)+'ms'); wd.appendChild(c); }
+    for(const ch of w){ const c=document.createElement('span'); c.className='c'; c.style.setProperty('--d',(order[i++]/n*520+Math.random()*80|0)+'ms');
+      const lo=document.createElement('span'); lo.className='lo'; lo.textContent=ch; const hi=document.createElement('span'); hi.className='hi'; hi.textContent=ch;
+      c.appendChild(lo); c.appendChild(hi); wd.appendChild(c); }
     el.appendChild(wd); if(wi<arr.length-1) el.appendChild(document.createTextNode(' ')); });
 }
 $$('.pw').forEach(prepPW);

@@ -15,7 +15,7 @@ function goChapter(i){
   const prev=S.ch; S.ch=i; story.busy=1.15; story.k=0; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov;
   unreveal(story.blocks[prev]); setTimeout(()=>{ if(S.ch===i&&S.mode==='story') reveal(story.blocks[i]); },430);
   story.rail.forEach((b,k)=>b.classList.toggle('on',k===i)); $('#cue').style.opacity=i===0?1:0; $('#prox').classList.toggle('on',i===3);
-  $('#cue').innerHTML='<i></i>Scroll'; $('#cue').style.opacity=i===3?0:1;
+  $('#cue').innerHTML='<i></i>'+(FINE?'Scroll':'Swipe up'); $('#cue').style.opacity=i===3?0:1;
   A.stinger(i); A.whoosh(i>prev,1.2,.12); if(i===3){ A.alarm(); story.creep=0; }
   where(['Approach','Builders','System','Too close'][i]);
 }
@@ -23,7 +23,17 @@ function escape(){
   if(S.mode!=='story') return; unreveal(story.blocks[S.ch]); $('#prox').classList.remove('on'); $('#cue').style.opacity=0;
   A.boom(); A.launch(); S.flash=.9; feedback(1.2,1.6); setTimeout(()=>{ show('#story',false); },300); toHub();
 }
-addEventListener('wheel',e=>{ if(S.mode!=='story') return; e.preventDefault(); if(story.busy>0) return; story.acc+=e.deltaY; if(Math.abs(story.acc)>60){ goChapter(S.ch+(story.acc>0?1:-1)); story.acc=0; } },{passive:false});
+/* One chapter per gesture. Trackpads keep sending decaying "momentum" wheel events after the fingers lift, so a new
+   gesture is either a quiet gap or a clear rise in strength; everything else after a chapter change is ignored. */
+const wh={last:0,peak:0,armed:true};
+addEventListener('wheel',e=>{
+  if(S.mode!=='story') return; e.preventDefault();
+  const now=performance.now(), d=e.deltaMode===1?e.deltaY*18:e.deltaMode===2?e.deltaY*innerHeight:e.deltaY, ad=Math.abs(d), gap=now-wh.last; wh.last=now;
+  if(gap>200||ad>wh.peak*1.7+6){ wh.armed=true; story.acc=0; }
+  wh.peak=gap>200?ad:Math.max(ad,wh.peak*.92);
+  if(!wh.armed||story.busy>0) return;
+  story.acc+=d; if(Math.abs(story.acc)>40){ goChapter(S.ch+(story.acc>0?1:-1)); story.acc=0; wh.armed=false; }
+},{passive:false});
 let tY0=null;
 addEventListener('touchstart',e=>{ tY0=e.touches[0].clientY; },{passive:true});
 addEventListener('touchend',e=>{ if(S.mode!=='story'||tY0===null) return; const dy=tY0-(e.changedTouches[0]?.clientY??tY0); if(Math.abs(dy)>40&&story.busy<=0) goChapter(S.ch+(dy>0?1:-1)); tY0=null; },{passive:true});
@@ -40,3 +50,7 @@ function storyUpdate(rdt,t){
   if(S.ch===3){ const r=hubCam.position.length()/BH.RS; $('#proxR').textContent=r.toFixed(2); A.update(t,{sub:.6+story.creep*.4,pad:.6,bright:.1}); A.whine(.15+story.creep*.35); post.uniforms.uTint.value.r=Math.max(post.uniforms.uTint.value.r,.02+story.creep*.05); S.shake=Math.max(S.shake,.05+story.creep*.12); }
   else { A.update(t,{sub:[.15,.3,.1][S.ch],pad:1,bright:[.5,.35,.6][S.ch]}); A.whine(0); }
 }
+
+/* touch screens swipe rather than scroll */
+if(!FINE){ $('#cue').innerHTML='<i></i>Swipe up to fall in'; $$('#story .tease').forEach(el=>{ el.textContent=el.textContent.replace(/^Scroll/,'Swipe up'); });
+  $('#hint').innerHTML='<span>Drag anywhere to fly</span><span>Tap a station to autopilot</span>'; }

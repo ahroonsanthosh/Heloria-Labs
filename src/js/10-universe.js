@@ -41,11 +41,17 @@ STA.forEach((s,si)=>{
     const w=add(pts(cloud(1400,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*.42;o[1]=0;o[2]=Math.sin(a)*.42;}),PM({size:.05,color:C,body:'float a=atan(p.z,p.x); float k=1.+.45*sin(a*9.+uTime*6.)*sin(uTime*2.3)*sin(a*2.+uTime); p.xz*=k; p.y=.18*sin(a*14.-uTime*5.)*sin(uTime*1.7); b=1.3;'})));
     w.rotation.x=.3;
   }
-  if(s.id==='bs'){ // nose cone in supersonic flow, wearing its own shock cone
-    const prof=[]; for(let k=0;k<=16;k++){ const u=k/16; prof.push(new T.Vector2(.28*Math.sqrt(1-Math.pow(1-u,2)),1.1*(1-u))); } prof.push(new T.Vector2(.28,-.9)); prof.push(new T.Vector2(0,-.9));
-    const body=add(new T.Mesh(new T.LatheGeometry(prof.reverse(),32),LM(C,{emit:.04,rim:1.1}))); body.rotation.z=-Math.PI/2;
-    add(pts(cloud(2200,(i,r,o)=>{const u=r[0],a=r[1]*TAU;const rr=u*1.15;o[0]=1.1-u*2.2;o[1]=Math.cos(a)*rr;o[2]=Math.sin(a)*rr;}),PM({size:.045,color:C,body:'b=.5*(1.-aR.x)+.15;'})));
-    add(pts(cloud(900,(i,r,o)=>{o[0]=0;o[1]=(r[1]-.5)*2.6;o[2]=(r[2]-.5)*2.6;}),PM({size:.04,color:'#FFFFFF',body:'float t=fract(aR.x+uTime*.6); p.x=2.2-t*4.4; float rr=length(p.yz); float sh=1.1-(p.x<1.1?(1.1-p.x)*.52:9.); if(rr<sh&&p.x<1.1) p.yz*=1.+.25*(1.-rr/max(sh,.01)); b=.35*sin(t*3.14);'})));
+  if(s.id==='bs'){ // a finned rocket at Mach 3, wearing its own shock cone
+    const rk=new T.Group(); add(rk);
+    const prof=[new T.Vector2(0,0)]; const Ln=.62, R=.13; for(let k=1;k<=10;k++){ const u=k/10; prof.push(new T.Vector2(R*u,Ln*u)); } prof.push(new T.Vector2(R,1.7)); prof.push(new T.Vector2(R*.8,1.76)); prof.push(new T.Vector2(0,1.76));
+    const body=new T.Mesh(new T.LatheGeometry(prof,28),LM(C,{emit:.05,rim:1.1})); body.rotation.z=Math.PI/2; body.position.x=.9; rk.add(body);
+    const fs=new T.Shape(); fs.moveTo(0,0); fs.lineTo(.42,0); fs.lineTo(.2,.26); fs.lineTo(0,.26); fs.closePath();
+    const fg=new T.ExtrudeGeometry(fs,{depth:.02,bevelEnabled:false}); fg.translate(0,R*.95,-.01);
+    for(let k=0;k<4;k++){ const f=new T.Mesh(fg,LM(C,{emit:.04,rim:.9})); f.position.x=-.86; f.rotation.x=k*Math.PI/2; rk.add(f); }
+    add(pts(cloud(2000,(i,r,o)=>{const u=r[0],a=r[1]*TAU;const rr=u*1.5*.55;o[0]=.9-u*1.5;o[1]=Math.cos(a)*rr;o[2]=Math.sin(a)*rr;}),PM({size:.04,color:C,body:'b=.42*(1.-aR.x)+.1;'})));
+    add(pts(cloud(900,(i,r,o)=>{o[0]=0;o[1]=(r[1]-.5)*2.4;o[2]=(r[2]-.5)*2.4;}),PM({size:.035,color:'#FFFFFF',body:'float t=fract(aR.x+uTime*.7); p.x=2.-t*4.; float rr=length(p.yz); float sh=(.9-p.x)*.55; if(p.x<.9&&rr<sh) p.yz*=1.+.3*(1.-rr/max(sh,.01)); b=.3*sin(t*3.14);'})));
+    add(pts(cloud(500,(i,r,o)=>{o[0]=-.95-r[0]*1.2;o[1]=gauss()*.03;o[2]=gauss()*.03;}),PM({size:.07,color:'#FFD9B0',body:'float t=fract(aR.y-uTime*1.4); p.x=-.92-t*1.3; p.yz*=1.+t*3.; b=(1.-t)*.9;'})));
+    s.anim.push(t=>{ rk.rotation.x=t*.6; });
   }
   if(s.id==='ae'){ // radar dish on a mast, sweeping
     add(new T.Mesh(new T.CylinderGeometry(.05,.09,.9,10),LM('#9a948a',{rim:.6}))).position.y=-.35;
