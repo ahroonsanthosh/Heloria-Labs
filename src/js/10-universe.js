@@ -9,11 +9,10 @@ const STA=[
   {id:'ae',name:'Aetos',game:'Hold the Sky',R:13.1,ph:4.3,K:6600,color:'#F2EEE6'},
   {id:'ph',name:'Pharos',game:'Lost Signal',R:16.7,ph:1.1,K:4300,color:'#FFD5B3'},
   {id:'og',name:'Ogive',game:'Apogee',R:20.3,ph:3.3,K:3100,color:'#FFB475'},
-  {id:'cr',name:'Earth',game:'Three builders',R:23.9,ph:5.4,K:2400,color:'#FF9B3D'},
   {id:'be',name:'Beacon',game:'Join · contact',R:27.5,ph:.2,K:1850,color:'#FF8100'}
 ];
 const NST=STA.length, BEACON=STA.find(s=>s.id==='be');
-/* Earth, shared by the model in orbit and the planet you walk on: continents from noise, a home island at the top */
+/* noise for Earth, the world past the horizon */
 const EARTH_GLSL=`
 float eh(vec3 p){ p=fract(p*.3183099+.1); p*=17.; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float en(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.-2.*f); return mix(mix(mix(eh(i),eh(i+vec3(1,0,0)),f.x),mix(eh(i+vec3(0,1,0)),eh(i+vec3(1,1,0)),f.x),f.y),mix(mix(eh(i+vec3(0,0,1)),eh(i+vec3(1,0,1)),f.x),mix(eh(i+vec3(0,1,1)),eh(i+vec3(1,1,1)),f.x),f.y),f.z); }
@@ -92,26 +91,6 @@ STA.forEach((s,si)=>{
     for(let k=0;k<4;k++){ const f=add(new T.Mesh(new T.BoxGeometry(.32,.38,.02),LM(C,{rim:.8}))); const a=k*Math.PI/2; f.position.set(Math.cos(a)*.3,-.42,Math.sin(a)*.3); f.rotation.y=-a; }
     add(pts(cloud(700,(i,r,o)=>{o[0]=gauss()*.04;o[1]=-.7-r[0]*1.6;o[2]=gauss()*.04;}),PM({size:.08,color:'#FFD39A',body:'float t=fract(aR.x-uTime*1.2); p.y=-.66-t*1.4; p.xz*=1.+t*4.; b=(1.-t)*1.1;'})));
   }
-  if(s.id==='cr'){ // Earth: the side facing the hole in daylight, the far side at night with its cities lit
-    const em=new T.ShaderMaterial({uniforms:{uTime:G.uTime},
-      vertexShader:`varying vec3 vL; varying vec3 vN; varying vec3 vW; void main(){ vL=normalize(position); vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-      fragmentShader:`uniform float uTime; varying vec3 vL; varying vec3 vN; varying vec3 vW; ${EARTH_GLSL}
-      void main(){ vec3 d=vL, n=normalize(vN), v=normalize(cameraPosition-vW), sun=normalize(-vW);
-        float land=eland(d), isL=smoothstep(-.01,.02,land), day=smoothstep(-.12,.35,dot(n,sun));
-        vec3 sea=mix(vec3(.025,.1,.22),vec3(.05,.3,.36),smoothstep(-.07,0.,land));
-        vec3 ground=mix(vec3(.1,.24,.07),vec3(.17,.32,.1),efbm(d*9.)); ground=mix(ground,vec3(.42,.36,.22),smoothstep(.03,.0,land));
-        vec3 dayc=mix(sea,ground,isL);
-        float cl=smoothstep(.55,.75,efbm(d*4.+vec3(uTime*.01,0.,0.)));
-        dayc=mix(dayc,vec3(.75,.75,.72),cl*.65);
-        float city=isL*smoothstep(.78,.95,en(d*70.))*smoothstep(.45,.8,en(d*190.))*smoothstep(.0,.06,land)*(1.-cl);
-        vec3 c=dayc*day*vec3(1.,.9,.75)*1.3+vec3(1.,.64,.32)*city*(1.-day)*1.6;
-        c+=vec3(.35,.55,1.)*pow(1.-max(dot(n,v),0.),3.)*(.12+.6*day);
-        gl_FragColor=vec4(c,1.); }`});
-    const ball=add(new T.Mesh(new T.SphereGeometry(.62,64,40),em)); s.anim.push(t=>{ ball.rotation.y=t*.05; });
-    add(new T.Mesh(new T.SphereGeometry(.7,48,32),new T.ShaderMaterial({transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.BackSide,
-      vertexShader:`varying vec3 vN; varying vec3 vW; void main(){ vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-      fragmentShader:`varying vec3 vN; varying vec3 vW; void main(){ vec3 v=normalize(cameraPosition-vW); float f=pow(1.-abs(dot(normalize(vN),v)),2.5); float day=smoothstep(-.3,.5,dot(normalize(vN),normalize(-vW))); gl_FragColor=vec4(vec3(.3,.5,1.)*f*(.25+.8*day),1.); }`})));
-  }
   if(s.id==='be'){ // a mast that keeps calling out
     add(new T.Mesh(new T.CylinderGeometry(.03,.12,2,10),LM('#b9ad9e',{rim:.6}))).position.y=0;
     const tip=add(new T.Mesh(new T.SphereGeometry(.09,16,10),LM(C,{emit:2.2}))); tip.position.y=1.05;
@@ -134,8 +113,6 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
-/* the seal: a dashed ring just outside the horizon that stops the probe until the four projects have been visited */
-U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -191,5 +168,5 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(holeOpen()?0:1);
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
 }

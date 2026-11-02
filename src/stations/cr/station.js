@@ -1,7 +1,8 @@
 /* ================= EARTH =================
-   Where the three of us live: a small town on a small planet. You land on the pad at the edge of town and walk in
-   (WASD or the arrows, or click or tap the ground; drag to look around). Ahroon, Michael and Abraham are out in town:
-   walk up to one of us and we talk, or click one of us to go straight to the photograph and LinkedIn.
+   What is on the other side of the hole: a small town on a small planet, where the three of us live. You come down
+   through the sky in the rocket you flew in orbit, land on the pad and step out. You walk the way you fly: WASD or the
+   arrows, or the stick on a touch screen; drag to look around. Ahroon is waiting by Aetos, Abraham is in the square by
+   Kríos, Michael is up by Ogive. Walk up to one of us and we talk; click one of us for the photograph and LinkedIn.
    It is drawn rather than rendered: three tones of sunlight with real cast shadows, then a second pass finds the edges
    of things from depth and normals and inks them with a line that wanders a little, like a pen. */
 (()=>{
@@ -21,6 +22,10 @@ const _up=new T.Vector3(), _n=new T.Vector3(), _e=new T.Vector3(), _Ry=new T.Mat
 function frameAt(x,z,yaw=0,lift=0,s=1){ at(x,z,_up); at(x,z+.05,_n).sub(_up); _n.addScaledVector(_up,-_n.dot(_up)).normalize(); _e.crossVectors(_up,_n);
   const M=new T.Matrix4().makeBasis(_e,_up,_n); M.setPosition(_up.x*(R+lift),_up.y*(R+lift),_up.z*(R+lift)); if(yaw) M.multiply(_Ry.makeRotationY(yaw)); if(s!==1) M.scale(_S.set(s,s,s)); return M; }
 const yawTo=(x,z,tx,tz)=>Math.atan2(tx-x,tz-z); // turns a thing's front toward a point
+/* where the rocket lands, which way its hatch opens, where you stand when you step off, and which way you then look */
+const PAD=[-3.2,-15.6], DOOR=[0,1], START=[-3.2,-12.4], FACE=(()=>{ const l=Math.hypot(-.91,.42); return [-.91/l,.42/l]; })();
+const AHR=(()=>{ const c=Math.cos(.35), sn=Math.sin(.35), x=FACE[0]*c-FACE[1]*sn, z=FACE[0]*sn+FACE[1]*c; return [START[0]+x*4.4,START[1]+z*4.4]; })(); // a little to one side, so you are not standing in front of him
+const SKYBH={value:new T.Vector3(-.35,.75,.55).normalize()}; // where the hole hangs in the sky: set so the rocket comes down out of it
 
 /* ---------- the island: the same noise in JavaScript (to build and to walk) and in the shaders ---------- */
 const fr=x=>x-Math.floor(x);
@@ -75,6 +80,8 @@ function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc
 /* what the ink pass sees: the normal and the distance of every surface; what the sun sees: only depth */
 const INK_F=`varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
 const SHD_F=`void main(){ gl_FragColor=vec4(1.); }`;
+const FLAT_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); gl_FragColor=vec4(uC,1.); }`;
+const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:TOON_V(),fragmentShader:FLAT_F});
 
 /* ---------- one big mesh for everything that never moves: houses, roads, trees, fences, the lighthouse ---------- */
 const KP=[],KN=[],KC=[], kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
@@ -108,7 +115,7 @@ function pathDist(x,z){ let m=1e9; for(const s of SEGS){ const ex=s[2]-s[0], ez=
 function onJetty(x,z){ const [a,b]=JETTY, ex=b[0]-a[0], ez=b[1]-a[1], L=Math.hypot(ex,ez), t=((x-a[0])*ex+(z-a[1])*ez)/(L*L); if(t<-.02||t>1) return false; return Math.abs(((x-a[0])*ez-(z-a[1])*ex)/L)<.62; }
 let DECK=-.5;
 /* where your feet are: on the ground, up on the pavement, or on the boards of the jetty */
-function standH(x,z){ if(onJetty(x,z)) return DECK+.12; const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
+function standH(x,z){ if(onJetty(x,z)) return DECK+.12; if(Math.hypot(x-PAD[0],z-PAD[1])<2.35) return .1; const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
 
 /* ---------- signs: painted boards with the dot-matrix type, drawn on a canvas ---------- */
 const SIGN_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
@@ -186,7 +193,7 @@ function buildTown(){
   H(-5.8,13.6,{wall:'#f3d9c4',roof:'#9a5340',w:3.2,d:2.6});
   H(13.3,-3.4,{wall:'#e8ecd9',roof:'#c8664b',up:true,h:3.6,rh:1.1});
   H(12.9,7.2,{wall:'#f6eedf',roof:'#5d7f6a',w:3,d:2.6,flowers:true});
-  H(-9.1,-11,{wall:'#e9d3b0',roof:'#7d5a8f',w:3,d:2.6});
+  H(-10.6,10.4,{wall:'#e9d3b0',roof:'#7d5a8f',w:3,d:2.6});
   H(6.4,-12.6,{wall:'#dfe6ef',roof:'#c8664b',w:3.2,flowers:true});
   // the workshop: Heloria Labs
   { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); house(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',flat:true,w:4.8,d:3.2,h:3,doorX:1.65,win:[-1.9],
@@ -198,12 +205,9 @@ function buildTown(){
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
         [[-1.15,1.85],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); }); } });
     obs(3-1.15,-13.4+1.85,.5,1); obs(3+1.25,-13.4+1.85,.5,1); }
-  fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]); fence([[-11,-12.6],[-7.2,-13]]);
-  /* the landing pad, and the little lander you came down in */
-  { const M=frameAt(-3.2,-15.6,0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); }
-    const P=sub(M,-1.15,.1,-.5,.6); [0,1,2].forEach(k=>{ const a=k/3*TAU; put(P,'box','#9aa0a3',Math.cos(a)*.55,.32,Math.sin(a)*.55,.06,.75,.06,-a,0,.45); });
-    cyl(P,'#f4f0e8',0,.55,0,.55,.95); cyl(P,'#ef8a3c',0,1.1,0,.56,.12); put(P,'cone','#f4f0e8',0,1.6,0,.55,.7,.55); box(P,'#38444d',0,.95,.47,.36,.26,.12); put(P,'sph','#ef8a3c',0,1.98,0,.07,.07,.07);
-    obs(-4.35,-16.1,1,2.5); }
+  fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
+  /* the landing pad; the rocket that stands on it is built on its own, because it moves */
+  { const M=frameAt(PAD[0],PAD[1],0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); } obs(PAD[0],PAD[1],1.3,4.5); }
   /* Pharos: a lighthouse on the cliff */
   { const [x,z]=coastR(15,4.2,2.3); const M=frameAt(x,z,yawTo(x,z,0,0)); cyl(M,'#bdb5a8',0,0,0,1.15,.5);
     for(let k=0;k<6;k++) put(M,'tcyl',k%2?'#cf4a36':'#f4efe6',0,.5+k*.72+.36,0,.84-k*.06,.72,.84-k*.06);
@@ -222,13 +226,13 @@ function buildTown(){
     box(Gt,'#8c3f2e',0,4,0,.8,.08,.8); box(Gt,'#c8664b',-.55,2.55,0,.8,.08,.12);
     sign(sub(M,-.6,0,2.1),'OGIVE',{sub:'AI tools for OpenRocket',w:1.7,h:.62,y:.95}); obs(x,z,1.9,4); MARKS.og={x,z}; SEGS.push([6.2,10,x-1.4,z-1.5,.55]); }
   /* Aetos: a radar on the rocks, turning */
-  { const [x,z]=coastR(-11.2,11.4,2.6); const yaw=yawTo(x,z,0,0), M=frameAt(x,z,yaw);
+  { const [x,z]=coastR(-10.2,-11.6,2.6); const yaw=yawTo(x,z,0,0), M=frameAt(x,z,yaw);
     [[0,0,1.6],[.9,.5,1.1],[-.8,.4,1.2],[.3,-.9,1.1],[-.5,-.8,.9]].forEach(([rx,rz,s])=>put(M,'rock',rnd()<.5?'#a49e94':'#928c83',rx,.5*s,rz,.95*s,.75*s,.9*s,rnd()*3,.2,.1));
     cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); const hd=new T.Group(); hd.matrixAutoUpdate=false; sc.add(hd);
     const dish=new T.Mesh(new T.SphereGeometry(.78,28,12,0,TAU,0,Math.PI*.32),toonMat('#f2f4f2',{side:T.DoubleSide})); dish.rotation.x=-1.25; dish.position.z=.08; hd.add(dish);
     hd.add(new T.Mesh(new T.BoxGeometry(.24,.24,.3),toonMat('#9aa3ab'))); hd.add(new T.Mesh(new T.CylinderGeometry(.018,.018,.6,6).rotateX(-1.25+Math.PI/2).translate(0,.1,.32),toonMat('#9aa3ab')));
-    AE={hd,M:sub(M,0,2.9,0)}; { const rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; house(x+ix*2.4-iz*2,z+iz*2.4+ix*2,yaw,{wall:'#d9d3c6',roof:'#6c757c',flat:true,w:1.8,d:1.6,h:1.9,win:[-.4],doorX:.4}); }
-    sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); MARKS.ae={x,z}; SEGS.push([-7.3,7.8,x+1.6,z-1.3,.55]); }
+    AE={hd,M:sub(M,0,2.9,0)};
+    sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); MARKS.ae={x,z}; SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
   /* the jetty, out from the beach */
   { const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), yaw=Math.atan2(-(b[1]-a[1]),b[0]-a[0]); DECK=Math.max(grid(GH,a[0],a[1]),-.55);
     for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2);
@@ -236,7 +240,7 @@ function buildTown(){
     const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
     SEGS.push([7.4,-7.6,a[0],a[1],.5]); }
   /* street lamps, poles and wires, a signpost */
-  [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8,9.9],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2],[-1.6,-11.3]].forEach(([x,z])=>lamp(x,z));
+  [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8,9.9],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z])=>lamp(x,z));
   [[-4.6,-12.3],[-4.6,-9.4],[-10.6,-7.6],[-11.4,-1],[-10.9,5.4],[-7.4,11.1],[-2.6,12.1]].forEach(([x,z],i,a)=>{ const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2); }); wires();
   { const M=frameAt(-4.6,-11,0); box(M,'#6d5544',0,0,0,.1,2.3,.1); [['KRÍOS',.15],['PHAROS',.75],['OGIVE',-.55],['AETOS',-1.05]].forEach(([t,ry],i)=>{ sign(sub(M,0,0,0,Math.PI+ry),t,{w:1.05,h:.26,y:2.1-i*.36,post:false,x:i%2?-.6:.6}); }); }
 }
@@ -305,7 +309,7 @@ function buildGround(){
         gl_FragColor=vec4(toon(c,normalize(vN),vW),1.); }`}));
   sea.userData.cast=false; sc.add(sea);
   // the sky: blue overhead, pale at the horizon, flat painted clouds, the hole as a pale ring by day
-  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:{uUp:UPU,uBH:{value:new T.Vector3(-.35,.75,.55).normalize()},uTime:G.uTime},side:T.BackSide,depthWrite:false,
+  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:{uUp:UPU,uBH:SKYBH,uTime:G.uTime},side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform vec3 uUp,uBH; uniform float uTime; varying vec3 vD; ${EARTH_GLSL}
       void main(){ vec3 d=normalize(vD); float h=dot(d,uUp);
@@ -349,21 +353,89 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
   g.userData={legs,arms,head,body,eyes}; return g; }
 const CREW=[
-  {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:[-1.3,-7],pitch:520,
+  {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
     look:{shirt:'#f1eee8',collar:'#dcd7ce',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814'},
-    lines:['Oh, hello! You actually landed.','I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.','The glass sculpture in the square is Kríos. Reps rehearse the calls that matter against a buyer who answers back.',
-      'Michael is out by the lighthouse, and Abraham is over by the rocket. Go and say hi.','And this is me. Come and say hello properly.']},
-  {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[12.4,2.6],pitch:430,
+    lines:['Oh, hello! You came through the hole.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
+      'That dish on the rocks is Aetos. When the sky fills with drones, it works out which one actually matters.',
+      'Abraham is in the square by Kríos, and Michael is up by the rocket. Go and say hi.','And this is me. Come and say hello properly.']},
+  {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
     look:{shirt:'#2b2a29',short:true,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#6b4a32'},
-    lines:['Hey, I\'m Michael.','That lighthouse is Pharos. When GPS is jammed, spoofed or gone, it keeps going. And it knows when it doesn\'t know.','That\'s me. Come and find me.']},
-  {name:'Abraham Sabu Kurian',first:'Abraham',li:'https://www.linkedin.com/in/abraham-sabu-kurian/',at:[6.1,11.1],pitch:470,
+    lines:['Hey, I\'m Michael.','This is Ogive: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does.','That\'s me. Come and find me.']},
+  {name:'Abraham Sabu Kurian',first:'Abraham',li:'https://www.linkedin.com/in/abraham-sabu-kurian/',at:[1.3,-2.7],face:[1.3,-8],pitch:470,
     look:{shirt:'#2c2b2a',pants:'#3b3f48',shoes:'#2b2b2e',skin:'#8f5f40',hair:'quiff',hairC:'#1d1612'},
-    lines:['Hi, I\'m Abraham.','The rocket on the pad is Ogive: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does.',
-      'And the dish up on the rocks is Aetos. When the sky fills with drones, it works out which one actually matters.','That\'s me. Say hi any time.']}];
+    lines:['Hi, I\'m Abraham.','The glass sculpture is Kríos. Reps rehearse the calls that matter against a buyer who answers back.',
+      'And the lighthouse out on the cliff is Pharos. When GPS is jammed, spoofed or gone, it keeps going.','That\'s me. Say hi any time.']}];
 let people=[], me=null;
 function buildPeople(){
-  people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,dir:at(x,z),f:new T.Vector3(0,0,1),near:false,greeted:false,wave:0,blink:2+i}; });
+  people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,dir:at(x,z),f:tang(at(x,z),at(c.face[0],c.face[1]),new T.Vector3()),near:false,greeted:false,wave:0,blink:2+i}; });
   me=figure({shirt:'#ef8a3c',pants:'#3a3f4a',shoes:'#f2efe8',skin:'#c99a74',hair:'short',hairC:'#3a2a1e',pack:'#5b6b7d'}); sc.add(me); }
+
+/* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins ---------- */
+const RK={g:null,door:null,flame:null,shadow:null,puffs:[]}, PADU=at(PAD[0],PAD[1]), RKN=new T.Vector3(), DOOR_SHUT=-.27, DOOR_OPEN=1.86;
+const rkM=new T.Matrix4(), rkX=new T.Vector3(), rkY=new T.Vector3(), rkZ=new T.Vector3(), rkD=new T.Vector3(), rkP=new T.Vector3(), shM0=frameAt(PAD[0],PAD[1],0,.12);
+function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); RK.g=g;
+  const add=(m,x,y,z)=>{ m.position.set(x,y,z); g.add(m); return m; };
+  add(new T.Mesh(new T.ConeGeometry(1,3.6,28),toonMat('#EEE9DF')),0,2.15,0);
+  add(new T.Mesh(new T.CylinderGeometry(.66,.69,.12,28),toonMat('#ef8a3c')),0,1.62,0);
+  add(new T.Mesh(new T.CylinderGeometry(.42,.56,.34,20),toonMat('#5a5f63')),0,.2,0);
+  [Math.PI/4,-Math.PI/4].forEach(a=>{ const f=add(new T.Mesh(new T.BoxGeometry(2.7,1.05,.08),toonMat('#FFC392')),0,.53,0); f.rotation.y=a; });
+  const w=add(new T.Mesh(new T.SphereGeometry(.15,16,10),toonMat('#38444d')),0,2.4,.42); w.scale.set(1,1,.4); w.rotation.x=-.27;
+  const piv=add(new T.Group(),0,.45,.955); piv.rotation.x=DOOR_SHUT; const dr=new T.Mesh(new T.BoxGeometry(.64,1.06,.06),toonMat('#e2dccf')); dr.position.set(0,.53,.03); piv.add(dr); RK.door=piv;
+  const fl=add(new T.Group(),0,.04,0); fl.add(new T.Mesh(new T.ConeGeometry(.42,1.8,16).rotateX(Math.PI).translate(0,-.9,0),flatMat('#ff9b3d')),new T.Mesh(new T.ConeGeometry(.22,1.05,12).rotateX(Math.PI).translate(0,-.52,0),flatMat('#fff1b8'))); RK.flame=fl;
+  const sh=new T.Mesh(SHG,SHM); sh.matrixAutoUpdate=false; sh.renderOrder=1; sh.layers.set(1); sc.add(sh); RK.shadow=sh;
+  const pm=toonMat('#f3efe7'); for(let i=0;i<22;i++){ const m=new T.Mesh(GEO.blob,pm); m.visible=false; sc.add(m); RK.puffs.push({m,t:9,life:1,v:new T.Vector3(),s:1}); }
+  tang(PADU,at(PAD[0]+DOOR[0]*.2,PAD[1]+DOOR[1]*.2),RKN);
+  // the hole hangs in the sky behind the pad, 42 degrees up, so the rocket comes down out of it toward you
+  SKYBH.value.copy(PADU).multiplyScalar(Math.cos(.73)).addScaledVector(RKN,-Math.sin(.73)).normalize(); }
+/* the rocket dist metres up its way in, which bends from the hole's direction to straight down as it nears the pad */
+function rocketAt(dist){ rkD.copy(PADU).lerp(SKYBH.value,clamp(dist/16,0,1)).normalize(); rkY.copy(PADU).lerp(rkD,.55).normalize();
+  rkZ.copy(RKN).addScaledVector(rkY,-rkY.dot(RKN)).normalize(); rkX.crossVectors(rkY,rkZ); rkM.makeBasis(rkX,rkY,rkZ);
+  rkP.copy(PADU).multiplyScalar(R+.1).addScaledVector(rkD,dist); rkM.setPosition(rkP); RK.g.matrix.copy(rkM); RK.g.matrixWorldNeedsUpdate=true;
+  const k=clamp(1-dist/14,0,1), s=.6+2.4*k; RK.shadow.visible=k>0; RK.shadow.matrix.copy(shM0).scale(V.set(s,1,s)); return rkP; }
+function puff(pos,vel,s,life){ const p=RK.puffs.find(q=>q.t>=q.life)||RK.puffs[0]; p.t=0; p.life=life; p.s=s; p.m.position.copy(pos); p.v.copy(vel); p.m.visible=true; }
+function puffsUpdate(dt){ for(const p of RK.puffs){ if(p.t>=p.life){ p.m.visible=false; continue; } p.t+=dt; p.m.position.addScaledVector(p.v,dt); p.v.multiplyScalar(Math.exp(-2.2*dt));
+  const k=p.t/p.life, sz=p.s*Math.sin(Math.PI*Math.min(1,k*1.15)); p.m.scale.setScalar(Math.max(.001,sz)); } }
+/* the landing: down out of the sky, a puff of dust, the hatch drops, and out you come */
+const CUT={on:false,t:0,look:new T.Vector3(),eng:0}, T_LAND=4.3, T_DOOR=4.9, T_OUT=5.5, T_WALK=7.1, T_CAM=6.1, T_END=7.6;
+const CAMC=[PAD[0]+2.6,PAD[1]+6.6];
+function rocketLanded(){ rocketAt(0); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
+function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.hgt=1.55; C.dist=3.6; C.dragT=9; P.tgt=null; P.speed=0; [P.x,P.z]=START; P.h=standH(START[0],START[1]); }
+function endCut(){ CUT.on=false; el.classList.remove('cut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
+function skipCut(){ if(CUT.on){ CUT.t=T_END; endCut(); } }
+st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.eng=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketAt(32); CUT.look.copy(rkP); S.stSnap=true; };
+function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
+const cT=new T.Vector3(), cG=new T.Vector3(), cL=new T.Vector3();
+function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
+  // the rocket: falls fast, slows hard, settles
+  const u=clamp(c/T_LAND,0,1), dist=32*Math.pow(1-u,2.2), pos=rocketAt(dist), braking=sstep(.45,.9,u)*(1-sstep(.995,1,u));
+  if(c<T_LAND+.35){ const fk=c<T_LAND?.55+.9*braking:Math.max(0,1-(c-T_LAND)/.35); RK.flame.visible=fk>.02; RK.flame.scale.set(1,fk*(.85+.3*Math.sin(t*41)+.1*Math.sin(t*17)),1);
+    if(c<T_LAND&&dist<7&&Math.random()<dt*28){ V2.copy(pos).addScaledVector(up,-.3); V3.set(Math.random()-.5,0,Math.random()-.5).multiplyScalar(2.2).addScaledVector(up,-1.5); puff(V2,V3,.35+Math.random()*.3,.9); } }
+  else RK.flame.visible=false;
+  if(c>=T_LAND&&!CUT.landed){ CUT.landed=true; S.shake=.5; A.pop(); A.thrust(0); A.roar(0);
+    for(let k=0;k<16;k++){ const a=k/16*TAU+Math.random()*.3, sp=2.6+Math.random()*1.6; at(PAD[0]+Math.cos(a)*1.2,PAD[1]+Math.sin(a)*1.2,V2).multiplyScalar(R+.35);
+      tang(up,at(PAD[0]+Math.cos(a)*3,PAD[1]+Math.sin(a)*3),V3).multiplyScalar(sp).addScaledVector(up,.25); puff(V2,V3,.4+Math.random()*.25,1.5); } }
+  if(c<T_LAND){ CUT.eng=.35+.65*braking; A.thrust(CUT.eng); A.roar(.1+.12*braking); }
+  // the hatch drops down into a ramp
+  const dk=clamp((c-T_DOOR)/.75,0,1); if(dk>0&&!CUT.door){ CUT.door=true; A.click(); }
+  RK.door.rotation.x=lerp(DOOR_SHUT,DOOR_OPEN,dk<1?1-Math.pow(1-dk,3)*(1+2.2*dk*(1-dk)):1);
+  // and out you come, down the ramp, turning to look across at Aetos
+  if(c>=T_OUT){ me.visible=true; const wk=clamp((c-T_OUT)/(T_WALK-T_OUT),0,1), z=.35+(3.2-.35)*wk, y=z<1?.45:z<2.05?.45*(1-(z-1)/1.05):0;
+    const x0=PAD[0]+DOOR[0]*z, z0=PAD[1]+DOOR[1]*z, tk=sstep(.6,1,wk), fx=lerp(DOOR[0],FACE[0],tk), fz=lerp(DOOR[1],FACE[1],tk);
+    at(x0,z0,V2); tang(V2,at(x0+fx*.2,z0+fz*.2),V3); standOn(me,V2,V3,.1+y); CUT.ph=(CUT.ph||0)+dt*(wk<1?7:0); animate(me,CUT.ph,wk<1?1:0,0,t,9);
+    player.x=x0; player.z=z0; player.u.copy(V2); player.f.copy(V3); }
+  // the camera: low by the road, looking up into the sky at the rocket, then round behind you
+  camAt(CAMC[0],CAMC[1],1.45,cT);
+  if(c<T_LAND) cL.copy(pos).addScaledVector(up,.9); else cL.copy(PADU).multiplyScalar(R+1.5).addScaledVector(RKN,.6);
+  CUT.look.lerp(cL,1-Math.exp(-(c<T_LAND?7:3)*dt));
+  st.camP.copy(cT); st.camL.copy(CUT.look);
+  const bk=E.io(clamp((c-T_CAM)/(T_END-T_CAM),0,1));
+  if(bk>0){ const a0=Math.atan2(CAMC[0]-START[0],CAMC[1]-START[1]), r0=Math.hypot(CAMC[0]-START[0],CAMC[1]-START[1]), a1=Math.atan2(-FACE[0],-FACE[1]);
+    let da=a1-a0; da=Math.atan2(Math.sin(da),Math.cos(da)); const a=a0+da*bk, r=lerp(r0,3.6,bk);
+    camAt(START[0]+Math.sin(a)*r,START[1]+Math.cos(a)*r,lerp(1.45,1.55,bk),cG); st.camP.copy(cG);
+    at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); cL.copy(V2).multiplyScalar(R+standH(START[0],START[1])+1.05).addScaledVector(V3,1.9); st.camL.copy(CUT.look).lerp(cL,bk); }
+  stUp.copy(at(lerp(CAMC[0],START[0],bk),lerp(CAMC[1],START[1],bk))); stCam.up.copy(stUp); UPU.value.copy(stUp); S.stSnap=true;
+  puffsUpdate(dt);
+  if(c>=T_END) endCut(); }
 
 /* ---------- birds circling over town ---------- */
 const BIRDS=[], BU=new T.Vector3();
@@ -434,14 +506,14 @@ st.build=async function(){
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds();
+  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(KP,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(KN,3)); kg.setAttribute('color',new T.Float32BufferAttribute(KC,3));
   const kit=new T.Mesh(kg,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); kit.frustumCulled=false; kit.userData.cast=true; sc.add(kit); KP.length=KN.length=KC.length=0;
   registerInk(); st.built=true; };
 
 /* ---------- walking on a sphere ---------- */
-const player={u:at(-2.6,-13.1),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:-2.6,z:-13.1};
+const player={u:at(START[0],START[1]),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:START[0],z:START[1]};
 const C={f:new T.Vector3(0,0,1),dist:3.6,hgt:1.55,dragT:9};
 function rot(f,u,a){ V.crossVectors(u,f); return f.multiplyScalar(Math.cos(a)).addScaledVector(V,Math.sin(a)).normalize(); }
 function walk(P,dist){ const th=dist/R, c=Math.cos(th), s=Math.sin(th); V.copy(P.u); P.u.multiplyScalar(c).addScaledVector(P.f,s).normalize(); P.f.multiplyScalar(c).addScaledVector(V,-s); P.f.addScaledVector(P.u,-P.u.dot(P.f)).normalize(); }
@@ -451,16 +523,20 @@ const ray=new T.Raycaster(), ndc=new T.Vector2(), ball=new T.Sphere(new T.Vector
 function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); hits.length=0; ray.layers.set(0);
   ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o) return people.find(p=>p.g===o); } return null; }
 let down=null, hov=null, started=false, cardT=0;
-st.onPointer=function(e){ down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false}; };
+const stick=$('#crStick',el), stickI=$('#crStick i',el);
+function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
+st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+  if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
-  if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx, dy=e.clientY-down.ly; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>7) down.moved=true;
-    if(down.moved){ rot(C.f,player.u,-dx*.0065); C.hgt=clamp(C.hgt+dy*.008,.8,3.4); C.dragT=0; began(); } down.lx=e.clientX; down.ly=e.clientY; }
+  if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>7) down.moved=true;
+    if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
+    else if(down.moved){ rot(C.f,player.u,-dx*.0065); C.hgt=clamp(C.hgt+(e.clientY-down.ly)*.008,.8,3.4); C.dragT=0; began(); }
+    down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
-addEventListener('pointerup',e=>{ if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; if(d.moved||S.mode!=='station') return;
-  const p=pickPerson(e); if(p){ openTalk(p,p.lines.length-1); return; }
-  if(TALK.p) closeTalk();
-  if(ray.ray.intersectSphere(ball,V2)){ const [x,z]=loc(V2.normalize()); if(walkable(x,z)){ player.tgt=V2.clone(); began(); A.tick(); } } });
-addEventListener('pointercancel',()=>{ down=null; });
+addEventListener('pointerup',e=>{ if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+  const p=pickPerson(e); if(p) openTalk(p,p.lines.length-1); });
+addEventListener('pointercancel',()=>{ down=null; stickOff(); });
+$('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
 
 /* ---------- talking ---------- */
@@ -476,22 +552,24 @@ function closeTalk(){ if(!TALK.p) return; TALK.p=null; tk.classList.remove('on',
 $('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,#crClose')) return; nextTalk(); });
 $('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
+  if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){ nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 
 /* ---------- lifecycle ---------- */
 let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
-st.enter=function(){ const P=player; P.u.copy(at(-2.6,-13.1)); tang(P.u,at(-2.6,-9),P.f); C.f.copy(P.f); C.hgt=1.55; C.dist=3.6; C.dragT=9; P.tgt=null; P.speed=0;
+st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; });
-  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · walk up to someone to talk':'Tap the ground to walk · drag to look around · walk up to someone to talk';
+  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · walk up to someone to talk':'Drag anywhere to walk · walk up to someone to talk';
   stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
-st.exit=function(){ stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
+st.exit=function(){ CUT.on=false; el.classList.remove('cut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
 
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
-function standOn(g,u,f,h){ V3.crossVectors(u,f).normalize(); Mf.makeBasis(V3,u,f); g.quaternion.setFromRotationMatrix(Mf); g.position.copy(u).multiplyScalar(R+h); }
+const sT=new T.Vector3();
+function standOn(g,u,f,h){ sT.crossVectors(u,f).normalize(); Mf.makeBasis(sT,u,f); g.quaternion.setFromRotationMatrix(Mf); g.position.copy(u).multiplyScalar(R+h); }
 function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(walkPh);
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
   d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
@@ -499,12 +577,14 @@ function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(wal
 let talkK=0, talkSide=0;
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
   const port=innerHeight>innerWidth, fov=port?62:50; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
-  // input: keys move you relative to the camera; a click walks you somewhere
-  const iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);
+  if(CUT.on) cutUpdate(dt,t); else {
+  // input, the same as flying: keys move you relative to the camera; on a touch screen, the stick
+  let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
+  if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   if(ix||iz){ P.tgt=null; began(); if(TALK.p) closeTalk(); }
   let want=0;
-  if(ix||iz){ camR.crossVectors(C.f,P.u); V4.copy(C.f).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=run?4.2:2.7; }
+  if(ix||iz){ camR.crossVectors(C.f,P.u); V4.copy(C.f).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=(run?4.2:2.7)*mag; }
   else if(P.tgt){ const ang=Math.acos(clamp(P.u.dot(V2.copy(P.tgt).normalize()),-1,1)); if(ang*R<.2){ P.tgt=null; } else { tang(P.u,P.tgt,V4); want=Math.min(2.7,ang*R*2+.5); } }
   if(want>0){ const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4), a=Math.atan2(s,c); rot(P.f,P.u,clamp(a,-11*dt,11*dt)); if(Math.abs(a)>1.6) want*=.3; }
   if(TALK.p) want=0;
@@ -537,13 +617,14 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     camT.copy(tp.dir).multiplyScalar(R+standH(tp.x,tp.z)).addScaledVector(P.u,1.0).addScaledVector(sd,-.45*talkSide); st.camL.lerp(camT,talkK);
     tang(P.u,tp.dir,V4); const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4); rot(P.f,P.u,clamp(Math.atan2(s,c),-6*dt,6*dt)); }
   else if(talkK<.02) talkSide=0;
-  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt);
+  }
+  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
-  people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6;
-    if(d<1.75&&!p.greeted&&!TALK.p&&P.speed<1.6) openTalk(p,0);
+  people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT);
+    if(d<1.75&&!p.greeted&&!TALK.p&&!CUT.on&&P.speed<1.6) openTalk(p,0);
     if(d>4.5) p.greeted=false;
     if(near&&!p.near) p.wave=1.2; p.near=near; p.wave=Math.max(0,p.wave-dt);
-    tang(p.dir,near?P.u:at(p.x,p.z-1),V4); p.f.lerp(V4,1-Math.exp(-4*dt)); tang(p.dir,p.f,p.f); standOn(p.g,p.dir,p.f,standH(p.x,p.z)); animate(p.g,0,0,p.wave,t,i);
+    tang(p.dir,near?P.u:at(p.face[0],p.face[1]),V4); p.f.lerp(V4,1-Math.exp(-4*dt)); tang(p.dir,p.f,p.f); standOn(p.g,p.dir,p.f,standH(p.x,p.z)); animate(p.g,0,0,p.wave,t,i);
     p.blink-=dt; const ey=p.blink<.12?.15:1; if(p.blink<0) p.blink=2+Math.random()*3; p.g.userData.eyes.forEach(e=>e.scale.y=ey);
     const lb=labels[i]; V.copy(p.dir).multiplyScalar(R+standH(p.x,p.z)+1.62).project(stCam); lb.classList.toggle('on',(d<10||hov===p)&&V.z<1&&!TALK.p);
     lb.style.transform=`translate(${((V.x*.5+.5)*innerWidth).toFixed(1)}px,${((-V.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; });
@@ -556,8 +637,8 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music, birds now and then, the sea near the shore, a light wind
-  A.music(.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; A.chirp((Math.random()-.5)*1.6); }
+  A.music(CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; A.chirp((Math.random()-.5)*1.6); }
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))); A.wind(.03+P.speed*.008);
 };
-st._dbg={LU,player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={LU,cut:()=>CUT,skipCut,player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
