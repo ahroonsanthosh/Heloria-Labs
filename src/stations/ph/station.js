@@ -579,7 +579,7 @@ st.play=function(){
 };
 st.abort=function(){ game=null; F=null; cursorAim(false); D.ff.classList.remove('aim'); hideMarks(); vis(D.next,false); if(U){ U.uOn.value=0; U.uHeat.value.w=0; U.uFoot.value.w=0; U.uLock.value.w=0; U.uHover.value.w=0; } if(beam) beam.visible=false; prepJob=null; aim.drag=false; };
 function menuLoiter(){ const nar=NARROW(); drone.C.set(nar?.2:-.9,0,nar?2.6:-1.6); drone.r=nar?1.25:1.75; drone.alt=nar?1.6:2.05; }
-st.enter=function(){ st.abort(); st.setState('menu'); U.uMenu.value=1; menuLoiter(); drone.cw=1; drone.p.set(drone.C.x+drone.r,drone.alt,drone.C.z); drone.yaw=Math.PI; $('#phBest').textContent='Best '+fmt(store.get('ph',0)); measure(); if(!pend&&!prepJob&&!mapJob) prepJob=prepFix(1,[]); };
+st.enter=function(){ st.abort(); st.setState('menu'); U.uMenu.value=1; menuLoiter(); drone.cw=1; drone.p.set(drone.C.x+drone.r,drone.alt,drone.C.z); drone.yaw=Math.PI; { const b=store.get('ph',0); $('#phBest').textContent=b>0?'Best '+fmt(b):''; } measure(); if(!pend&&!prepJob&&!mapJob) prepJob=prepFix(1,[]); };
 st.exit=function(){ st.abort(); };
 st.build=function(){
   buildPlane(); buildDrone(); buildFX();
