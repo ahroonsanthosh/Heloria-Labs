@@ -15,7 +15,7 @@ function goChapter(i){
   const prev=S.ch; S.ch=i; story.busy=1.15; story.k=0; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov;
   unreveal(story.blocks[prev]); setTimeout(()=>{ if(S.ch===i&&S.mode==='story') reveal(story.blocks[i]); },430);
   story.rail.forEach((b,k)=>b.classList.toggle('on',k===i)); $('#cue').style.opacity=i===0?1:0; $('#prox').classList.toggle('on',i===3);
-  $('#cue').innerHTML=`<i></i>${i===3?'Scroll to fire the engine':'Scroll'}`; $('#cue').style.opacity=1;
+  $('#cue').innerHTML='<i></i>Scroll'; $('#cue').style.opacity=i===3?0:1;
   A.stinger(i); A.whoosh(i>prev,1.2,.12); if(i===3){ A.alarm(); story.creep=0; }
   where(['Approach','Builders','System','Too close'][i]);
 }
