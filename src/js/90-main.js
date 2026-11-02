@@ -26,7 +26,7 @@ async function boot(){
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
+  if(!S.ready||S.mode!=='load') return; A.start(); A.swell(); $('#enter').blur();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
