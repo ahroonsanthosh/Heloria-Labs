@@ -119,8 +119,10 @@ const A=(()=>{
         stop(){ try{ g.gain.setTargetAtTime(0,ctx.currentTime,.02); o.stop(ctx.currentTime+.2); }catch(e){} } }; }
   };
 })();
-function sndUI(){ const b=$('#snd'); b.classList.toggle('live',A.on); b.setAttribute('aria-pressed',A.on); $('.t',b).textContent=A.on?'Sound':'Muted'; }
-$('#snd').addEventListener('click',()=>A.toggle());
+function sndUI(){}
+/* browsers only let audio start from a click, tap or key. A scroll can begin the experience silently; the first
+   gesture after that brings the sound in */
+['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(A.on&&A.ctx&&A.ctx.state!=='running') A.start(); },{capture:true,passive:true}));
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');
@@ -734,7 +736,7 @@ function radarDraw(){
     if(S.ap===s){ rx.strokeStyle='#fff'; rx.setLineDash([4,4]); rx.beginPath(); rx.moveTo(S.probe.p.x*k,S.probe.p.z*k); rx.lineTo(x,y); rx.stroke(); rx.setLineDash([]); } });
   const P=S.probe; rx.save(); rx.translate(P.p.x*k,P.p.z*k); rx.rotate(-P.head+Math.PI); rx.fillStyle='#fff'; rx.beginPath(); rx.moveTo(0,10); rx.lineTo(6,-6); rx.lineTo(0,-2); rx.lineTo(-6,-6); rx.closePath(); rx.fill(); rx.restore();
   rx.restore();
-  rx.fillStyle='rgba(238,233,223,.5)'; rx.font='16px "Michroma", sans-serif'; rx.textAlign='center'; rx.fillText('▲',cx,16);
+  rx.fillStyle='rgba(238,233,223,.5)'; rx.font='900 16px "Doto", monospace'; rx.textAlign='center'; rx.fillText('▲',cx,16);
 }
 rc.addEventListener('click',e=>{
   const b=rc.getBoundingClientRect(), sc=rc.width/b.width; let x=(e.clientX-b.left)*sc-rc.width/2, y=(e.clientY-b.top)*sc-rc.width/2;
@@ -1456,9 +1458,9 @@ const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
   if(!labCx||labMode===+mob) return; labMode=+mob;
   const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
-  const fs=mob?33:19, sy=mob?1.1:1.3; x.font=`${fs}px "Michroma", sans-serif`;
+  const fs=mob?38:22, sy=mob?1.1:1.3; x.font=`900 ${fs}px "Doto", monospace`; x.strokeStyle='#fff'; x.lineWidth=Math.max(1,fs*.06); x.lineJoin='round';
   // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
-  const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.fillText(t,0,0); x.restore(); };
+  const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.strokeText(t,0,0); x.fillText(t,0,0); x.restore(); };
   for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
   for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.24:.14), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left'); }
   labTex.needsUpdate=true;
@@ -1475,7 +1477,7 @@ function heightTex(){
   const t=new T.DataTexture(data,N,N,T.RedFormat,T.UnsignedByteType); t.magFilter=t.minFilter=T.LinearFilter; t.generateMipmaps=false; t.needsUpdate=true; return t;
 }
 st.build=async function(){
-  try{ await Promise.race([document.fonts.load('20px "Michroma"'),wait(1500)]); }catch(e){}
+  try{ await Promise.race([document.fonts.load('900 20px "Doto"'),wait(1500)]); }catch(e){}
   labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
   labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},
@@ -2877,8 +2879,8 @@ const lad=new T.Group(); lad.position.z=-4; W.add(lad);
 const ladU={uFocus:{value:0},uOn:WU,uLad:{value:0}};
 function labelSprite(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; const tex=new T.CanvasTexture(c); tex.minFilter=T.LinearFilter; tex.generateMipmaps=false;
   const sp=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false,opacity:0})); sp.userData={c,x:c.getContext('2d'),tex}; return sp; }
-function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font=Math.round(px*.82)+'px "Michroma", sans-serif'; x.fillStyle=color; x.textBaseline='middle';
-  x.textAlign=align||'left'; x.fillText(text,align==='right'?c.width-6:6,c.height/2+2); tex.needsUpdate=true; }
+function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font='900 '+Math.round(px*.92)+'px "Doto", monospace'; x.fillStyle=x.strokeStyle=color; x.lineWidth=Math.max(1,px*.05); x.lineJoin='round'; x.textBaseline='middle';
+  x.textAlign=align||'left'; const tx=align==='right'?c.width-6:6; x.strokeText(text,tx,c.height/2+2); x.fillText(text,tx,c.height/2+2); tex.needsUpdate=true; } // the stroke fills the dots in, as in the page's text
 const ladLabels=[];
 { const P=[], K=[]; P.push(0,0,0,0,52,0); K.push(.6,.6);
   for(let m=10;m<=520;m+=10){ const y=m*SCF, maj=m%50===0; P.push(0,y,0,maj?.6:.22,y,0); K.push(maj?1:0,maj?1:0); }
@@ -3653,9 +3655,9 @@ const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
 async function boot(){
-  const mark=$('#mark'), pct=$('#ldPct'), txt=$('#ldTxt');
+  const mark=$('#mark'), txt={set textContent(v){}}; // the mark's weight is the progress bar
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
-  const setP=v=>{ $('#ldBar').style.setProperty('--p',v); pct.textContent=String(Math.round(v*100)).padStart(3,'0'); mark.style.fontWeight=Math.round(100+700*v); };
+  const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
@@ -3669,13 +3671,13 @@ async function boot(){
   for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
     try{ renderer.compile(st.scene,stCam); }catch(e){} renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
-  setP(1); txt.textContent='Ready'; $('#load').classList.add('ready'); $('#enter').focus({preventScroll:true}); S.ready=true;
+  setP(1); $('#load').classList.add('ready'); S.ready=true;
 }
 
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell(); $('#enter').blur();
+  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
@@ -3683,8 +3685,13 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); $('#frame').classList.add('on'); },900);
 }
-$('#enter').addEventListener('click',enter);
-addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&(e.code==='Enter'||e.code==='Space')){ e.preventDefault(); enter(); } });
+/* the way in: scroll, swipe, tap, click or a key */
+$('#beginT').textContent=FINE?'Scroll to begin':'Swipe up to begin';
+addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
+{ let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
+  addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
+$('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
+addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&['Enter','Space','ArrowDown','PageDown'].includes(e.code)){ e.preventDefault(); enter(); } });
 
 /* ---------- into orbit ---------- */
 function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math.sin(a)*r); const vc=Math.sqrt(GM/r); P.v.set(-Math.sin(a)*vc,0,Math.cos(a)*vc); P.head=Math.atan2(-P.v.x,-P.v.z); S.yaw=Math.atan2(P.p.x,P.p.z);

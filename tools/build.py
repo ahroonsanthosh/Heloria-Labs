@@ -15,7 +15,7 @@ ORDER = ['kr', 'ae', 'ph', 'og', 'cr', 'be']
 CORE_JS = ['00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js', '29-station.js']
 CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
-FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Michroma&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap'
+FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap'
 
 def read(p): return open(os.path.join(SRC, p), encoding='utf-8').read()
 def b64(p): return base64.b64encode(open(os.path.join(SRC, p), 'rb').read()).decode()

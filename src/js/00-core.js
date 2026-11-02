@@ -116,8 +116,10 @@ const A=(()=>{
         stop(){ try{ g.gain.setTargetAtTime(0,ctx.currentTime,.02); o.stop(ctx.currentTime+.2); }catch(e){} } }; }
   };
 })();
-function sndUI(){ const b=$('#snd'); b.classList.toggle('live',A.on); b.setAttribute('aria-pressed',A.on); $('.t',b).textContent=A.on?'Sound':'Muted'; }
-$('#snd').addEventListener('click',()=>A.toggle());
+function sndUI(){}
+/* browsers only let audio start from a click, tap or key. A scroll can begin the experience silently; the first
+   gesture after that brings the sound in */
+['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(A.on&&A.ctx&&A.ctx.state!=='running') A.start(); },{capture:true,passive:true}));
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');

@@ -6,7 +6,7 @@
 #tags.in .tag{opacity:1}
 #tags.in .tag:nth-child(2){transition-delay:.14s}#tags.in .tag:nth-child(3){transition-delay:.28s}
 .st-cr .tag .n{color:var(--acc);transition:opacity .4s}
-.st-cr .tag b{display:grid;font:800 clamp(22px,2vw,32px)/.98 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;color:var(--ink2);transition:color .45s var(--ease),opacity .45s}
+.st-cr .tag b{display:grid;font:800 clamp(22px,2vw,32px)/.98 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;color:var(--ink2);transition:color .45s var(--ease),opacity .45s;-webkit-text-stroke:0}
 .st-cr .tag b>span{display:block}
 .st-cr .tag .li{color:var(--mute);transition:color .35s,opacity .45s}
 .st-cr .tag::after{content:"";position:absolute;left:50%;bottom:0;width:44px;height:1px;margin-left:-22px;background:var(--acc);transform:scaleX(0);transition:transform .7s var(--ease)}

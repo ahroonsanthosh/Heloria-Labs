@@ -70,7 +70,8 @@ node tools/test/docs-smoke.cjs docs
 
 ## Notes
 
-- Sound is part of the experience and starts with the Enter button. There is a mute toggle in the top corner.
+- The opening screen is the mark and one line: scroll, swipe, tap or press a key to begin. Sound is part of the
+  experience and has no off switch; browsers start it on the first click, tap or key press.
 - Browsers without WebGL get a plain page with the projects, the crew and the contact address.
 - The black hole is traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler beaming and
   gravitational redshift. Every colour on the site comes from one blackbody scale.
@@ -78,4 +79,4 @@ node tools/test/docs-smoke.cjs docs
 
 ## Credits
 
-three.js (MIT, vendored in `src/assets/vendor`). Doto, Michroma and Newsreader from Google Fonts (SIL OFL).
+three.js (MIT, vendored in `src/assets/vendor`). Doto from Google Fonts (SIL OFL), dotted for display and filled in for all other text.
