@@ -1,7 +1,24 @@
-/* crew */
-.tag{position:absolute;left:0;top:0;transform:translate(-50%,0);display:grid;justify-items:center;gap:8px;pointer-events:auto;white-space:nowrap;text-align:center;transition:opacity .5s}
-.tag b{font:800 clamp(22px,2.1vw,34px)/.95 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;transition:color .4s}
-.tag .n{color:var(--acc)}
-.tag span{color:var(--mute);transition:color .3s}
-.tag.f b{color:var(--acc)}.tag.f span{color:var(--ink)}
-.tag.dim{opacity:.4}
+/* crew: name tags in Doto that follow their portraits; the focused name is lit and powers on again */
+.st-cr .card{bottom:auto;top:calc(var(--gt) + 96px)}
+.st-cr .card h2{font-size:clamp(36px,4vw,68px)}
+#tags{position:absolute;inset:0;pointer-events:none}
+.st-cr .tag{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:9px;padding:6px 12px 10px;text-align:center;white-space:nowrap;pointer-events:auto;opacity:0;will-change:transform;transition:opacity .8s var(--ease)}
+#tags.in .tag{opacity:1}
+#tags.in .tag:nth-child(2){transition-delay:.14s}#tags.in .tag:nth-child(3){transition-delay:.28s}
+.st-cr .tag .n{color:var(--acc);transition:opacity .4s}
+.st-cr .tag b{display:grid;font:800 clamp(22px,2vw,32px)/.98 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;letter-spacing:-.01em;color:var(--ink2);transition:color .45s var(--ease),opacity .45s}
+.st-cr .tag b>span{display:block}
+.st-cr .tag .li{color:var(--mute);transition:color .35s,opacity .45s}
+.st-cr .tag::after{content:"";position:absolute;left:50%;bottom:0;width:44px;height:1px;margin-left:-22px;background:var(--acc);transform:scaleX(0);transition:transform .7s var(--ease)}
+.st-cr .tag.f b{color:var(--acc)}
+.st-cr .tag.f .li{color:var(--ink)}
+.st-cr .tag.f::after{transform:none}
+.st-cr .tag.f b .c{animation:crOn .6s steps(4) both;animation-delay:calc(var(--d,0ms)*.45)}
+@keyframes crOn{from{opacity:.2;font-weight:100}to{opacity:1;font-weight:800}}
+.st-cr .tag.dim b,.st-cr .tag.dim .li,.st-cr .tag.dim .n{opacity:.45}
+.st-cr .tag:hover b,.st-cr .tag:focus-visible b{opacity:1}
+.st-cr .tag:hover .li{color:var(--acc)}
+#tags.nar .tag{justify-items:start;text-align:left;white-space:normal;max-width:min(160px,calc(100vw - 210px));padding:4px 0 8px}
+#tags.nar .tag::after{left:0;margin-left:0}
+#tags.nar .tag b{font-size:19px}
+@media (max-width:820px),(max-aspect-ratio:9/10){.st-cr .card h2{font-size:30px}}
