@@ -1,0 +1,4 @@
+/* bowshock */
+.bsr{position:absolute;right:calc(var(--gr) + 6px);top:calc(var(--gt) + 160px);display:grid;grid-template-columns:auto auto;gap:6px 20px;padding:14px 16px;border:1px solid var(--hair);background:rgba(5,5,4,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.bsr span:nth-child(odd){color:var(--mute)} .bsr span:nth-child(even){text-align:right}
+.conv{width:min(300px,60vw);height:58px;display:block}

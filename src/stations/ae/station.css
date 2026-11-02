@@ -1,0 +1,20 @@
+/* aetos */
+.c2{position:absolute;right:calc(var(--gr) + 6px);top:calc(var(--gt) + 150px);width:300px;border:1px solid var(--hair);background:rgba(5,5,4,.66);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.c2 .hd{display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--hair);color:var(--mute)}
+.c2 table{width:100%;border-collapse:collapse;font:400 10px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.c2 td{padding:7px 12px;border-bottom:1px solid rgba(238,233,223,.05);white-space:nowrap}
+.c2 tr.hos td:nth-child(2){color:var(--alarm)}.c2 tr.fri td:nth-child(2){color:var(--ice)}.c2 tr.unk td:nth-child(2){color:var(--mute)}
+.arm{position:absolute;right:calc(var(--gr) + 6px);bottom:calc(var(--gb) + 4px);display:flex;gap:16px;align-items:flex-end}
+.ammo{display:grid;gap:8px;justify-items:end}
+.ammo .pips{display:flex;gap:3px}
+.ammo .pips i{width:5px;height:16px;background:var(--ink);transition:background .2s}
+.ammo .pips i.e{background:var(--hair2)}
+.jam{--p:1;--acc:var(--ice)}
+.trk{position:absolute;left:0;top:0;width:32px;height:32px;margin:-16px 0 0 -16px;--c:var(--mute);transition:width .3s var(--ease),height .3s,margin .3s;
+  background:linear-gradient(var(--c),var(--c)) 0 0/7px 1px no-repeat,linear-gradient(var(--c),var(--c)) 0 0/1px 7px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/7px 1px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/1px 7px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/7px 1px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/1px 7px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/7px 1px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/1px 7px no-repeat}
+.trk span{position:absolute;left:100%;top:-2px;margin-left:6px;font:400 9px/1 var(--ui);letter-spacing:.04em;color:var(--c);white-space:nowrap}
+.trk.hos{--c:var(--alarm)}.trk.fri{--c:var(--ice)}
+.trk.lock{width:20px;height:20px;margin:-10px 0 0 -10px}
+.asset{position:absolute;left:0;top:0;transform:translate(-50%,10px);display:grid;justify-items:center;gap:5px;font:400 9px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.asset .hp{display:flex;gap:3px}.asset .hp i{width:12px;height:3px;background:var(--ink)}.asset .hp i.x{background:var(--alarm);opacity:.35}
+.asset.dead{color:var(--alarm)}
