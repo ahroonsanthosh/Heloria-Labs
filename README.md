@@ -75,6 +75,10 @@ node tools/test/docs-smoke.cjs docs
 - Browsers without WebGL get a plain page with the projects, the crew and the contact address.
 - The black hole is traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler beaming and
   gravitational redshift. Every colour on the site comes from one blackbody scale.
+- The sky (a faint galactic band, distant galaxies, two dim nebulae) is drawn once at load into a cube that the ray
+  tracer samples, so all of it is lensed by the hole; stars stay procedural and sharp.
+- In orbit you can hear where you are: each station has a soft tone in the score's key that grows and pans as you
+  approach, fly-bys whoosh past on their side, the asteroid belt ticks against the hull, the hole growls up close.
 - The renderer watches its own frame times and trades resolution for smoothness on slower machines.
 
 ## Credits

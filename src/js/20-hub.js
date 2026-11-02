@@ -86,7 +86,7 @@ function hubPhysics(dt){
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
-  U.dustU.uC.value.copy(P.p); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
+  U.dustU.uC.value.copy(P.p); U.dustU.uV.value.copy(P.v); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
   U.fenceU.uPA.value=Math.atan2(P.p.z,P.p.x); U.fenceU.uNear.value=sstep(RB-6,RB-1,r);
   // proximity
   let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<2.6?1:0,6,dt); });
@@ -97,6 +97,26 @@ function hubPhysics(dt){
   // proper time still accrues for the horizon page; the readouts are gone
   const rs=r/BH.RS, danger=r<6.2; $('#warn').classList.toggle('on',danger); if(danger){ $('#warnR').textContent='r = '+rs.toFixed(2)+' rs'; post.uniforms.uTint.value.r=Math.max(post.uniforms.uTint.value.r,(6.2-r)*.012); }
   A.wind(P.v.length()/34+Math.max(0,(7-r))*.05); A.update(S.t,{sub:sstep(12,2,r),pad:1,bright:.4});
+  orbitSound(P,r,dt);
+}
+
+/* ---------- the sound of the system: where things are, how fast you go, how close the hole is ---------- */
+const BEACON_NOTES=[12,10,13,11,8,14];   // Kríos F, Aetos D, Pharos A, Ogive E, Crew A below, Beacon B: all in the score's mode
+const _cr=new T.Vector3(), _to=new T.Vector3();
+function orbitSound(P,r,dt){
+  if(!A.ctx) return; A.beacons(BEACON_NOTES);
+  _cr.setFromMatrixColumn(hubCam.matrixWorld,0);
+  const sp=P.v.length();
+  STA.forEach((s,i)=>{ _to.copy(s.pos).sub(P.p); const d=_to.length(); _to.y=0;
+    const k=1-sstep(1.6,11,d), pan=clamp(_to.dot(_cr)/Math.max(d,.5)*1.3,-1,1);
+    A.beacon(i,.055*k*k,pan);
+    // a fly-by: the closest approach to a station, taken at speed
+    const pd=s._pd??d; if(d>pd&&pd<3.2&&sp>4&&S.t>(s._pbT||0)){ s._pbT=S.t+2; A.passby(pan,.06+.05*sstep(4,12,sp)); }
+    s._pd=d; });
+  // the asteroid belt: faint grains on the hull while you cross it
+  const near=1-Math.min(1,Math.abs(r-14.9)/1.6); if(near>0&&Math.random()<dt*near*(2+sp*1.6)) A.pebble((Math.random()-.5)*1.6);
+  // the hole: a low growl that builds inside a few radii
+  A.roar(sstep(7.5,2.6,r)*.2);
 }
 
 /* ---------- labels, edge markers, radar ---------- */

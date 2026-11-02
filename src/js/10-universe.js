@@ -27,7 +27,8 @@ const NST=STA.length, BEACON=STA.find(s=>s.id==='be');
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
-      vA=uOp*((.05+.16*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.28*exp(-d*d*.1));
+      float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
+      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
       gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`uniform vec3 uC; varying float vA; void main(){ gl_FragColor=vec4(uC*vA,1.); }`}));
   U.grid.frustumCulled=false; U.scene.add(U.grid);
@@ -130,9 +131,23 @@ U.exhaust=Burst(U.scene,Math.floor(500*Q+120),'#FFC392',.08);
 const TRL=170; U.trailPos=new Float32Array(TRL*3); U.trailCol=new Float32Array(TRL*3);
 U.trailG=new T.BufferGeometry(); U.trailG.setAttribute('position',new T.BufferAttribute(U.trailPos,3)); U.trailG.setAttribute('color',new T.BufferAttribute(U.trailCol,3));
 U.trail=new T.Line(U.trailG,new T.LineBasicMaterial({vertexColors:true,transparent:true,blending:T.AdditiveBlending,depthWrite:false})); U.trail.frustumCulled=false; U.trail.visible=false; U.scene.add(U.trail);
-U.dustU={uC:{value:new T.Vector3()}};
+U.dustU={uC:{value:new T.Vector3()},uV:{value:new T.Vector3()}};
 U.dust=pts(cloud(Math.floor(1600*Q),(i,r,o)=>{o[0]=(r[0]-.5)*44;o[1]=(r[1]-.5)*16;o[2]=(r[2]-.5)*44;}),PM({size:.05,color:'#CFC3B1',uniforms:U.dustU,decl:'uniform vec3 uC;',body:`p=uC+mod(position-uC+vec3(22.,8.,22.),vec3(44.,16.,44.))-vec3(22.,8.,22.); b=.22;`}));
 U.dust.visible=false; U.scene.add(U.dust);
+/* speed streaks: the same dust drawn as short lines along the probe's velocity, visible only when you are moving fast */
+{ const N=Math.floor(900*Q+200), P=new Float32Array(N*6), E=new Float32Array(N*2), R=new Float32Array(N*2);
+  for(let i=0;i<N;i++){ const x=(Math.random()-.5)*44, y=(Math.random()-.5)*16, z=(Math.random()-.5)*44, r=Math.random();
+    P.set([x,y,z,x,y,z],i*6); E[i*2]=0; E[i*2+1]=1; R[i*2]=R[i*2+1]=r; }
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(P,3)); g.setAttribute('aE',new T.BufferAttribute(E,1)); g.setAttribute('aR',new T.BufferAttribute(R,1)); g.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
+  U.streak=new T.LineSegments(g,new T.ShaderMaterial({uniforms:U.dustU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+    vertexShader:`uniform vec3 uC,uV; attribute float aE,aR; varying float vA;
+      void main(){ vec3 p=uC+mod(position-uC+vec3(22.,8.,22.),vec3(44.,16.,44.))-vec3(22.,8.,22.);
+        float sp=length(uV); p-=uV*aE*(.05+.07*aR);
+        vec4 mv=modelViewMatrix*vec4(p,1.); float dc=-mv.z;
+        vA=smoothstep(3.,8.,sp)*(1.-aE*.85)*.22*smoothstep(1.,4.,dc)*smoothstep(26.,8.,dc);
+        gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`varying float vA; void main(){ gl_FragColor=vec4(vec3(.85,.8,.74)*vA,1.); }`}));
+  U.streak.frustumCulled=false; U.streak.visible=false; U.scene.add(U.streak); }
 { const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3)); g.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
   U.apLine=new T.Line(g,dashMat('#EEE9DF','float a=.5*step(.5,fract(vAng*uR-uTime*2.));')); U.apLine.frustumCulled=false; U.apLine.visible=false; U.scene.add(U.apLine); }
 const MAXP=24; U.peerPos=new Float32Array(MAXP*3).fill(9999);
@@ -143,6 +158,8 @@ U.sig=pts(cloud(200,(i,r,o)=>{o[0]=i;o[1]=r[0];o[2]=r[1];}),PM({size:.12,color:'
   float i=position.x; b=step(i,uCount-.5)*.9; float a=uTime*(.2+aR.x*.3)+aR.y*6.28; float rr=2.4+aR.z*1.2; p=uBe+vec3(cos(a)*rr,(aR.w-.5)*1.4,sin(a)*rr);`}));
 U.scene.add(U.sig);
 
+/* everything in orbit is lit by the disk, and dimmer the farther it is from the hole */
+U.scene.traverse(o=>{ const m=o.material; if(m&&m.uniforms&&m.uniforms.uFall) m.uniforms.uFall.value=1; });
 function updateStations(t){
   STA.forEach(s=>{ s.a=s.ph+t*s.w; s.pos.set(Math.cos(s.a)*s.R,Math.sin(t*.3+s.ph)*.25,Math.sin(s.a)*s.R); s.vel.set(-Math.sin(s.a)*s.R*s.w,0,Math.cos(s.a)*s.R*s.w);
     s.grp.position.copy(s.pos); s.orbit.material.uniforms.uAng.value=s.a; U.gridU.uSt.value[s.idx].copy(s.pos);
