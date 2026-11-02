@@ -1,0 +1,198 @@
+/* ogive: apogee */
+/* the title screen's links keep .hit, which would leave them clickable (and invisible) under the game HUD */
+.st-og:not(.is-menu) .go,.st-og:not(.is-menu) .go *{pointer-events:none!important}
+/* and the global .hit keeps HUD controls clickable while the HUD is invisible: only the play state may hit-test them */
+.st-og:not(.is-play) .ghud,.st-og:not(.is-play) .ghud *{pointer-events:none!important}
+.st-og{--gh:132px}
+.st-og .ogtl{gap:6px}
+.st-og .og-wind svg{width:12px;height:8px;margin-left:3px;vertical-align:-1px}
+.st-og .og-ast{color:var(--acc);opacity:0;transition:opacity .4s}
+.st-og.assisted .og-ast{opacity:1}
+
+/* altitude gauge: the target line, past flights, Ogive's prediction and the live altitude */
+.oggauge{position:relative;width:184px;height:var(--gh);margin:12px 0 6px}
+.oggauge .ax{position:absolute;left:38px;top:0;bottom:0;width:1px;background:var(--hair2)}
+.oggauge .tk{position:absolute;left:0;top:0;width:30px;text-align:right;font:400 8px/1 var(--ui);letter-spacing:.04em;color:var(--dim);margin-top:-4px}
+.oggauge .tk::after{content:"";position:absolute;left:34px;top:4px;width:4px;height:1px;background:var(--hair2)}
+.oggauge .tg{position:absolute;left:34px;top:0;width:146px;height:1px;background:var(--acc);transition:transform .7s var(--ease)}
+.oggauge .tgl{position:absolute;right:4px;top:-13px;color:var(--acc);transition:transform .7s var(--ease);white-space:nowrap}
+.oggauge .fm{position:absolute;left:35px;top:-3px;width:7px;height:7px;background:var(--ink);opacity:0;transition:transform .9s var(--ease),opacity .4s}
+.oggauge .fm.on{opacity:1}
+.oggauge .fm.old{background:var(--mute)}
+.oggauge .fml{position:absolute;left:48px;top:-4px;white-space:nowrap;color:var(--ink2);opacity:0;transition:transform .9s var(--ease),opacity .4s}
+.oggauge .fml.on{opacity:1}
+.oggauge .fml.old{color:var(--mute)}
+.oggauge .pr{position:absolute;left:30px;top:0;width:24px;height:0;border-top:1px dashed var(--ink2);opacity:0;transition:transform .7s var(--ease),opacity .4s}
+.st-og.predicted .oggauge .pr{opacity:1}
+.oggauge .lv{position:absolute;left:39px;top:-5px;width:0;height:0;border-left:7px solid var(--acc);border-top:5px solid transparent;border-bottom:5px solid transparent;opacity:0;transition:opacity .4s}
+.oggauge .mx{position:absolute;left:39px;top:0;width:12px;height:1px;background:var(--acc);opacity:0;transition:opacity .4s}
+.st-og.ph-flight .oggauge .lv,.st-og.ph-landed .oggauge .lv,.st-og.ph-flight .oggauge .mx,.st-og.ph-landed .oggauge .mx{opacity:1}
+
+/* countdown and captions */
+.ogcd{position:absolute;left:50%;top:calc(var(--gt) + 64px);transform:translateX(-50%);display:grid;justify-items:center;gap:6px;opacity:0;transition:opacity .4s var(--ease);pointer-events:none}
+.ogcd b{font-size:clamp(92px,11vw,150px);line-height:.86;font-variant-numeric:tabular-nums;color:var(--ink)}
+.ogcd b{min-width:1ch;text-align:center}
+.ogcd b.ogtk{animation:ogtick .9s var(--ease)}
+@keyframes ogtick{from{opacity:.15;transform:scale(1.18)}to{opacity:1;transform:none}}
+.st-og.ph-count .ogcd,.st-og.ph-arm .ogcd{opacity:1}
+.ogcap{position:absolute;left:50%;top:calc(var(--gt) + 50px);transform:translateX(-50%);display:flex;gap:12px;align-items:baseline;white-space:nowrap;opacity:0;pointer-events:none}
+.ogcap.on{animation:ogcap 2.6s var(--ease) forwards}
+@keyframes ogcap{0%{opacity:0;transform:translate(-50%,6px)}12%,78%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-4px)}}
+
+/* CG and CP: a measuring rail under the rocket, the way OpenRocket draws them */
+.ogcg{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .4s var(--ease)}
+.st-og.ph-design .ogcg{opacity:1}
+.ogcg i{position:absolute;left:0;top:0;width:100px;height:1px;transform-origin:0 50%;will-change:transform}
+.ogcg .rl{background:var(--hair2)}
+.ogcg .dr{background:rgba(238,233,223,.35)}
+.ogcg .dr.cp{background:rgba(255,86,54,.55)}
+.ogcg .dm{height:3px;margin-top:-1px;background:var(--ink2);opacity:.85}
+.ogcg .m{position:absolute;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;display:grid;place-items:center;will-change:transform}
+.ogcg .cg .sym{width:18px;height:18px;border-radius:50%;border:1px solid var(--ink);background:conic-gradient(var(--ink) 0 25%,var(--void) 0 50%,var(--ink) 0 75%,var(--void) 0)}
+.ogcg .cp .sym{width:18px;height:18px;border-radius:50%;border:1px solid var(--alarm);background:var(--void);display:grid;place-items:center}
+.ogcg .cp .sym::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--alarm)}
+.ogcg .ml{position:absolute;left:0;top:0;transform:translate(-50%,-50%);white-space:nowrap;color:var(--ink);will-change:transform}
+.ogcg .ml.cp{color:var(--alarm)}
+.ogcg .stab{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:3px;white-space:nowrap;text-align:center;will-change:transform}
+.ogcg .stab b{font-size:13px;color:var(--ink)}
+.st-og.unstable .ogcg .stab b{color:var(--alarm)}
+.st-og.overstable .ogcg .stab b{color:var(--acc)}
+
+/* drag handles: pulse until you use them, fill on hover, show the value while dragging */
+.st-og .handle{position:absolute;left:0;top:0;width:48px;height:48px;margin:-24px 0 0 -24px;display:grid;place-items:center;cursor:grab;touch-action:none;visibility:hidden;opacity:0;transition:opacity .4s var(--ease),visibility 0s .4s;will-change:transform;outline-offset:-6px}
+.st-og.ph-design.is-play .handle{visibility:visible;opacity:1;transition:opacity .4s var(--ease)}
+.st-og .handle .d{width:12px;height:12px;border:1px solid var(--acc);background:var(--void);transform:rotate(45deg);transition:transform .3s var(--ease),background .25s}
+.st-og .handle .pl{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border:1px solid var(--acc);border-radius:50%;opacity:0;animation:ogpulse 2.4s var(--ease) infinite}
+.st-og .handle.used .pl{animation:none}
+@keyframes ogpulse{0%{transform:scale(.45);opacity:.9}70%,100%{transform:scale(1.35);opacity:0}}
+.st-og .handle .ar{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border:solid var(--acc);border-width:1px 1px 0 0;opacity:.75;transition:transform .3s var(--ease),opacity .3s}
+.st-og .handle .ar.a{transform:rotate(45deg) translate(9px,-9px)}
+.st-og .handle .ar.b{transform:rotate(225deg) translate(9px,-9px)}
+.st-og .handle.vert .ar.a{transform:rotate(-45deg) translate(9px,-9px)}
+.st-og .handle.vert .ar.b{transform:rotate(135deg) translate(9px,-9px)}
+.st-og .handle:hover .d,.st-og .handle.drag .d,.st-og .handle:focus-visible .d{background:var(--acc);transform:rotate(45deg) scale(1.3)}
+.st-og .handle:hover .ar.a,.st-og .handle.drag .ar.a{transform:rotate(45deg) translate(12px,-12px);opacity:1}
+.st-og .handle:hover .ar.b,.st-og .handle.drag .ar.b{transform:rotate(225deg) translate(12px,-12px);opacity:1}
+.st-og .handle.vert:hover .ar.a,.st-og .handle.vert.drag .ar.a{transform:rotate(-45deg) translate(12px,-12px)}
+.st-og .handle.vert:hover .ar.b,.st-og .handle.vert.drag .ar.b{transform:rotate(135deg) translate(12px,-12px)}
+.st-og .handle.drag{cursor:grabbing}
+.st-og .handle .lb{position:absolute;left:34px;top:50%;transform:translateY(-50%);display:grid;gap:3px;white-space:nowrap;color:var(--acc);pointer-events:none}
+.st-og .handle .lb b{color:var(--ink);font-weight:400;opacity:.65;transition:opacity .25s}
+.st-og .handle.drag .lb b,.st-og .handle:hover .lb b{opacity:1}
+.st-og .handle.lbl-l .lb{left:auto;right:34px;justify-items:end;text-align:right}
+.st-og .handle.lbl-u .lb{left:50%;top:auto;bottom:34px;transform:translateX(-50%);justify-items:center;text-align:center}
+
+/* bottom: Ogive's console line, the design bar, and the launch button */
+.ogfoot{position:absolute;left:calc(var(--gl) + 6px);right:calc(var(--gr) + 6px);bottom:calc(var(--gb) + 8px);display:flex;align-items:flex-end;justify-content:space-between;gap:20px;pointer-events:none}
+.ogdock{display:grid;gap:10px;justify-items:start;min-width:0;transition:opacity .45s var(--ease),transform .6s var(--ease)}
+.st-og:not(.ph-design) .ogdock{opacity:0;transform:translateY(10px);pointer-events:none!important;visibility:hidden;transition:opacity .45s var(--ease),transform .6s var(--ease),visibility 0s .45s}
+.st-og:not(.ph-design) .ogdock *{pointer-events:none!important}
+.ogsay{display:flex;gap:14px;align-items:center;min-height:0;max-width:min(640px,100%)}
+.ogsay canvas{width:116px;height:44px;flex:none;border:1px solid var(--hair);display:none}
+.st-og.searching .ogsay canvas,.st-og.answered .ogsay canvas{display:block}
+.ogsay p{margin:0;color:var(--acc);text-wrap:pretty;line-height:1.5}
+.ogsay p .mute{color:var(--ink2)}
+.ogbar{display:flex;gap:26px;align-items:center;padding:14px 18px;border:1px solid var(--hair2);background:rgba(5,5,4,.66);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.ogbar .grp{display:grid;gap:7px}
+.st-og .seg{display:flex}
+.st-og .seg button{height:34px;min-width:40px;padding:0 10px;border:1px solid var(--hair2);font:400 11px/1 var(--ui);transition:background .25s,color .25s,border-color .25s}
+.st-og .seg button+button{border-left:0}
+.st-og .seg button:hover{background:rgba(255,180,117,.14)}
+.st-og .seg button[aria-pressed=true]{background:var(--acc);color:#0a0806;border-color:var(--acc)}
+.st-og .stepper{display:flex;align-items:center;gap:8px}
+.st-og .stepper button{width:34px;height:34px;border:1px solid var(--hair2);font:400 13.5px/1 var(--ui);transition:background .25s,border-color .25s}
+.st-og .stepper button:hover{background:rgba(255,180,117,.14);border-color:var(--acc)}
+.st-og .stepper output{min-width:52px;text-align:center;font:400 11.5px/1 var(--ui);font-variant-numeric:tabular-nums}
+.st-og .og-ask{height:40px}
+.st-og .og-ask[aria-busy=true]{opacity:.55;pointer-events:none}
+.st-og .og-launch{min-width:176px;transition:color .35s var(--ease),border-color .35s,background .35s,opacity .4s}
+.st-og .og-launch kbd{border-color:rgba(10,8,6,.3);color:#0a0806;height:18px;min-width:0;margin-left:2px}
+.st-og .og-launch.cancel{background:rgba(5,5,4,.6);color:var(--ink);border-color:var(--alarm)}
+.st-og .og-launch.cancel::before{background:var(--alarm)}
+.st-og .og-launch.cancel kbd{border-color:var(--hair2);color:var(--ink)}
+.st-og .og-launch.cancel:hover kbd{border-color:rgba(10,8,6,.3);color:#0a0806}
+.st-og .og-launch{visibility:visible}
+.st-og:not(.ph-design):not(.ph-arm):not(.ph-count) .og-launch{opacity:0;visibility:hidden;transition:opacity .4s,visibility 0s .4s}
+.st-og:not(.ph-design):not(.ph-arm):not(.ph-count) .og-launch *{pointer-events:none!important}
+.st-og .og-launch[disabled]{opacity:.4}
+
+/* flight read-outs */
+.st-og .alt{position:absolute;right:calc(var(--gr) + 6px);top:50%;transform:translateY(-50%);display:grid;gap:4px;justify-items:end;text-align:right;opacity:0;transition:opacity .5s}
+.st-og.ph-flight .alt,.st-og.ph-landed .alt{opacity:1}
+.st-og .alt .num{min-width:3ch}
+.st-og #ogX{min-height:1.4em}
+
+/* chute timing: an approach ring that closes on the rocket at apogee */
+.ogring{position:absolute;left:0;top:0;width:0;height:0;opacity:0;transition:opacity .3s;will-change:transform}
+.st-og.chute-now .ogring{opacity:1}
+.ogring i{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%}
+.ogring .i{border:1px solid rgba(238,233,223,.7)}
+.ogring .o{border:1.5px solid var(--acc);will-change:transform}
+.ogring.late .o{border-color:var(--alarm)}
+.ogring.pop{opacity:0!important;transition:opacity .6s var(--ease)}
+.ogring.pop .o{transition:transform .6s var(--ease)}
+.ogchute{position:absolute;left:50%;bottom:calc(var(--gb) + 10px);transform:translate(-50%,8px);display:grid;gap:10px;justify-items:center;text-align:center;opacity:0;visibility:hidden;transition:opacity .4s var(--ease),transform .5s var(--ease),visibility 0s .4s}
+.st-og.chute-ready .ogchute{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .4s var(--ease),transform .5s var(--ease)}
+.st-og.chute-now .ogchute{bottom:calc(7vh + var(--gb))}
+.ogchute .btn{height:52px;min-width:200px;font-size:12px;letter-spacing:.1em;background:rgba(5,5,4,.55);color:var(--ink);border-color:var(--hair2)}
+.st-og.chute-now .ogchute .btn{background:var(--ink);color:#0a0806;border-color:var(--ink);animation:ogbeat .5s steps(2) infinite}
+@keyframes ogbeat{50%{border-color:var(--acc)}}
+.st-og.chute-now #ogPromptT{color:var(--acc)}
+
+@media (pointer:coarse){.st-og .og-launch kbd{display:none}}
+@media (max-width:820px),(max-aspect-ratio:9/10){
+  .st-og{--gh:92px}
+  .st-og .ogtl{top:calc(var(--gt) + 96px);gap:4px}
+  .st-og .ogtl .num{font-size:36px}
+  .oggauge{width:150px;margin:8px 0 2px}
+  .oggauge .tg{width:112px}
+  .ogfoot{left:var(--gl);right:var(--gr);flex-direction:column;align-items:stretch;gap:10px}
+  .ogdock{justify-items:stretch}
+  .ogsay{max-width:none}
+  .ogsay canvas{width:92px;height:35px}
+  .ogsay p{font-size:10px}
+  .ogbar{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:12px}
+  .ogbar .og-ask{grid-column:1/-1;width:100%}
+  .st-og .og-launch{width:100%;height:50px}
+  .st-og .alt{left:calc(var(--gl) + 6px);right:auto;top:calc(var(--gt) + 300px);transform:none;gap:2px;justify-items:start;text-align:left}
+  .st-og .alt .num{font-size:38px}
+  .ogcd{left:auto;right:calc(var(--gr) + 4px);top:calc(var(--gt) + 92px);transform:none;justify-items:end}
+  .ogcd b{font-size:96px}
+  .ogcap{top:auto;bottom:calc(var(--gb) + 92px)}
+  .st-og.chute-ready .ogcap{bottom:calc(var(--gb) + 128px)}
+  .st-og.chute-now .ogcap{bottom:calc(7vh + var(--gb) + 118px)}
+  .st-og.ph-design .ogcap,.st-og.ph-disarm .ogcap{visibility:hidden}
+  .ogchute .btn{min-width:min(320px,calc(100vw - 48px))}
+}
+/* phones held sideways: a short screen, so the HUD gets compact and the gauge steps aside */
+@media (max-height:520px) and (min-aspect-ratio:9/10){
+  .st-og .ogtl{top:calc(var(--gt) + 52px);left:auto;right:calc(var(--gr) + 6px);justify-items:end;text-align:right;gap:2px}
+  .st-og .ogtl .num{font-size:30px}
+  .oggauge,.st-og .og-wind{display:none}
+  .ogfoot{bottom:calc(var(--gb) - 6px)}
+  .ogbar{gap:16px;padding:8px 12px}
+  .ogbar .grp>.mute:last-child{display:none}
+  .st-og .seg button,.st-og .stepper button{height:30px}
+  .st-og .og-ask{height:34px}
+  .st-og .og-launch.play{height:46px;min-width:150px}
+  .ogsay canvas{display:none!important}
+  .ogsay p{font-size:10px}
+  .st-og .alt{top:auto;bottom:calc(var(--gb) + 4px);transform:none}
+  .st-og .alt .num{font-size:34px}
+  .ogcd{top:calc(var(--gt) + 30px)}
+  .ogcd b{font-size:72px}
+  .ogcap{top:calc(var(--gt) + 34px)}
+  .ogchute{bottom:calc(var(--gb) - 4px)}
+  .st-og.chute-now .ogchute{bottom:calc(7vh + var(--gb) - 10px)}
+  .st-og .res{max-height:calc(100% - 16px);padding:14px 20px;gap:10px 26px}
+  .st-og .res .l{gap:8px}
+  .st-og .res .r{gap:10px}
+  .st-og .res .grade{font-size:28px}
+  .st-og .res .score{font-size:52px}
+  .st-og .res .stats div{padding:6px 0 5px;gap:3px}
+  .st-og .res .stats b{font-size:15px}
+  .st-og .res p{font-size:11.5px;line-height:1.5}
+  .st-og .res .acts{padding-top:4px}
+  .st-og .res .acts .btn{height:36px}
+}
+
