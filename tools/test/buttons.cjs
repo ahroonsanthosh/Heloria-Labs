@@ -1,5 +1,6 @@
 /* Every-button test for the whole site. Run with the harness:
    node tools/test/shot.cjs --html dist/heloria.html --out /tmp/btn --scenario tools/test/buttons.cjs [--mobile]
+   Set BTN_ONLY=kr,ae to test only some stations.
    It clicks real elements (Playwright refuses if anything covers them), checks each click does what it should,
    and checks every visible button in each screen is the topmost element at its centre. */
 const results = [];
@@ -76,9 +77,16 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   }
   rec(radarOk, 'radar click sets autopilot');
   await H(h => { h.S.ap = null; });
+  // flying close to a station offers docking: E on a keyboard, the Dock button on touch
+  await H(h => { const s = h.STA[0], P = h.S.probe; P.p.set(s.pos.x * 1.1, 0, s.pos.z * 1.1); P.v.copy(s.vel); });
+  rec(await until(() => !!window.__heloria.S.near, null, 60000), 'probe near a station is offered docking');
+  if (mobile) { await tap('#dockp', 'Dock button'); } else { await page.keyboard.press('KeyE'); }
+  const dockedNear = await until(() => window.__heloria.S.mode === 'station', null, 180000); rec(dockedNear, mobile ? 'Dock button docks' : 'E docks');
+  if (dockedNear) { await wait(2500); await tap('#back', 'Orbit button after docking'); await until(() => window.__heloria.S.mode === 'hub', null, 180000); await wait(800); }
 
   /* ---- each station: dock, back, play, results, play again, back ---- */
-  for (const id of ids) {
+  const only = (process.env.BTN_ONLY || '').split(',').filter(Boolean);
+  for (const id of ids.filter(id => !only.length || only.includes(id))) {
     const exists = await H((h, id) => !!h.ST[id], id); if (!exists) { rec(false, 'station ' + id + ' built'); continue; }
     await H((h, id) => h.dock(id), id);
     const docked = await until(() => window.__heloria.S.mode === 'station', null, 180000); rec(docked, id + ': docks');

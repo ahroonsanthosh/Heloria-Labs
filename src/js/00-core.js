@@ -22,7 +22,7 @@ const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();r
 const store={get(k,d){try{const v=localStorage.getItem('heloria.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('heloria.'+k,JSON.stringify(v))}catch(e){}}};
 const fmt=n=>Math.round(n).toLocaleString('en-IE');
 const fmtT=s=>{const m=Math.floor(s/60);return String(m).padStart(2,'0')+':'+(s%60).toFixed(1).padStart(4,'0')};
-const show=(sel,on)=>$(sel).classList.toggle('off',!on);
+const show=(sel,on)=>{ $(sel).classList.toggle('off',!on); if(typeof curReset==='function') curReset(); };
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const angDiff=(a,b)=>{let d=(a-b)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return d;};
@@ -289,8 +289,15 @@ document.addEventListener('pointerout',e=>{ const t=e.target.closest&&e.target.c
 document.addEventListener('click',e=>{ const b=e.target.closest('button,a'); if(!b) return; A.click();
   /* a mouse click must not leave focus behind: otherwise Space or Enter, used as game keys, would press this button again */
   if(e.detail>0) setTimeout(()=>b.blur(),0); },true);
-/* game keys never activate whatever button happens to have focus */
-addEventListener('keydown',e=>{ if((e.code==='Space'||e.code==='Enter')&&document.activeElement&&document.activeElement.matches&&document.activeElement.matches('button')&&document.activeElement.dataset.key!=='ok'&&(S.mode==='station'||S.mode==='hub')){ document.activeElement.blur(); } },true);
+/* Space and Enter are game keys. They only press a control the visitor reached with Tab; focus left behind by a tap,
+   a click or a script is dropped first, so a game key can never press a hidden button or follow a link */
+let kbNav=false;
+addEventListener('keydown',e=>{ if(e.key==='Tab') kbNav=true; },true);
+addEventListener('pointerdown',()=>{ kbNav=false; },true);
+addEventListener('keydown',e=>{ if(e.code!=='Space'&&e.code!=='Enter') return; const f=document.activeElement;
+  if(!f||f===document.body||!f.matches||f.matches('input,textarea,select')||!(S.mode==='station'||S.mode==='hub')) return;
+  if(f.matches('button,a,[role=button]')&&!kbNav){ f.blur(); if(e.code==='Enter'||f.matches('a')) e.preventDefault(); } },true);
+function curReset(){ const c=document.getElementById('cur'); if(c) c.classList.remove('big','map'); }
 function cursorTick(){ if(!FINE) return; crx=lerp(crx,mouse.x,.22); cry=lerp(cry,mouse.y,.22); curEl.style.transform=`translate(${crx}px,${cry}px)`; curD.style.transform=`translate(${mouse.x}px,${mouse.y}px)`; }
 function cursorAim(on){ curEl.classList.toggle('aim',!!on); }
 function cine(on){ document.body.classList.toggle('cine',on); }
