@@ -42,10 +42,34 @@ STA.forEach((s,si)=>{
     const w=add(pts(cloud(1400,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*.42;o[1]=0;o[2]=Math.sin(a)*.42;}),PM({size:.05,color:C,body:'float a=atan(p.z,p.x); float k=1.+.45*sin(a*9.+uTime*6.)*sin(uTime*2.3)*sin(a*2.+uTime); p.xz*=k; p.y=.18*sin(a*14.-uTime*5.)*sin(uTime*1.7); b=1.3;'})));
     w.rotation.x=.3;
   }
-  if(s.id==='ae'){ // radar dish on a mast, sweeping
-    add(new T.Mesh(new T.CylinderGeometry(.05,.09,.9,10),LM('#9a948a',{rim:.6}))).position.y=-.35;
-    const dish=add(new T.Mesh(new T.SphereGeometry(.55,32,16,0,TAU,0,Math.PI*.32),LM(C,{emit:.03,rim:1,amb:.05}))); dish.material.side=T.DoubleSide; dish.position.y=.25; s.anim.push(t=>{ dish.rotation.set(-.7,t*.9,0); });
-    add(pts(cloud(1600,(i,r,o)=>{const a=r[0]*TAU,rr=(Math.floor(r[1]*4)+1)/4*1.6;o[0]=Math.cos(a)*rr;o[1]=-.8;o[2]=Math.sin(a)*rr;}),PM({size:.045,color:C,body:'float a=atan(p.z,p.x); float d=mod(uTime*2.6-a,6.2832); b=.15+1.3*exp(-d*2.5);'})));
+  if(s.id==='ae'){ // a surveillance radar: a curved antenna turning on a pedestal, its beam sweeping a scope below
+    const steel=LM('#a9a196',{rim:.7,amb:.06});
+    add(new T.Mesh(new T.CylinderGeometry(.06,.15,.72,8),steel)).position.y=-.44;                      // pedestal
+    add(new T.Mesh(new T.BoxGeometry(.3,.16,.22),steel)).position.set(0,-.74,.05);                   // equipment shelter
+    add(new T.Mesh(new T.CylinderGeometry(.13,.13,.06,20),steel)).position.y=-.05;                   // turntable
+    const head=new T.Group(); add(head);
+    head.add(new T.Mesh(new T.BoxGeometry(.05,.2,.05),steel)).position.set(0,.08,-.02);              // yoke
+    // the reflector: a slice of a cylinder, concave toward the feed, tilted up a little like an airport radar
+    const RR=.72, SPAN=1.6, refl=new T.Mesh(new T.CylinderGeometry(RR,RR,.3,32,1,true,Math.PI-SPAN/2,SPAN),LM(C,{emit:.015,rim:.85,amb:.06}));
+    refl.material.side=T.DoubleSide; refl.position.set(0,.2,RR-.12); refl.rotation.x=-.18; head.add(refl);
+    const ribs=new T.LineSegments(new T.EdgesGeometry(refl.geometry,20),new T.LineBasicMaterial({color:C,transparent:true,opacity:.5})); ribs.position.copy(refl.position); ribs.rotation.copy(refl.rotation); head.add(ribs);
+    head.add(new T.Mesh(new T.BoxGeometry(.012,.012,.36),steel)).position.set(0,.13,.08);             // feed strut
+    head.add(new T.Mesh(new T.BoxGeometry(.07,.06,.06),LM(C,{emit:.4,rim:.8}))).position.set(0,.14,.27); // feed horn
+    // the scope below: range rings, the sweep with its afterglow, and returns that flash as the beam crosses them
+    const sweepU={uA:{value:0}}, SR=1.7;
+    const scope=add(pts(cloud(Math.floor(1700*Q+500),(i,r,o)=>{ let rr, a=r[0]*TAU;
+        if(i%5===0){ rr=(Math.floor(r[1]*3)+1)/3*SR; } else if(i%41===1){ rr=(.35+.6*r[2])*SR; } else rr=Math.sqrt(r[1])*SR;
+        o[0]=Math.sin(a)*rr; o[1]=-.86; o[2]=Math.cos(a)*rr; }),
+      PM({size:.05,color:C,uniforms:sweepU,decl:'uniform float uA;',body:`
+        float a=atan(p.x,p.z); float d=mod(uA-a,6.2832); float rr=length(p.xz)/${SR.toFixed(2)};
+        float sw=exp(-d*3.2), lead=exp(-d*28.), fr=fract(rr*3.+.5)-.5;
+        b=.04+sw*(.25+.6*rr)+lead*.9;
+        if(aR.z>.985){ b=.06+2.2*exp(-d*1.4); sz=1.6; col=mix(uCol,vec3(1.,.85,.6),.5); }
+        else if(abs(fr)<.012){ b=.22+.6*sw; }`})));
+    scope.renderOrder=1;
+    // a fine rim so the scope reads as an instrument from any angle
+    const rim=new T.LineLoop(ringGeo(SR,160,-.86),dashMat(C,'float a=.55;')); rim.material.uniforms.uOp.value=1; add(rim);
+    s.anim.push(t=>{ const a=t*1.25; head.rotation.y=a; sweepU.uA.value=a; });
   }
   if(s.id==='ph'){ // lighthouse: pharos, the first one
     const tw=add(new T.Mesh(new T.CylinderGeometry(.16,.3,1.5,20,6),LM('#d9cfc2',{rim:.7}))); tw.position.y=-.2;
