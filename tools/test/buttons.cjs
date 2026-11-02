@@ -106,6 +106,16 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     await covered('.st-' + id, id + ' title');
     await linkCheck('.st-' + id, id);
     await covered('#station > #back', id + ' back button');
+    if (id === 'cr') { // Earth: click one of us on the planet, the card opens with the photo and LinkedIn, Keep walking closes it
+      const xy = await H(h => { const p = h.ST.cr._dbg.people[0]; const v = p.dir.clone().multiplyScalar(8.85).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
+      if (mobile) await page.touchscreen.tap(xy[0], xy[1]); else await page.mouse.click(xy[0], xy[1]);
+      rec(await until(() => document.querySelector('#crCard').classList.contains('on'), null, 20000), 'cr: clicking a person opens their card');
+      await wait(900); await covered('#crCard', 'cr card'); await linkCheck('#crCard', 'cr card');
+      rec(await page.evaluate(() => /linkedin\.com\/in\//.test(document.querySelector('#crLink').href) && /^data:image|^https?:/.test(document.querySelector('#crImg').src)), 'cr: the card has the photo and LinkedIn');
+      await shot((mobile ? 'm-' : '') + 'cr-card');
+      await tap('#crClose', 'cr Keep walking'); rec(await until(() => !document.querySelector('#crCard').classList.contains('on'), null, 20000), 'cr: Keep walking closes the card');
+      await wait(600);
+    }
     await tap('#back', id + ' Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), id + ': Orbit button undocks');
     await wait(800);
     await H((h, id) => h.jump(id), id); await wait(2000);
