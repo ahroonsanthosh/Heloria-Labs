@@ -150,6 +150,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
       rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.i === 0 && T.p.first === 'Ahroon'; }), 'cr: walking up to someone starts a conversation');
       await H(h => h.ST.cr._dbg.closeTalk()); await wait(600);
       // walking with the stick, the same one that flies the rocket: press, drag, and you walk that way
+      await H(h => h.ST.cr._dbg.place());
       const moved = await H(h => { const st = h.ST.cr, d = st._dbg, c = h.renderer.domElement, x0 = d.player.x, z0 = d.player.z, X = innerWidth / 2, Y = innerHeight * .6;
         const ev = (t, x, y) => new PointerEvent(t, { pointerId: 77, pointerType: 'touch', clientX: x, clientY: y, bubbles: true });
         c.dispatchEvent(ev('pointerdown', X, Y)); window.dispatchEvent(ev('pointermove', X, Y - 30)); window.dispatchEvent(ev('pointermove', X, Y - 45));
