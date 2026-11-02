@@ -243,8 +243,9 @@ st.enter=function(){ U2.uIn.value=0; resetDial(); setPh('idle'); layout(true); }
 st.exit=function(){ game=null; };
 let lay=null;
 function layout(force){ const n=NARROW(), key=n+'|'+st.state; if(!force&&key===lay) return; lay=key; const play=st.state!=='menu';
-  if(n){ st.camP.set(0,.35,play?15:12.5); st.camL.set(0,play?.3:-.15,0); }
-  else { st.camP.set(0,.35,play?10.2:7.6); st.camL.set(0,play?.32:-.5,0); } }
+  // in a call the room sits in the gap between the buyer's line and the replies
+  if(n){ if(play){ st.camP.set(0,.85,16.5); st.camL.set(0,.8,0); } else { st.camP.set(0,.35,12.5); st.camL.set(0,-.15,0); } }
+  else { if(play){ st.camP.set(0,.6,11.6); st.camL.set(0,.56,0); } else { st.camP.set(0,.35,7.6); st.camL.set(0,-.5,0); } } }
 
 let shownScore=0;
 st.update=function(dt,t){

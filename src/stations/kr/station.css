@@ -56,7 +56,8 @@
 @media (max-width:820px),(max-aspect-ratio:9/10){
   .st-kr .krmeters{min-width:0;width:calc(100vw - var(--gl) - var(--gr) - 110px);gap:7px}
   .st-kr .krm{grid-template-columns:62px 1fr 24px;gap:8px}
-  .st-kr .krtop{top:calc(var(--gt) + 168px);width:calc(100vw - 40px);gap:10px}
+  .st-kr .krtop{top:calc(var(--gt) + 164px);width:calc(100vw - 40px);gap:10px}
+  .st-kr .krwho{font-size:10px;letter-spacing:.05em}
   .st-kr .krline{font-size:21px;min-height:3.2em}
   .st-kr .krnote{font-size:12.5px;line-height:1.5}
   .st-kr .krpick{width:calc(100vw - 32px);bottom:calc(var(--gb) + 6px);gap:8px}
