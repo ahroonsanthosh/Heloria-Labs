@@ -768,7 +768,7 @@ function layout(){
   const W=innerWidth, H=innerHeight, mob=W<=820, key=W+'x'+H; if(key===layoutKey) return; layoutKey=key;
   drawLabels(mob); GU.uLab.value=mob?.62:.5;
   if(mob){ solveFrame(FR.play,1.53,BZ,[10,H*.19,W-10,H-292]); solveFrame(FR.menu,1.2,BZ,[8,H*.36,W-8,H-104]); }
-  else { solveFrame(FR.play,1.53,BZ+.05,[40,104,W-372,H-24]); solveFrame(FR.menu,1.16,BZ,[W*.2,70,W-360,H-104]); }
+  else { solveFrame(FR.play,1.53,BZ+.05,[40,150,W-400,H-22]); solveFrame(FR.menu,1.16,BZ,[W*.2,70,W-360,H-104]); }
 }
 function cam(t){
   const f=st.state==='menu'?FR.menu:FR.play, k=RM?0:1, az=k*(Math.sin(t*.07)*.05+(st.state==='menu'?Math.sin(t*.043)*.06:0)), el=f.el+k*Math.sin(t*.05)*.012;
