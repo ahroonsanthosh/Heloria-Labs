@@ -39,7 +39,7 @@ src/
   css/core.css             shared styles
   js/                      core: renderer and post-processing, ray-traced black hole, orbit, story, station framework, main loop
   stations/<id>/           one folder per station: station.html, station.css, station.js (+ data)
-  assets/                  portraits, Departure Mono, vendored three.js r160
+  assets/                  portraits, social image, vendored three.js r160
   STATIONS.md              how a station is written, the design language, and how to test
 tools/
   build.py                 builds docs/ (GitHub Pages) and dist/heloria.html (single file)
@@ -77,5 +77,4 @@ node tools/test/docs-smoke.cjs docs
 
 ## Credits
 
-three.js (MIT, vendored in `src/assets/vendor`). Departure Mono by Helena Zhang (SIL OFL, `src/assets/fonts`).
-Doto and Martian Mono from Google Fonts (SIL OFL).
+three.js (MIT, vendored in `src/assets/vendor`). Doto, Michroma and Newsreader from Google Fonts (SIL OFL).

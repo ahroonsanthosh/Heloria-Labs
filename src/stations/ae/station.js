@@ -59,8 +59,12 @@ const ROWS=[...Array(8)].map(()=>{ const b=document.createElement('button'); b.t
   return r; });
 const HUD={score:'',wave:'',waveN:'',cnt:'',jam:'',jamCls:'',jamOff:-1,warn:'',warnOn:false,pipOut:false};
 
-/* ---------- ground: contour map + radar scope, one shader ----------
+/* ---------- the radar: a plan position indicator, drawn in one shader ----------
+   A graduated bezel around the glass. Inside, raw video: a sweep with a full turn of phosphor afterglow, ground clutter
+   and returns that flash blue-white when painted and fade to amber, smeared along the bearing by the beam's width.
+   Range rings, bearing lines and site symbols are drawn by the display electronics over the raw video.
    Lines are antialiased in pixel space: a world distance is divided by how far one pixel reaches along the line's normal. */
+const BZ=RS+1.05;
 const GROUND_F=`
 uniform float uNow,uSw,uLab,uBoot;
 uniform vec4 uB[${NB}]; uniform vec4 uR[${NR}]; uniform vec4 uSite[3]; uniform vec3 uThr; uniform vec2 uJam;
@@ -68,62 +72,81 @@ uniform vec3 uInk,uHos,uFri,uUnk; uniform sampler2D tLab,tH;
 varying vec2 vP;
 #define KM ${KM.toFixed(4)}
 #define RS ${RS.toFixed(4)}
+#define BZ ${BZ.toFixed(4)}
 #define GR ${GR.toFixed(4)}
 #define LR ${LR.toFixed(4)}
+#define SWP ${SWEEP.toFixed(3)}
 #define TAU 6.2831853
 float h21(vec2 p){ p=fract(p*vec2(233.34,851.73)); p+=dot(p,p+23.45); return fract(p.x*p.y); }
 float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h21(i),h21(i+vec2(1.,0.)),f.x),mix(h21(i+vec2(0.,1.)),h21(i+vec2(1.,1.)),f.x),f.y); }
 float pxw(vec2 n,vec2 jx,vec2 jy){ return max(length(vec2(dot(jx,n),dot(jy,n))),1e-5); }
 float ln(float dpx,float w){ return clamp(w+.5-dpx,0.,1.); }
 float band(float x,float a,float b,float g){ return clamp((x-a)/g+.5,0.,1.)*clamp((b-x)/g+.5,0.,1.); }
+float tick(float br,float r,float n,float gT){ float a=abs(fract(br/(TAU/n)+.5)-.5)*(TAU/n)*r; return a/gT; }
 void main(){
   vec2 p=vP; float r=length(p);
-  float fade=smoothstep(GR,RS+1.4,r);
-  if(fade<=0.) discard;
+  if(r>BZ+.7) discard;
   vec2 jx=dFdx(p), jy=dFdy(p);
   vec2 rn=p/max(r,1e-4), tn=vec2(-rn.y,rn.x);
   float gR=pxw(rn,jx,jy), gT=pxw(tn,jx,jy);
   float br=atan(p.x,-p.y); if(br<0.) br+=TAU;
   float dA=mod(uSw-br,TAU);
-  float inS=band(r,0.,RS,gR);
-  float glow=exp(-dA*2.3)*inS;
-  // terrain: a noise heightfield (baked once into tH) drawn as contour lines, index contour every fifth
-  float h=texture2D(tH,p/(2.*GR)+.5).r;
-  float c=h*17., fc=max(fwidth(c),1e-4);
-  float cl=ln(abs(fract(c-.5)-.5)/fc,.05), ci=ln(abs(fract(c/5.-.5)-.5)*5./fc,.3);
-  float cfade=1.-smoothstep(.35,1.1,fc);
-  vec3 col=vec3(.016,.015,.013)+vec3(.010,.009,.008)*smoothstep(.35,.8,h);
-  float boot=smoothstep(r-.8,r,uBoot*(GR+1.));            // the scope draws itself outward when you arrive
-  col+=uInk*(cl*.03+ci*.045)*cfade*(1.+glow*3.5)*boot;
-  // scope: range rings, ticks, spokes, sweep with phosphor afterglow
-  if(r<RS+.8){
+  float boot=smoothstep(r-.8,r,uBoot*(BZ+1.));            // the display draws itself outward when you arrive
+  vec3 PH=vec3(1.,.69,.38), FL=vec3(.9,.95,1.);           // phosphor: amber persistence, blue-white flash
+  vec3 col=vec3(0.);
+  // ---- the bezel: a matte ring with a degree scale and the bearing numbers
+  float bz=band(r,RS+.05,BZ,gR);
+  if(bz>0.){
+    float rel=(r-RS)/(BZ-RS);
+    col+=vec3(.026,.024,.022)*bz*(.75+.25*smoothstep(1.,.2,rel));
+    float tk=ln(tick(br,r,360.,gT),.06)*band(r,RS+.08,RS+.2,gR)*.4
+            +ln(tick(br,r,72.,gT),.12)*band(r,RS+.08,RS+.29,gR)*.7
+            +ln(tick(br,r,36.,gT),.18)*band(r,RS+.08,RS+.36,gR)
+            +ln(tick(br,r,12.,gT),.32)*band(r,RS+.08,RS+.46,gR);
+    float rim=ln(abs(r-(RS+.06))/gR,.55)+ln(abs(r-BZ)/gR,.45)*.6+ln(abs(r-(BZ-.1))/gR,.15)*.3;
+    float sm=exp(-pow(min(dA,TAU-dA)*r/.07,2.))*band(r,RS+.08,RS+.5,gR);   // the sweep's bearing, read off the scale
+    col+=(uInk*(tk*.52+rim*.42)+FL*sm*.7)*boot;
+  }
+  // ---- the glass
+  if(r<RS+.06){
+    float inS=band(r,0.,RS,gR);
+    float glow=exp(-dA*1.05), wash=exp(-dA*2.6), fresh=exp(-dA*10.);
     float rk=r/KM;
-    float ring=ln(abs(fract(rk+.5)-.5)*KM/gR,.2)*step(.5,rk)*step(rk,4.5);
-    float outer=ln(abs(r-RS)/gR,.45);
-    float a5=abs(fract(br/(TAU/72.)+.5)-.5)*(TAU/72.)*r, a10=abs(fract(br/(TAU/36.)+.5)-.5)*(TAU/36.)*r, a30=abs(fract(br/(TAU/12.)+.5)-.5)*(TAU/12.)*r;
-    float tk=ln(a5/gT,.1)*band(r,RS,RS+.07,gR)*.55+ln(a10/gT,.2)*band(r,RS,RS+.17,gR)+ln(a30/gT,.3)*band(r,RS-.14,RS+.3,gR);
-    float spoke=ln(a30/gT,.08)*band(r,.5*KM,RS,gR);
-    float cross=ln(abs(p.x)/pxw(vec2(1.,0.),jx,jy),.1)*band(r,.1,.32,gR)+ln(abs(p.y)/pxw(vec2(0.,1.),jx,jy),.1)*band(r,.1,.32,gR);
+    float grain=vn(p*46.+floor(uNow*10.)*17.3);
+    col+=(vec3(.010,.009,.007)+PH*(.004+.026*grain*wash)*smoothstep(0.,.6,r))*inS;
+    // ground clutter: high ground returns the beam as mottled patches that fade between sweeps
+    float h=texture2D(tH,p/(2.*GR)+.5).r, cm=smoothstep(.55,.74,h)*smoothstep(.4,1.3,r);
+    float mott=vn(p*24.)*.65+vn(p*63.)*.35;
+    col+=PH*cm*mott*(.03+.3*glow+.5*fresh)*inS;
+    col+=PH*smoothstep(.8,.05,r)*smoothstep(.5,.95,vn(p*31.+floor(uNow*5.)*3.1))*(.22*glow+.4*fresh);   // near-in clutter
+    // display electronics: range rings, dashed bearing lines, the edge of coverage, the antenna mark
+    float ring=ln(abs(fract(rk+.5)-.5)*KM/gR,.16)*step(.5,rk)*step(rk,4.5);
+    float spoke=ln(tick(br,r,12.,gT),.08)*band(r,.35*KM,RS,gR)*step(.45,fract(r*2.6));
+    float outer=ln(abs(r-RS)/gR,.65);
+    float cross=ln(abs(p.x)/pxw(vec2(1.,0.),jx,jy),.1)*band(r,.1,.3,gR)+ln(abs(p.y)/pxw(vec2(0.,1.),jx,jy),.1)*band(r,.1,.3,gR)+ln(abs(r-.06)/gR,.25);
+    col+=uInk*(ring*.13+spoke*.06+outer*.5+cross*.35)*(1.+wash*.9)*boot;
+    // the sweep: a bright trace with a soft leading flare
     float sA=dA>3.14159?dA-TAU:dA;
-    float sl=ln(abs(r*sin(sA))/gT,.45)*step(abs(sA),1.)*inS;
-    float clut=glow>.02?smoothstep(.78,.97,vn(p*15.+floor(uNow*7.)*7.3))*glow:0.;
-    float edge=exp(-abs(r-uBoot*(GR+1.))*6.)*(1.-uBoot);
-    col+=uInk*(ring*.17+outer*.42+tk*.34+spoke*.055+cross*.25+sl*1.05)*boot+uInk*(glow*.045*smoothstep(0.,RS,r)+clut*.1+edge*.5);
-    vec2 luv=vec2(p.x,-p.y)/(2.*LR)+.5;
-    col+=uInk*texture2D(tLab,luv).r*uLab*boot;
-    // blips: each paint flares when the sweep passes, then decays with phosphor persistence
+    float sl=ln(abs(r*sin(sA))/gT,.6)*step(abs(sA),1.)*inS;
+    col+=(FL*sl*1.15+PH*wash*.045*smoothstep(0.,RS,r)*inS)*boot;
+    // raw returns, painted by the sweep and left to fade
     for(int i=0;i<${NB};i++){
       vec4 b=uB[i]; vec2 d=p-b.xy;
-      if(abs(d.x)>.55||abs(d.y)>.55) continue;
-      float age=uNow-b.z; if(age<0.||age>14.) continue;
-      vec2 bn=normalize(b.xy+vec2(1e-4)); float dr=dot(d,bn), dt=dot(d,vec2(-bn.y,bn.x));
-      float core=exp(-dr*dr/.0022-dt*dt/.011), halo=exp(-dot(d,d)/.07);
-      float k=exp(-age*1.9)+.26*exp(-age*.36);
-      vec3 cc=b.w<.5?uUnk:(b.w<1.5?uHos:uFri);
-      col+=mix(cc,vec3(1.,.97,.93),exp(-age*4.)*.55)*(core*1.5+halo*.14)*k;
+      if(abs(d.x)>.7||abs(d.y)>.7) continue;
+      float age=uNow-b.z; if(age<0.||age>SWP*2.5) continue;
+      float rb=length(b.xy); vec2 bn=b.xy/max(rb,1e-4); float dr=dot(d,bn), dt=dot(d,vec2(-bn.y,bn.x));
+      float sT=.03+rb*.022, sR=.036;
+      float core=exp(-dr*dr/(sR*sR)-dt*dt/(sT*sT)), halo=exp(-dot(d,d)/.05);
+      float k=exp(-age*2.4)*1.25+.5*exp(-age*.45);
+      col+=mix(PH,FL,exp(-age*5.))*(core*1.7+halo*.13)*k;
     }
+    // glass: a little darker toward the rim, a faint reflection up and to the left
+    col*=1.-smoothstep(RS*.5,RS,r)*.22;
+    col+=vec3(.013,.013,.015)*smoothstep(RS*.9,0.,length(p-vec2(-RS*.42,-RS*.5)))*inS;
   }
-  // the three defended sites: dashed keep-out ring, threat and hit pulses
+  // bearing numbers on the bezel, range numbers on the glass
+  if(r<BZ) col+=uInk*texture2D(tLab,vec2(p.x,-p.y)/(2.*LR)+.5).r*uLab*boot;
+  // ---- the three defended sites: a square symbol, a dashed keep-out ring, threat and hit pulses
   for(int i=0;i<3;i++){
     vec4 s=uSite[i]; vec2 d=p-s.xy; float rr=length(d); float ha=uNow-s.w; bool hit=ha>0.&&ha<1.8;
     if(rr>.75&&!hit) continue;
@@ -132,28 +155,33 @@ void main(){
     vec3 rc=mix(uInk,uHos,max(thr,1.-alive));
     float ring=0.;
     if(abs(rr-.64)<.1) ring=ln(abs(rr-.64)/g,.3)*step(.45,fract(atan(d.y,d.x)/TAU*30.+uNow*.05))*(.3+thr*(.5+.4*sin(uNow*14.)));
-    float inner=ln(abs(rr-.5)/g,.12)*.07*alive;
-    float fill=smoothstep(.64,.2,rr)*(.02+thr*.05);
+    float q=max(abs(d.x),abs(d.y)), gq=max(pxw(vec2(1.,0.),jx,jy),pxw(vec2(0.,1.),jx,jy));
+    float sq=ln(abs(q-.1)/gq,.35)*alive+ln(abs(q-.1)/gq,.35)*(1.-alive)*.4;
+    float x1=(1.-alive)*ln(abs(d.x-d.y)*.707/gq,.3)*step(q,.1), x2=(1.-alive)*ln(abs(d.x+d.y)*.707/gq,.3)*step(q,.1);
+    float fill=smoothstep(.64,.2,rr)*(.012+thr*.05);
     float pulse=hit?ln(abs(rr-(.64+ha*1.15))/g,.7)*exp(-ha*2.)+smoothstep(.7,0.,rr)*exp(-ha*3.)*.25:0.;
-    col+=rc*(ring+inner+fill)+uHos*pulse;
+    col+=rc*(ring+sq*.85+x1+x2+fill)*boot+uHos*pulse;
   }
-  // ground events: intercept, site hit, impact, launch
+  // ---- events: intercept, site hit, impact, launch, wave start
   for(int i=0;i<${NR};i++){
     vec4 e=uR[i]; float age=uNow-e.z; if(age<0.||age>2.6) continue;
     vec2 d=p-e.xy; float rr=length(d); if(rr>3.6&&e.w<3.5) continue;
     float R, a; vec3 cc;
-    if(e.w<.5){ R=.06+age*1.9; a=exp(-age*2.4); cc=uInk; }
+    if(e.w<.5){ R=.06+age*1.9; a=exp(-age*2.4); cc=FL; }
     else if(e.w<1.5){ R=.3+age*1.3; a=exp(-age*1.5); cc=uHos; }
-    else if(e.w<2.5){ R=.04+age*.8; a=exp(-age*2.8); cc=uUnk; }
+    else if(e.w<2.5){ R=.04+age*.8; a=exp(-age*2.8); cc=PH; }
     else if(e.w<3.5){ R=.1+age*1.4; a=exp(-age*3.2); cc=uInk; }
     else { R=age*8.; a=.7*exp(-age*1.2)*step(rr,RS+.2); cc=uInk; }
     float g=pxw(d/max(rr,1e-4),jx,jy);
     col+=cc*a*(ln(abs(rr-R)/g,.45)*.95+exp(-abs(rr-R)*12.)*.14);
   }
-  // jammer front
-  if(uJam.y>0.){ float d=abs(r-uJam.x); col+=uFri*uJam.y*(ln(d/gR,.7)+exp(-d*4.)*.3+step(r,uJam.x)*.035); }
-  gl_FragColor=vec4(col*fade,1.);
+  // ---- our jammer: a front that rolls out, with noise strobes along random bearings behind it
+  if(uJam.y>0.){ float d=abs(r-uJam.x);
+    float strobe=step(.84,vn(vec2(br*44.,floor(uNow*14.))))*step(r,uJam.x)*step(r,RS);
+    col+=uFri*uJam.y*(ln(d/gR,.7)+exp(-d*4.)*.3+step(r,min(uJam.x,RS))*.03)+PH*uJam.y*strobe*.3; }
+  gl_FragColor=vec4(col*(1.-smoothstep(BZ,BZ+.7,r)),1.);
 }`;
+
 const GROUND_V=`varying vec2 vP; void main(){ vec4 w=modelMatrix*vec4(position,1.); vP=w.xz; gl_Position=projectionMatrix*viewMatrix*w; }`;
 
 /* ---------- materials ---------- */
@@ -217,6 +245,7 @@ function merge(list){ // non-indexed merge of position + normal
 function at(g,x,y,z,ry,rx,rz){ if(rx) g.rotateX(rx); if(rz) g.rotateZ(rz); if(ry) g.rotateY(ry); g.translate(x,y,z); return g; }
 // a structure: dark faces with lit edges. parts: geometries already placed
 function structure(parts,mat){ const grp=new T.Group(); parts.forEach(g=>{ grp.add(new T.Mesh(g,faceMat)); grp.add(new T.LineSegments(new T.EdgesGeometry(g,30),mat)); }); return grp; }
+/* the radar view is a display, not a diorama: structures stay in the scene graph for the anchors but are never drawn */
 // quadcopter: body, canopy, four arms, motor pods, a camera gimbal at the front (+z)
 function quadGeo(){
   const L=[]; const arm=.2;
@@ -244,11 +273,9 @@ const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
   if(!labCx||labMode===+mob) return; labMode=+mob;
   const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
-  const fs=mob?40:23, sy=mob?1.1:1.3; x.font=`${fs}px "Departure Mono", ui-monospace, monospace`;
-  // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
-  const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.fillText(t,0,0); x.restore(); };
-  for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
-  for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.24:.14), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left'); }
+  const put=(t,wx,wz,al,fs)=>{ x.font=`${fs}px "Michroma", sans-serif`; x.textAlign=al; x.fillText(t,N/2+wx*k,N/2+wz*k); };
+  for(let a=0;a<360;a+=mob?30:10){ const b=a*Math.PI/180, rr=RS+(a%30?.62:.74), big=a%30===0; if(mob&&!big) continue; put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center',big?(mob?44:24):15); }
+  for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.2:.12), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left',mob?30:17); }
   labTex.needsUpdate=true;
 }
 // terrain heightfield, baked once: value noise fbm, 4 octaves, over the whole ground disc
@@ -263,7 +290,7 @@ function heightTex(){
   const t=new T.DataTexture(data,N,N,T.RedFormat,T.UnsignedByteType); t.magFilter=t.minFilter=T.LinearFilter; t.generateMipmaps=false; t.needsUpdate=true; return t;
 }
 st.build=async function(){
-  try{ await Promise.race([document.fonts.load('24px "Departure Mono"'),wait(1500)]); }catch(e){}
+  try{ await Promise.race([document.fonts.load('20px "Michroma"'),wait(1500)]); }catch(e){}
   labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
   labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},
@@ -274,7 +301,8 @@ st.build=async function(){
   cpMat=edgeMat();
   sc.add(structure([at(new T.CylinderGeometry(.27,.31,.07,8),0,.035,0,Math.PI/8),at(new T.BoxGeometry(.24,.1,.17),.02,.12,.03),
     at(new T.BoxGeometry(.11,.06,.11),-.15,.1,-.08),at(new T.BoxGeometry(.022,.34,.022),.06,.34,-.04)],cpMat));
-  cpAnt=structure([at(new T.BoxGeometry(.34,.075,.016),0,0,0),at(new T.BoxGeometry(.02,.02,.08),0,0,.04)],cpMat); cpAnt.position.set(.06,.53,-.04); sc.add(cpAnt);
+  cpAnt=structure([at(new T.BoxGeometry(.34,.075,.016),0,0,0),at(new T.BoxGeometry(.02,.02,.08),0,0,.04)],cpMat); cpAnt.position.set(.06,.53,-.04); sc.add(cpAnt); cpAnt.visible=false;
+  sc.children.forEach(o=>{ if(o.isGroup&&o!==cpAnt) o.visible=false; });
   // the three sites, each a small clean structure
   const SG=[
     ()=>[at(new T.BoxGeometry(.8,.024,.52),0,.012,0),...[-.24,0,.24].map(x=>at(new T.BoxGeometry(.13,.13,.12),x,.09,-.1)),
@@ -283,14 +311,14 @@ st.build=async function(){
       at(new T.BoxGeometry(.04,.22,.04),-.3,.11,.22),at(new T.BoxGeometry(.1,.05,.1),-.3,.245,.22)],
     ()=>[at(new T.CylinderGeometry(.13,.13,.13,20),-.17,.065,-.06),at(new T.CylinderGeometry(.13,.13,.13,20),.17,.065,-.06),
       at(new T.CylinderGeometry(.19,.19,.035,24),0,.018,.24),at(new T.BoxGeometry(.14,.08,.1),0,.04,-.31)]];
-  SITES.forEach((s,i)=>{ s.mat=edgeMat(); const g=structure(SG[i](),s.mat); g.position.copy(s.p); sc.add(g); s.grp=g; });
+  SITES.forEach((s,i)=>{ s.mat=edgeMat(); const g=structure(SG[i](),s.mat); g.position.copy(s.p); sc.add(g); s.grp=g; g.visible=false; });
   // contacts: instanced airframes, instanced rotor discs
   inst=new T.InstancedMesh(quadGeo(),droneMat,MAXD); inst.frustumCulled=false;
   rot=new T.InstancedMesh(new T.CircleGeometry(RRAD,20).rotateX(-Math.PI/2),rotorMat,MAXD*4); rot.frustumCulled=false;
   rotSp=new Float32Array(MAXD*4); for(let i=0;i<MAXD*4;i++){ const k=i%4; rotSp[i]=(k===0||k===3)?.72+Math.random()*.28:Math.random()*.28; }
   rot.geometry.setAttribute('aSp',new T.InstancedBufferAttribute(rotSp,1));
   for(let i=0;i<MAXD;i++){ inst.setColorAt(i,COL.unk); for(let k=0;k<4;k++) rot.setColorAt(i*4+k,COL.unk); }
-  inst.count=0; rot.count=0; sc.add(inst); sc.add(rot);
+  inst.count=0; rot.count=0; sc.add(inst); sc.add(rot); inst.visible=rot.visible=false;
   // point lights: two nav lights and a ground foot per contact, one exhaust per interceptor
   lP=new Float32Array(NL*3); lC=new Float32Array(NL*3); lS=new Float32Array(NL);
   const lg=new T.BufferGeometry(); lg.setAttribute('position',new T.BufferAttribute(lP,3)); lg.setAttribute('aC',new T.BufferAttribute(lC,3)); lg.setAttribute('aS',new T.BufferAttribute(lS,1));
@@ -298,9 +326,9 @@ st.build=async function(){
   // altitude stalks from each contact down to the ground
   dP=new Float32Array(MAXD*6); dC=new Float32Array(MAXD*6);
   const dg=new T.BufferGeometry(); dg.setAttribute('position',new T.BufferAttribute(dP,3)); dg.setAttribute('color',new T.BufferAttribute(dC,3)); dg.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
-  drops=new T.LineSegments(dg,lineMat); drops.frustumCulled=false; sc.add(drops);
+  drops=new T.LineSegments(dg,lineMat); drops.frustumCulled=false; sc.add(drops); drops.visible=false;
   // interceptors and their trails
-  msl=new T.InstancedMesh(missileGeo(),new T.MeshBasicMaterial({color:0xFFF4E6}),MAXM); msl.frustumCulled=false; msl.count=0; sc.add(msl);
+  msl=new T.InstancedMesh(missileGeo(),new T.MeshBasicMaterial({color:0xFFF4E6}),MAXM); msl.frustumCulled=false; msl.count=0; sc.add(msl); msl.visible=false;
   tP=new Float32Array(MAXM*(TL-1)*6); tC=new Float32Array(MAXM*(TL-1)*6);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(tP,3)); tg.setAttribute('color',new T.BufferAttribute(tC,3)); tg.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
   trails=new T.LineSegments(tg,lineMat); trails.frustumCulled=false; sc.add(trails);
@@ -423,7 +451,7 @@ function jam(){
 }
 function jamStep(dt){
   const g=game; g.jamT+=dt; const R=JAMR*E.o(clamp(g.jamT/.85,0,1)), a=1-clamp((g.jamT-.55)/.75,0,1);
-  GU.uJam.value.set(R,a); jamWall.visible=a>0; jamWall.scale.set(Math.max(.01,R),.7+.6*(1-a),Math.max(.01,R)); jamWallMat.uniforms.uA.value=a;
+  GU.uJam.value.set(R,a); jamWall.visible=false; jamWall.scale.set(Math.max(.01,R),.7+.6*(1-a),Math.max(.01,R)); jamWallMat.uniforms.uA.value=a;
   for(const d of D){ if(!d.on||d.jamHit||d.fall) continue; if(Math.hypot(d.p.x,d.p.z)<R){ d.jamHit=true;
     if(d.type==='swarm'){ d.fall=true; d.vy=.2; d.spin=(Math.random()-.5)*12; identify(d,true); } else if(d.type!=='friend'){ d.jam=3.5; } } }
   if(g.jamT>1.45){ g.jamT=-1; GU.uJam.value.set(0,0); jamWall.visible=false; }
@@ -628,13 +656,13 @@ function writeScene(){
     const o=(j+2)*3; lP[o]=d.p.x; lP[o+1]=.012; lP[o+2]=d.p.z; lC[o]=c.r*.3; lC[o+1]=c.g*.3; lC[o+2]=c.b*.3; lS[j+2]=.07;
     const q=i*6; dP[q]=d.p.x; dP[q+1]=d.p.y-.04*s; dP[q+2]=d.p.z; dP[q+3]=d.p.x; dP[q+4]=0; dP[q+5]=d.p.z;
     dC[q]=c.r*.26; dC[q+1]=c.g*.26; dC[q+2]=c.b*.26; dC[q+3]=c.r*.04; dC[q+4]=c.g*.04; dC[q+5]=c.b*.04; }
-  for(let i=n*3;i<MAXD*3;i++) lS[i]=0;
+  for(let i=0;i<MAXD*3;i++) lS[i]=0;   // airframes are not drawn on the radar
   inst.count=n; rot.count=n*4; inst.instanceMatrix.needsUpdate=true; inst.instanceColor.needsUpdate=true; rot.instanceMatrix.needsUpdate=true; rot.instanceColor.needsUpdate=true;
   drops.geometry.setDrawRange(0,n*2); drops.geometry.attributes.position.needsUpdate=true; drops.geometry.attributes.color.needsUpdate=true;
   let mn=0, sgi=0;
   for(let k=0;k<MAXM;k++){ const m=MS[k], li=MAXD*3+k; lS[li]=0; if(!m.on) continue;
     if(m.live){ V.copy(m.v).normalize(); Qn.setFromUnitVectors(ZF,V); SCL.set(1.35,1.35,1.35); M4.compose(m.p,Qn,SCL); msl.setMatrixAt(mn++,M4);
-      const o=li*3; lP[o]=m.p.x-V.x*.1; lP[o+1]=m.p.y-V.y*.1; lP[o+2]=m.p.z-V.z*.1; const f=.8+Math.random()*.4; lC[o]=1.6*f; lC[o+1]=1.25*f; lC[o+2]=.9*f; lS[li]=.3; }
+      const o=li*3; lP[o]=m.p.x-V.x*.1; lP[o+1]=m.p.y-V.y*.1; lP[o+2]=m.p.z-V.z*.1; const f=.8+Math.random()*.4; lC[o]=1.6*f; lC[o+1]=1.35*f; lC[o+2]=1.1*f; lS[li]=.22; }
     // trail: newest sample first, the live head joins it
     const tr=m.tr, N=m.trN; let hx=m.live?m.p.x:tr[0], hy=m.live?m.p.y:tr[1], hz=m.live?m.p.z:tr[2];
     for(let s=0;s<N&&sgi<MAXM*(TL-1);s++){ const ax=s===0?hx:tr[(s-1)*3], ay=s===0?hy:tr[(s-1)*3+1], az=s===0?hz:tr[(s-1)*3+2];
@@ -642,7 +670,7 @@ function writeScene(){
       const fa=Math.pow(1-s/TL,1.5)*m.fade*1.25, fb=Math.pow(1-(s+1)/TL,1.5)*m.fade*1.25, o=sgi*6; sgi++;
       tP[o]=ax; tP[o+1]=ay; tP[o+2]=az; tP[o+3]=tr[s*3]; tP[o+4]=tr[s*3+1]; tP[o+5]=tr[s*3+2];
       tC[o]=fa; tC[o+1]=fa*.94; tC[o+2]=fa*.86; tC[o+3]=fb; tC[o+4]=fb*.94; tC[o+5]=fb*.86; } }
-  { const li=MAXD*3+MAXM, o=li*3, on=(clk%1.6)<.14?1:.08; lP[o]=.06; lP[o+1]=.62; lP[o+2]=-.04; lC[o]=1.3*on; lC[o+1]=1.2*on; lC[o+2]=1.05*on; lS[li]=.16; }   // mast beacon
+  { const li=MAXD*3+MAXM, o=li*3, on=(clk%1.6)<.14?1:.08; lP[o]=.06; lP[o+1]=.62; lP[o+2]=-.04; lC[o]=1.3*on; lC[o+1]=1.2*on; lC[o+2]=1.05*on; lS[li]=0; }
   msl.count=mn; msl.instanceMatrix.needsUpdate=true;
   trails.geometry.setDrawRange(0,sgi*2); trails.geometry.attributes.position.needsUpdate=true; trails.geometry.attributes.color.needsUpdate=true;
   const lg=lights.geometry; lg.attributes.position.needsUpdate=true; lg.attributes.aC.needsUpdate=true; lg.attributes.aS.needsUpdate=true;
@@ -739,8 +767,8 @@ function solveFrame(o,el,R,rect){
 function layout(){
   const W=innerWidth, H=innerHeight, mob=W<=820, key=W+'x'+H; if(key===layoutKey) return; layoutKey=key;
   drawLabels(mob); GU.uLab.value=mob?.62:.5;
-  if(mob){ solveFrame(FR.play,1.22,RS+.3,[8,H*.2,W-8,H-292]); solveFrame(FR.menu,.74,3.9,[0,H*.46,W,H-110]); }
-  else { solveFrame(FR.play,.8,RS+.62,[40,112,W-372,H-30]); solveFrame(FR.menu,.5,3.6,[W*.25,90,W-370,H-120]); }
+  if(mob){ solveFrame(FR.play,1.53,BZ,[10,H*.19,W-10,H-292]); solveFrame(FR.menu,1.2,BZ,[8,H*.36,W-8,H-104]); }
+  else { solveFrame(FR.play,1.53,BZ+.05,[40,104,W-372,H-24]); solveFrame(FR.menu,1.16,BZ,[W*.2,70,W-360,H-104]); }
 }
 function cam(t){
   const f=st.state==='menu'?FR.menu:FR.play, k=RM?0:1, az=k*(Math.sin(t*.07)*.05+(st.state==='menu'?Math.sin(t*.043)*.06:0)), el=f.el+k*Math.sin(t*.05)*.012;
@@ -764,7 +792,7 @@ st.update=function(dt,t){
   stepPuffs(dt); debris.update(dt,1.6,1.3); sitesStep(dt);
   writeScene(); writeHUD(dt,playing); cam(t);
   if(playing&&FINE) cursorAim(true);   // setState clears it on leaving play; toggling an existing class is a no-op
-  if(st.state==='menu'){ AN[0].set(.06,.6,-.04); if(menuDemo) AN[1].copy(menuDemo.p); else AN[1].set(2.55,1.05,.3); AN[2].copy(SITES[0].p).setY(.3); st.anchors=AN; notesUpdate(st); }
+  if(st.state==='menu'){ AN[0].set(0,0,0); if(menuDemo) AN[1].copy(menuDemo.p).setY(0); else AN[1].set(2.55,0,.3); AN[2].copy(SITES[0].p).setY(0); st.anchors=AN; notesUpdate(st); }
 };
 st._dbg={get game(){return game}, D, GP, MS, SITES, engage, jam, end, pick, rowEngage, ROWS, flow, get clk(){return clk}, pause(v){ paused=!!v; }};
 })();

@@ -14,7 +14,7 @@
 .st-ae .ae-trk.hos .sym,.st-ae .ae-trk.fri .sym{animation:aeId .55s var(--ease)}
 @keyframes aeId{from{transform:scale(2.4);opacity:0}to{transform:none;opacity:1}}
 .st-ae .ae-trk .ldr{position:absolute;left:0;top:0;width:1px;height:1px;background:currentColor;transform-origin:0 0;opacity:.7}
-.st-ae .ae-trk .lb{position:absolute;left:15px;top:-16px;display:grid;gap:3px;font:400 9px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;color:var(--c)}
+.st-ae .ae-trk .lb{position:absolute;left:15px;top:-16px;display:grid;gap:3px;font:400 8px/1 var(--ui);letter-spacing:.035em;text-transform:uppercase;white-space:nowrap;color:var(--c)}
 .st-ae .ae-trk .lb b{font-weight:400;color:var(--ink2)}
 .st-ae .ae-trk .ret{position:absolute;left:-17px;top:-17px;width:34px;height:34px;opacity:0;transition:opacity .2s;--k:var(--ink);
   background:linear-gradient(var(--k),var(--k)) 0 0/7px 1px no-repeat,linear-gradient(var(--k),var(--k)) 0 0/1px 7px no-repeat,linear-gradient(var(--k),var(--k)) 100% 0/7px 1px no-repeat,linear-gradient(var(--k),var(--k)) 100% 0/1px 7px no-repeat,linear-gradient(var(--k),var(--k)) 0 100%/7px 1px no-repeat,linear-gradient(var(--k),var(--k)) 0 100%/1px 7px no-repeat,linear-gradient(var(--k),var(--k)) 100% 100%/7px 1px no-repeat,linear-gradient(var(--k),var(--k)) 100% 100%/1px 7px no-repeat}
@@ -33,7 +33,7 @@
 .st-ae .ae-ping.go::after{animation:aePing .45s var(--ease) forwards}
 @keyframes aePing{from{transform:scale(.3);opacity:.8}to{transform:scale(1.4);opacity:0}}
 /* site labels with an integrity hairline */
-.st-ae .ae-site{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:6px;font:400 9px/1 var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);white-space:nowrap;will-change:transform;transition:color .3s}
+.st-ae .ae-site{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:6px;font:400 8px/1 var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);white-space:nowrap;will-change:transform;transition:color .3s}
 .st-ae .ae-site .bar{width:44px;height:1px;background:var(--hair2);overflow:hidden}
 .st-ae .ae-site .bar i{display:block;height:100%;background:var(--ink);transform-origin:0 50%;transition:transform .5s var(--ease)}
 .st-ae .ae-site.thr{color:var(--hos)}.st-ae .ae-site.thr .bar i{background:var(--hos)}
@@ -58,7 +58,7 @@
 .st-ae .ae-th{display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--hair);color:var(--ink2)}
 .st-ae .ae-cols,.st-ae .ae-row{display:grid;grid-template-columns:54px 72px 58px minmax(0,1fr);gap:0 8px;padding:0 12px;align-items:center}
 .st-ae .ae-cols{height:24px;font-size:9px;color:var(--dim);border-bottom:1px solid var(--hair)}
-.st-ae .ae-row{position:relative;width:100%;height:30px;text-align:left;font:400 10px/1 var(--ui);letter-spacing:.05em;text-transform:uppercase;font-variant-numeric:tabular-nums;color:var(--ink2);border-bottom:1px solid rgba(238,233,223,.05);transition:background .2s}
+.st-ae .ae-row{position:relative;width:100%;height:30px;text-align:left;font:400 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;font-variant-numeric:tabular-nums;color:var(--ink2);border-bottom:1px solid rgba(238,233,223,.05);transition:background .2s}
 .st-ae .ae-row[hidden]{display:none}
 .st-ae .ae-row>span{overflow:hidden;white-space:nowrap;text-overflow:clip}
 .st-ae .ae-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--c,transparent)}
@@ -89,7 +89,7 @@
 .st-ae .ae-jam circle{fill:none}
 .st-ae .ae-jam .bg{stroke:var(--hair2);stroke-width:1}
 .st-ae .ae-jam .fg{stroke:var(--fri);stroke-width:2;stroke-dasharray:238.8;stroke-dashoffset:0}
-.st-ae .ae-jam .t{position:relative;display:grid;gap:5px;justify-items:center;font:400 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase}
+.st-ae .ae-jam .t{position:relative;display:grid;gap:5px;justify-items:center;font:400 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase}
 .st-ae .ae-jam .t b{font-weight:400;color:var(--fri)}
 .st-ae .ae-jam.cd .t b{color:var(--mute)}
 .st-ae .ae-jam:hover .bg,.st-ae .ae-jam:focus-visible .bg{stroke:var(--fri)}

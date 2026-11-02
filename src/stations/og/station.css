@@ -12,7 +12,7 @@
 /* altitude gauge: the target line, past flights, Ogive's prediction and the live altitude */
 .oggauge{position:relative;width:184px;height:var(--gh);margin:12px 0 6px}
 .oggauge .ax{position:absolute;left:38px;top:0;bottom:0;width:1px;background:var(--hair2)}
-.oggauge .tk{position:absolute;left:0;top:0;width:30px;text-align:right;font:400 9px/1 var(--ui);letter-spacing:.04em;color:var(--dim);margin-top:-4px}
+.oggauge .tk{position:absolute;left:0;top:0;width:30px;text-align:right;font:400 8px/1 var(--ui);letter-spacing:.04em;color:var(--dim);margin-top:-4px}
 .oggauge .tk::after{content:"";position:absolute;left:34px;top:4px;width:4px;height:1px;background:var(--hair2)}
 .oggauge .tg{position:absolute;left:34px;top:0;width:146px;height:1px;background:var(--acc);transition:transform .7s var(--ease)}
 .oggauge .tgl{position:absolute;right:4px;top:-13px;color:var(--acc);transition:transform .7s var(--ease);white-space:nowrap}
@@ -95,14 +95,14 @@
 .ogbar{display:flex;gap:26px;align-items:center;padding:14px 18px;border:1px solid var(--hair2);background:rgba(5,5,4,.66);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .ogbar .grp{display:grid;gap:7px}
 .st-og .seg{display:flex}
-.st-og .seg button{height:34px;min-width:40px;padding:0 10px;border:1px solid var(--hair2);font:400 12px/1 var(--ui);transition:background .25s,color .25s,border-color .25s}
+.st-og .seg button{height:34px;min-width:40px;padding:0 10px;border:1px solid var(--hair2);font:400 11px/1 var(--ui);transition:background .25s,color .25s,border-color .25s}
 .st-og .seg button+button{border-left:0}
 .st-og .seg button:hover{background:rgba(255,180,117,.14)}
 .st-og .seg button[aria-pressed=true]{background:var(--acc);color:#0a0806;border-color:var(--acc)}
 .st-og .stepper{display:flex;align-items:center;gap:8px}
-.st-og .stepper button{width:34px;height:34px;border:1px solid var(--hair2);font:400 15px/1 var(--ui);transition:background .25s,border-color .25s}
+.st-og .stepper button{width:34px;height:34px;border:1px solid var(--hair2);font:400 13.5px/1 var(--ui);transition:background .25s,border-color .25s}
 .st-og .stepper button:hover{background:rgba(255,180,117,.14);border-color:var(--acc)}
-.st-og .stepper output{min-width:52px;text-align:center;font:400 13px/1 var(--ui);font-variant-numeric:tabular-nums}
+.st-og .stepper output{min-width:52px;text-align:center;font:400 11.5px/1 var(--ui);font-variant-numeric:tabular-nums}
 .st-og .og-ask{height:40px}
 .st-og .og-ask[aria-busy=true]{opacity:.55;pointer-events:none}
 .st-og .og-launch{min-width:176px;transition:color .35s var(--ease),border-color .35s,background .35s,opacity .4s}
