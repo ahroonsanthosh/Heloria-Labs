@@ -79,4 +79,4 @@ node tools/test/docs-smoke.cjs docs
 
 ## Credits
 
-three.js (MIT, vendored in `src/assets/vendor`). Doto, Michroma and Newsreader from Google Fonts (SIL OFL).
+three.js (MIT, vendored in `src/assets/vendor`). Doto from Google Fonts (SIL OFL), dotted for display and filled in for all other text.

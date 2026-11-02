@@ -5,7 +5,7 @@
 .st-be .sig{display:grid;gap:16px;max-width:460px}
 .st-be .fld{display:grid;gap:6px;transition:color .3s}
 .st-be .fld .fldt{transition:color .3s}
-.st-be .sig input{width:100%;padding:8px 0 10px;border:0;border-bottom:1px solid var(--hair2);border-radius:0;background:transparent;outline:none;font:400 17.5px/1.2 var(--body);user-select:text;-webkit-user-select:text;transition:border-color .3s}
+.st-be .sig input{width:100%;padding:8px 0 10px;border:0;border-bottom:1px solid var(--hair2);border-radius:0;background:transparent;outline:none;font:900 17.5px/1.2 var(--body);user-select:text;-webkit-user-select:text;transition:border-color .3s}
 .st-be .sig input:focus{border-color:var(--acc)}
 .st-be .sig input::placeholder{color:var(--dim)}
 .st-be .fld.err .fldt{color:var(--alarm)}
@@ -29,7 +29,7 @@
 @keyframes beNo{20%{transform:translateX(-6px)}45%{transform:translateX(5px)}70%{transform:translateX(-3px)}100%{transform:none}}
 @keyframes beBlink{50%{opacity:.2}}
 .st-be .mailrow{display:grid;gap:8px;justify-items:start}
-.mail{user-select:text;-webkit-user-select:text;font:800 clamp(26px,2.6vw,40px)/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;text-align:left;overflow-wrap:anywhere;transition:color .3s}
+.mail{user-select:text;-webkit-user-select:text;font:800 clamp(26px,2.6vw,40px)/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;text-align:left;overflow-wrap:anywhere;transition:color .3s;-webkit-text-stroke:0}
 .mail:hover,.mail:focus-visible{color:var(--acc)}
 .mail.ok{animation:beOk 1.2s var(--ease)}
 @keyframes beOk{0%{color:#fff}15%{color:var(--acc)}100%{color:var(--ink)}}

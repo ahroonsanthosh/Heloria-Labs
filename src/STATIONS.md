@@ -80,8 +80,9 @@ Results panel ids the framework fills: `#<id>G` grade, `#<id>Final` score, `#<id
 - Every colour sits on one blackbody scale, hot to cool: Kríos 24,000 K `#A5C3FF`,
   Aetos 6,600 K `#F2EEE6`, Pharos 4,300 K `#FFD5B3`, Ogive 3,100 K `#FFB475`, Crew 2,400 K `#FF9B3D`, Beacon 1,850 K `#FF8100`.
   Alarm red `#FF5636` only for danger. A station's accent is `var(--acc)`.
-- Type: Doto (`.disp`, dot-matrix display, uppercase), Michroma (`.ui`, wide extended labels, uppercase, small), Newsreader
-  (body, `.lede`, an editorial serif). No other fonts. Canvas text uses Michroma too.
+- Type: one family, Doto. Display (`.disp`, the title and big headings) keeps round dots ("ROND" 100). All other
+  text uses the solid cut: square dots ("ROND" 0), weight 900 and a thin fill stroke (`-webkit-text-stroke`), set on
+  `body` and inherited. Labels (`.ui`) are uppercase and small. Canvas text: weight 900 Doto with a stroke to fill.
 - UI: hairline rectangles, corner ticks, no rounded cards, no drop shadows, no gradients on UI chrome. Generous dark space.
 - 3D: depth from parallax, bloom and dark; light comes from a few bright things. Restraint over noise.
 - Copy: short, plain, specific, sentence case for prose. Never use an em dash anywhere (text, comments, copy).

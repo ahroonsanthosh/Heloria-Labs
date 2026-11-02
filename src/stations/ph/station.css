@@ -23,7 +23,7 @@
 .st-ph .stg li b{display:block;font-weight:400;margin-bottom:3px;letter-spacing:.08em}
 .st-ph .stg li.done{color:var(--mute)}.st-ph .stg li.done::after{transform:none;opacity:.45}
 .st-ph .stg li.on{color:var(--acc)}.st-ph .stg li.on::after{transform:none}
-.st-ph .fcap{margin:0;font:400 13.5px/1.55 var(--body);color:var(--ink2);min-height:4.7em;text-wrap:pretty}
+.st-ph .fcap{margin:0;font:900 13.5px/1.55 var(--body);color:var(--ink2);min-height:4.7em;text-wrap:pretty}
 
 .st-ph .phm{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .st-ph .mk{position:absolute;left:0;top:0;opacity:0;transition:opacity .35s var(--ease);will-change:transform;white-space:nowrap}
@@ -41,13 +41,13 @@
 .st-ph .click i{left:-7px;top:-7px;width:14px;height:14px;border:1px solid var(--ink);transform:rotate(45deg)}
 .st-ph .click i::after{content:"";position:absolute;left:50%;top:50%;width:2px;height:2px;margin:-1px 0 0 -1px;background:var(--ink)}
 .st-ph .truth i{left:-3px;top:-3px;width:6px;height:6px;background:#fff}
-.st-ph .truth em{left:22px;top:-9px;color:#fff;font:400 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase}
+.st-ph .truth em{left:22px;top:-9px;color:#fff;font:900 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase}
 .st-ph .truth.l em{left:auto;right:22px}
 .st-ph .ln{width:1px;height:1px;background:rgba(238,233,223,.85);transform-origin:0 50%}
-.st-ph .dist{padding:5px 8px 4px;background:rgba(5,5,4,.8);outline:1px solid var(--hair);font:800 22px/1 var(--disp);font-variation-settings:"ROND" 100;letter-spacing:-.01em;color:var(--ink)}
+.st-ph .dist{padding:5px 8px 4px;background:rgba(5,5,4,.8);outline:1px solid var(--hair);font:800 22px/1 var(--disp);font-variation-settings:"ROND" 100;letter-spacing:-.01em;color:var(--ink);-webkit-text-stroke:0}
 
 .st-ph .gbc{width:min(760px,calc(100vw - 48px));gap:10px}
-.st-ph .help{margin:0;font:400 15px/1.5 var(--body);color:var(--ink);text-wrap:balance}
+.st-ph .help{margin:0;font:900 15px/1.5 var(--body);color:var(--ink);text-wrap:balance}
 .st-ph .keys:empty{display:none}
 .st-ph .nx{opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .45s var(--ease),transform .6s var(--ease),visibility 0s linear .45s,color .35s var(--ease),border-color .35s}
 .st-ph .nx.on{opacity:1;visibility:visible;transform:none;transition-delay:0s}

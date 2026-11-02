@@ -216,8 +216,8 @@ const lad=new T.Group(); lad.position.z=-4; W.add(lad);
 const ladU={uFocus:{value:0},uOn:WU,uLad:{value:0}};
 function labelSprite(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; const tex=new T.CanvasTexture(c); tex.minFilter=T.LinearFilter; tex.generateMipmaps=false;
   const sp=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false,opacity:0})); sp.userData={c,x:c.getContext('2d'),tex}; return sp; }
-function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font=Math.round(px*.82)+'px "Michroma", sans-serif'; x.fillStyle=color; x.textBaseline='middle';
-  x.textAlign=align||'left'; x.fillText(text,align==='right'?c.width-6:6,c.height/2+2); tex.needsUpdate=true; }
+function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font='900 '+Math.round(px*.92)+'px "Doto", monospace'; x.fillStyle=x.strokeStyle=color; x.lineWidth=Math.max(1,px*.05); x.lineJoin='round'; x.textBaseline='middle';
+  x.textAlign=align||'left'; const tx=align==='right'?c.width-6:6; x.strokeText(text,tx,c.height/2+2); x.fillText(text,tx,c.height/2+2); tex.needsUpdate=true; } // the stroke fills the dots in, as in the page's text
 const ladLabels=[];
 { const P=[], K=[]; P.push(0,0,0,0,52,0); K.push(.6,.6);
   for(let m=10;m<=520;m+=10){ const y=m*SCF, maj=m%50===0; P.push(0,y,0,maj?.6:.22,y,0); K.push(maj?1:0,maj?1:0); }
