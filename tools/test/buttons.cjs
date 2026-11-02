@@ -106,15 +106,18 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     await covered('.st-' + id, id + ' title');
     await linkCheck('.st-' + id, id);
     await covered('#station > #back', id + ' back button');
-    if (id === 'cr') { // Earth: click one of us on the planet, the card opens with the photo and LinkedIn, Keep walking closes it
-      const xy = await H(h => { const p = h.ST.cr._dbg.people[0]; const v = p.dir.clone().multiplyScalar(8.85).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
+    if (id === 'cr') { // Earth: click one of us in town; the conversation opens on the page with the photo and LinkedIn; See you closes it
+      const xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
       if (mobile) await page.touchscreen.tap(xy[0], xy[1]); else await page.mouse.click(xy[0], xy[1]);
-      rec(await until(() => document.querySelector('#crCard').classList.contains('on'), null, 20000), 'cr: clicking a person opens their card');
-      await wait(900); await covered('#crCard', 'cr card'); await linkCheck('#crCard', 'cr card');
-      rec(await page.evaluate(() => /linkedin\.com\/in\//.test(document.querySelector('#crLink').href) && /^data:image|^https?:/.test(document.querySelector('#crImg').src)), 'cr: the card has the photo and LinkedIn');
-      await shot((mobile ? 'm-' : '') + 'cr-card');
-      await tap('#crClose', 'cr Keep walking'); rec(await until(() => !document.querySelector('#crCard').classList.contains('on'), null, 20000), 'cr: Keep walking closes the card');
-      await wait(600);
+      rec(await until(() => { const t = document.querySelector('#crTalk'); return t.classList.contains('on') && t.classList.contains('last'); }, null, 20000), 'cr: clicking a person opens their photo and LinkedIn');
+      await wait(900); await covered('#crTalk', 'cr conversation'); await linkCheck('#crTalk', 'cr conversation');
+      rec(await page.evaluate(() => /linkedin\.com\/in\//.test(document.querySelector('#crLink').href) && /^data:image|^https?:/.test(document.querySelector('#crImg').src)), 'cr: the conversation has the photo and LinkedIn');
+      await shot((mobile ? 'm-' : '') + 'cr-talk');
+      await tap('#crClose', 'cr See you'); rec(await until(() => !document.querySelector('#crTalk').classList.contains('on'), null, 20000), 'cr: See you closes the conversation');
+      // walking up to someone starts a conversation by itself
+      await H(h => { const st = h.ST.cr, d = st._dbg; d.people[0].greeted = false; d.player.tgt = d.at(-1.3, -8.6).multiplyScalar(24); for (let i = 0; i < 200 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
+      rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.i === 0 && T.p.first === 'Ahroon'; }), 'cr: walking up to someone starts a conversation');
+      await H(h => h.ST.cr._dbg.closeTalk()); await wait(600);
     }
     await tap('#back', id + ' Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), id + ': Orbit button undocks');
     await wait(800);
