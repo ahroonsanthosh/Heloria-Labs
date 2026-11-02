@@ -2,12 +2,11 @@
 
 The website of Heloria Labs, a software lab in Ireland. It is a small playable universe: you fall towards a
 ray-traced black hole through a four-chapter story, escape into orbit, fly a probe around the system and dock at
-seven stations. Five of them are the lab's projects, each with a game built from the project's real idea:
+six stations. Four of them are the lab's projects, each with a game built from the project's real idea:
 
 | Station | Project | Game |
 | --- | --- | --- |
 | Kríos | [krios.ie](https://krios.ie), voice practice for sales teams | Dead Air: turn-taking on a sales call |
-| Bowshock | [bowshock](https://github.com/ahroonsanthosh/bowshock), supersonic rocket drag in the browser | Mach Run: keep the nose shock on the fin tips through a flight |
 | Aetos | [Aetos](https://github.com/ahroonsanthosh/Aetos), counter-drone command software | Hold the Sky: identify and intercept |
 | Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: match the camera to the map |
 | Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design, fly, open the chute at the top |

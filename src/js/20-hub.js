@@ -110,7 +110,7 @@ function labelsUpdate(){
     const sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
     const on=!behind&&sx>40&&sx<W-40&&sy>70&&sy<H-60;
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
-      s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',clamp(rad*2,32,150).toFixed(0)+'px');
+      const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
       s.distEl.textContent=(s.pos.distanceTo(S.probe.p)/BH.RS).toFixed(1)+' rs'; s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
@@ -156,7 +156,8 @@ rc.addEventListener('click',e=>{
   const c=Math.cos(-S.yaw), s=Math.sin(-S.yaw); const wx=x*c-y*s, wy=x*s+y*c; const k=(rc.width/2-16)/RB;
   let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} }); if(best) autopilot(best);
 });
-function updateQuest(){ $('#qtxt').textContent=`${S.docked.size} / 7 docked`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
+$('#dots').innerHTML=STA.map(()=>'<i></i>').join('');
+function updateQuest(){ $('#qtxt').textContent=`${S.docked.size} / ${NST} docked`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
 
 /* ---------- docking: fly in, iris open into the station world ---------- */
 let TR=null;
@@ -208,5 +209,5 @@ function undockUpdate(rdt,dt){
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
   if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
-    if(S.docked.size===7&&!S.allDone){ S.allDone=true; setTimeout(()=>toast('Every station visited. The middle is calling.'),700); } }
+    if(S.docked.size===NST&&!S.allDone){ S.allDone=true; setTimeout(()=>toast('Every station visited. The middle is calling.'),700); } }
 }

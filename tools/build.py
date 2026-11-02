@@ -11,7 +11,7 @@ import argparse, base64, glob, json, os, re, shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'src')
-ORDER = ['kr', 'bs', 'ae', 'ph', 'og', 'cr', 'be']
+ORDER = ['kr', 'ae', 'ph', 'og', 'cr', 'be']
 CORE_JS = ['00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js', '29-station.js']
 CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
@@ -27,7 +27,7 @@ def parts(only):
     js = '\n'.join(read('js/' + f) for f in CORE_JS)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')
-    # station data files (json) become globals: DATA['bs/table'] etc.
+    # station data files (json) become globals: DATA['og/table'] etc.
     data = {}
     for i in ids:
         for f in sorted(glob.glob(os.path.join(SRC, 'stations', i, '*.json'))):
@@ -52,7 +52,7 @@ DOC_HEAD = '''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. A playable universe: fall into a ray-traced black hole and play Kríos, Bowshock, Aetos, Pharos and Ogive.">
+<meta name="description" content="Heloria Labs is a software lab in Ireland. A playable universe: fall into a ray-traced black hole and play Kríos, Aetos, Pharos and Ogive.">
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs">
