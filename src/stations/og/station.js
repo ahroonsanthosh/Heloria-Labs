@@ -41,7 +41,7 @@ function simApo(dd,sign){ const f=newF(dd,sign||1); for(let i=0;i<9000;i++){ ste
 /* ---------- state ---------- */
 let d={motor:'G',LD:2.5,fin:1,bal:0}, DC=design(d), target=280, hist=[], ai=null;
 let phase='design', F=null, NAT=null, busy=false, searchId=0, tw=null, cdT=0, cdN=0, simClock=0, tScale=1, ffMax=1, landT=0, ign=0, done=false;
-let emitAcc=0, pathAcc=0, pathN=0, chuteK=0, slowOn=false, cineOn=false, ev={}, ladX=-2.3, maxH=0, snap=true, keyT=0;
+let vT=0, emitAcc=0, pathAcc=0, pathN=0, chuteK=0, slowOn=false, cineOn=false, ev={}, ladX=-2.3, maxH=0, snap=true, keyT=0;
 const V1=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3(), V5=new T.Vector3(), NZ=new T.Vector3(), RC=new T.Vector3();
 const CP=new T.Vector3(), CL=new T.Vector3(), CA=new T.Vector3(), CB=new T.Vector3(), CC=new T.Vector3(), CD=new T.Vector3();
 const P0={x:0,y:0,z:0}, P1={x:0,y:0,z:0}, P2={x:0,y:0,z:0}, P3={x:0,y:0,z:0}, P4={x:0,y:0,z:0}, P5={x:0,y:0,z:0};
@@ -544,15 +544,15 @@ function flightStep(dt,rd,t){
   let want=1;
   if(!F.chute&&F.t>NAT.tApo-1.15&&F.t<NAT.tApo+1.0) want=.26;
   if(F.chute&&F.t<F.deployT+.4) want=.3;
-  if(F.chute&&F.t>F.deployT+2&&!F.landed){ if(ffMax===1) ffMax=clamp((F.h-25)/(Math.max(2.5,-F.vy)*4.5),1,22); want=1+(ffMax-1)*sstep(5,32,F.h); }
+  if(F.chute&&F.t>F.deployT+2&&!F.landed){ if(ffMax===1) ffMax=clamp((F.h-25)/(Math.max(2.5,-F.vy)*4.5),1,9); want=1+(ffMax-1)*sstep(5,32,F.h); }
   tScale=damp(tScale,want,want<tScale?6:3,rd);
-  const sdt=dt*tScale; simClock+=sdt;
+  const sdt=dt*tScale; simClock+=sdt; vT+=rd; // vT: real time, for motion that must not speed up with the fast-forward
   const ph=F.h, px0=F.x; let rem=sdt; while(rem>1e-7){ const h=Math.min(.01,rem); stepF(F,h); rem-=h; }
   if(F.t>240&&!F.landed){ F.h=0; F.landed=true; }
   const th=thrustAt(F.d.motor,F.t), thN=th/(D.M.I/D.M.tb);
   // rocket pose
   let pitch, roll=F.t*1.4;
-  if(F.chute){ chuteK=Math.min(1,chuteK+sdt/.55); const sw=.22*Math.sin(F.t*1.7)+.08*Math.sin(F.t*3.1); pitch=lerp(F.tumble?-F.t*9:-F.th,1.25+sw,E.o(chuteK)); roll=F.deployT*1.4; }
+  if(F.chute){ chuteK=Math.min(1,chuteK+sdt/.55); const sw=.11*Math.sin(vT*1.25)+.035*Math.sin(vT*2.1); pitch=lerp(F.tumble?-F.t*9:-F.th,1.25+sw,E.o(chuteK)); roll=F.deployT*1.4; }
   else pitch=F.tumble?-F.t*9:-F.th;
   rocket.rotation.set(0,roll,pitch); rocket.scale.setScalar(FS); rocket.position.set(F.x*SCF,F.h*SCF+PADY+pivotL*FS,0);
   rocket.updateMatrixWorld(true); rkW(0,-.25,0,NZ);
@@ -587,9 +587,9 @@ function flightStep(dt,rd,t){
   // canopy: inflate with a little overshoot, breathe, sway with the wind
   if(F.chute){ centreOf(RC); axisOf(rocket.rotation.z,V1); V2.copy(RC).addScaledVector(V1,(Lh*.25)*FS);
     V3.set(V2.x+.25,V2.y+1.0,0); if(chuteK<.05) chP.copy(V2); chP.lerp(V3,1-Math.exp(-7*sdt));
-    const k=chuteK, o=k<1?1-Math.pow(1-k,3)*Math.cos(k*7):1, br=Math.sin(F.t*4.2)*(F.torn?.18:.035);
+    const k=chuteK, o=k<1?1-Math.pow(1-k,3)*Math.cos(k*7):1, br=Math.sin(vT*2.4)*(F.torn?.16:.025);
     canopy.scale.set(lerp(.1,F.torn?.45:1,o)*(1+br),lerp(1.7,F.torn?.8:1,o)*(1-br*.8),lerp(.1,F.torn?.3:1,o)*(1+br));
-    chute.position.copy(chP); chute.rotation.set(.05*Math.sin(F.t*1.1),F.t*.25,-.12-.08*Math.sin(F.t*1.7)); chute.scale.setScalar(.95);
+    chute.position.copy(chP); chute.rotation.set(.04*Math.sin(vT*.9),vT*.14,-.1-.05*Math.sin(vT*1.25+.6)); chute.scale.setScalar(.95);
     cordP[0]=chP.x; cordP[1]=chP.y; cordP[2]=chP.z; cordP[3]=V2.x; cordP[4]=V2.y; cordP[5]=V2.z; cordG.attributes.position.needsUpdate=true; }
   // sound
   const air=Math.hypot(F.vx-WIND,F.vy);

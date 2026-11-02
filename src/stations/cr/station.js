@@ -8,23 +8,35 @@ const sc=st.scene, el=st.el, tagWrap=$('#tags'), tags=$$('#tags .tag'), people=[
 let lmx=-1, lmy=-1, focus=0, armed=false, moved=false, enterT=performance.now(), nar=false, cardB=240, glow=null, mx0=0, my0=0, hov=-1;
 const L={D:10.2,wpp:.01}, FACE=new T.Vector2(.5,.8), hitUv=new T.Vector2(), _p=new T.Vector3(), ray=new T.Raycaster(), ndc=new T.Vector2();
 const vert=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`;
-/* each cell is a dot sized by the photo's brightness; in focus the cells swell, merge and give way to the photograph,
-   starting from where you pointed and spreading out */
+/* a printed halftone that becomes the photograph. Fine round dots on a rotated grid, sized by brightness and
+   antialiased. In focus the dots swell from where you pointed until they merge, carrying the photograph itself, so
+   the hand-over is seamless. A thin warm rim light finds the silhouette; the base fades out instead of cutting off. */
 const frag=`uniform sampler2D tP; uniform float uOn,uF,uSeed,uCells,uLo,uHi,uDim; uniform vec2 uM,uO; uniform vec3 uInk,uHot; varying vec2 vUv;
   float h(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233))+uSeed)*43758.5453); }
+  float lum(vec3 c){ return dot(c,vec3(.3,.59,.11)); }
   void main(){
-    vec2 g=vec2(uCells,uCells*1.3), id=floor(vUv*g), cu=(id+.5)/g, f=fract(vUv*g)-.5;
-    vec4 cs=texture2D(tP,cu); float l=pow(clamp((dot(cs.rgb,vec3(.3,.59,.11))-uLo)/max(.02,uHi-uLo),0.,1.),.72), n=h(id);
+    const float ANG=.2618; mat2 R=mat2(cos(ANG),-sin(ANG),sin(ANG),cos(ANG)), Ri=mat2(cos(ANG),sin(ANG),-sin(ANG),cos(ANG));
+    vec2 asp=vec2(1.,1.3), q=R*(vUv*asp)*uCells, id=floor(q), f=fract(q)-.5, cu=(Ri*((id+.5)/uCells))/asp;
+    vec4 cs=texture2D(tP,clamp(cu,0.,1.)); float l=pow(clamp((lum(cs.rgb)-uLo)/max(.02,uHi-uLo),0.,1.),.8), n=h(id);
     float lit=step(n,uOn*1.15-.1);
-    float d=length((cu-uO)*vec2(1.,1.3)), rv=clamp((uF*2.15-d*1.35-n*.3)*2.4,0.,1.);
-    float grow=smoothstep(.2,0.,length((cu-uM)*vec2(1.,1.3)))*.16*(1.-rv);
-    float r=mix((.15+.36*l+grow)*lit,.8,rv*rv);
-    float dt=(1.-smoothstep(r-.09,r,length(f)))*cs.a;
-    vec3 dotc=mix(uInk,uHot,l*l*l)*(.38+.75*l)*uDim;
-    vec4 ph=texture2D(tP,vUv); float pl=dot(ph.rgb,vec3(.3,.59,.11)); vec3 photo=mix(vec3(pl),ph.rgb,.85)*vec3(1.05,.99,.93);
-    float pr=smoothstep(.4,1.,rv);
-    vec3 c=mix(dotc,photo,pr); float a=mix(dt,ph.a,pr);
-    c+=uHot*(1.-abs(rv-.5)*2.)*step(.01,rv)*step(rv,.99)*cs.a*.4;
+    // reveal: spreads from the pointed spot, a little ragged so it reads as dots arriving, not a wipe
+    float d=length((cu-uO)*asp), rv=clamp((uF*2.1-d*1.3-n*.22)*2.2,0.,1.);
+    float near=smoothstep(.22,0.,length((cu-uM)*asp))*(1.-rv);
+    float r=sqrt(l)*.5*(.35+.65*lit)+near*.08;      // area follows brightness, like ink on paper
+    r=mix(r,.76,smoothstep(0.,1.,rv));               // in focus the dots swell until they overlap
+    float dist=length(f), aa=max(fwidth(dist),.02);
+    float dotm=(1.-smoothstep(r-aa,r+aa,dist))*step(.002,cs.a)*lit;
+    vec4 ph=texture2D(tP,vUv); float pa=ph.a;
+    vec3 photo=mix(vec3(lum(ph.rgb)),ph.rgb,.82); photo=pow(photo,vec3(1.05))*vec3(1.02,1.,.97);
+    float pr=smoothstep(.55,1.,rv);
+    vec3 ink=uInk*(.32+.6*l)*uDim;
+    vec3 c=mix(ink,photo,smoothstep(.15,.9,rv));      // the dots carry the photograph as they grow
+    float a=mix(dotm*cs.a,pa,pr);
+    // a hairline of warm light from the upper right on the person in focus
+    float a2=texture2D(tP,vUv+vec2(.0045,.003)).a; float rim=clamp(pa-a2,0.,1.)*pr;
+    c+=uHot*rim*.85;
+    // the base dissolves instead of ending in a hard cut
+    float base=smoothstep(.0,.2,vUv.y); a*=base;
     gl_FragColor=vec4(c*a,a); }`;
 /* per photo levels in linear light, so a dark jumper and a white one both draw a full dot pattern */
 function levels(img){
@@ -39,16 +51,14 @@ st.build=async function(){
   const texs=await Promise.all(PHOTOS.map(src=>new Promise(res=>loader.load(src,t=>{ t.colorSpace=T.SRGBColorSpace; t.minFilter=T.LinearFilter; t.generateMipmaps=false; res(t); },undefined,()=>res(null)))));
   texs.forEach((tx,k)=>{ const lv=tx?levels(tx.image):[0,1];
     const u={tP:{value:tx},uOn:{value:0},uF:{value:0},uSeed:{value:k*7.3},uCells:{value:44},uLo:{value:lv[0]},uHi:{value:lv[1]},uDim:{value:1},
-      uM:{value:new T.Vector2(9,9)},uO:{value:FACE.clone()},uInk:{value:new T.Color('#FF9B3D')},uHot:{value:new T.Color('#FFE6CF')}};
+      uM:{value:new T.Vector2(9,9)},uO:{value:FACE.clone()},uInk:{value:new T.Color('#EEE9DF')},uHot:{value:new T.Color('#FFB477')}};
     const m=new T.Mesh(PG,new T.ShaderMaterial({uniforms:u,vertexShader:vert,fragmentShader:frag,transparent:true,depthWrite:false,premultipliedAlpha:true,
       blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneMinusSrcAlphaFactor}));
     m.visible=!!tx; sc.add(m); meshes.push(m); people.push({m,u,f:0,fz:0,on:0,x:0,y:0,z:0,s:1,tx:0,ty:0,ts:1,cells:44}); });
-  // a warm light behind whoever is in focus
-  glow=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShaderMaterial({uniforms:{uOp:{value:0},uC:{value:new T.Color('#FF9B3D')}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+  // a faint warm light behind whoever is in focus, kept low so the photograph does the work
+  glow=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShaderMaterial({uniforms:{uOp:{value:0},uC:{value:new T.Color('#FFE2C4')}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
     vertexShader:vert,fragmentShader:`uniform float uOp; uniform vec3 uC; varying vec2 vUv; void main(){ float r=length((vUv-.5)*vec2(1.,1.12))*2.; gl_FragColor=vec4(uC*pow(max(0.,1.-r),2.4)*uOp,1.); }`}));
-  glow.position.z=-.9; glow.renderOrder=-1; sc.add(glow);
-  // a floor of light beneath them
-  sc.add(pts(cloud(Math.floor(4200*Q+800),(i,r,o)=>{o[0]=(r[0]-.5)*24;o[1]=-2.5-r[2]*.2;o[2]=(r[1]-.5)*8-1;}),PM({size:.04,color:'#FF9B3D',body:'b=.09*smoothstep(12.,2.,abs(p.x))*(.6+.4*sin(uTime*.8+p.x*2.+aR.y*6.));'})));
+  glow.position.z=-1.4; glow.renderOrder=-1; sc.add(glow);
   $('#crLede').textContent=FINE?'Point at someone to see them properly.':'Tap someone to see them. Tap again for LinkedIn.';
   measure(); layout(); people.forEach(p=>{ p.x=p.tx; p.y=p.ty; p.s=p.ts; });
 };
@@ -58,9 +68,9 @@ function measure(){ const r=$('.card',el).getBoundingClientRect(); cardB=r.botto
 function layout(){
   const W=innerWidth, H=innerHeight, D=nar?16:10.2, wpp=2*D*Math.tan(18*Math.PI/180)/H; L.D=D; L.wpp=wpp;
   if(!nar){ const top=cardB+30, bot=H-(H<720?140:172), hgt=clamp(bot-top,200,480), w=hgt/PH, gap=Math.max(w*1.1,Math.min(W*.28,w*1.26));
-    people.forEach((p,k)=>{ const cx=W/2+(k-1)*gap, cy=top+hgt/2; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round(w/6.4),24,60); }); }
+    people.forEach((p,k)=>{ const cx=W/2+(k-1)*gap, cy=top+hgt/2; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round(w/4.1),40,96); }); }
   else { const top=cardB+14, bot=H-24, av=bot-top, fh=av*.44, oh=(av-fh)/2; let y=top;
-    people.forEach((p,k)=>{ const rh=k===focus?fh:oh, ph=rh-12, w=ph/PH, cx=22+w/2, cy=y+rh/2; y+=rh; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round((oh-12)/PH/5.2),20,40); }); }
+    people.forEach((p,k)=>{ const rh=k===focus?fh:oh, ph=rh-12, w=ph/PH, cx=22+w/2, cy=y+rh/2; y+=rh; p.tx=(cx-W/2)*wpp; p.ty=-(cy-H/2)*wpp; p.ts=w*wpp; p.cells=clamp(Math.round((oh-12)/PH/3.6),26,60); }); }
 }
 window.__crLayout=()=>{ measure(); layout(); };
 
@@ -115,9 +125,9 @@ st.update=function(dt,t){
     p.on=E.o(clamp((age-.08-k*.14)/1.1,0,1));
     const m=p.m, s=p.s*(1+.05*p.fz); m.position.set(p.x,p.y,(nar?.3:.45)*p.fz-(isF?0:.15)); m.scale.set(s,s,1);
     m.rotation.y=(fine?mouse.nx:Math.sin(t*.25+k*2.1)*.35)*.09; m.rotation.x=(fine?-mouse.ny:Math.sin(t*.2+k)*.2)*.05;
-    u.uOn.value=p.on; u.uF.value=p.f; u.uDim.value=damp(u.uDim.value,isF?1:.52,4,dt); u.uCells.value=p.cells; if(hov!==k) u.uM.value.set(9,9); }
+    u.uOn.value=p.on; u.uF.value=p.f; u.uDim.value=damp(u.uDim.value,isF?1:.62,4,dt); u.uCells.value=p.cells; if(hov!==k) u.uM.value.set(9,9); }
   const fp=people[focus]; glow.position.x=damp(glow.position.x,fp.x,5,dt); glow.position.y=damp(glow.position.y,fp.y,5,dt);
-  const gs=fp.s*2.6; glow.scale.set(gs,gs*1.2,1); glow.material.uniforms.uOp.value=.2*Math.min(1,age/1.2);
+  const gs=fp.s*2.2; glow.scale.set(gs,gs*1.3,1); glow.material.uniforms.uOp.value=.05*Math.min(1,age/1.2);
   // parallax: the camera leans with the pointer; on touch it breathes
   const px=fine?mouse.nx*.34:Math.sin(t*.13)*.07, py=fine?mouse.ny*.18:Math.cos(t*.11)*.05;
   st.camP.set(px,py,L.D); st.camL.set(px*.25,py*.25,0);
@@ -127,9 +137,6 @@ st.update=function(dt,t){
     _p.project(stCam); const x=(_p.x*.5+.5)*innerWidth, y=(-_p.y*.5+.5)*innerHeight;
     tags[k].style.transform=nar?`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(0,-50%)`:`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,0)`; }
 };
-/* workaround for a core gap: the shared Orbit button (#back) has no click handler in src/js, so it did nothing on any
-   station. Undocking twice is harmless (undock() returns unless docked), so this stays correct if core adds its own. */
-{ const b=$('#back'); if(b) b.addEventListener('click',()=>{ if(S.mode==='station') undock(); }); }
 st._dbg={get focus(){return focus;},get moved(){return moved;},people:()=>people.map(p=>({f:+p.f.toFixed(3),on:+p.on.toFixed(3),x:+p.m.position.x.toFixed(2),y:+p.m.position.y.toFixed(2),s:+p.m.scale.x.toFixed(2),cells:p.cells})),
   screen:k=>{ const m=people[k].m; _p.set(m.position.x,m.position.y+m.scale.y*.15,m.position.z).project(stCam); return {x:(_p.x*.5+.5)*innerWidth,y:(-_p.y*.5+.5)*innerHeight}; }};
 })();
