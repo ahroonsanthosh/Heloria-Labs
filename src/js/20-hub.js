@@ -1,6 +1,6 @@
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
 const S={mode:'load',ch:0,chT:0,t:0,tau:0,hold:0,form:0,formT:null,flash:0,intro:0,introT:0,yaw:.5,zoom:1,iris:0,arrive:0,shake:0,ca:0,rdt:0,games:0,
-  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0};
+  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0};
 const keys=new Set();
 const tv=[...Array(10)].map(()=>new T.Vector3());
 const _m=new T.Matrix4(), UPV=new T.Vector3(0,1,0);
@@ -41,7 +41,10 @@ const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick')
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
 addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
-function autopilot(s){ if(S.mode!=='hub') return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
+/* the hole as a destination: sealed until every station has been visited */
+const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
+const holeOpen=()=>S.docked.size>=NST, SEALTINT=new T.Color(.06,.015,0);
+function autopilot(s){ if(S.mode!=='hub') return; if(s===HOLE&&!holeOpen()) return; if(S.near===s) return dock(s); S.ap=s; toast(s===HOLE?'Autopilot · into the horizon':'Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
@@ -58,28 +61,32 @@ function hubPhysics(dt){
   if(S.ap){ const s=S.ap; const to=tv[4].copy(s.pos).sub(P.p); to.y=0; const dist=to.length();
     const dl=tv[5].copy(to).normalize(); const along=clamp(-P.p.dot(dl),0,dist); const cl=tv[6].copy(P.p).addScaledVector(dl,along); cl.y=0;
     let aim=to, aimLen=dist;
-    if(cl.length()<8.5&&dist>4){ const side=cl.length()>.1?cl.normalize():tv[6].set(-P.p.z,0,P.p.x).normalize(); aim=side.multiplyScalar(Math.max(9.5,Math.min(r,s.R))).sub(P.p); aim.y=0; aimLen=aim.length()+6; }
+    if(s!==HOLE&&cl.length()<8.5&&dist>4){ const side=cl.length()>.1?cl.normalize():tv[6].set(-P.p.z,0,P.p.x).normalize(); aim=side.multiplyScalar(Math.max(9.5,Math.min(r,s.R))).sub(P.p); aim.y=0; aimLen=aim.length()+6; }
     const want=tv[7].copy(aim).normalize().multiplyScalar(Math.min(11,aimLen*1.1)).add(s.vel);
     thrust.copy(want.sub(P.v)).multiplyScalar(.6); if(thrust.length()>1.5) thrust.setLength(1.5);
-    if(dist<2.2){ S.ap=null; dock(s); return; }
+    if(dist<2.2&&s!==HOLE){ S.ap=null; dock(s); return; }
     U.apLine.visible=true; const ap=U.apLine.geometry.attributes.position.array; ap[0]=P.p.x;ap[1]=0;ap[2]=P.p.z;ap[3]=s.pos.x;ap[4]=s.pos.y;ap[5]=s.pos.z; U.apLine.geometry.attributes.position.needsUpdate=true; U.apLine.material.uniforms.uR.value=dist*1.2; U.apLine.material.uniforms.uOp.value=1;
   } else U.apLine.visible=false;
   const tl=Math.min(1.5,thrust.length()); P.thr=damp(P.thr,tl,10,dt);
   const acc=tv[8].set(-P.p.x,0,-P.p.z).multiplyScalar(GM/(r*r*r)).addScaledVector(thrust,9);
   if(tl<.05&&r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.4); }
   if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; toast('Edge of the Heloria system'); A.beep(440); } }
-  if(S.ap&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
+  if(S.ap&&S.ap!==HOLE&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
-  if(S.ap){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in
-  if(r<1.35){ crossHorizon(); return; }
+  if(S.ap&&S.ap!==HOLE){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in by accident
+  // the horizon stays sealed until every station has been visited: the probe bounces off it
+  if(!holeOpen()){ const rr=Math.hypot(P.p.x,P.p.z);
+    if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
+      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast(`The horizon is sealed · visit every station first · ${S.docked.size} / ${NST}`); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
+  else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
   if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3).add(P.p); for(let k=0;k<Math.ceil(P.thr*4*Q);k++) U.exhaust.emit(tv[4],1,.5,null,0,.6); }
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
-  U.dustU.uC.value.copy(P.p); U.gridU.uProbe.value.copy(P.p);
+  U.dustU.uC.value.copy(P.p); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
   U.fenceU.uPA.value=Math.atan2(P.p.z,P.p.x); U.fenceU.uNear.value=sstep(RB-6,RB-1,r);
   // proximity
   let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<2.6?1:0,6,dt); });
@@ -101,6 +108,10 @@ STA.forEach(s=>{
   ed.innerHTML=`<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1l6 5-6 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>${s.name}</span>`;
   ed.addEventListener('click',()=>autopilot(s)); $('#edges').appendChild(ed); s.edge=ed;
 });
+/* the horizon gets a label of its own once it is open */
+{ const el=document.createElement('button'); el.type='button'; el.className='slab hole'; el.style.setProperty('--acc',HOLE.color); el.dataset.cur='Fall';
+  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every station visited · fall in</span><span class="dist"></span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
+  el.style.display='none'; el.addEventListener('click',()=>autopilot(HOLE)); $('#labels').appendChild(el); HOLE.el=el; HOLE.distEl=$('.dist',el); }
 const _edges=[]; let _rb=null, _rbK='';
 function radarBox(){ const key=innerWidth+'x'+innerHeight; if(_rbK!==key){ const r=$('#radar').getBoundingClientRect(); if(r.width<1) return null; _rb={l:r.left-30,t:r.top-30,r:r.right+10,b:r.bottom+10}; _rbK=key; } return _rb; }
 function labelsUpdate(){
@@ -119,6 +130,10 @@ function labelsUpdate(){
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
+  { const H_=HOLE.el; if(holeOpen()&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
+      if(p.z<1&&sx>40&&sx<W-40&&sy>70&&sy<H-60){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(SEAL).project(hubCam); const sz=clamp(Math.abs((tv[2].x-p.x)*.5*W)*2,40,170);
+        H_.style.display=''; H_.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; H_.style.setProperty('--s',sz.toFixed(0)+'px'); H_.classList.add('near'); H_.classList.toggle('flip',sx>W-200); H_.classList.toggle('low',sy-sz/2<74);
+        HOLE.distEl.textContent=(S.probe.p.length()/BH.RS).toFixed(1)+' rs'; } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
   // markers that point the same way share an edge of the screen: slide them apart along it so names never overlap
   const n=_edges.length;
   for(let it=0;it<6;it++) for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const a=_edges[i], b=_edges[j];
@@ -143,6 +158,8 @@ function radarDraw(){
   rx.setLineDash([2,6]); rx.strokeStyle='rgba(238,233,223,.2)'; rx.beginPath(); rx.arc(0,0,14*k,0,TAU); rx.stroke(); rx.setLineDash([]);
   rx.strokeStyle='rgba(255,195,146,.5)'; rx.beginPath(); rx.arc(0,0,RB*k,0,TAU); rx.stroke(); rx.fillStyle='rgba(255,195,146,.18)'; rx.beginPath(); rx.arc(0,0,6.6*k,0,TAU); rx.arc(0,0,1.65*k,0,TAU,true); rx.fill();
   rx.fillStyle='#000'; rx.strokeStyle='#FFC392'; rx.beginPath(); rx.arc(0,0,1.43*k,0,TAU); rx.fill(); rx.stroke();
+  if(holeOpen()){ rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
+  else { rx.strokeStyle='rgba(255,86,54,.55)'; rx.setLineDash([3,4]); rx.beginPath(); rx.arc(0,0,SEAL*k,0,TAU); rx.stroke(); rx.setLineDash([]); }
   peerList.forEach(p=>{ const pr=p.presence||{}; if(p.sameTab||typeof pr.x!=='number') return; rx.fillStyle='rgba(255,195,146,.8)'; rx.fillRect(pr.x*k-2,pr.z*k-2,4,4); });
   STA.forEach(s=>{ const x=s.pos.x*k, y=s.pos.z*k; rx.fillStyle=s.color; rx.beginPath(); rx.arc(x,y,S.ap===s?9:7,0,TAU); rx.fill();
     if(S.docked.has(s.id)){ rx.strokeStyle=s.color; rx.beginPath(); rx.arc(x,y,12,0,TAU); rx.stroke(); }
@@ -154,17 +171,18 @@ function radarDraw(){
 rc.addEventListener('click',e=>{
   const b=rc.getBoundingClientRect(), sc=rc.width/b.width; let x=(e.clientX-b.left)*sc-rc.width/2, y=(e.clientY-b.top)*sc-rc.width/2;
   const c=Math.cos(-S.yaw), s=Math.sin(-S.yaw); const wx=x*c-y*s, wy=x*s+y*c; const k=(rc.width/2-16)/RB;
-  let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} }); if(best) autopilot(best);
+  let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} });
+  if(holeOpen()&&Math.hypot(wx,wy)<Math.min(bd,34)) best=HOLE; if(best) autopilot(best);
 });
 $('#dots').innerHTML=STA.map(()=>'<i></i>').join('');
-function updateQuest(){ $('#qtxt').textContent=`${S.docked.size} / ${NST} docked`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
+function updateQuest(){ $('#qtxt').textContent=holeOpen()?'All visited · the horizon is open':`${S.docked.size} / ${NST} visited`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
 
 /* ---------- docking: fly in, iris open into the station world ---------- */
 let TR=null;
 function dock(s){
   if(S.mode!=='hub') return;
   const st=ST[s.id]; if(!st) return;
-  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.thrust(0); A.swell(); cine(true);
+  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
   TR={t:0,s,st,dir:tv[0].copy(hubCam.position).sub(s.pos).setY(0).normalize().clone()};
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   S.stId=s.id; S.st=st; st.enter(); S.stSnap=true; S.arrive=1;
@@ -190,7 +208,7 @@ $('#back').addEventListener('click',()=>undock());
 function undock(){
   if(S.mode!=='station') return;
   const s=STA.find(x=>x.id===S.stId), st=S.st;
-  st.abort(); st.hideUI(); cine(true); A.whoosh(false,1.3); S.mode='undocking';
+  st.abort(); st.hideUI(); cine(true); A.hush(); A.whoosh(false,1.3); S.mode='undocking';
   const out=tv[0].copy(s.pos).setY(0).normalize();
   TR={t:0,s,st,dir:out.clone()};
   S.probe.p.copy(s.pos).addScaledVector(out,3.2); S.probe.p.y=0; S.probe.v.copy(s.vel); S.probe.head=Math.atan2(-s.vel.x,-s.vel.z);
@@ -210,5 +228,5 @@ function undockUpdate(rdt,dt){
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
   if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
-    if(S.docked.size===NST&&!S.allDone){ S.allDone=true; setTimeout(()=>toast('Every station visited. The middle is calling.'),700); } }
+    if(holeOpen()&&!S.allDone){ S.allDone=true; setTimeout(()=>{ toast('Every station visited. The horizon is open: fall in.'); A.chord(); },700); } }
 }

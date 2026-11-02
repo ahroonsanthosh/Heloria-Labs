@@ -53,7 +53,9 @@ function popAt(container,v3,text,cls){
   container.appendChild(el); setTimeout(()=>el.remove(),1050);
 }
 function statsHTML(rows){ return rows.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join(''); }
-function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0); if(tint) post.uniforms.uTint.value.add(tint); }
+const _tint=new T.Color();
+function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0);
+  if(tint){ const c=tint.isColor?tint:_tint.setRGB(+tint.x||+tint.r||0,+tint.y||+tint.g||0,+tint.z||+tint.b||0); if(isFinite(c.r+c.g+c.b)) post.uniforms.uTint.value.add(c); } }
 function showBanner(el,h,sub){ el.innerHTML=`<span class="ui acc fade">${sub||''}</span><h3 class="disp pw">${h}</h3>`; prepPW($('h3',el)); reveal(el); clearTimeout(el._t); el._t=setTimeout(()=>unreveal(el),1500); }
 
 /* Enter starts the game from a station's title screen */

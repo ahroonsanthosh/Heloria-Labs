@@ -158,14 +158,14 @@ function newGame(){
 }
 function startBeat(g,i){
   g.bi=i; g.ph='line'; g.t=0; g.wi=0; g.wt=0; g.pick=-1; const b=g.c.beats[i];
-  g.warm=warmOf(g.tr,g.in); g.words=setLine(g.warm||!b.c?b.w:b.c); noteHide();
+  g.warm=warmOf(g.tr,g.in); g.words=setLine(g.warm||!b.c?b.w:b.c); // the last coach note stays up while this line types in
   E.ops.classList.remove('in'); E.btns.forEach(x=>{ x.classList.remove('pick','dim','best'); x.removeAttribute('data-q'); });
   E.turn.textContent=`Turn ${i+1} / ${NB}`; MKU.uCur.value=i; setPh('line'); E.hint.textContent='';
 }
 function showOptions(g){
   const b=g.c.beats[g.bi]; g.order=shuffle([0,1,2]);
   E.btns.forEach((x,k)=>{ const r=b.r[g.order[k]]; $('span',x).textContent=r.t; x.setAttribute('aria-label',`Reply ${k+1}: ${r.t}`); });
-  void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
+  noteHide(); void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
   E.hint.textContent=FINE?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); E.bar.style.transform='scaleX(1)';
 }
 function choose(g,k){
@@ -188,11 +188,11 @@ function choose(g,k){
   E.btns.forEach((x,i)=>{ if(i===k){ x.classList.add('pick'); x.dataset.q=q; } else x.classList.add('dim'); });
   if(q<2){ const bi=[0,1,2].find(i=>b.r[g.order[i]].q[wi]===2); if(bi!==undefined) E.btns[bi].classList.add('best'),E.btns[bi].classList.remove('dim'); }
   noteShow(q,label,note,pts); meters(g); E.combo.textContent=g.streak>1?`${g.streak} good reads in a row`:'';
-  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space for the next line':'Tap for the next line';
+  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space to skip ahead':'';
   if(g.bi>=1&&g.tr<=8) g.hung=true;
 }
 function next(g){
-  if(!g||g.ph!=='show'||g.t<.6) return;
+  if(!g||g.ph!=='show'||g.t<.25) return;
   if(g.hung||g.bi>=NB-1){ finish(g); return; }
   startBeat(g,g.bi+1);
 }
@@ -260,11 +260,11 @@ st.update=function(dt,t){
   burst.update(dt,0,1.6);
   if(play){
     g.t+=dt;
-    if(g.ph==='ring'&&g.t>1.7){ A.blip(); startBeat(g,0); }
+    if(g.ph==='ring'&&g.t>1.2){ A.blip(); startBeat(g,0); }
     else if(g.ph==='line'||g.ph==='end'){
-      g.wt+=dt; const step=g.ph==='end'?.11:.085;
+      g.wt+=dt; const step=g.ph==='end'?.09:.055;
       while(g.wi<g.words.length&&g.wt>=step){ g.wt-=step; g.words[g.wi++].classList.add('on'); U2.uSpeak.value=1; if(g.wi%2) A.key(); }
-      if(g.wi>=g.words.length){ if(g.ph==='line'&&g.wt>.35) showOptions(g); if(g.ph==='end'&&g.wt>1.5){ const gg=g; game=null; setPh('idle'); results(gg); } }
+      if(g.wi>=g.words.length){ if(g.ph==='line'&&g.wt>.15) showOptions(g); if(g.ph==='end'&&g.wt>1.5){ const gg=g; game=null; setPh('idle'); results(gg); } }
     }
     else if(g.ph==='pick'){
       const left=WIN-g.t; E.bar.style.transform=`scaleX(${Math.max(0,left/WIN).toFixed(4)})`;
@@ -272,7 +272,7 @@ st.update=function(dt,t){
       if(left<3.5&&Math.floor(left)!==Math.floor(left+dt)) A.tick();
       if(left<=0) choose(g,-1);
     }
-    else if(g.ph==='show'&&g.t>4.5) next(g);
+    else if(g.ph==='show'&&g.t>1.3) next(g);
     if(game){ shownScore=Math.abs(game.score-shownScore)<1?game.score:lerp(shownScore,game.score,1-Math.exp(-8*dt)); E.score.textContent=fmt(shownScore); }
   }
   if(st.state==='menu') notesUpdate(st);

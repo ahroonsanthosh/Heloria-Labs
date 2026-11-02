@@ -90,6 +90,8 @@ const A=(()=>{
     roar(v){ if(!ctx) return; set(n.roar.g.gain,v*.7,.04); },
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
+    /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
     chord(){ [0,2,4,7].forEach((k,j)=>this.chime(10+k,j*.07)); },
     buzz(){ tone(92,.3,.11,'sawtooth',60); noise(.22,.12,900,200); },

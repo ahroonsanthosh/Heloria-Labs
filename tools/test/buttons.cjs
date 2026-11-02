@@ -85,6 +85,13 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const dockedNear = await until(() => window.__heloria.S.mode === 'station', null, 180000); rec(dockedNear, mobile ? 'Dock button docks' : 'E docks');
   if (dockedNear) { await wait(2500); await tap('#back', 'Orbit button after docking'); await until(() => window.__heloria.S.mode === 'hub', null, 180000); await wait(800); }
 
+  /* ---- the horizon is sealed until every station has been visited ---- */
+  await H(h => { h.S.ap = null; const P = h.S.probe; P.p.set(1.6, 0, 0); P.v.set(0, 0, 0); });
+  await wait(4000);
+  rec(await H(h => h.S.mode === 'hub' && Math.hypot(h.S.probe.p.x, h.S.probe.p.z) > 2), 'the horizon is sealed before every station is visited');
+  await H(h => { const P = h.S.probe; P.p.set(10.5, 0, 0); P.v.set(0, 0, Math.sqrt(60 / 10.5)); });
+  await wait(1500);
+
   /* ---- each station: dock, back, play, results, play again, back ---- */
   const only = (process.env.BTN_ONLY || '').split(',').filter(Boolean);
   for (const id of ids.filter(id => !only.length || only.includes(id))) {
@@ -120,7 +127,8 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     await wait(800);
   }
 
-  /* ---- horizon ---- */
+  /* ---- horizon: open once every station is visited ---- */
+  await H(h => h.STA.forEach(s => h.S.docked.add(s.id)));
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); });
   rec(await until(() => window.__heloria.S.mode === 'beyond', null, 180000), 'falling in reaches the horizon page');
   await wait(1500); await covered('#horizon', 'horizon');

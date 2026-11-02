@@ -90,7 +90,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast(`Visit all ${NST} stations. Then the horizon opens.`); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -126,7 +126,7 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if(S.mode==='station') A.update(t,{sub:.05,pad:S.st.state==='play'?.5:1,bright:.45});
+    if(S.mode==='station'||S.mode==='docking') A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
   }
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
