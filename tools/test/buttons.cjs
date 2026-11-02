@@ -44,7 +44,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* ---- story ---- */
   await covered('#story', 'story');
   for (const c of [1, 2, 3, 0]) {
-    if (mobile) { await H((h, c) => h.goChapter(c), c); } else { await click(`#rail button[data-ch="${c}"]`, 'rail ' + c); }
+    await H((h, c) => h.goChapter(c), c);
     rec(await until(c => window.__heloria.S.ch === c, c, 60000), 'chapter ' + c + ' reached');
     await wait(400); await H(h => h.storyUnlock());   // test frames are slow, so release the transition lock by hand
   }
@@ -55,6 +55,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await covered('#hub', 'orbit');
   await covered('#chrome', 'chrome');
   rec(await page.evaluate(() => !document.querySelector('#snd')), 'no sound indicator anywhere');
+  rec(await page.evaluate(() => !document.querySelector('#rail,.tele,#where')), 'no chapter rail, telemetry or location label');
   // station labels and edge markers set autopilot
   const ids = await H(h => h.STA.map(s => s.id));
   let apOk = 0;

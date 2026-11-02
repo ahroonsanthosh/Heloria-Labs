@@ -135,7 +135,7 @@ dial.add(pts(mkGeo,PM({size:.2,color:'#A5C3FF',uniforms:MKU,decl:'attribute floa
   b=aK<-.5?(.3+cur*(.55+.45*sin(uTime*5.))):1.25; sz=aK<-.5?(.8+cur*.5):1.25;`})));
 { const rg=new T.LineLoop(ringGeo(RING,240),dashMat('#A5C3FF','float a=.13*step(.5,fract(vAng*9.55));')); rg.rotation.x=Math.PI/2; rg.material.uniforms.uOp.value=1; dial.add(rg); }
 const burst=Burst(st.scene,Math.floor(360*Q+120),'#A5C3FF',.06);
-st.anchors=[new T.Vector3(0,RING,0),new T.Vector3(RO*.98,-.1,0),new T.Vector3(Math.cos(Math.PI/2-TAU/NB)*RING,Math.sin(Math.PI/2-TAU/NB)*RING,0)];
+st.anchors=[new T.Vector3(0,RING,0),new T.Vector3(Math.cos(Math.PI/2-TAU/NB)*RING,Math.sin(Math.PI/2-TAU/NB)*RING,0),new T.Vector3(RO*.98,-.1,0)];
 
 /* ---------- DOM ---------- */
 const E={score:q$('#krScore'),combo:q$('#krCombo'),tr:q$('#krTr'),in:q$('#krIn'),trV:q$('#krTrV'),inV:q$('#krInV'),turn:q$('#krTurn'),who:q$('#krWho'),line:q$('#krLine'),note:q$('#krNote'),
@@ -166,7 +166,7 @@ function showOptions(g){
   const b=g.c.beats[g.bi]; g.order=shuffle([0,1,2]);
   E.btns.forEach((x,k)=>{ const r=b.r[g.order[k]]; $('span',x).textContent=r.t; x.setAttribute('aria-label',`Reply ${k+1}: ${r.t}`); });
   noteHide(); void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
-  E.hint.textContent=FINE?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); E.bar.style.transform='scaleX(1)';
+  E.hint.textContent=FINE&&g.bi===0?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); // shown on the first turn only E.bar.style.transform='scaleX(1)';
 }
 function choose(g,k){
   if(!g||g.ph!=='pick') return;
@@ -188,7 +188,7 @@ function choose(g,k){
   E.btns.forEach((x,i)=>{ if(i===k){ x.classList.add('pick'); x.dataset.q=q; } else x.classList.add('dim'); });
   if(q<2){ const bi=[0,1,2].find(i=>b.r[g.order[i]].q[wi]===2); if(bi!==undefined) E.btns[bi].classList.add('best'),E.btns[bi].classList.remove('dim'); }
   noteShow(q,label,note,pts); meters(g); E.combo.textContent=g.streak>1?`${g.streak} good reads in a row`:'';
-  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space to skip ahead':'';
+  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE&&g.bi===0?'Space to skip ahead':'';
   if(g.bi>=1&&g.tr<=8) g.hung=true;
 }
 function next(g){

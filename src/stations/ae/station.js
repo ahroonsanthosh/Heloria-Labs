@@ -576,6 +576,7 @@ st.play=function(){
   game={wave:-1,phase:'brief',pt:0,wt:0,bag:[],every:2,nextAt:0,score:0,kills:0,jammed:0,mhit:0,shots:0,blue:0,leak:0,hostiles:0,ammo:AMMO,reload:0,jamCD:0,jamT:-1,jams:0,rs:0,rc:0,total:0,lostT:-1,alarmT:0,hint:1};
   for(const r of ROWS){ r.d=null; r.g=null; r.k=''; r.b.hidden=true; }
   hintEl.classList.remove('gone'); hintEl.textContent=FINE?'Click a track or a row to engage. Keys 1 to 8 engage rows':'Tap a track or a row to engage';
+  { const g0=game; setTimeout(()=>{ if(game===g0) hideHint(); },9000); } // the instruction fades after the first engagement or a few seconds
   st.setState('play'); nextWave(); tblT=0;
 };
 st.abort=function(){ game=null; if(pL) clearAll(); warnEl.classList.remove('on'); topEl.classList.remove('thr'); HUD.warnOn=false; };
@@ -583,7 +584,7 @@ let bootT=1;
 st.enter=function(){ st.abort(); st.setState('menu');
   // a hidden button elsewhere (the loader's Enter keeps focus after a keyboard entry) must not swallow Enter on this title
   const ae=document.activeElement; if(ae&&ae!==document.body&&!el.contains(ae)&&ae.blur) ae.blur();
-  resetSites(); nextId=1; bootT=0; $('#aeBest').textContent='Best '+fmt(store.get('ae',0)); attractT=.4; layoutKey='';
+  resetSites(); nextId=1; bootT=0; { const b=store.get('ae',0); $('#aeBest').textContent=b>0?'Best '+fmt(b):''; } attractT=.4; layoutKey='';
   for(let k=0;k<3;k++){ const d=k===1?spawnFriend():spawnHostile('scout'); if(d){ const a=Math.random()*TAU, r=3.4+Math.random()*1.6; d.p.x=Math.sin(a)*r; d.p.z=-Math.cos(a)*r; } } };
 st.exit=function(){ st.abort(); };
 

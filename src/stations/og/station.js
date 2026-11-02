@@ -483,7 +483,7 @@ st.play=function(){ searchId++; busy=false; finishAsk(); F=null; tw=null; d={mot
   launchBtn.classList.remove('cancel'); setT(launchT,'Launch'); hN.classList.remove('used'); hF.classList.remove('used'); curReset(); requestAnimationFrame(layoutGauge); };
 st.abort=function(){ searchId++; if(busy) finishAsk(); F=null; tw=null; setPhase('design'); W.visible=false; WU.value=0; BP.value=1; chute.visible=cord.visible=false; flame.visible=glow.visible=false; FL.value.w=0;
   stopSound(); slow(false); el.classList.remove('chute-ready','chute-now'); launchBtn.classList.remove('cancel'); setT(launchT,'Launch'); };
-st.enter=function(){ st.abort(); st.setState('menu'); syncUI(); snap=true; $o('Best').textContent='Best '+fmt(store.get('og',0)); };
+st.enter=function(){ st.abort(); st.setState('menu'); syncUI(); snap=true; { const b=store.get('og',0); $o('Best').textContent=b>0?'Best '+fmt(b):''; } };
 st.exit=function(){ st.abort(); };
 st.build=function(){
   rebuild(); syncUI(); st.anchors=[new T.Vector3(),new T.Vector3(),new T.Vector3()];

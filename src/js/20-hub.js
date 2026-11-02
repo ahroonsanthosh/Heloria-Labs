@@ -94,7 +94,7 @@ function hubPhysics(dt){
   const dp=$('#dockp'); dp.hidden=!S.near||FINE; if(S.near){ dp.textContent='Dock at '+S.near.name; dp.style.setProperty('--acc',S.near.color); }
   // telemetry + warnings
   const g=1/Math.sqrt(Math.max(1e-4,1-BH.RS/r)); S.tau+=dt/g;
-  $('#tR').textContent=(r/BH.RS).toFixed(1); $('#tV').textContent=(P.v.length()/12).toFixed(2); $('#tG').textContent='×'+g.toFixed(3); $('#tT').textContent=fmtT(S.tau);
+  // proper time still accrues for the horizon page; the readouts are gone
   const rs=r/BH.RS, danger=r<6.2; $('#warn').classList.toggle('on',danger); if(danger){ $('#warnR').textContent='r = '+rs.toFixed(2)+' rs'; post.uniforms.uTint.value.r=Math.max(post.uniforms.uTint.value.r,(6.2-r)*.012); }
   A.wind(P.v.length()/34+Math.max(0,(7-r))*.05); A.update(S.t,{sub:sstep(12,2,r),pad:1,bright:.4});
 }
@@ -102,16 +102,16 @@ function hubPhysics(dt){
 /* ---------- labels, edge markers, radar ---------- */
 STA.forEach(s=>{
   const el=document.createElement('button'); el.type='button'; el.className='slab'; el.style.setProperty('--acc',s.color); el.dataset.cur='Fly';
-  el.innerHTML=`<span class="rt"></span><span class="tx"><b>${s.name}</b><span class="sub">${s.game} · ${s.K.toLocaleString('en-IE')} K</span><span class="dist"></span><span class="act">${FINE?'<kbd>E</kbd> Dock':'Tap to dock'}</span></span>`;
-  el.addEventListener('click',()=>autopilot(s)); $('#labels').appendChild(el); s.el=el; s.distEl=$('.dist',el);
+  el.innerHTML=`<span class="rt"></span><span class="tx"><b>${s.name}</b><span class="sub">${s.game}</span><span class="act">${FINE?'<kbd>E</kbd> Dock':'Tap to dock'}</span></span>`;
+  el.addEventListener('click',()=>autopilot(s)); $('#labels').appendChild(el); s.el=el;
   const ed=document.createElement('button'); ed.type='button'; ed.className='edge'; ed.style.setProperty('--acc',s.color); ed.dataset.cur='Fly';
   ed.innerHTML=`<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1l6 5-6 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>${s.name}</span>`;
   ed.addEventListener('click',()=>autopilot(s)); $('#edges').appendChild(ed); s.edge=ed;
 });
 /* the horizon gets a label of its own once it is open */
 { const el=document.createElement('button'); el.type='button'; el.className='slab hole'; el.style.setProperty('--acc',HOLE.color); el.dataset.cur='Fall';
-  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every project visited · fall in</span><span class="dist"></span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
-  el.style.display='none'; el.addEventListener('click',()=>autopilot(HOLE)); $('#labels').appendChild(el); HOLE.el=el; HOLE.distEl=$('.dist',el); }
+  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every project visited · fall in</span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
+  el.style.display='none'; el.addEventListener('click',()=>autopilot(HOLE)); $('#labels').appendChild(el); HOLE.el=el; }
 const _edges=[]; let _rb=null, _rbK='';
 function radarBox(){ const key=innerWidth+'x'+innerHeight; if(_rbK!==key){ const r=$('#radar').getBoundingClientRect(); if(r.width<1) return null; _rb={l:r.left-30,t:r.top-30,r:r.right+10,b:r.bottom+10}; _rbK=key; } return _rb; }
 function labelsUpdate(){
@@ -122,7 +122,7 @@ function labelsUpdate(){
     const on=!behind&&sx>40&&sx<W-40&&sy>70&&sy<H-60;
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
       const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
-      s.distEl.textContent=(s.pos.distanceTo(S.probe.p)/BH.RS).toFixed(1)+' rs'; s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
+      s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
       let dx=sx-W/2, dy=sy-H/2; if(behind){dx=-dx;dy=-dy;} const a=Math.atan2(dy,dx);
@@ -133,7 +133,7 @@ function labelsUpdate(){
   { const H_=HOLE.el; if(holeOpen()&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
       if(p.z<1&&sx>40&&sx<W-40&&sy>70&&sy<H-60){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(SEAL).project(hubCam); const sz=clamp(Math.abs((tv[2].x-p.x)*.5*W)*2,40,170);
         H_.style.display=''; H_.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; H_.style.setProperty('--s',sz.toFixed(0)+'px'); H_.classList.add('near'); H_.classList.toggle('flip',sx>W-200); H_.classList.toggle('low',sy-sz/2<74);
-        HOLE.distEl.textContent=(S.probe.p.length()/BH.RS).toFixed(1)+' rs'; } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
+        } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
   // markers that point the same way share an edge of the screen: slide them apart along it so names never overlap
   const n=_edges.length;
   for(let it=0;it<6;it++) for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const a=_edges[i], b=_edges[j];

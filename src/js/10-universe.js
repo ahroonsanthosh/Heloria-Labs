@@ -94,12 +94,12 @@ STA.forEach((s,si)=>{
     const tip=add(new T.Mesh(new T.SphereGeometry(.09,16,10),LM(C,{emit:2.2}))); tip.position.y=1.05;
     add(pts(cloud(1800,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=1.05;o[2]=Math.sin(a);}),PM({size:.05,color:C,body:'float t=fract(aR.y*.999+uTime*.35+floor(aR.y*3.)/3.); p.xz*=t*2.4; b=(1.-t)*.9;'})));
   }
-  // soft halo, dock zone and tether to the grid
+  // soft halo, and a dock ring that only shows when you are close enough to dock
   g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,body:'b=.08;'})));
-  s.orbit=new T.LineLoop(ringGeo(s.R,480),dashMat(C)); s.orbit.material.uniforms.uR.value=s.R; U.scene.add(s.orbit);
-  s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=(.14+.86*uNear)*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
+  s.orbit=new T.LineLoop(ringGeo(s.R,480),dashMat(C,`float df=mod(uAng-vAng,6.28318); float a=(.025+.45*exp(-df*2.))*step(.45,fract(vAng*uR*1.4));`)); s.orbit.material.uniforms.uR.value=s.R; U.scene.add(s.orbit);
+  s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=.86*uNear*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(new Float32Array([0,-.95,0,0,-3.2,0]),3)); tg.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
-  s.tether=new T.Line(tg,dashMat(C,'float a=.3*(1.-vAng)*step(.5,fract(vAng*14.-uTime*1.5));')); g.add(s.tether);
+  s.tether=new T.Line(tg,dashMat(C,'float a=0.;')); s.tether.visible=false; g.add(s.tether);
 });
 
 /* asteroid belt between Aetos and Pharos, lit only by the disk */
@@ -116,7 +116,7 @@ U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
-  body:`float a=atan(p.z,p.x); float da=abs(mod(a-uPA+3.1416,6.2832)-3.1416); float hx=step(.82,fract((a*24.)+floor(p.y*3.)*.5)); b=uOp*(.04+.03*sin(uTime+a*9.)+uNear*(.6+.9*hx)*exp(-da*da*18.));`}));
+  body:`float a=atan(p.z,p.x); float da=abs(mod(a-uPA+3.1416,6.2832)-3.1416); float hx=step(.82,fract((a*24.)+floor(p.y*3.)*.5)); b=uOp*(.012+uNear*(.6+.9*hx)*exp(-da*da*18.));`}));
 U.fence.material.uniforms.uOp.value=0; U.scene.add(U.fence);
 
 /* probe */

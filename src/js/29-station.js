@@ -13,7 +13,7 @@ function mkStation(id,impl){
     hideUI(){ unreveal($('.card',el)); el.classList.remove('is-play','is-res'); setTimeout(()=>{ if(S.stId!==id||S.mode!=='station') el.classList.remove('on'); },700); },
     result(o){ // o: {grade, score, key, stats, text, assisted}
       const best=store.get(id,0), isNew=!o.assisted&&o.score>best; if(isNew) store.set(id,o.score);
-      const B=Math.max(best,o.assisted?0:o.score); const bEl=$('#'+id+'Best'); if(bEl) bEl.textContent='Best '+fmt(B);
+      const B=Math.max(best,o.assisted?0:o.score); const bEl=$('#'+id+'Best'); if(bEl) bEl.textContent=B>0?'Best '+fmt(B):'';
       const gEl=$('#'+id+'G'); gEl.removeAttribute('data-sp'); gEl.classList.add('pw'); gEl.textContent=o.grade; $('#'+id+'Final').textContent=fmt(o.score);
       const nw=$('#'+id+'New'); if(nw) nw.textContent=o.assisted?'Assisted':isNew?'New best':'Best '+fmt(best);
       $('#'+id+'Stats').innerHTML=statsHTML(o.stats); $('#'+id+'P').textContent=o.text||'';
@@ -23,6 +23,7 @@ function mkStation(id,impl){
     },
     build(){}, enter(){}, exit(){}, update(){}, play(){}, abort(){}
   },impl);
+  { const bEl=$('#'+id+'Best'), b=store.get(id,0); if(bEl) bEl.textContent=b>0?'Best '+fmt(b):''; } // no 'Best 0' before a first game
   // the index on the title card follows the order of the stations in orbit
   { const si=STA.findIndex(s=>s.id===id), ix=$('.idx span:first-child',el); if(ix&&si>=0) ix.textContent=String(si+1).padStart(2,'0')+' / '+String(NST).padStart(2,'0'); }
   st.start=()=>{ if(S.mode!=='station'||S.stId!==id) return; const f=document.activeElement; if(f&&f!==document.body&&!f.matches('input,textarea,select')) f.blur(); A.stinger(2); A.whoosh(true,.8,.14); st.play(); };
@@ -32,7 +33,7 @@ function mkStation(id,impl){
   st.scene.add(pts(cloud(Math.floor(1800*Q+400),(i,r,o)=>{const a=r[0]*TAU,b=Math.acos(2*r[1]-1),R=90+r[2]*40;o[0]=Math.sin(b)*Math.cos(a)*R;o[1]=Math.cos(b)*R;o[2]=Math.sin(b)*Math.sin(a)*R;}),
     PM({size:.75,color:'#E8DECF',body:'b=.14+.7*pow(aR.x,7.); col=mix(uCol,vec3(.75,.84,1.),aR.y*.6);'})));
   // annotation leader lines
-  st.notes=$$('.note',el); const nl=$('.notes',el);
+  st.notes=$$('.note',el); const nl=$('.notes',el); st.noteOff=st.notes.length===2?1:0; // two notes: they describe anchors 1 and 2
   st.leads=st.notes.map(()=>{ const h=document.createElement('i'); h.className='ld h'; const d=document.createElement('i'); d.className='ld d'; const p=document.createElement('i'); p.className='ld p'; nl.appendChild(h); nl.appendChild(d); nl.appendChild(p); return {h,d,p}; });
   ST[id]=st; return st;
 }
@@ -40,7 +41,7 @@ function notesUpdate(st){
   if(!st.notes||!st.notes.length||NARROW()) return;
   const W=innerWidth, H=innerHeight, nw=Math.min(250,W*.22), x0=W-nw-54;
   let y=H*.2; const gap=Math.max(26,H*.05);
-  st.notes.forEach((n,i)=>{ if(!n._h) n._h=n.offsetHeight||70; n.style.transform=`translate(${x0}px,${y}px)`; const a=st.anchors[i], L=st.leads[i];
+  st.notes.forEach((n,i)=>{ if(!n._h) n._h=n.offsetHeight||70; n.style.transform=`translate(${x0}px,${y}px)`; const a=st.anchors[i+st.noteOff], L=st.leads[i];
     if(a&&L){ const p=proj(a,stCam); const ny=y+12, ex=x0-28; const ok=p.z<1&&isFinite(p.x)&&isFinite(p.y);
       L.h.style.transform=`translate(${ex}px,${ny}px)`; L.h.style.width='24px';
       const dx=p.x-ex, dy=p.y-ny, len=Math.hypot(dx,dy); L.d.style.width=len+'px'; L.d.style.transform=`translate(${ex}px,${ny}px) rotate(${Math.atan2(dy,dx)}rad)`;

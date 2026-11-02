@@ -85,7 +85,7 @@ function frame(now){
     entry.t+=rdt; chPose(0,_sp,t); const k=E.io5(clamp(entry.t/3.4,0,1));
     hubCam.position.lerpVectors(entry.from.p,_sp.p,k); hubCam.quaternion.slerpQuaternions(entry.from.q,_sp.q,k); hubCam.fov=lerp(30,_sp.fov,k); hubCam.updateProjectionMatrix();
     A.update(t,{sub:.3*(1-k)+.15,pad:k,bright:.5});
-    if(entry.t>2.3&&!entry.rev){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); story.rail[0].classList.add('on'); where('Approach'); }
+    if(entry.t>2.3&&!entry.rev){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); }
     if(entry.t>=3.4){ S.mode='story'; S.ch=0; story.k=1; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov; }
   }
   else if(S.mode==='story'){ storyUpdate(rdt,t); }

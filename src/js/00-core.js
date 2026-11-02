@@ -307,4 +307,4 @@ function cursorTick(){ if(!FINE) return; crx=lerp(crx,mouse.x,.22); cry=lerp(cry
 function cursorAim(on){ curEl.classList.toggle('aim',!!on); }
 function cine(on){ document.body.classList.toggle('cine',on); }
 let toastT=0; function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.remove('off'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.add('off'),2800); }
-function where(t){ scramble($('#where'),t,500); }
+function where(t){} // the screen says where you are; no label needed
