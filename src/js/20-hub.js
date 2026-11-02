@@ -186,6 +186,7 @@ function dockUpdate(rdt){
   if(t>1.8&&!tr.cin){ tr.cin=true; cine(false); }
   if(t>=2.5){ S.mode='station'; TR=null; S.iris=3; post.uniforms.uWarp.value=0; hubCam.fov=36; hubCam.updateProjectionMatrix(); }
 }
+$('#back').addEventListener('click',()=>undock());
 function undock(){
   if(S.mode!=='station') return;
   const s=STA.find(x=>x.id===S.stId), st=S.st;
