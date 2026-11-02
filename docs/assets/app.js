@@ -93,6 +93,8 @@ const A=(()=>{
     roar(v){ if(!ctx) return; set(n.roar.g.gain,v*.7,.04); },
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
+    /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
     chord(){ [0,2,4,7].forEach((k,j)=>this.chime(10+k,j*.07)); },
     buzz(){ tone(92,.3,.11,'sawtooth',60); noise(.22,.12,900,200); },
@@ -450,10 +452,34 @@ STA.forEach((s,si)=>{
     const w=add(pts(cloud(1400,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*.42;o[1]=0;o[2]=Math.sin(a)*.42;}),PM({size:.05,color:C,body:'float a=atan(p.z,p.x); float k=1.+.45*sin(a*9.+uTime*6.)*sin(uTime*2.3)*sin(a*2.+uTime); p.xz*=k; p.y=.18*sin(a*14.-uTime*5.)*sin(uTime*1.7); b=1.3;'})));
     w.rotation.x=.3;
   }
-  if(s.id==='ae'){ // radar dish on a mast, sweeping
-    add(new T.Mesh(new T.CylinderGeometry(.05,.09,.9,10),LM('#9a948a',{rim:.6}))).position.y=-.35;
-    const dish=add(new T.Mesh(new T.SphereGeometry(.55,32,16,0,TAU,0,Math.PI*.32),LM(C,{emit:.03,rim:1,amb:.05}))); dish.material.side=T.DoubleSide; dish.position.y=.25; s.anim.push(t=>{ dish.rotation.set(-.7,t*.9,0); });
-    add(pts(cloud(1600,(i,r,o)=>{const a=r[0]*TAU,rr=(Math.floor(r[1]*4)+1)/4*1.6;o[0]=Math.cos(a)*rr;o[1]=-.8;o[2]=Math.sin(a)*rr;}),PM({size:.045,color:C,body:'float a=atan(p.z,p.x); float d=mod(uTime*2.6-a,6.2832); b=.15+1.3*exp(-d*2.5);'})));
+  if(s.id==='ae'){ // a surveillance radar: a curved antenna turning on a pedestal, its beam sweeping a scope below
+    const steel=LM('#a9a196',{rim:.7,amb:.06});
+    add(new T.Mesh(new T.CylinderGeometry(.06,.15,.72,8),steel)).position.y=-.44;                      // pedestal
+    add(new T.Mesh(new T.BoxGeometry(.3,.16,.22),steel)).position.set(0,-.74,.05);                   // equipment shelter
+    add(new T.Mesh(new T.CylinderGeometry(.13,.13,.06,20),steel)).position.y=-.05;                   // turntable
+    const head=new T.Group(); add(head);
+    head.add(new T.Mesh(new T.BoxGeometry(.05,.2,.05),steel)).position.set(0,.08,-.02);              // yoke
+    // the reflector: a slice of a cylinder, concave toward the feed, tilted up a little like an airport radar
+    const RR=.72, SPAN=1.6, refl=new T.Mesh(new T.CylinderGeometry(RR,RR,.3,32,1,true,Math.PI-SPAN/2,SPAN),LM(C,{emit:.015,rim:.85,amb:.06}));
+    refl.material.side=T.DoubleSide; refl.position.set(0,.2,RR-.12); refl.rotation.x=-.18; head.add(refl);
+    const ribs=new T.LineSegments(new T.EdgesGeometry(refl.geometry,20),new T.LineBasicMaterial({color:C,transparent:true,opacity:.5})); ribs.position.copy(refl.position); ribs.rotation.copy(refl.rotation); head.add(ribs);
+    head.add(new T.Mesh(new T.BoxGeometry(.012,.012,.36),steel)).position.set(0,.13,.08);             // feed strut
+    head.add(new T.Mesh(new T.BoxGeometry(.07,.06,.06),LM(C,{emit:.4,rim:.8}))).position.set(0,.14,.27); // feed horn
+    // the scope below: range rings, the sweep with its afterglow, and returns that flash as the beam crosses them
+    const sweepU={uA:{value:0}}, SR=1.7;
+    const scope=add(pts(cloud(Math.floor(1700*Q+500),(i,r,o)=>{ let rr, a=r[0]*TAU;
+        if(i%5===0){ rr=(Math.floor(r[1]*3)+1)/3*SR; } else if(i%41===1){ rr=(.35+.6*r[2])*SR; } else rr=Math.sqrt(r[1])*SR;
+        o[0]=Math.sin(a)*rr; o[1]=-.86; o[2]=Math.cos(a)*rr; }),
+      PM({size:.05,color:C,uniforms:sweepU,decl:'uniform float uA;',body:`
+        float a=atan(p.x,p.z); float d=mod(uA-a,6.2832); float rr=length(p.xz)/${SR.toFixed(2)};
+        float sw=exp(-d*3.2), lead=exp(-d*28.), fr=fract(rr*3.+.5)-.5;
+        b=.04+sw*(.25+.6*rr)+lead*.9;
+        if(aR.z>.985){ b=.06+2.2*exp(-d*1.4); sz=1.6; col=mix(uCol,vec3(1.,.85,.6),.5); }
+        else if(abs(fr)<.012){ b=.22+.6*sw; }`})));
+    scope.renderOrder=1;
+    // a fine rim so the scope reads as an instrument from any angle
+    const rim=new T.LineLoop(ringGeo(SR,160,-.86),dashMat(C,'float a=.55;')); rim.material.uniforms.uOp.value=1; add(rim);
+    s.anim.push(t=>{ const a=t*1.25; head.rotation.y=a; sweepU.uA.value=a; });
   }
   if(s.id==='ph'){ // lighthouse: pharos, the first one
     const tw=add(new T.Mesh(new T.CylinderGeometry(.16,.3,1.5,20,6),LM('#d9cfc2',{rim:.7}))); tw.position.y=-.2;
@@ -495,6 +521,8 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
+/* the seal: a dashed ring just outside the horizon that stops the probe until every station has been visited */
+U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -534,12 +562,12 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(S.docked.size>=NST?0:1);
 }
 
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
 const S={mode:'load',ch:0,chT:0,t:0,tau:0,hold:0,form:0,formT:null,flash:0,intro:0,introT:0,yaw:.5,zoom:1,iris:0,arrive:0,shake:0,ca:0,rdt:0,games:0,
-  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0};
+  probe:{p:new T.Vector3(10,0,0),v:new T.Vector3(),thr:0,head:0}, ap:null, docked:new Set(), near:null, st:null, stId:null, firstThrust:false, hubT:0, edgeT:0, sealT:0};
 const keys=new Set();
 const tv=[...Array(10)].map(()=>new T.Vector3());
 const _m=new T.Matrix4(), UPV=new T.Vector3(0,1,0);
@@ -580,7 +608,10 @@ const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick')
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
 addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
-function autopilot(s){ if(S.mode!=='hub') return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
+/* the hole as a destination: sealed until every station has been visited */
+const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
+const holeOpen=()=>S.docked.size>=NST, SEALTINT=new T.Color(.06,.015,0);
+function autopilot(s){ if(S.mode!=='hub') return; if(s===HOLE&&!holeOpen()) return; if(S.near===s) return dock(s); S.ap=s; toast(s===HOLE?'Autopilot · into the horizon':'Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
@@ -597,28 +628,32 @@ function hubPhysics(dt){
   if(S.ap){ const s=S.ap; const to=tv[4].copy(s.pos).sub(P.p); to.y=0; const dist=to.length();
     const dl=tv[5].copy(to).normalize(); const along=clamp(-P.p.dot(dl),0,dist); const cl=tv[6].copy(P.p).addScaledVector(dl,along); cl.y=0;
     let aim=to, aimLen=dist;
-    if(cl.length()<8.5&&dist>4){ const side=cl.length()>.1?cl.normalize():tv[6].set(-P.p.z,0,P.p.x).normalize(); aim=side.multiplyScalar(Math.max(9.5,Math.min(r,s.R))).sub(P.p); aim.y=0; aimLen=aim.length()+6; }
+    if(s!==HOLE&&cl.length()<8.5&&dist>4){ const side=cl.length()>.1?cl.normalize():tv[6].set(-P.p.z,0,P.p.x).normalize(); aim=side.multiplyScalar(Math.max(9.5,Math.min(r,s.R))).sub(P.p); aim.y=0; aimLen=aim.length()+6; }
     const want=tv[7].copy(aim).normalize().multiplyScalar(Math.min(11,aimLen*1.1)).add(s.vel);
     thrust.copy(want.sub(P.v)).multiplyScalar(.6); if(thrust.length()>1.5) thrust.setLength(1.5);
-    if(dist<2.2){ S.ap=null; dock(s); return; }
+    if(dist<2.2&&s!==HOLE){ S.ap=null; dock(s); return; }
     U.apLine.visible=true; const ap=U.apLine.geometry.attributes.position.array; ap[0]=P.p.x;ap[1]=0;ap[2]=P.p.z;ap[3]=s.pos.x;ap[4]=s.pos.y;ap[5]=s.pos.z; U.apLine.geometry.attributes.position.needsUpdate=true; U.apLine.material.uniforms.uR.value=dist*1.2; U.apLine.material.uniforms.uOp.value=1;
   } else U.apLine.visible=false;
   const tl=Math.min(1.5,thrust.length()); P.thr=damp(P.thr,tl,10,dt);
   const acc=tv[8].set(-P.p.x,0,-P.p.z).multiplyScalar(GM/(r*r*r)).addScaledVector(thrust,9);
   if(tl<.05&&r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.4); }
   if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; toast('Edge of the Heloria system'); A.beep(440); } }
-  if(S.ap&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
+  if(S.ap&&S.ap!==HOLE&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
-  if(S.ap){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in
-  if(r<1.35){ crossHorizon(); return; }
+  if(S.ap&&S.ap!==HOLE){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in by accident
+  // the horizon stays sealed until every station has been visited: the probe bounces off it
+  if(!holeOpen()){ const rr=Math.hypot(P.p.x,P.p.z);
+    if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
+      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast(`The horizon is sealed · visit every station first · ${S.docked.size} / ${NST}`); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
+  else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
   if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3).add(P.p); for(let k=0;k<Math.ceil(P.thr*4*Q);k++) U.exhaust.emit(tv[4],1,.5,null,0,.6); }
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
-  U.dustU.uC.value.copy(P.p); U.gridU.uProbe.value.copy(P.p);
+  U.dustU.uC.value.copy(P.p); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
   U.fenceU.uPA.value=Math.atan2(P.p.z,P.p.x); U.fenceU.uNear.value=sstep(RB-6,RB-1,r);
   // proximity
   let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<2.6?1:0,6,dt); });
@@ -640,6 +675,10 @@ STA.forEach(s=>{
   ed.innerHTML=`<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1l6 5-6 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>${s.name}</span>`;
   ed.addEventListener('click',()=>autopilot(s)); $('#edges').appendChild(ed); s.edge=ed;
 });
+/* the horizon gets a label of its own once it is open */
+{ const el=document.createElement('button'); el.type='button'; el.className='slab hole'; el.style.setProperty('--acc',HOLE.color); el.dataset.cur='Fall';
+  el.innerHTML=`<span class="rt"></span><span class="tx"><b>The horizon</b><span class="sub">Every station visited · fall in</span><span class="dist"></span><span class="act">${FINE?'Click':'Tap'} to fall in</span></span>`;
+  el.style.display='none'; el.addEventListener('click',()=>autopilot(HOLE)); $('#labels').appendChild(el); HOLE.el=el; HOLE.distEl=$('.dist',el); }
 const _edges=[]; let _rb=null, _rbK='';
 function radarBox(){ const key=innerWidth+'x'+innerHeight; if(_rbK!==key){ const r=$('#radar').getBoundingClientRect(); if(r.width<1) return null; _rb={l:r.left-30,t:r.top-30,r:r.right+10,b:r.bottom+10}; _rbK=key; } return _rb; }
 function labelsUpdate(){
@@ -658,6 +697,10 @@ function labelsUpdate(){
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
+  { const H_=HOLE.el; if(holeOpen()&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
+      if(p.z<1&&sx>40&&sx<W-40&&sy>70&&sy<H-60){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(SEAL).project(hubCam); const sz=clamp(Math.abs((tv[2].x-p.x)*.5*W)*2,40,170);
+        H_.style.display=''; H_.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; H_.style.setProperty('--s',sz.toFixed(0)+'px'); H_.classList.add('near'); H_.classList.toggle('flip',sx>W-200); H_.classList.toggle('low',sy-sz/2<74);
+        HOLE.distEl.textContent=(S.probe.p.length()/BH.RS).toFixed(1)+' rs'; } else H_.style.display='none'; } else if(H_.style.display!=='none') H_.style.display='none'; }
   // markers that point the same way share an edge of the screen: slide them apart along it so names never overlap
   const n=_edges.length;
   for(let it=0;it<6;it++) for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const a=_edges[i], b=_edges[j];
@@ -682,28 +725,31 @@ function radarDraw(){
   rx.setLineDash([2,6]); rx.strokeStyle='rgba(238,233,223,.2)'; rx.beginPath(); rx.arc(0,0,14*k,0,TAU); rx.stroke(); rx.setLineDash([]);
   rx.strokeStyle='rgba(255,195,146,.5)'; rx.beginPath(); rx.arc(0,0,RB*k,0,TAU); rx.stroke(); rx.fillStyle='rgba(255,195,146,.18)'; rx.beginPath(); rx.arc(0,0,6.6*k,0,TAU); rx.arc(0,0,1.65*k,0,TAU,true); rx.fill();
   rx.fillStyle='#000'; rx.strokeStyle='#FFC392'; rx.beginPath(); rx.arc(0,0,1.43*k,0,TAU); rx.fill(); rx.stroke();
+  if(holeOpen()){ rx.strokeStyle='rgba(255,195,146,'+(.5+.5*Math.sin(S.t*4)).toFixed(2)+')'; rx.lineWidth=2; rx.beginPath(); rx.arc(0,0,1.43*k+8+3*Math.sin(S.t*4),0,TAU); rx.stroke(); rx.lineWidth=1.5; }
+  else { rx.strokeStyle='rgba(255,86,54,.55)'; rx.setLineDash([3,4]); rx.beginPath(); rx.arc(0,0,SEAL*k,0,TAU); rx.stroke(); rx.setLineDash([]); }
   peerList.forEach(p=>{ const pr=p.presence||{}; if(p.sameTab||typeof pr.x!=='number') return; rx.fillStyle='rgba(255,195,146,.8)'; rx.fillRect(pr.x*k-2,pr.z*k-2,4,4); });
   STA.forEach(s=>{ const x=s.pos.x*k, y=s.pos.z*k; rx.fillStyle=s.color; rx.beginPath(); rx.arc(x,y,S.ap===s?9:7,0,TAU); rx.fill();
     if(S.docked.has(s.id)){ rx.strokeStyle=s.color; rx.beginPath(); rx.arc(x,y,12,0,TAU); rx.stroke(); }
     if(S.ap===s){ rx.strokeStyle='#fff'; rx.setLineDash([4,4]); rx.beginPath(); rx.moveTo(S.probe.p.x*k,S.probe.p.z*k); rx.lineTo(x,y); rx.stroke(); rx.setLineDash([]); } });
   const P=S.probe; rx.save(); rx.translate(P.p.x*k,P.p.z*k); rx.rotate(-P.head+Math.PI); rx.fillStyle='#fff'; rx.beginPath(); rx.moveTo(0,10); rx.lineTo(6,-6); rx.lineTo(0,-2); rx.lineTo(-6,-6); rx.closePath(); rx.fill(); rx.restore();
   rx.restore();
-  rx.fillStyle='rgba(238,233,223,.5)'; rx.font='18px "Departure Mono", monospace'; rx.textAlign='center'; rx.fillText('▲',cx,16);
+  rx.fillStyle='rgba(238,233,223,.5)'; rx.font='16px "Michroma", sans-serif'; rx.textAlign='center'; rx.fillText('▲',cx,16);
 }
 rc.addEventListener('click',e=>{
   const b=rc.getBoundingClientRect(), sc=rc.width/b.width; let x=(e.clientX-b.left)*sc-rc.width/2, y=(e.clientY-b.top)*sc-rc.width/2;
   const c=Math.cos(-S.yaw), s=Math.sin(-S.yaw); const wx=x*c-y*s, wy=x*s+y*c; const k=(rc.width/2-16)/RB;
-  let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} }); if(best) autopilot(best);
+  let best=null, bd=40; STA.forEach(st=>{ const d=Math.hypot(st.pos.x*k-wx,st.pos.z*k-wy); if(d<bd){bd=d;best=st;} });
+  if(holeOpen()&&Math.hypot(wx,wy)<Math.min(bd,34)) best=HOLE; if(best) autopilot(best);
 });
 $('#dots').innerHTML=STA.map(()=>'<i></i>').join('');
-function updateQuest(){ $('#qtxt').textContent=`${S.docked.size} / ${NST} docked`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
+function updateQuest(){ $('#qtxt').textContent=holeOpen()?'All visited · the horizon is open':`${S.docked.size} / ${NST} visited`; [...$('#dots').children].forEach((d,i)=>{ d.classList.toggle('on',S.docked.has(STA[i].id)); d.style.setProperty('--c',STA[i].color); }); }
 
 /* ---------- docking: fly in, iris open into the station world ---------- */
 let TR=null;
 function dock(s){
   if(S.mode!=='hub') return;
   const st=ST[s.id]; if(!st) return;
-  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.thrust(0); A.swell(); cine(true);
+  S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true);
   TR={t:0,s,st,dir:tv[0].copy(hubCam.position).sub(s.pos).setY(0).normalize().clone()};
   fromP.p.copy(hubCam.position); fromP.q.copy(hubCam.quaternion); fromP.fov=hubCam.fov;
   S.stId=s.id; S.st=st; st.enter(); S.stSnap=true; S.arrive=1;
@@ -729,7 +775,7 @@ $('#back').addEventListener('click',()=>undock());
 function undock(){
   if(S.mode!=='station') return;
   const s=STA.find(x=>x.id===S.stId), st=S.st;
-  st.abort(); st.hideUI(); cine(true); A.whoosh(false,1.3); S.mode='undocking';
+  st.abort(); st.hideUI(); cine(true); A.hush(); A.whoosh(false,1.3); S.mode='undocking';
   const out=tv[0].copy(s.pos).setY(0).normalize();
   TR={t:0,s,st,dir:out.clone()};
   S.probe.p.copy(s.pos).addScaledVector(out,3.2); S.probe.p.y=0; S.probe.v.copy(s.vel); S.probe.head=Math.atan2(-s.vel.x,-s.vel.z);
@@ -749,7 +795,7 @@ function undockUpdate(rdt,dt){
   if(t>1.1&&!tr.off){ tr.off=true; show('#station',false); tr.st.el.classList.remove('on'); tr.st.exit(); S.st=null; S.stId=null; }
   if(t>1.5&&!tr.hud){ tr.hud=true; show('#hub',true); cine(false); where('Orbit'); }
   if(t>=2.4){ S.mode='hub'; TR=null; hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
-    if(S.docked.size===NST&&!S.allDone){ S.allDone=true; setTimeout(()=>toast('Every station visited. The middle is calling.'),700); } }
+    if(holeOpen()&&!S.allDone){ S.allDone=true; setTimeout(()=>{ toast('Every station visited. The horizon is open: fall in.'); A.chord(); },700); } }
 }
 
 /* ================= STORY: four chapters, one gesture each ================= */
@@ -869,7 +915,9 @@ function popAt(container,v3,text,cls){
   container.appendChild(el); setTimeout(()=>el.remove(),1050);
 }
 function statsHTML(rows){ return rows.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join(''); }
-function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0); if(tint) post.uniforms.uTint.value.add(tint); }
+const _tint=new T.Color();
+function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0);
+  if(tint){ const c=tint.isColor?tint:_tint.setRGB(+tint.x||+tint.r||0,+tint.y||+tint.g||0,+tint.z||+tint.b||0); if(isFinite(c.r+c.g+c.b)) post.uniforms.uTint.value.add(c); } }
 function showBanner(el,h,sub){ el.innerHTML=`<span class="ui acc fade">${sub||''}</span><h3 class="disp pw">${h}</h3>`; prepPW($('h3',el)); reveal(el); clearTimeout(el._t); el._t=setTimeout(()=>unreveal(el),1500); }
 
 /* Enter starts the game from a station's title screen */
@@ -1036,14 +1084,14 @@ function newGame(){
 }
 function startBeat(g,i){
   g.bi=i; g.ph='line'; g.t=0; g.wi=0; g.wt=0; g.pick=-1; const b=g.c.beats[i];
-  g.warm=warmOf(g.tr,g.in); g.words=setLine(g.warm||!b.c?b.w:b.c); noteHide();
+  g.warm=warmOf(g.tr,g.in); g.words=setLine(g.warm||!b.c?b.w:b.c); // the last coach note stays up while this line types in
   E.ops.classList.remove('in'); E.btns.forEach(x=>{ x.classList.remove('pick','dim','best'); x.removeAttribute('data-q'); });
   E.turn.textContent=`Turn ${i+1} / ${NB}`; MKU.uCur.value=i; setPh('line'); E.hint.textContent='';
 }
 function showOptions(g){
   const b=g.c.beats[g.bi]; g.order=shuffle([0,1,2]);
   E.btns.forEach((x,k)=>{ const r=b.r[g.order[k]]; $('span',x).textContent=r.t; x.setAttribute('aria-label',`Reply ${k+1}: ${r.t}`); });
-  void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
+  noteHide(); void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
   E.hint.textContent=FINE?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); E.bar.style.transform='scaleX(1)';
 }
 function choose(g,k){
@@ -1066,11 +1114,11 @@ function choose(g,k){
   E.btns.forEach((x,i)=>{ if(i===k){ x.classList.add('pick'); x.dataset.q=q; } else x.classList.add('dim'); });
   if(q<2){ const bi=[0,1,2].find(i=>b.r[g.order[i]].q[wi]===2); if(bi!==undefined) E.btns[bi].classList.add('best'),E.btns[bi].classList.remove('dim'); }
   noteShow(q,label,note,pts); meters(g); E.combo.textContent=g.streak>1?`${g.streak} good reads in a row`:'';
-  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space for the next line':'Tap for the next line';
+  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space to skip ahead':'';
   if(g.bi>=1&&g.tr<=8) g.hung=true;
 }
 function next(g){
-  if(!g||g.ph!=='show'||g.t<.6) return;
+  if(!g||g.ph!=='show'||g.t<.25) return;
   if(g.hung||g.bi>=NB-1){ finish(g); return; }
   startBeat(g,g.bi+1);
 }
@@ -1138,11 +1186,11 @@ st.update=function(dt,t){
   burst.update(dt,0,1.6);
   if(play){
     g.t+=dt;
-    if(g.ph==='ring'&&g.t>1.7){ A.blip(); startBeat(g,0); }
+    if(g.ph==='ring'&&g.t>1.2){ A.blip(); startBeat(g,0); }
     else if(g.ph==='line'||g.ph==='end'){
-      g.wt+=dt; const step=g.ph==='end'?.11:.085;
+      g.wt+=dt; const step=g.ph==='end'?.09:.055;
       while(g.wi<g.words.length&&g.wt>=step){ g.wt-=step; g.words[g.wi++].classList.add('on'); U2.uSpeak.value=1; if(g.wi%2) A.key(); }
-      if(g.wi>=g.words.length){ if(g.ph==='line'&&g.wt>.35) showOptions(g); if(g.ph==='end'&&g.wt>1.5){ const gg=g; game=null; setPh('idle'); results(gg); } }
+      if(g.wi>=g.words.length){ if(g.ph==='line'&&g.wt>.15) showOptions(g); if(g.ph==='end'&&g.wt>1.5){ const gg=g; game=null; setPh('idle'); results(gg); } }
     }
     else if(g.ph==='pick'){
       const left=WIN-g.t; E.bar.style.transform=`scaleX(${Math.max(0,left/WIN).toFixed(4)})`;
@@ -1150,7 +1198,7 @@ st.update=function(dt,t){
       if(left<3.5&&Math.floor(left)!==Math.floor(left+dt)) A.tick();
       if(left<=0) choose(g,-1);
     }
-    else if(g.ph==='show'&&g.t>4.5) next(g);
+    else if(g.ph==='show'&&g.t>1.3) next(g);
     if(game){ shownScore=Math.abs(game.score-shownScore)<1?game.score:lerp(shownScore,game.score,1-Math.exp(-8*dt)); E.score.textContent=fmt(shownScore); }
   }
   if(st.state==='menu') notesUpdate(st);
@@ -1407,7 +1455,7 @@ const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
   if(!labCx||labMode===+mob) return; labMode=+mob;
   const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
-  const fs=mob?40:23, sy=mob?1.1:1.3; x.font=`${fs}px "Departure Mono", ui-monospace, monospace`;
+  const fs=mob?33:19, sy=mob?1.1:1.3; x.font=`${fs}px "Michroma", sans-serif`;
   // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
   const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.fillText(t,0,0); x.restore(); };
   for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
@@ -1426,7 +1474,7 @@ function heightTex(){
   const t=new T.DataTexture(data,N,N,T.RedFormat,T.UnsignedByteType); t.magFilter=t.minFilter=T.LinearFilter; t.generateMipmaps=false; t.needsUpdate=true; return t;
 }
 st.build=async function(){
-  try{ await Promise.race([document.fonts.load('24px "Departure Mono"'),wait(1500)]); }catch(e){}
+  try{ await Promise.race([document.fonts.load('20px "Michroma"'),wait(1500)]); }catch(e){}
   labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
   labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},
@@ -2828,7 +2876,7 @@ const lad=new T.Group(); lad.position.z=-4; W.add(lad);
 const ladU={uFocus:{value:0},uOn:WU,uLad:{value:0}};
 function labelSprite(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; const tex=new T.CanvasTexture(c); tex.minFilter=T.LinearFilter; tex.generateMipmaps=false;
   const sp=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false,opacity:0})); sp.userData={c,x:c.getContext('2d'),tex}; return sp; }
-function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font=px+'px "Departure Mono", monospace'; x.fillStyle=color; x.textBaseline='middle';
+function drawLabel(sp,text,color,px,align){ const {c,x,tex}=sp.userData; x.clearRect(0,0,c.width,c.height); x.font=Math.round(px*.82)+'px "Michroma", sans-serif'; x.fillStyle=color; x.textBaseline='middle';
   x.textAlign=align||'left'; x.fillText(text,align==='right'?c.width-6:6,c.height/2+2); tex.needsUpdate=true; }
 const ladLabels=[];
 { const P=[], K=[]; P.push(0,0,0,0,52,0); K.push(.6,.6);
@@ -3386,7 +3434,8 @@ function open(k){ const t=tags[k]; if(!t) return; A.ping(1318,.04); try{ window.
 st.onPointer=function(e){ const k=hitAt(e.clientX,e.clientY); armed=k>=0&&k===focus; if(k>=0&&k!==focus){ moved=true; setFocus(k,hitUv); } };
 canvas.addEventListener('click',e=>{ if(S.mode!=='station'||S.st!==st) return; const k=hitAt(e.clientX,e.clientY); if(k>=0&&armed&&k===focus) open(k); armed=false; });
 addEventListener('pointermove',e=>{ if(S.st!==st||e.pointerType!=='mouse'||moved) return; if(Math.hypot(e.clientX-mx0,e.clientY-my0)>8) moved=true; },{passive:true});
-tags.forEach((t,k)=>{ t.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'){ moved=true; setFocus(k); } }); t.addEventListener('focus',()=>setFocus(k));
+tags.forEach((t,k)=>{ t.addEventListener('pointerenter',e=>{ // a tag that slides under a still pointer as the page opens does not count: Ahroon stays first
+  if(e.pointerType==='mouse'&&(moved||Math.hypot(e.clientX-mx0,e.clientY-my0)>8)){ moved=true; setFocus(k); } }); t.addEventListener('focus',()=>setFocus(k));
   t.addEventListener('click',()=>{ moved=true; setFocus(k); A.ping(1318,.04); }); });
 addEventListener('keydown',e=>{ if(S.mode!=='station'||S.st!==st||e.target.closest&&e.target.closest('input,textarea')) return;
   const d=e.code==='ArrowRight'||e.code==='ArrowDown'?1:e.code==='ArrowLeft'||e.code==='ArrowUp'?-1:0; if(!d) return; e.preventDefault(); moved=true;
@@ -3682,7 +3731,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast(`Visit all ${NST} stations. Then the horizon opens.`); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -3718,7 +3767,7 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if(S.mode==='station') A.update(t,{sub:.05,pad:S.st.state==='play'?.5:1,bright:.45});
+    if(S.mode==='station'||S.mode==='docking') A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
   }
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
