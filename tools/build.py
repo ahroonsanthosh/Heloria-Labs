@@ -11,11 +11,11 @@ import argparse, base64, glob, json, os, re, shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'src')
-ORDER = ['kr', 'bs', 'ae', 'ph', 'og', 'cr', 'be']
+ORDER = ['kr', 'ae', 'ph', 'og', 'cr', 'be']
 CORE_JS = ['00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js', '29-station.js']
 CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
-FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Martian+Mono:wdth,wght@75..112.5,100..800&display=swap'
+FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Michroma&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap'
 
 def read(p): return open(os.path.join(SRC, p), encoding='utf-8').read()
 def b64(p): return base64.b64encode(open(os.path.join(SRC, p), 'rb').read()).decode()
@@ -27,7 +27,7 @@ def parts(only):
     js = '\n'.join(read('js/' + f) for f in CORE_JS)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')
-    # station data files (json) become globals: DATA['bs/table'] etc.
+    # station data files (json) become globals: DATA['og/table'] etc.
     data = {}
     for i in ids:
         for f in sorted(glob.glob(os.path.join(SRC, 'stations', i, '*.json'))):
@@ -41,7 +41,6 @@ def single(only, inline_three=False):
     ids, css, html, js = parts(only)
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
     js = js.replace('__PHOTOS__', json.dumps(photos))
-    css = css.replace('__DM__', 'data:font/woff2;base64,' + b64('assets/fonts/DepartureMono-Regular.woff2'))
     head = read('head.html')
     three = ('<script>\n' + read('assets/vendor/three.min.js') + '\n</script>') if inline_three else '<script src="%s"></script>' % THREE_CDN
     return head + '\n<style>\n' + css + '\n</style>\n' + html + '\n' + three + '\n<script>\n' + wrap_js(js) + '</script>\n'
@@ -52,7 +51,7 @@ DOC_HEAD = '''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. A playable universe: fall into a ray-traced black hole and play Kríos, Bowshock, Aetos, Pharos and Ogive.">
+<meta name="description" content="Heloria Labs is a software lab in Ireland. A playable universe: fall into a ray-traced black hole and play Kríos, Aetos, Pharos and Ogive.">
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs">
@@ -74,10 +73,8 @@ def docs(outdir, only):
     if os.path.isdir(out): shutil.rmtree(out)
     os.makedirs(os.path.join(out, 'assets', 'vendor'))
     shutil.copytree(os.path.join(SRC, 'assets', 'img'), os.path.join(out, 'assets', 'img'))
-    shutil.copytree(os.path.join(SRC, 'assets', 'fonts'), os.path.join(out, 'assets', 'fonts'))
     for f in ('three.min.js', 'three.LICENSE.txt'): shutil.copy(os.path.join(SRC, 'assets', 'vendor', f), os.path.join(out, 'assets', 'vendor', f))
     js = js.replace('__PHOTOS__', json.dumps(['assets/img/%s.webp' % n for n in CREW]))
-    css = css.replace('__DM__', 'fonts/DepartureMono-Regular.woff2')
     open(os.path.join(out, 'assets', 'app.css'), 'w', encoding='utf-8').write(css)
     open(os.path.join(out, 'assets', 'app.js'), 'w', encoding='utf-8').write(wrap_js(js))
     page = DOC_HEAD % FONTS_CSS + html + '\n<script src="assets/vendor/three.min.js"></script>\n<script src="assets/app.js"></script>\n</body>\n</html>\n'

@@ -11,7 +11,7 @@ async function boot(){
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
   BH.render(hubCam); renderer.setRenderTarget(null); setP(.1);
-  const steps=[['Kríos','kr'],['Bowshock','bs'],['Aetos','ae'],['Pharos','ph'],['Ogive','og'],['Crew','cr'],['Beacon','be']].filter(x=>ST[x[1]]);
+  const steps=STA.map(s=>[s.name,s.id]).filter(x=>ST[x[1]]);
   for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
   txt.textContent='Compiling shaders'; await nextFrame();
   universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=true;
@@ -26,7 +26,7 @@ async function boot(){
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
+  if(!S.ready||S.mode!=='load') return; A.start(); A.swell(); $('#enter').blur();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
@@ -48,10 +48,10 @@ function toHub(){
 }
 
 /* ---------- horizon ---------- */
-function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); }
+function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); }
 function hzLeave(){ unreveal($('#horizon .h')); show('#horizon',false); post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; }
 $('#hzBack').addEventListener('click',()=>{ hzLeave(); S.mode='story'; toHub(); toast('Respawned at 19 rs'); });
-$('#hzBeacon').addEventListener('click',()=>{ hzLeave(); const b=STA[6]; S.mode='hub'; spawnProbe(b.R+2.4,b.a); chasePose(chase); hubBase.p.copy(chase.p); hubBase.q.copy(chase.q); hubCam.position.copy(chase.p); hubCam.quaternion.copy(chase.q); show('#hub',true); cine(false); dock(b); });
+$('#hzBeacon').addEventListener('click',()=>{ hzLeave(); const b=BEACON; S.mode='hub'; spawnProbe(b.R+2.4,b.a); chasePose(chase); hubBase.p.copy(chase.p); hubBase.q.copy(chase.q); hubCam.position.copy(chase.p); hubCam.quaternion.copy(chase.q); show('#hub',true); cine(false); dock(b); });
 
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
@@ -72,7 +72,7 @@ window.__onResize=()=>{ window.__crLayout&&window.__crLayout(); };
 const stPos=new T.Vector3(), stLook=new T.Vector3();
 let last=performance.now(), radarK=0;
 function frame(now){
-  const raw=(now-last)/1000; last=now; const rdt=Math.min(.1,raw), dt=Math.min(.05,raw); S.rdt=rdt; S.t+=dt; const t=S.t;
+  const raw=(now-last)/1000; last=now; const rdt=Math.min(window.__TEST?.5:.1,raw), dt=Math.min(.05,raw); S.rdt=rdt; S.t+=dt; const t=S.t;
   G.uTime.value=RM?t*.35:t; QM.tick(raw*1000,now); cursorTick();
   updateStations(t);
   if(S.mode==='load'){ hubCam.position.set(Math.sin(t*.05)*2,.4,90); hubCam.lookAt(0,0,0); }
@@ -90,7 +90,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Visit all four projects. Then the horizon opens.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -102,13 +102,13 @@ function frame(now){
   else if(S.mode==='docking'){ dockUpdate(rdt); }
   else if(S.mode==='undocking'){ undockUpdate(rdt,dt); if(S.mode==='hub'||(TR&&TR.t>1.1)){ labelsUpdate(); radarDraw(); } }
   else if(S.mode==='falling'){
-    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); A.whine(k); A.thrust(0);
+    S.fallT+=rdt; const k=Math.min(1,S.fallT/2.6); post.uniforms.uStretch.value=k*(RM?.2:1); A.whine(k*(1-sstep(.8,1,k))); A.update(t,{pad:0,sub:.7*(1-k)}); // the orbit's score does not follow you in
     const P=S.probe; P.p.multiplyScalar(1-dt*1.1); U.probe.position.copy(P.p);
     hubCam.position.lerp(tv[2].set(P.p.x*1.4,.8,P.p.z*1.4+.01),dt*2); hubCam.lookAt(0,0,0); hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
     const c=tv[3].set(0,0,0).project(hubCam); post.uniforms.uSC.value.set(c.x*.5+.5,c.y*.5+.5);
     S.flash=Math.max(S.flash,sstep(.75,1,k));
-    if(k>=1){ S.mode='beyond'; A.whine(0); U.probe.visible=U.trail.visible=false; cine(false);
-      $('#hzStats').innerHTML=statsHTML([['Proper time',fmtT(S.tau)],['Stations docked',S.docked.size+' / 7'],['Games played',S.games]]); show('#horizon',true); reveal($('#horizon .h')); }
+    if(k>=1){ S.mode='beyond'; A.hush(); A.update(t,{pad:0,sub:0}); setTimeout(()=>{ if(S.mode==='beyond') A.chord(); },500); U.probe.visible=U.trail.visible=false; cine(false);
+      $('#hzStats').innerHTML=statsHTML([['Proper time',fmtT(S.tau)],['Stations docked',S.docked.size+' / '+NST],['Games played',S.games]]); show('#horizon',true); reveal($('#horizon .h')); }
   }
   // camera shake, flashes, grade
   if(S.shake>0&&!RM){ const a=S.shake*S.shake*.25; if(S.iris<2.5&&S.mode!=='station'){ hubCam.position.add(tv[4].set((Math.random()-.5)*a,(Math.random()-.5)*a,(Math.random()-.5)*a)); } }
@@ -126,7 +126,7 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if(S.mode==='station') A.update(t,{sub:.05,pad:S.st.state==='play'?.5:1,bright:.45});
+    if(S.mode==='station'||S.mode==='docking') A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
   }
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
@@ -146,4 +146,4 @@ function jump(id){
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s.color); st.enter(); show('#station',true); st.showUI(); where(s.name); return true;
 }
-window.__heloria={jump,S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,jump,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};

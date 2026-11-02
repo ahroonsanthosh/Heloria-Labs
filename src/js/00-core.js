@@ -1,6 +1,10 @@
 /* ================= CORE ================= */
 const PHOTOS = __PHOTOS__;
 const T = window.THREE;
+/* without three.js or WebGL there is no universe: show the plain page and stop */
+function noGL(){ document.documentElement.classList.add('nogl'); throw new Error('Heloria: WebGL unavailable, showing the plain page'); }
+if(!T) noGL();
+{ const c=document.createElement('canvas'); let ok=false; try{ ok=!!(c.getContext('webgl2')||c.getContext('webgl')); }catch(e){} if(!ok) noGL(); }
 /* runtime services that only exist inside a claude.ai artifact (shared db, user id); null on a normal website */
 const RT={db:null,me:null,signals:0};
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -18,7 +22,7 @@ const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();r
 const store={get(k,d){try{const v=localStorage.getItem('heloria.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('heloria.'+k,JSON.stringify(v))}catch(e){}}};
 const fmt=n=>Math.round(n).toLocaleString('en-IE');
 const fmtT=s=>{const m=Math.floor(s/60);return String(m).padStart(2,'0')+':'+(s%60).toFixed(1).padStart(4,'0')};
-const show=(sel,on)=>$(sel).classList.toggle('off',!on);
+const show=(sel,on)=>{ $(sel).classList.toggle('off',!on); if(typeof curReset==='function') curReset(); };
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const angDiff=(a,b)=>{let d=(a-b)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return d;};
@@ -50,7 +54,8 @@ const A=(()=>{
     n.wind=mk('bandpass',700,.8); n.thrust=mk('bandpass',240,1.1); n.roar=mk('lowpass',380,.9); n.hiss=mk('highpass',3000,.5);
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
   }
-  const set=(p,v,tc=.08)=>{ if(ctx) p.setTargetAtTime(v,ctx.currentTime,tc); };
+  const last=new WeakMap();
+  const set=(p,v,tc=.08)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
   function tone(f,dur,g=.08,type='sine',f2=0,delay=0,send=0,atk=.008){
     if(!on) return; const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(comp);
@@ -69,6 +74,7 @@ const A=(()=>{
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:.7,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:.7,.3); sndUI(); },
     get muted(){return muted},
+    _lv(){ if(!ctx) return null; const r=x=>+x.value.toFixed(4); return {pad:r(n.padG.gain),sub:r(n.subG.gain),wind:r(n.wind.g.gain),thrust:r(n.thrust.g.gain),roar:r(n.roar.g.gain),hiss:r(n.hiss.g.gain),whine:r(n.teng.gain)}; }, // test hook: current levels
     update(t,p){ // p: {sub, wind, pad}
       if(!ctx) return;
       if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
@@ -85,6 +91,8 @@ const A=(()=>{
     roar(v){ if(!ctx) return; set(n.roar.g.gain,v*.7,.04); },
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
+    /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
     chord(){ [0,2,4,7].forEach((k,j)=>this.chime(10+k,j*.07)); },
     buzz(){ tone(92,.3,.11,'sawtooth',60); noise(.22,.12,900,200); },
@@ -113,14 +121,14 @@ $('#snd').addEventListener('click',()=>A.toggle());
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');
-const renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
-const DPRMAX=Math.min(devicePixelRatio||1, Q<1?1.5:1.75);
+let renderer; try{ renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'}); }catch(e){ noGL(); }
+const DPRMAX=Math.min(devicePixelRatio||1, Q<1?1.5:1.6);
 let DPR=window.__TEST?1:DPRMAX;
 renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const hubCam=new T.PerspectiveCamera(36,1,.1,900), stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
-const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:4});
+const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:2});
 const rtA=mkRT(), rtB=mkRT();
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
@@ -171,8 +179,8 @@ addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResiz
 const QM={buf:[],cool:0,
   tick(ms,now){ if(window.__TEST) return; this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
     const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-    if(avg>23){ if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
-    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.7)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
+    if(avg>23){ if(rtA.samples>0){ rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
+    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.9)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
 
 /* ---------- particle + material toolkit ---------- */
 const GLH=`vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}
@@ -245,7 +253,9 @@ function prepPW(el){
   if(!el||el.dataset.sp) return; el.dataset.sp=1; const txt=el.textContent.trim(); el.setAttribute('aria-label',txt); el.textContent='';
   const n=txt.replace(/ /g,'').length; const order=[...Array(n).keys()].sort(()=>Math.random()-.5); let i=0;
   txt.split(' ').forEach((w,wi,arr)=>{ const wd=document.createElement('span'); wd.className='wd'; wd.setAttribute('aria-hidden','true');
-    for(const ch of w){ const c=document.createElement('span'); c.className='c'; c.textContent=ch; c.style.setProperty('--d',(order[i++]/n*520+Math.random()*80|0)+'ms'); wd.appendChild(c); }
+    for(const ch of w){ const c=document.createElement('span'); c.className='c'; c.style.setProperty('--d',(order[i++]/n*520+Math.random()*80|0)+'ms');
+      const lo=document.createElement('span'); lo.className='lo'; lo.textContent=ch; const hi=document.createElement('span'); hi.className='hi'; hi.textContent=ch;
+      c.appendChild(lo); c.appendChild(hi); wd.appendChild(c); }
     el.appendChild(wd); if(wi<arr.length-1) el.appendChild(document.createTextNode(' ')); });
 }
 $$('.pw').forEach(prepPW);
@@ -277,13 +287,20 @@ const curEl=$('#cur'), curD=$('#curd'), curT=$('#curT'); let crx=mouse.x, cry=mo
 if(FINE) document.documentElement.classList.add('cur');
 addEventListener('pointermove',e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.nx=e.clientX/innerWidth*2-1; mouse.ny=-(e.clientY/innerHeight*2-1); mouse.on=e.pointerType==='mouse'; G.uMouse.value.set(mouse.nx,mouse.ny); },{passive:true});
 document.addEventListener('mouseleave',()=>{ mouse.on=false; G.uMouse.value.set(9,9); });
-document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(!t||t.matches('input')) return; curT.textContent=t.dataset.cur||(t.id==='radar'?'Fly':'Open'); curEl.classList.add('big'); if(!t._tk){ A.tick(); t._tk=1; setTimeout(()=>t._tk=0,120);} });
-document.addEventListener('pointerout',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(t&&!t.contains(e.relatedTarget)) curEl.classList.remove('big'); });
+document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(!t||t.matches('input')) return; curT.textContent=t.dataset.cur||(t.id==='radar'?'Fly':'Open'); curEl.classList.add('big'); curEl.classList.toggle('map',t.id==='radar'); if(!t._tk){ A.tick(); t._tk=1; setTimeout(()=>t._tk=0,120);} });
+document.addEventListener('pointerout',e=>{ const t=e.target.closest&&e.target.closest('a,button,[data-cur],canvas#radar'); if(t&&!t.contains(e.relatedTarget)) curEl.classList.remove('big','map'); });
 document.addEventListener('click',e=>{ const b=e.target.closest('button,a'); if(!b) return; A.click();
   /* a mouse click must not leave focus behind: otherwise Space or Enter, used as game keys, would press this button again */
   if(e.detail>0) setTimeout(()=>b.blur(),0); },true);
-/* game keys never activate whatever button happens to have focus */
-addEventListener('keydown',e=>{ if((e.code==='Space'||e.code==='Enter')&&document.activeElement&&document.activeElement.matches&&document.activeElement.matches('button')&&document.activeElement.dataset.key!=='ok'&&(S.mode==='station'||S.mode==='hub')){ document.activeElement.blur(); } },true);
+/* Space and Enter are game keys. They only press a control the visitor reached with Tab; focus left behind by a tap,
+   a click or a script is dropped first, so a game key can never press a hidden button or follow a link */
+let kbNav=false;
+addEventListener('keydown',e=>{ if(e.key==='Tab') kbNav=true; },true);
+addEventListener('pointerdown',()=>{ kbNav=false; },true);
+addEventListener('keydown',e=>{ if(e.code!=='Space'&&e.code!=='Enter') return; const f=document.activeElement;
+  if(!f||f===document.body||!f.matches||f.matches('input,textarea,select')||!(S.mode==='station'||S.mode==='hub')) return;
+  if(f.matches('button,a,[role=button]')&&!kbNav){ f.blur(); if(e.code==='Enter'||f.matches('a')) e.preventDefault(); } },true);
+function curReset(){ const c=document.getElementById('cur'); if(c) c.classList.remove('big','map'); }
 function cursorTick(){ if(!FINE) return; crx=lerp(crx,mouse.x,.22); cry=lerp(cry,mouse.y,.22); curEl.style.transform=`translate(${crx}px,${cry}px)`; curD.style.transform=`translate(${mouse.x}px,${mouse.y}px)`; }
 function cursorAim(on){ curEl.classList.toggle('aim',!!on); }
 function cine(on){ document.body.classList.toggle('cine',on); }

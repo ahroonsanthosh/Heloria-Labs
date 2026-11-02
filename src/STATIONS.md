@@ -9,7 +9,7 @@ Each station (project page plus its game) lives in `src/stations/<id>/`:
 | `station.js` | one IIFE that calls `mkStation('<id>', {...})` |
 | `*.json` (optional) | precomputed data. Available at runtime as `DATA['<id>/<filename>']` |
 
-Ids: `kr` Kríos, `bs` Bowshock, `ae` Aetos, `ph` Pharos, `og` Ogive, `cr` Crew, `be` Beacon.
+Ids: `kr` Kríos, `ae` Aetos, `ph` Pharos, `og` Ogive, `cr` Crew, `be` Beacon.
 
 ## Build and test
 
@@ -77,11 +77,11 @@ Results panel ids the framework fills: `#<id>G` grade, `#<id>Final` score, `#<id
 ## Design language
 
 - Ground is near-black `#050504`. Ink `#EEE9DF`, secondary `#C8C1B3`, muted `#8A8478`, hairlines `rgba(238,233,223,.1)`.
-- Every colour sits on one blackbody scale, hot to cool: Kríos 24,000 K `#A5C3FF`, Bowshock 11,000 K `#C4D6FF`,
+- Every colour sits on one blackbody scale, hot to cool: Kríos 24,000 K `#A5C3FF`,
   Aetos 6,600 K `#F2EEE6`, Pharos 4,300 K `#FFD5B3`, Ogive 3,100 K `#FFB475`, Crew 2,400 K `#FF9B3D`, Beacon 1,850 K `#FF8100`.
   Alarm red `#FF5636` only for danger. A station's accent is `var(--acc)`.
-- Type: Doto (`.disp`, dot-matrix display, uppercase), Departure Mono (`.ui`, pixel labels, uppercase, small), Martian Mono
-  (body, `.lede`). No other fonts.
+- Type: Doto (`.disp`, dot-matrix display, uppercase), Michroma (`.ui`, wide extended labels, uppercase, small), Newsreader
+  (body, `.lede`, an editorial serif). No other fonts. Canvas text uses Michroma too.
 - UI: hairline rectangles, corner ticks, no rounded cards, no drop shadows, no gradients on UI chrome. Generous dark space.
 - 3D: depth from parallax, bloom and dark; light comes from a few bright things. Restraint over noise.
 - Copy: short, plain, specific, sentence case for prose. Never use an em dash anywhere (text, comments, copy).

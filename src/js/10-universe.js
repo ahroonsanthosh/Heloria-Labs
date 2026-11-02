@@ -3,18 +3,29 @@ const U={scene:new T.Scene()};
 const GM=60, RB=31;
 U.scene.add(BH.back); U.scene.add(BH.occ);
 
+/* stations, coloured by temperature on the same blackbody scale as the disk, evenly spaced from 9.5 to 27.5 */
+const STA=[
+  {id:'kr',name:'Kríos',game:'Read the Room',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
+  {id:'ae',name:'Aetos',game:'Hold the Sky',R:13.1,ph:4.3,K:6600,color:'#F2EEE6'},
+  {id:'ph',name:'Pharos',game:'Lost Signal',R:16.7,ph:1.1,K:4300,color:'#FFD5B3'},
+  {id:'og',name:'Ogive',game:'Apogee',R:20.3,ph:3.3,K:3100,color:'#FFB475'},
+  {id:'cr',name:'Crew',game:'Three builders',R:23.9,ph:5.4,K:2400,color:'#FF9B3D'},
+  {id:'be',name:'Beacon',game:'Join · contact',R:27.5,ph:.2,K:1850,color:'#FF8100'}
+];
+const NST=STA.length, BEACON=STA.find(s=>s.id==='be');
+
 /* spacetime grid: a polar mesh outside the disk, dented by every mass */
 {
   const v=[];
   for(let r=7.5;r<=31;r+=1.25){ const N=Math.max(80,Math.floor(r*9)); for(let k=0;k<N;k++){ const a0=k/N*TAU,a1=(k+1)/N*TAU; v.push(Math.cos(a0)*r,0,Math.sin(a0)*r,Math.cos(a1)*r,0,Math.sin(a1)*r); } }
   for(let s=0;s<56;s++){ const a=s/56*TAU; for(let k=0;k<60;k++){ const r0=7.5+k*.4, r1=7.5+(k+1)*.4; v.push(Math.cos(a)*r0,0,Math.sin(a)*r0,Math.cos(a)*r1,0,Math.sin(a)*r1); } }
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(v),3)); g.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
-  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(7)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uC:{value:new T.Color('#B9A58E')}};
+  U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uC:{value:new T.Color('#B9A58E')}};
   U.grid=new T.LineSegments(g,new T.ShaderMaterial({uniforms:U.gridU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
-    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[7]; uniform float uTime,uOp; varying float vA;
+    vertexShader:`uniform vec3 uProbe; uniform vec3 uSt[${NST}]; uniform float uTime,uOp; varying float vA;
     void main(){ vec3 p=position; float r=length(p.xz); float y=-1.4-14./(r+1.5);
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
-      for(int i=0;i<7;i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
+      for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       vA=uOp*((.05+.16*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.28*exp(-d*d*.1));
       gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
@@ -22,16 +33,6 @@ U.scene.add(BH.back); U.scene.add(BH.occ);
   U.grid.frustumCulled=false; U.scene.add(U.grid);
 }
 
-/* stations, coloured by temperature on the same blackbody scale as the disk */
-const STA=[
-  {id:'kr',name:'Kríos',game:'Dead Air',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
-  {id:'bs',name:'Bowshock',game:'Shock Line',R:12.5,ph:2.2,K:11000,color:'#C4D6FF'},
-  {id:'ae',name:'Aetos',game:'Hold the Sky',R:15.5,ph:4.3,K:6600,color:'#F2EEE6'},
-  {id:'ph',name:'Pharos',game:'Lost Signal',R:18.5,ph:1.1,K:4300,color:'#FFD5B3'},
-  {id:'og',name:'Ogive',game:'Apogee',R:21.5,ph:3.3,K:3100,color:'#FFB475'},
-  {id:'cr',name:'Crew',game:'Three builders',R:24.5,ph:5.4,K:2400,color:'#FF9B3D'},
-  {id:'be',name:'Beacon',game:'Join · contact',R:27.5,ph:.2,K:1850,color:'#FF8100'}
-];
 STA.forEach((s,si)=>{
   s.idx=si; s.w=Math.sqrt(GM/(s.R**3))*.28; s.pos=new T.Vector3(); s.vel=new T.Vector3(); s.a=s.ph; s.c=new T.Color(s.color);
   const g=new T.Group(); s.grp=g; g.visible=false; U.scene.add(g); s.anim=[];
@@ -41,16 +42,34 @@ STA.forEach((s,si)=>{
     const w=add(pts(cloud(1400,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*.42;o[1]=0;o[2]=Math.sin(a)*.42;}),PM({size:.05,color:C,body:'float a=atan(p.z,p.x); float k=1.+.45*sin(a*9.+uTime*6.)*sin(uTime*2.3)*sin(a*2.+uTime); p.xz*=k; p.y=.18*sin(a*14.-uTime*5.)*sin(uTime*1.7); b=1.3;'})));
     w.rotation.x=.3;
   }
-  if(s.id==='bs'){ // nose cone in supersonic flow, wearing its own shock cone
-    const prof=[]; for(let k=0;k<=16;k++){ const u=k/16; prof.push(new T.Vector2(.28*Math.sqrt(1-Math.pow(1-u,2)),1.1*(1-u))); } prof.push(new T.Vector2(.28,-.9)); prof.push(new T.Vector2(0,-.9));
-    const body=add(new T.Mesh(new T.LatheGeometry(prof.reverse(),32),LM(C,{emit:.04,rim:1.1}))); body.rotation.z=-Math.PI/2;
-    add(pts(cloud(2200,(i,r,o)=>{const u=r[0],a=r[1]*TAU;const rr=u*1.15;o[0]=1.1-u*2.2;o[1]=Math.cos(a)*rr;o[2]=Math.sin(a)*rr;}),PM({size:.045,color:C,body:'b=.5*(1.-aR.x)+.15;'})));
-    add(pts(cloud(900,(i,r,o)=>{o[0]=0;o[1]=(r[1]-.5)*2.6;o[2]=(r[2]-.5)*2.6;}),PM({size:.04,color:'#FFFFFF',body:'float t=fract(aR.x+uTime*.6); p.x=2.2-t*4.4; float rr=length(p.yz); float sh=1.1-(p.x<1.1?(1.1-p.x)*.52:9.); if(rr<sh&&p.x<1.1) p.yz*=1.+.25*(1.-rr/max(sh,.01)); b=.35*sin(t*3.14);'})));
-  }
-  if(s.id==='ae'){ // radar dish on a mast, sweeping
-    add(new T.Mesh(new T.CylinderGeometry(.05,.09,.9,10),LM('#9a948a',{rim:.6}))).position.y=-.35;
-    const dish=add(new T.Mesh(new T.SphereGeometry(.55,32,16,0,TAU,0,Math.PI*.32),LM(C,{emit:.03,rim:1,amb:.05}))); dish.material.side=T.DoubleSide; dish.position.y=.25; s.anim.push(t=>{ dish.rotation.set(-.7,t*.9,0); });
-    add(pts(cloud(1600,(i,r,o)=>{const a=r[0]*TAU,rr=(Math.floor(r[1]*4)+1)/4*1.6;o[0]=Math.cos(a)*rr;o[1]=-.8;o[2]=Math.sin(a)*rr;}),PM({size:.045,color:C,body:'float a=atan(p.z,p.x); float d=mod(uTime*2.6-a,6.2832); b=.15+1.3*exp(-d*2.5);'})));
+  if(s.id==='ae'){ // a surveillance radar: a curved antenna turning on a pedestal, its beam sweeping a scope below
+    const steel=LM('#a9a196',{rim:.7,amb:.06});
+    add(new T.Mesh(new T.CylinderGeometry(.06,.15,.72,8),steel)).position.y=-.44;                      // pedestal
+    add(new T.Mesh(new T.BoxGeometry(.3,.16,.22),steel)).position.set(0,-.74,.05);                   // equipment shelter
+    add(new T.Mesh(new T.CylinderGeometry(.13,.13,.06,20),steel)).position.y=-.05;                   // turntable
+    const head=new T.Group(); add(head);
+    head.add(new T.Mesh(new T.BoxGeometry(.05,.2,.05),steel)).position.set(0,.08,-.02);              // yoke
+    // the reflector: a slice of a cylinder, concave toward the feed, tilted up a little like an airport radar
+    const RR=.72, SPAN=1.6, refl=new T.Mesh(new T.CylinderGeometry(RR,RR,.3,32,1,true,Math.PI-SPAN/2,SPAN),LM(C,{emit:.015,rim:.85,amb:.06}));
+    refl.material.side=T.DoubleSide; refl.position.set(0,.2,RR-.12); refl.rotation.x=-.18; head.add(refl);
+    const ribs=new T.LineSegments(new T.EdgesGeometry(refl.geometry,20),new T.LineBasicMaterial({color:C,transparent:true,opacity:.5})); ribs.position.copy(refl.position); ribs.rotation.copy(refl.rotation); head.add(ribs);
+    head.add(new T.Mesh(new T.BoxGeometry(.012,.012,.36),steel)).position.set(0,.13,.08);             // feed strut
+    head.add(new T.Mesh(new T.BoxGeometry(.07,.06,.06),LM(C,{emit:.4,rim:.8}))).position.set(0,.14,.27); // feed horn
+    // the scope below: range rings, the sweep with its afterglow, and returns that flash as the beam crosses them
+    const sweepU={uA:{value:0}}, SR=1.7;
+    const scope=add(pts(cloud(Math.floor(1700*Q+500),(i,r,o)=>{ let rr, a=r[0]*TAU;
+        if(i%5===0){ rr=(Math.floor(r[1]*3)+1)/3*SR; } else if(i%41===1){ rr=(.35+.6*r[2])*SR; } else rr=Math.sqrt(r[1])*SR;
+        o[0]=Math.sin(a)*rr; o[1]=-.86; o[2]=Math.cos(a)*rr; }),
+      PM({size:.05,color:C,uniforms:sweepU,decl:'uniform float uA;',body:`
+        float a=atan(p.x,p.z); float d=mod(uA-a,6.2832); float rr=length(p.xz)/${SR.toFixed(2)};
+        float sw=exp(-d*3.2), lead=exp(-d*28.), fr=fract(rr*3.+.5)-.5;
+        b=.04+sw*(.25+.6*rr)+lead*.9;
+        if(aR.z>.985){ b=.06+2.2*exp(-d*1.4); sz=1.6; col=mix(uCol,vec3(1.,.85,.6),.5); }
+        else if(abs(fr)<.012){ b=.22+.6*sw; }`})));
+    scope.renderOrder=1;
+    // a fine rim so the scope reads as an instrument from any angle
+    const rim=new T.LineLoop(ringGeo(SR,160,-.86),dashMat(C,'float a=.55;')); rim.material.uniforms.uOp.value=1; add(rim);
+    s.anim.push(t=>{ const a=t*1.25; head.rotation.y=a; sweepU.uA.value=a; });
   }
   if(s.id==='ph'){ // lighthouse: pharos, the first one
     const tw=add(new T.Mesh(new T.CylinderGeometry(.16,.3,1.5,20,6),LM('#d9cfc2',{rim:.7}))); tw.position.y=-.2;
@@ -83,15 +102,17 @@ STA.forEach((s,si)=>{
   s.tether=new T.Line(tg,dashMat(C,'float a=.3*(1.-vAng)*step(.5,fract(vAng*14.-uTime*1.5));')); g.add(s.tether);
 });
 
-/* asteroid belt between Bowshock and Aetos, lit only by the disk */
+/* asteroid belt between Aetos and Pharos, lit only by the disk */
 {
   const N=Math.floor(380*Q+120);
   U.belt=new T.InstancedMesh(new T.IcosahedronGeometry(1,0),LM('#8c8070',{rim:.25,amb:.03,key:'#FFC392'}),N);
   const M=new T.Matrix4(), q=new T.Quaternion(), e=new T.Euler(), sc=new T.Vector3(), p=new T.Vector3();
-  for(let i=0;i<N;i++){ const a=Math.random()*TAU, r=14+gauss()*.38; p.set(Math.cos(a)*r,gauss()*.12,Math.sin(a)*r); e.set(Math.random()*6,Math.random()*6,Math.random()*6); q.setFromEuler(e);
+  for(let i=0;i<N;i++){ const a=Math.random()*TAU, r=14.9+gauss()*.38; p.set(Math.cos(a)*r,gauss()*.12,Math.sin(a)*r); e.set(Math.random()*6,Math.random()*6,Math.random()*6); q.setFromEuler(e);
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
+/* the seal: a dashed ring just outside the horizon that stops the probe until the four projects have been visited */
+U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -127,9 +148,9 @@ function updateStations(t){
     s.grp.position.copy(s.pos); s.orbit.material.uniforms.uAng.value=s.a; U.gridU.uSt.value[s.idx].copy(s.pos);
     s.anim.forEach(f=>f(t));
     if(s.orbs) s.orbs.forEach((m,k)=>{const a=t*.8+k*TAU/3; m.position.set(Math.cos(a)*.78,Math.sin(t*1.2+k)*.15,Math.sin(a)*.78);}); });
-  U.sigU.uBe.value.copy(STA[6].pos);
+  U.sigU.uBe.value.copy(BEACON.pos);
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(holeOpen()?0:1);
 }

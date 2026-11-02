@@ -6,7 +6,9 @@ function mkStation(id,impl){
   const el=$(`.st[data-st=${id}]`);
   const st=Object.assign({id,el,scene:new T.Scene(),camP:new T.Vector3(0,3,12),camL:new T.Vector3(0,0,0),arrive:new T.Vector3(0,2.5,8),state:'menu',anchors:[],gameT:0,
     setState(s){ this.state=s; el.classList.remove('is-menu','is-play','is-res'); el.classList.add('is-'+s);
-      if(s==='menu'&&el.classList.contains('on')) reveal($('.card',el)); if(s!=='play') cursorAim(false); },
+      if(s==='menu'&&el.classList.contains('on')) reveal($('.card',el)); if(s!=='play') cursorAim(false);
+      // the panel under the pointer changed: drop the hover cursor and any focus left on a control that just hid
+      curReset(); const f=document.activeElement; if(f&&f!==document.body&&el.contains(f)&&!f.matches('input,textarea,select')) f.blur(); },
     showUI(){ el.classList.add('on'); this.setState('menu'); },
     hideUI(){ unreveal($('.card',el)); el.classList.remove('is-play','is-res'); setTimeout(()=>{ if(S.stId!==id||S.mode!=='station') el.classList.remove('on'); },700); },
     result(o){ // o: {grade, score, key, stats, text, assisted}
@@ -16,10 +18,14 @@ function mkStation(id,impl){
       const nw=$('#'+id+'New'); if(nw) nw.textContent=o.assisted?'Assisted':isNew?'New best':'Best '+fmt(best);
       $('#'+id+'Stats').innerHTML=statsHTML(o.stats); $('#'+id+'P').textContent=o.text||'';
       prepPW(gEl); this.setState('res'); reveal($('.res',el)); S.games++;
+      // a finger still tapping the game must not land on the panel that just appeared under it
+      el.classList.add('rguard'); clearTimeout(this._rg); this._rg=setTimeout(()=>el.classList.remove('rguard'),750);
     },
     build(){}, enter(){}, exit(){}, update(){}, play(){}, abort(){}
   },impl);
-  st.start=()=>{ if(S.mode!=='station'||S.stId!==id) return; A.stinger(2); A.whoosh(true,.8,.14); st.play(); };
+  // the index on the title card follows the order of the stations in orbit
+  { const si=STA.findIndex(s=>s.id===id), ix=$('.idx span:first-child',el); if(ix&&si>=0) ix.textContent=String(si+1).padStart(2,'0')+' / '+String(NST).padStart(2,'0'); }
+  st.start=()=>{ if(S.mode!=='station'||S.stId!==id) return; const f=document.activeElement; if(f&&f!==document.body&&!f.matches('input,textarea,select')) f.blur(); A.stinger(2); A.whoosh(true,.8,.14); st.play(); };
   $$('[data-play]',el).forEach(b=>b.addEventListener('click',st.start));
   $$('[data-back]',el).forEach(b=>b.addEventListener('click',()=>undock()));
   // every station sits in the same sky: a sparse starfield with a faint warm haze toward the hole
@@ -47,8 +53,10 @@ function popAt(container,v3,text,cls){
   container.appendChild(el); setTimeout(()=>el.remove(),1050);
 }
 function statsHTML(rows){ return rows.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join(''); }
-function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0); if(tint) post.uniforms.uTint.value.add(tint); }
+const _tint=new T.Color();
+function feedback(shake,ca,tint){ S.shake=Math.max(S.shake,shake||0); S.ca=Math.max(S.ca,ca||0);
+  if(tint){ const c=tint.isColor?tint:_tint.setRGB(+tint.x||+tint.r||0,+tint.y||+tint.g||0,+tint.z||+tint.b||0); if(isFinite(c.r+c.g+c.b)) post.uniforms.uTint.value.add(c); } }
 function showBanner(el,h,sub){ el.innerHTML=`<span class="ui acc fade">${sub||''}</span><h3 class="disp pw">${h}</h3>`; prepPW($('h3',el)); reveal(el); clearTimeout(el._t); el._t=setTimeout(()=>unreveal(el),1500); }
 
 /* Enter starts the game from a station's title screen */
-addEventListener('keydown',e=>{ if(e.code!=='Enter'||e.repeat||S.mode!=='station'||!S.st||S.st.state!=='menu') return; if(e.target.closest&&e.target.closest('input,textarea,a,button')) return; e.preventDefault(); S.st.start(); });
+addEventListener('keydown',e=>{ if(e.code!=='Enter'||e.repeat||S.mode!=='station'||!S.st||S.st.state!=='menu') return; const f=document.activeElement; if(f&&f!==document.body&&f.closest&&f.closest('input,textarea,select,a,button,[role=button]')) return; e.preventDefault(); S.st.start(); });
