@@ -413,7 +413,7 @@ U.scene.add(BH.back); U.scene.add(BH.occ);
 
 /* stations, coloured by temperature on the same blackbody scale as the disk, evenly spaced from 9.5 to 27.5 */
 const STA=[
-  {id:'kr',name:'Kríos',game:'Dead Air',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
+  {id:'kr',name:'Kríos',game:'Read the Room',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
   {id:'ae',name:'Aetos',game:'Hold the Sky',R:13.1,ph:4.3,K:6600,color:'#F2EEE6'},
   {id:'ph',name:'Pharos',game:'Lost Signal',R:16.7,ph:1.1,K:4300,color:'#FFD5B3'},
   {id:'og',name:'Ogive',game:'Apogee',R:20.3,ph:3.3,K:3100,color:'#FFB475'},
@@ -876,515 +876,288 @@ function showBanner(el,h,sub){ el.innerHTML=`<span class="ui acc fade">${sub||''
 addEventListener('keydown',e=>{ if(e.code!=='Enter'||e.repeat||S.mode!=='station'||!S.st||S.st.state!=='menu') return; const f=document.activeElement; if(f&&f!==document.body&&f.closest&&f.closest('input,textarea,select,a,button,[role=button]')) return; e.preventDefault(); S.st.start(); });
 
 /* ===== station kr ===== */
-/* ================= KRÍOS: DEAD AIR =================
-   A sales call drawn on a dot-matrix board. The buyer talks on the top track, you answer on the bottom one, and time
-   flows right to left through a fixed now line. Wait until she has really finished, start inside the window, and stop
-   when your line is said. One control: tap to talk and tap again to stop, or hold and let go. */
+/* ================= KRÍOS: READ THE ROOM =================
+   A cold call in six turns. The buyer says something; you pick one of three replies before the line goes quiet.
+   Each reply moves her trust and interest. The room, a sphere of dots, warms with interest and frays as trust drops.
+   The right reply depends on what was just said and on how warm the room is, which is the skill Kríos trains. */
 (()=>{
-const st=mkStation('kr',{arrive:new T.Vector3(.4,1,4.6)});
-const sc=st.scene, el=st.el, q=s=>$(s,el);
+const st=mkStation('kr',{arrive:new T.Vector3(0,1.2,6)});
+const el=st.el, q$=s=>$(s,el);
 
-/* ---------- the call ---------- */
-const LINES=[
-  {her:"Hi, this is Dana. I've got five minutes. What's this about?", you:"Thanks, Dana. We help reps practise calls before the real ones."},
-  {her:"We already use something for call coaching... | it's fine, honestly.", you:"Fair. Can your reps practise before a call, or only review after?"},
-  {her:"How long does it take to set up?", you:"About a day. Your reps can start this week."},
-  {her:"Okay. And what does it cost per seat?", you:"It depends on the team. I can send you numbers today."},
-  {her:"I'd need to run that past... | my head of sales.", you:"Of course. Would it help if I joined that call?"},
-  {her:"Can you send me something I can share with her?", you:"Yes. A one-page summary, this afternoon."},
-  {her:"Alright. What's the next step?", you:"A short demo with you both. Does Thursday work?"}
+/* ---------- the calls ----------
+   R(text, quality, trust change, interest change, coach note): the same in a warm or a cool room.
+   RW(text, warm, cool): [quality, trust, interest, note] for each kind of room. Quality 2 good, 1 fair, 0 misread. */
+const R=(t,q,a,b,n)=>({t,q:[q,q],d:[[a,b],[a,b]],n:[n,n]});
+const RW=(t,w,c)=>({t,q:[w[0],c[0]],d:[[w[1],w[2]],[c[1],c[2]]],n:[w[3],c[3]]});
+const CALLS=[
+ {name:'Dana Walsh',role:'VP Sales · fintech, 40 reps',pr:'She',
+  hang:"I'm going to stop you there. Send me an email.",
+  end:["Tuesday works. Send the invite.","Okay. Email me and we'll find a time.","Send me something. I'll have a look."],
+  beats:[
+  {w:"Dana speaking. I've got about two minutes. Who's this?",r:[
+    R("Hi Dana, it's Sam from Kríos. It's a cold call, so I'll be quick. Can I ask you one question?",2,12,8,"Honest about the call and quick to hand her a question. She stays on."),
+    R("Hi Dana, Sam from Kríos. We help sales teams practise their calls. Is now a bad time?",1,2,0,"Polite, but 'is now a bad time' invites a yes."),
+    R("Kríos is an AI platform where reps rehearse calls against realistic buyers, with scoring and...",0,-6,-10,"A pitch before a single question. She hasn't told you anything yet.")]},
+  {w:"Go on. One question.",c:"One question. Quickly.",r:[
+    R("How long does a new rep take before they're closing on their own?",2,6,12,"Open, specific, and about her world. The best kind of first question."),
+    R("Are you happy with your current sales training?",1,0,3,"A yes or no question. She can end the call with one word."),
+    R("Do you actually train your reps at all?",0,-10,-4,"It sounds like an accusation. She bristles.")]},
+  {w:"Honestly? Five months. Their first twenty calls are a write-off.",c:"Five months, maybe. That's normal for us.",r:[
+    R("What does a written-off call cost you, roughly?",2,6,10,"You had her put a number on the pain. Now it matters to her."),
+    R("Kríos can cut that ramp time in half.",1,-4,6,"A claim with no proof. Interesting, but she doesn't believe it yet."),
+    R("Five months is pretty good, to be fair.",0,-6,-10,"You just told her she has no problem.")]},
+  {w:"We tried role-play. The reps hated it and the managers never had the time.",c:"We tried role-play. It didn't work. Why would this?",r:[
+    R("That's what we hear most. What did the reps hate about it?",2,10,6,"You acknowledged it and asked. Objections are questions in disguise."),
+    R("With Kríos nobody needs a free manager: reps practise against a buyer any time they like.",1,2,8,"A fair answer, but you skipped finding out why it failed."),
+    R("This is different. It's AI.",0,-8,-4,"'It's AI' is not an answer to 'it didn't work'.")]},
+  {w:"Being watched, mostly. Nobody wants to fail in front of their manager.",c:"They felt watched. Nobody wants to fail in front of their manager.",r:[
+    R("So they'd practise alone, fail in private, and show the manager the run they're proud of?",2,8,12,"You played her words back and tied them to the product. She hears herself in it."),
+    R("Our customers ramp about thirty percent faster. I can send you the case study.",1,2,4,"Proof helps, but it isn't about her problem yet."),
+    R("Totally. Anyway, pricing starts at forty euro a seat.",0,-10,-8,"Pricing before she's interested. The room goes cold.")]},
+  {w:"That's actually our problem. What would trying it look like?",c:"Okay. I need to jump in a minute.",r:[
+    RW("Twenty minutes next Tuesday, you and one manager? I'll set it up with your own scripts.",[2,8,10,"She asked what trying it looks like. You gave her a time, a who and a what."],[0,-8,-6,"She was leaving. Asking for her calendar now feels like a grab."]),
+    RW("What would need to be true for you to try it with one team?",[1,2,2,"A good question, but she just asked to try it. Say yes and book it."],[2,6,8,"She was on her way out. You found the one thing that would keep the door open."]),
+    R("I'll send over a deck and you can have a look in your own time.",1,0,-4,"Safe. Decks get forwarded to the bin.")]}
+ ]},
+ {name:'Ciarán Byrne',role:'Founder · 12-person startup',pr:'He',
+  hang:"Yeah, I'm going to leave it there. Thanks.",
+  end:["Thursday at ten. Don't be late.","Fine. Email me and I'll look at a time.","Send me a link. If I'm bored I'll look."],
+  beats:[
+  {w:"Ciarán here. If this is a sales call, it's a quick no.",r:[
+    R("It is a sales call. Give me thirty seconds, then you can say no?",2,14,6,"Honesty disarms him. He gives you the thirty seconds."),
+    R("Hi Ciarán, I'm calling from Kríos about AI sales coaching.",1,0,0,"Clear, but you handed him the easy no."),
+    R("Oh no, not at all! Just a quick chat about your sales process.",0,-14,-2,"It is a sales call. He knows, and now he doesn't trust you.")]},
+  {w:"Ha. Fair. Thirty seconds.",c:"Go on then. Quickly.",r:[
+    R("Who closes your deals today: you, or the team?",2,6,10,"The question every founder has an opinion on."),
+    R("How big is your sales team at the moment?",1,2,2,"You could have found that on LinkedIn."),
+    R("Founders like you love Kríos because it saves so much time.",0,-8,-6,"He hasn't said a word yet. Don't tell him what he loves.")]},
+  {w:"Me. Every one. My two reps can't close without me on the call.",c:"Me, mostly. That's how startups work.",r:[
+    R("What happens to the pipeline when you're on holiday?",2,6,12,"Now he's picturing the cost of being the only closer."),
+    R("So you'd like your reps to close the way you do?",1,4,6,"Right direction, but leading. Let him say it."),
+    R("That's not very scalable, though.",0,-8,-6,"True, and he hates hearing it from a stranger.")]},
+  {w:"Nothing closes. And I'm not convinced AI can teach anyone to sell like me.",c:"I don't buy that AI can teach selling.",r:[
+    R("Fair. It doesn't teach. It lets them rehearse your hardest calls until they stop freezing.",2,10,8,"You agreed with the true part and corrected the rest."),
+    R("What would convince you?",1,4,2,"Not bad, but he'll say 'nothing'. Give him something first."),
+    R("Our AI is trained on millions of sales calls.",0,-6,-4,"Scale isn't his worry. His way of selling is.")]},
+  {w:"Rehearse my calls? With my actual objections?",c:"And I suppose it knows my actual objections, does it?",r:[
+    R("Yours. You record the five objections that cost you deals, and they practise against them.",2,8,12,"Concrete, about his calls, in his words."),
+    R("It comes with a library of two hundred standard objections.",1,0,2,"Generic. He just told you he isn't generic."),
+    R("Definitely! It's super flexible and really powerful.",0,-6,-6,"Adjectives, no answer.")]},
+  {w:"Right. Show me. But I want to see it on one of my calls.",c:"I'll think about it.",r:[
+    RW("Send me one objection you lost a deal on. I'll have it running for Thursday at ten.",[2,8,10,"He asked to see it. You made it about his call and gave him a date."],[0,-8,-6,"He said he'd think. A date this fast pushes him away."]),
+    RW("What would you need to see to stop thinking and try it?",[1,2,2,"He already asked to see it. Book it."],[2,6,8,"You turned 'I'll think about it' into a reason to talk again."]),
+    R("No problem, I'll follow up in a few weeks.",1,0,-4,"Polite. A few weeks is a long time to be forgotten.")]}
+ ]},
+ {name:'Priya Nair',role:'Head of Enablement · SaaS, 120 reps',pr:'She',
+  hang:"I'll have to leave it there, sorry. Send something over.",
+  end:["Let's do it. I'll bring her in.","Sounds good. Email me some times.","Send something over and I'll see."],
+  beats:[
+  {w:"Hi, Priya here. Is this about the webinar?",r:[
+    R("No, it's a cold call, I'm afraid. It's about coaching at your scale. Have you a minute?",2,12,6,"Honest, and about her job. She gives you the minute."),
+    R("Hi Priya, I'm with Kríos. We do practice calls for sales teams.",1,2,2,"Clear enough, but nothing about her yet."),
+    R("Yes! Well, sort of. Did you enjoy it?",0,-14,-4,"A small lie. She'll find out in a sentence.")]},
+  {w:"Sure, I've a minute. What's on your mind?",c:"A minute. Go on.",r:[
+    R("With 120 reps, how many calls do your managers actually get to hear?",2,6,12,"A sharp question, built on what you know about her team."),
+    R("What tools are you using for enablement at the moment?",1,2,2,"Fair, but it invites a list, not a problem."),
+    R("I'd say your managers are overworked, are they?",0,-6,-2,"Putting words in her mouth. She doesn't like it.")]},
+  {w:"Maybe one in fifty. Past that, coaching is guesswork.",c:"Not many. Same as everyone.",r:[
+    R("So for forty-nine calls in fifty, nobody knows what the rep did. What does that cost you?",2,6,12,"You did the maths out loud. She's nodding."),
+    R("Kríos scores every practice call automatically.",1,0,6,"Relevant, but you jumped to the answer before the pain landed."),
+    R("That's a bit worrying, to be honest.",0,-4,-4,"Judging her team won't win her over.")]},
+  {w:"I like it, genuinely. But budgets are frozen until the autumn.",c:"Look, budgets are frozen until the autumn anyway.",r:[
+    R("Understood. Could a free pilot with one team build the case for the autumn?",2,10,10,"You worked with the freeze instead of against it."),
+    R("No problem, I'll call you back in the autumn.",1,2,-6,"Respectful, but you let the momentum go."),
+    R("We could do twenty percent off if you sign this month.",0,-8,-4,"A discount doesn't unfreeze a budget. It sounds desperate.")]},
+  {w:"A pilot... who would need to sign off on that?",c:"A pilot would still need sign-off.",r:[
+    R("Who usually signs off, and what would they want to see from a pilot?",2,8,10,"You mapped the decision with her instead of around her."),
+    R("I can send you a one-page pilot plan you can forward on.",1,4,4,"Helpful, but you still don't know who decides."),
+    R("Could you not just sign it yourself?",0,-8,-4,"Pushy. She'll protect her boss from you.")]},
+  {w:"Our CRO. She'd want numbers after thirty days. I could bring her to a call.",c:"Probably the CRO. Send me something and I'll see.",r:[
+    RW("Let's book thirty minutes with you and the CRO next week. I'll bring the pilot plan.",[2,8,10,"She offered the meeting with her boss. You took it, with a plan in hand."],[0,-8,-6,"She said 'send me something'. A meeting with her boss is too big a leap."]),
+    RW("What would the CRO need to see to say yes to a free pilot?",[1,2,2,"Good, but she offered you the CRO. Take the meeting."],[2,6,8,"You gave her a reason to go back to the CRO for you."]),
+    R("Great, I'll email you a deck.",1,0,-4,"A deck on its own rarely gets forwarded upwards.")]}
+ ]}
 ];
-const HELLO="Hello? Are you still there?";
-const OUT=[[80,'Demo booked',"Thursday works. Send me the invite."],[60,'Follow-up set',"Okay. Send that over and we'll talk next week."],
-  [40,'Send an email',"Look, just send me an email."],[-1,'She hung up',"Sorry, I have to jump on another call."]];
-const FILL=['and,','um,','basically,','so,','yeah,','the','thing','is,','like,','um,','you','know,'];
-const GR={perfect:{t:'Perfect',c:'ice',m:12},clean:{t:'Clean',c:'ink',m:8},late:{t:'Late',c:'hot',m:-3},short:{t:'Too short',c:'hot',m:-5},
-  ramble:{t:'Rambling',c:'hot',m:-8},tuned:{t:'She tuned out',c:'alarm',m:-10},cut:{t:'Cut off',c:'alarm',m:-14},dead:{t:'Dead air',c:'alarm',m:-12}};
-/* seconds: lead-in before a line, her mid-sentence pause, the start window, slow start, no answer, bracket around the end of
-   your line, how long past it before she stops listening, the beat after a grade, and the press length that means push-to-talk */
-const LEAD=.8, TRAP=1.1, WIN0=.12, WIN1=.85, SLOW=1.6, DEAD=3.4, BR0=.45, BR1=.55, OVER=2.4, BEAT=1.55, HOLD=.3;
+const NB=6, WIN=12, T0={tr:40,in:35};
+const warmOf=(tr,i)=>i*.6+tr*.4>=46;
 
-/* ---------- clock: real time, so speech, audio and input agree; it stops while the tab is hidden ---------- */
-const CLK={off:0,stop:0,get t(){ return (this.stop||performance.now()/1000)-this.off; },
-  hold(){ if(!this.stop) this.stop=performance.now()/1000; }, go(){ if(this.stop){ this.off+=performance.now()/1000-this.stop; this.stop=0; } },
-  set(t){ this.off=(this.stop||performance.now()/1000)-t; }};
-
-/* ---------- words: syllables, vowels and onsets drive both the formant voice and the board ---------- */
-function syl(w){ w=w.toLowerCase().replace(/[^a-z]/g,''); if(w.length<=3) return 1; w=w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,'').replace(/^y/,''); const m=w.match(/[aeiouy]{1,2}/g); return Math.max(1,m?m.length:1); }
-const VMAP={a:5,e:1,i:2,o:3,u:4,y:2,ai:1,ay:1,ee:2,ea:2,ie:2,oo:4,ou:4,ow:3,oa:3,au:3,aw:3,ei:1,ey:1,oi:3,oy:3,ue:4};
-function vow(w){ const m=w.toLowerCase().match(/[aeiouy]{1,2}/g)||['a']; return m.map(v=>VMAP[v]??VMAP[v[0]]??0); }
-function ons(w){ const s=w.toLowerCase().replace(/[^a-z]/g,''), m=s.match(/^[^aeiou]+/); if(!m) return 0; const c=m[0];
-  if(/^(sh|ch|j)/.test(c)) return 2; if(/^th/.test(c)) return 6; if(/^[szx]/.test(c)||/^c[eiy]/.test(s)) return 1; if(/^[td]/.test(c)) return 3;
-  if(/^[kcgq]/.test(c)) return 4; if(/^[pb]/.test(c)) return 5; if(/^[fv]/.test(c)) return 6; if(/^h/.test(c)) return 7; return 0; }
-function words(text){ return text.split(/\s+/).filter(x=>x&&x!=='|').map(w=>({w,s:syl(w),v:vow(w),c:ons(w),p:/\.\.\.$/.test(w)?3:/[.?!]$/.test(w)?2:/[,;:]$/.test(w)?1:0,el:null,lit:false})); }
-/* syllable timing and pitch for a run of words starting at clock time t0. trail: the run stops mid-sentence */
-function plan(ws,t0,o){
-  const sy=[], at=[]; let t=t0; const n=ws.length, last=ws[n-1]||{w:''}, qn=/\?$/.test(last.w), trail=!!o.trail;
-  ws.forEach((w,i)=>{ at.push(t); const k=w.s, end=i===n-1, prog=i/Math.max(1,n-1), amp=.86+Math.random()*.14;
-    for(let j=0;j<k;j++){ let d=.152/o.spd; if(j===0&&k>1) d+=.022; if(j===k-1) d+=.03; if(end&&j===k-1) d+=trail?.17:.07;
-      let p=o.base*(1-.12*prog)*(j===0&&k>1?1.06:1);
-      if(end){ if(qn) p*=1+.26*(j+1)/k; else if(trail) p*=1.05; else p*=.9-.05*j; }
-      sy.push({t,d,p:p*(1+(Math.random()-.5)*.035),v:w.v[j%w.v.length],c:j===0?w.c:0,a:(j===0?1:.84)*amp,wi:(o.wi0||0)+i}); t+=d; }
-    t+=.045; if(w.p===1) t+=.17; else if((w.p===2||w.p===3)&&!end) t+=.27; });
-  return {sy,at,end:t};
+/* ---------- the room: a sphere of dots ---------- */
+const RO=1.0, RING=1.42;
+const U2={uWarm:{value:.3},uCalm:{value:.5},uSpeak:{value:0},uHit:{value:0},uIn:{value:1},uLo:{value:new T.Color('#A5C3FF')},uHi:{value:new T.Color('#FFB475')}};
+const DECL='uniform float uWarm,uCalm,uSpeak,uHit,uIn; uniform vec3 uLo,uHi;';
+const orb=new T.Group(); st.scene.add(orb);
+{ const N=Math.floor(2600*Q+900);
+  orb.add(pts(cloud(N,(i,r,o)=>{ const y=1-2*(i+.5)/N, rr=Math.sqrt(1-y*y), a=i*2.399963; o[0]=Math.cos(a)*rr; o[1]=y; o[2]=Math.sin(a)*rr; }),
+    PM({size:.05,color:'#A5C3FF',uniforms:U2,decl:DECL,body:`
+      vec3 d=normalize(position);
+      float n=sin(d.x*4.1+uTime*1.1)*sin(d.y*5.3-uTime*.9)*sin(d.z*3.7+uTime*.7);
+      float fray=1.-uCalm;
+      float r=${RO.toFixed(2)}*uIn*(1.+n*(.03+.17*fray)+uSpeak*.045*sin(uTime*19.+aR.x*6.283));
+      float loose=step(.8,aR.w)*fray*(.3+.4*(.5+.5*sin(uTime*.7+aR.x*12.)));
+      p=d*r*(1.+loose);
+      col=mix(uLo,uHi,smoothstep(.2,.95,uWarm));
+      col=mix(col,vec3(1.,.34,.21),clamp(-uHit,0.,1.)*.85);
+      b=(.26+.5*aR.y)*(.75+.6*uWarm)+clamp(uHit,0.,1.)*.8+uSpeak*.2; b*=1.-loose*.55;
+      sz=1.+.5*clamp(abs(uHit),0.,1.);`})));
+  // a warm heart that grows with interest
+  orb.add(pts(cloud(Math.floor(500*Q+200),(i,r,o)=>{ const v=[gauss(),gauss(),gauss()], l=Math.hypot(...v)||1, R=.1+Math.pow(r[0],1.8)*.6; o[0]=v[0]/l*R; o[1]=v[1]/l*R; o[2]=v[2]/l*R; }),
+    PM({size:.06,color:'#A5C3FF',uniforms:U2,decl:DECL,body:'p*=uIn*(.55+.6*uWarm); col=mix(uLo,uHi,uWarm); b=(.12+.45*uWarm)*(.5+.5*aR.y)+uSpeak*.25;'})));
 }
-const HER_O={base:214,spd:1}, YOU_O={base:122,spd:1.04};
-const shift=(sy,dt)=>sy.map(s=>({t:s.t+dt,d:s.d,a:s.a,v:s.v,p:s.p,c:s.c,wi:s.wi}));
-
-/* ---------- the formant voice: hers when the browser has no speech voices, and always yours ---------- */
-const VF=[[730,1090,2440],[530,1840,2480],[270,2290,3010],[570,840,2410],[440,1020,2240],[660,1720,2410]];
-const CN=[null,[[4800,6800,8800],.075,.07],[[2400,3400,5200],.085,.06],[[3800,5200,7000],.028,.08],[[1800,2700,3600],.032,.07],[[900,1500,2400],.022,.05],[[2800,5600,8400],.06,.035],[[1200,2200,3200],.05,.03]];
-let AV=null;
-function audio(){
-  if(AV||!A.ctx) return AV; const ctx=A.ctx;
-  try{
-    const her=A.voice(0), cv=A.voice(0), you=A.voice(1); if(!her||!cv||!you) return null;
-    // soften the raw sawtooth before the formants (closer to a glottal pulse) and give both voices a little vibrato
-    [her,you].forEach((v,i)=>{ v.o.disconnect(); const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=i?2300:3300; lp.Q.value=.4; v.o.connect(lp); v.bs.forEach(b=>lp.connect(b));
-      const lfo=ctx.createOscillator(); lfo.frequency.value=i?4.6:5.4; const lg=ctx.createGain(); lg.gain.value=i?1.6:2.8; lfo.connect(lg); lg.connect(v.o.frequency); lfo.start(); });
-    // one looping noise source: consonants through their own formant bank, and a breath under her vowels
-    const nb=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate), d=nb.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
-    const ns=ctx.createBufferSource(); ns.buffer=nb; ns.loop=true; cv.o.disconnect(); try{ cv.o.stop(); }catch(e){}
-    cv.bs.forEach(b=>{ b.Q.value=1.3; ns.connect(b); }); const br=ctx.createGain(); br.gain.value=.035; ns.connect(br); her.bs.forEach(b=>br.connect(b)); ns.start();
-    AV={her,cv,you};
-  }catch(e){ AV=null; }
-  return AV;
-}
-/* schedule syllables on the audio clock, so the voice keeps time however slow the frames are */
-function sing(v,sy,lvl,who,cv){
-  const ctx=A.ctx; if(!ctx||!v||!A.on) return; const k=who?.92:1.08, base=ctx.currentTime-CLK.t, now=ctx.currentTime;
-  try{ for(const s of sy){ if(base+s.t<now-.005) continue; const t=Math.max(now,base+s.t), F=VF[s.v];
-    v.bs.forEach((b,i)=>b.frequency.setTargetAtTime(F[i]*k,t,.018)); v.o.frequency.setTargetAtTime(s.p,t,.028);
-    v.g.gain.setTargetAtTime(lvl*s.a,t+(s.c&&s.c<7?.022:0),.014); v.g.gain.setTargetAtTime(0,t+s.d*.8,.03);
-    const C=cv&&CN[s.c]; if(C){ cv.bs.forEach((b,i)=>b.frequency.setValueAtTime(C[0][i],t)); cv.g.gain.setTargetAtTime(C[2]*lvl*5,t,.004); cv.g.gain.setTargetAtTime(0,t+C[1],.012); } } }catch(e){}
-}
-function hush(v){ if(!v||!A.ctx) return; const t=A.ctx.currentTime; try{ [v.g.gain,v.o.frequency,...v.bs.map(b=>b.frequency)].forEach(p=>p.cancelScheduledValues(t)); v.g.gain.setTargetAtTime(0,t,.02); }catch(e){} }
-
-/* ---------- the speech voice: Web Speech when it has voices, an Irish or British woman if there is one ---------- */
-const FEM=/female|moira|emily|hazel|susan|libby|sonia|maisie|kate|serena|stephanie|martha|fiona|karen|samantha|zira|aria|jenny|\bava\b|allison|victoria|tessa|veena|catherine|amy|emma|olivia|siobhan|niamh|orla|sinead|aoife|clara|isla|abbie|bella|hollie|\bmia\b|joanna|salli|kimberly|\bivy\b|kendra|natasha|michelle|elsa|evie|ellie|nora|ruth/i;
-const MALE=/\bmale\b|daniel|arthur|george|ryan|thomas|oliver|rishi|\balex\b|\bfred\b|david|\bmark\b|\bguy\b|connor|james|william|brian|matthew|justin|joey|russell|\breed\b|ralph|albert|bruce|aaron|gordon|noah|\beric\b|christopher|roger|andrew|brandon|davis|jason|\btony\b|liam|ethan|elliot|alfie|harry|\btom\b/i;
-const JUNK=/bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|zarvox|wobble|deranged|hysterical|junior|kathy|princess|grandma|grandpa|\bflo\b|sandy|eddy|rocko|shelley/i;
-const TTS={ok:false,v:null,keep:[],broken:false,used:false,
-  init(){ const ss=window.speechSynthesis; if(!ss||typeof SpeechSynthesisUtterance!=='function') return;
-    const pick=()=>{ let best=null,bs=0; try{ for(const v of ss.getVoices()){ const s=this.score(v); if(s>bs){ bs=s; best=v; } } }catch(e){} this.v=best; this.ok=!!best; };
-    pick(); try{ ss.addEventListener('voiceschanged',pick); }catch(e){ ss.onvoiceschanged=pick; } },
-  score(v){ const l=(v.lang||'').toLowerCase().replace('_','-'); if(!/^en/.test(l)||JUNK.test(v.name)) return 0;
-    let s=10; if(l==='en-ie') s+=40; else if(l==='en-gb') s+=30; else if(/en-(au|nz|za)/.test(l)) s+=12; else if(l==='en-us') s+=8;
-    if(FEM.test(v.name)) s+=25; if(MALE.test(v.name)&&!/female/i.test(v.name)) s-=30; if(/natural|neural|enhanced|premium/i.test(v.name)) s+=8; if(v.localService) s+=4; return Math.max(1,s); },
-  live(){ return this.ok&&!!this.v&&!this.broken&&A.on; },
-  say(text,h){ try{ const u=new SpeechSynthesisUtterance(text); u.voice=this.v; u.lang=this.v.lang; u.rate=1.02; u.pitch=1.04; u.volume=1;
-    u.onstart=h.start; u.onboundary=h.word; u.onend=h.end; u.onerror=h.err; this.keep.push(u); if(this.keep.length>8) this.keep.shift(); // keep a reference, or Chrome may drop onend
-    speechSynthesis.speak(u); }catch(e){ this.broken=true; h.err({error:'throw'}); } },
-  unlock(){ if(!this.ok||this.unlocked) return; this.unlocked=true; try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} },
-  stop(){ for(const u of this.keep){ u.onstart=u.onboundary=u.onend=u.onerror=null; } this.keep.length=0; try{ if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending)) speechSynthesis.cancel(); }catch(e){} }
-};
-
-/* ---------- the board: one curved plane, every dot drawn in the shader from a scrolling data texture ---------- */
-const RATE=60, N=1200, M=3, CLEAR=8; // slots per second, ring length (20 s), frame margin in dots, seconds behind now that the guide row is wiped
-const DB=new Uint8Array(N*2*4);
-const tex=new T.DataTexture(DB,N,2,T.RGBAFormat); tex.magFilter=tex.minFilter=T.LinearFilter; tex.wrapS=T.RepeatWrapping; tex.generateMipmaps=false; tex.needsUpdate=true;
-const LAY={w:{cols:Math.round(124+36*Q),rows:29,half:5,cps:16*(124+36*Q)/160,pitch:.064*160/(124+36*Q),curve:13},n:{cols:Math.round(60+12*Q),rows:33,half:6,cps:8.5*(60+12*Q)/72,pitch:.064*72/(60+12*Q),curve:7.5}}; // fewer, larger dots at lower quality
-const col3=(r,g,b)=>new T.Color().setRGB(r,g,b);
-const U={uData:{value:tex},uN:{value:N},uRate:{value:RATE},uHead:{value:0},uNowT:{value:0},uCols:{value:160},uRows:{value:29},uCps:{value:16},uNowCol:{value:74.5},
-  uRowY:{value:7},uRowB:{value:21},uRowR:{value:14},uHalf:{value:5},uM:{value:M},uW:{value:10},uH:{value:2},uCurve:{value:13},
-  uPow:{value:0},uLive:{value:1},uFlash:{value:0},uTurn:{value:0},uTalk:{value:0},uClk:{value:0},
-  uRip:{value:[0,1,2].map(()=>new T.Vector4(0,0,-99,0))},uRipC:{value:[0,1,2].map(()=>new T.Color())},
-  uIce:{value:col3(.55,.72,1.)},uWarm:{value:col3(1.,.9,.78)},uAmb:{value:col3(1.,.62,.32)},uRed:{value:col3(1.,.24,.12)},uOff:{value:col3(.9,.84,.76)}};
-const VS=`uniform float uW,uH,uCurve; varying vec2 vUv;
-void main(){ vUv=uv; float x=position.x*uW, a=x/uCurve; vec3 p=vec3(sin(a)*uCurve,position.y*uH,(1.-cos(a))*uCurve); gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`;
-const FS=`uniform sampler2D uData;
-uniform float uN,uRate,uHead,uNowT,uCols,uRows,uCps,uNowCol,uRowY,uRowB,uRowR,uHalf,uM,uPow,uLive,uFlash,uTurn,uTalk,uClk,uRefl;
-uniform vec4 uRip[3]; uniform vec3 uRipC[3]; uniform vec3 uIce,uWarm,uAmb,uRed,uOff; varying vec2 vUv;
-vec4 rd(float ds,float row){ return texture2D(uData,vec2(fract((uHead+ds*uRate+.5)/uN),row)); }
-void main(){
-  vec2 G=vUv*vec2(uCols+2.*uM,uRows+2.*uM)-uM; vec2 id=floor(G); vec2 f=fract(G)-.5;
-  vec2 fw=fwidth(G); float px=max(fw.x,fw.y); float aa=px*(uRefl>.5?2.4:.8)+.02;
-  float inX=step(0.,id.x)*step(id.x,uCols-1.); float inside=inX*step(0.,id.y)*step(id.y,uRows-1.);
-  float ds=(id.x+.5-uNowCol)/uCps; float past=step(ds,.001); float fut=1.-past;
-  vec4 a=rd(ds,.25); vec4 b=rd(ds,.75);
-  float yB=abs(id.y-uRowB), yY=abs(id.y-uRowY), K=uHalf+1.;
-  float onB=step(yB,uHalf), onY=step(yY,uHalf), rim=step(uHalf-.5,yY)*onY;
-  float lB=clamp(a.r*K-yB,0.,1.)*onB*past;            // her voice, a mirrored level meter
-  float lY=clamp(a.g*K-yY,0.,1.)*onY*past;            // yours
-  float trap=a.a*step(yB,.5)*past;                    // her mid-sentence pause, dotted on her centre row
-  float gh=clamp(b.g*K-yY,0.,1.)*onY*fut;              // the line you are about to say
-  float br=b.b*onY; float bL=rd(ds-1./uCps,.75).b; float bR=rd(ds+1./uCps,.75).b;
-  float brL=br*max(max(step(bL,.5),step(bR,.5)),rim); // the bracket: end columns and top and bottom rows
-  float win=b.r*onY;                                   // the start window
-  float ts=uNowT+ds; float s1=abs(fract(ts+.5)-.5); float s2=abs(fract(ts*2.+.5)-.5)*.5;
-  float rul=step(abs(id.y-uRowR),.5)*(exp(-pow(s1*uCps/.6,2.))*.42+exp(-pow(s2*uCps/.6,2.))*.16);
-  float nowc=exp(-pow((id.x+.5-uNowCol)*1.3,2.));
-  float grain=fract(sin(dot(id,vec2(12.9898,78.233)))*43758.5453);
-  float sheen=exp(-pow((id.x-id.y*1.6-mod(uClk*9.,uCols*2.6)+uCols*.6)/14.,2.));
-  vec3 c=uOff*(.085+.03*grain+.05*sheen); float lv=0.;
-  c+=(uIce*step(yB,.5)+uWarm*step(yY,.5))*.06*inX;
-  c+=uIce*lB*1.3; lv=max(lv,lB);
-  c+=mix(uWarm,uRed,a.b)*lY*1.1; lv=max(lv,lY);
-  c+=uAmb*trap*.5; lv=max(lv,trap*.5);
-  c+=uWarm*gh*.17; lv=max(lv,gh*.42);
-  c+=mix(uAmb,uIce,b.a*past)*(brL*mix(.8,.34,past)+br*.05); lv=max(lv,brL*.62);
-  c+=uAmb*win*(rim*.6+.07)*mix(1.,.35,past); lv=max(lv,win*rim*.5);
-  c+=uWarm*rul*inX; lv=max(lv,rul);
-  float nrow=onY+onB+step(abs(id.y-uRowR),.5);
-  c+=(uWarm*.07+uAmb*uTurn*.4*(.6+.4*sin(uClk*9.))+uWarm*uTalk*.1)*nowc*nrow; lv=max(lv,nowc*nrow*(.2+uTurn*.4));
-  float rip=0.; vec3 rc=vec3(0.);
-  for(int i=0;i<3;i++){ float age=uClk-uRip[i].z; if(age>0.&&age<3.){ float r=length((G-uRip[i].xy)*vec2(1.,1.25)); float k=exp(-pow((r-age*66.)/5.5,2.))*uRip[i].w*exp(-age*1.25); rip+=k; rc+=uRipC[i]*k; } }
-  c+=rc*.8; lv=max(lv,min(1.,rip*.9));
-  c*=1.+uFlash*.5;
-  float R=mix(.17,.38,clamp(lv,0.,1.)); float d=length(f);
-  float m=1.-smoothstep(R-aa,R+aa,d);
-  m=mix(m,3.1416*R*R,smoothstep(.32,.75,px));          // far away: the average, instead of shimmering
-  float halo=exp(-d*d*11.)*.2*lv;
-  float vig=smoothstep(-.5,uCols*.07,id.x)*smoothstep(uCols+.5,uCols*.94,id.x)*smoothstep(-.5,1.6,id.y)*smoothstep(uRows+.5,uRows-2.,id.y);
-  float pw=clamp((uPow*(uCols*.62+16.)-abs(id.x+.5-uNowCol))/10.,0.,1.);
-  vec3 col=c*(m+halo)*inside*vig*pw*uLive;
-  float cx=min(G.x+1.4,uCols+.4-G.x); float cy=min(G.y+1.4,uRows+.4-G.y); float lw=px*1.1;
-  float tick=(1.-smoothstep(0.,lw,abs(cy)))*step(-.05,cx)*step(cx,2.6)+(1.-smoothstep(0.,lw,abs(cx)))*step(-.05,cy)*step(cy,2.6);
-  float nl=(1.-smoothstep(0.,lw,abs(G.x-uNowCol)))*step(-2.2,G.y)*step(G.y,uRows+1.2)*(1.-inside*.55);
-  float cap=(1.-smoothstep(0.,lw,min(abs(G.y+2.2),abs(G.y-uRows-1.2))))*step(abs(G.x-uNowCol),.9);
-  col+=(uWarm*(tick*.3+(nl+cap)*(.42+uTalk*.3))+uAmb*(nl+cap)*uTurn*.7)*uLive*clamp(uPow*2.,0.,1.);
-  if(uRefl>.5) col*=.2*exp(-vUv.y*8.);
-  gl_FragColor=vec4(col,1.);
-}`;
-function boardMat(r){ return new T.ShaderMaterial({uniforms:{...U,uRefl:{value:r}},vertexShader:VS,fragmentShader:FS,transparent:true,depthWrite:false,depthTest:false,
-  blending:T.AdditiveBlending,side:r?T.DoubleSide:T.FrontSide,extensions:{derivatives:true}}); }
-let board=null, refl=null, layN=null;
-function layout(){ const n=NARROW(); if(n===layN) return; layN=n; const L=n?LAY.n:LAY.w;
-  U.uCols.value=L.cols; U.uRows.value=L.rows; U.uHalf.value=L.half; U.uCps.value=L.cps; U.uCurve.value=L.curve; U.uNowCol.value=Math.round(L.cols*.46)+.5;
-  U.uRowY.value=2+L.half; U.uRowR.value=2+2*L.half+2; U.uRowB.value=U.uRowR.value+2+L.half;
-  U.uW.value=(L.cols+2*M)*L.pitch; U.uH.value=(L.rows+2*M)*L.pitch;
-  if(refl) refl.position.y=-U.uH.value-.34; }
-/* a point on the board, from dot coordinates (column, row) to world space; the board sits at the origin */
-function boardPt(c,r,out){ const W=U.uW.value, R=U.uCurve.value; const u=(c+M)/(U.uCols.value+2*M), v=(r+M)/(U.uRows.value+2*M); const a=(u-.5)*W/R; return out.set(Math.sin(a)*R,(v-.5)*U.uH.value,(1-Math.cos(a))*R); }
-const colAt=dt=>U.uNowCol.value+dt*U.uCps.value;
-
-/* ---------- writing the board: what was said goes in at the now line, plans for the future go ahead of it ---------- */
-const HER=[], YOU=[], RED=[], TRP=[];
-const ivAdd=(L,o)=>{ L.push(o); if(L.length>12) L.shift(); return o; };
-const pseudo=t=>{ const u=Math.abs(Math.sin(t*13.8+Math.sin(t*2.7)*1.6)); return .32+.68*Math.pow(u,.7)*(.78+.22*Math.sin(t*3.3)); };
-function envAt(sy,t){ let v=0; for(let i=0;i<sy.length;i++){ const s=sy[i], x=t-s.t; if(x<0) break; if(x<s.d+.07){ const at=Math.min(1,x/.028), rl=x>s.d*.78?Math.max(0,1-(x-s.d*.78)/(s.d*.22+.07)):1; v=Math.max(v,s.a*at*rl*(.84+.16*Math.sin(x*38+s.t*7))); } } return v; }
-function ampAt(L,t){ let v=0; for(let i=0;i<L.length;i++){ const iv=L[i]; if(t<iv.t0||t>=iv.t1) continue; const e=iv.sy?envAt(iv.sy,t):iv.sg?speechEnv(iv.sg,t):pseudo(t)*Math.min(1,(t-iv.t0)/.05); v=Math.max(v,e*(iv.k||1)); } return Math.min(1,v); }
-/* real speech gives no audio to measure: draw the syllable estimate, re-anchored at the latest word boundary */
-function speechEnv(sg,t){ const base=sg.bt||sg.st, o=(sg.bt?sg.bi:sg.a)-sg.a, at=sg.est.at; if(!base||o>=at.length) return pseudo(t)*.7; const x=t-base+at[o]; return x>sg.est.end?pseudo(t)*.7:envAt(sg.est.sy,x); }
-function inAny(L,t){ for(let i=0;i<L.length;i++){ const iv=L[i]; if(t>=iv.t0&&t<iv.t1) return 1; } return 0; }
-let wK=-1;
-function write(now){
-  const k1=Math.floor(now*RATE); if(wK<0||k1<wK||k1-wK>N/2) wK=k1-1;
-  const cl=Math.round(CLEAR*RATE);
-  for(let k=wK+1;k<=k1;k++){ const t=k/RATE, i=((k%N)+N)%N*4;
-    DB[i]=ampAt(HER,t)*255; DB[i+1]=ampAt(YOU,t)*255; DB[i+2]=inAny(RED,t)*255; DB[i+3]=inAny(TRP,t)*255;
-    const j=N*4+(((k-cl)%N)+N)%N*4; DB[j]=DB[j+1]=DB[j+2]=DB[j+3]=0; }
-  if(k1>wK) tex.needsUpdate=true; wK=k1;
-}
-/* the guide row: r start window, g the line you are about to say, b the bracket, a the bracket you hit */
-function guide(t0,t1,ch,v){ for(let k=Math.ceil(t0*RATE);k<t1*RATE;k++) DB[N*4+((k%N)+N)%N*4+ch]=v*255; tex.needsUpdate=true; }
-function ghost(t0,sy,t1){ for(let k=Math.ceil(t0*RATE);k<t1*RATE;k++) DB[N*4+((k%N)+N)%N*4+1]=Math.min(1,envAt(sy,k/RATE))*255; tex.needsUpdate=true; }
-function clearBoard(){ DB.fill(0); tex.needsUpdate=true; HER.length=YOU.length=RED.length=TRP.length=0; wK=-1; }
-
-/* ---------- ripples across the board ---------- */
-let ripI=0; const RC={ice:col3(.6,.78,1.),ink:col3(1.,.92,.8),hot:col3(1.,.62,.3),alarm:col3(1.,.26,.12)};
-function ripple(c,r,kind,s,t){ U.uRip.value[ripI].set(c,r,t,RM?s*.5:s); U.uRipC.value[ripI].copy(RC[kind]||RC.ink); ripI=(ripI+1)%3; }
+/* the call as a dial around the room: six marks, one per turn, lit by how each reply landed */
+const dial=new T.Group(); st.scene.add(dial);
+const MK=new Float32Array(NB).fill(-1), MKU={uCur:{value:0}};
+const mkGeo=cloud(NB,(i,r,o,ex)=>{ const a=Math.PI/2-i*TAU/NB; o[0]=Math.cos(a)*RING; o[1]=Math.sin(a)*RING; o[2]=0; ex.aI[i]=i; ex.aK[i]=-1; },{aI:1,aK:1});
+dial.add(pts(mkGeo,PM({size:.2,color:'#A5C3FF',uniforms:MKU,decl:'attribute float aI,aK; uniform float uCur;',body:`
+  float cur=1.-step(.5,abs(aI-uCur));
+  col=aK<-.5?vec3(.42,.4,.37):(aK<.5?vec3(1.,.34,.21):(aK<1.5?vec3(1.,.76,.57):vec3(.65,.76,1.)));
+  b=aK<-.5?(.3+cur*(.55+.45*sin(uTime*5.))):1.25; sz=aK<-.5?(.8+cur*.5):1.25;`})));
+{ const rg=new T.LineLoop(ringGeo(RING,240),dashMat('#A5C3FF','float a=.13*step(.5,fract(vAng*9.55));')); rg.rotation.x=Math.PI/2; rg.material.uniforms.uOp.value=1; dial.add(rg); }
+const burst=Burst(st.scene,Math.floor(360*Q+120),'#A5C3FF',.06);
+st.anchors=[new T.Vector3(0,RING,0),new T.Vector3(RO*.98,-.1,0),new T.Vector3(Math.cos(Math.PI/2-TAU/NB)*RING,Math.sin(Math.PI/2-TAU/NB)*RING,0)];
 
 /* ---------- DOM ---------- */
-const E={score:q('#krScore'),combo:q('#krCombo'),mom:q('#krMom'),turn:q('#krTurn'),her:q('#krLine'),me:q('#krMine'),hint:q('#krHint'),gp:q('#krGP'),gpi:q('#krGP .in'),
-  grade:q('#krGrade'),pts:q('#krPts'),btn:q('#krTalk'),state:q('#krState'),tm:q('#krT'),mb:q('#krMB'),mf:q('#krMF'),lb:q('#krLB'),ly:q('#krLY'),now:q('#krNow'),nowT:q('#krNow i'),br:q('#krBr'),meP:q('#krMeP')};
-function fillLine(box,ws){ box.textContent=''; ws.forEach((w,i)=>{ const s=document.createElement('span'); s.className='kw'; s.textContent=w.w; box.appendChild(s); if(i<ws.length-1) box.appendChild(document.createTextNode(' ')); w.el=s; }); }
-let hintT=0; function hint(t,ms){ clearTimeout(hintT); if(t) E.hint.textContent=t; E.hint.classList.toggle('on',!!t); if(t&&ms) hintT=setTimeout(()=>E.hint.classList.remove('on'),ms); }
-let uiState='';
-function setUI(s){ if(s===uiState) return; uiState=s; E.btn.dataset.s=s; el.dataset.ks=s;
-  E.state.textContent={listen:'Listening',turn:'Your turn',talk:'Talking',wait:'Next line',idle:'Answer'}[s]||'Answer';
-  E.nowT.textContent={listen:'Listening',turn:'Your turn'}[s]||'';
-  if(s!=='talk'){ E.tm.textContent=''; E.mf.style.transform='scaleX(0)'; } }
-const capOff=()=>el.classList.add('kr-out'), capOn=()=>el.classList.remove('kr-out');
-const HOW=FINE?'Tap Answer, Space or the board to talk.':'Tap Answer or the board to talk.';
+const E={score:q$('#krScore'),combo:q$('#krCombo'),tr:q$('#krTr'),in:q$('#krIn'),trV:q$('#krTrV'),inV:q$('#krInV'),turn:q$('#krTurn'),who:q$('#krWho'),line:q$('#krLine'),note:q$('#krNote'),
+  ops:q$('#krOps'),btns:$$('.krop',el),bar:q$('#krBar'),time:q$('.krtime',el),hint:q$('#krHint')};
+const setPh=p=>{ el.dataset.ph=p; };
+function meters(g){ E.tr.style.width=g.tr+'%'; E.in.style.width=g.in+'%'; E.tr.classList.toggle('lo',g.tr<25); E.in.classList.toggle('lo',g.in<20);
+  E.trV.textContent=Math.round(g.tr); E.inV.textContent=Math.round(g.in); }
+function setLine(text){ E.line.classList.remove('out'); E.line.textContent=''; const ws=text.split(' ');
+  ws.forEach((w,i)=>{ const s=document.createElement('span'); s.className='kw'; s.textContent=w; E.line.appendChild(s); if(i<ws.length-1) E.line.appendChild(document.createTextNode(' ')); });
+  E.line.setAttribute('aria-label',text); return $$('.kw',E.line); }
+function noteShow(q,label,text,pts){ E.note.dataset.q=q; E.note.innerHTML=`<b>${label}</b>${text}${pts?`<em>+${fmt(pts)}</em>`:''}`; E.note.classList.add('on'); }
+function noteHide(){ E.note.classList.remove('on'); }
 
-/* ---------- the call engine. The attract loop on the title screen runs the same engine, silently, answering for you ---------- */
-let game=null, demo=null, bt=0, freezeBoard=false, powT=-9, shown=0, resAt=0;
-function newGame(isDemo,t){ return {demo:isDemo,talk:{on:false,src:null,down:false,t0:0,ign:null},li:-1,ln:null,next:t,over:0,close:'',outcome:null,closed:false,
-  score:0,mom:50,streak:0,best:0,cut:0,dead:0,late:0,ramble:0,short:0,perfect:0,clean:0,gaps:[],you:0,her:0}; }
-function mkLine(g,i,t0,kind){
-  const text=kind==='hello'?HELLO:kind==='close'?g.close:LINES[i].her, ws=words(text);
-  let a=0; const segs=text.split('|').map(s=>{ const n=words(s).length, sg={a,b:a+n}; a+=n; return sg; });
-  const ln={i,kind,ws,segs,si:0,st:'pre',t0,tok:0,endAt:0,my:null,demo:g.demo,cur:null};
-  if(kind==='line'){ const mw=words(LINES[i].you); ln.myWs=mw; ln.myPlan=plan(mw.concat(words(FILL.join(' '))),0,YOU_O);
-    let D=0; for(const s of ln.myPlan.sy) if(s.wi<mw.length) D=Math.max(D,s.t+s.d); ln.D=D; }
-  if(!g.demo){ fillLine(E.her,ws); E.her.className='krher'; E.me.className='krme'; if(kind==='line') fillLine(E.me,ln.myWs); else E.me.textContent=''; capOn();
-    for(let j=segs[0].b;j<ws.length;j++) ws[j].el.classList.add('later'); } // words after a pause stay dark, so the pause looks like an ending
-  return ln;
+/* ---------- the game ---------- */
+let game=null, lastCall=-1;
+const shuffle=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+function newGame(){
+  let ci=Math.floor(Math.random()*CALLS.length); if(ci===lastCall) ci=(ci+1)%CALLS.length; lastCall=ci;
+  return {c:CALLS[ci],bi:-1,tr:T0.tr,in:T0.in,ph:'ring',t:0,words:[],wi:0,wt:0,order:[0,1,2],warm:false,score:0,shown:0,streak:0,good:0,qs:0,dead:0,rts:[],worst:null,hung:false,outcome:-1,pick:-1};
 }
-function nextLine(g,t){
-  if(g.outcome&&!g.closed){ g.closed=true; g.ln=mkLine(g,g.li,t,'close'); if(!g.demo) setUI('listen'); return; }
-  g.li++; if(g.demo) g.li%=LINES.length;
-  g.ln=mkLine(g,g.li,t,'line');
-  if(!g.demo){ scramble(E.turn,`Line ${g.li+1} / ${LINES.length}`,400); hint(g.li===0?'Listen. Wait until she has finished.':''); setUI('listen'); }
+function startBeat(g,i){
+  g.bi=i; g.ph='line'; g.t=0; g.wi=0; g.wt=0; g.pick=-1; const b=g.c.beats[i];
+  g.warm=warmOf(g.tr,g.in); g.words=setLine(g.warm||!b.c?b.w:b.c); noteHide();
+  E.ops.classList.remove('in'); E.btns.forEach(x=>{ x.classList.remove('pick','dim','best'); x.removeAttribute('data-q'); });
+  E.turn.textContent=`Turn ${i+1} / ${NB}`; MKU.uCur.value=i; setPh('line'); E.hint.textContent='';
 }
-/* her segment: speech when we can, otherwise the formant voice on an exact schedule (silent when muted) */
-function startSeg(g,ln,t){
-  const sg=ln.segs[ln.si], tok=++ln.tok, trail=ln.si<ln.segs.length-1; ln.st='her';
-  if(!g.demo&&ln.si>0) for(let j=sg.a;j<sg.b;j++) ln.ws[j].el&&ln.ws[j].el.classList.remove('later');
-  Object.assign(sg,{t0:t,st:0,done:0,fail:0,bi:sg.a-1,bt:0,iv:null});
-  if(!g.demo&&TTS.live()){
-    const ws=ln.ws.slice(sg.a,sg.b); sg.mode='tts'; sg.est=plan(ws,0,{...HER_O,trail}); sg.iv=ivAdd(HER,{t0:t+99,t1:Infinity,sy:null,sg});
-    let txt=ws.map(w=>w.w).join(' '); if(trail) txt=txt.replace(/\.\.\.$/,',');
-    sg.chars=[]; let c=0; ws.forEach(w=>{ sg.chars.push(c); c+=w.w.length+1; });
-    sg.wait=TTS.used?1.6:2.6; TTS.used=true; sg.deadline=t+sg.wait+sg.est.end*1.45+.8;
-    TTS.say(txt,{start:()=>{ if(tok!==ln.tok) return; sg.st=CLK.t; sg.iv.t0=sg.st; },
-      word:e=>{ if(tok!==ln.tok||(e.name&&e.name!=='word')) return; let k=0; for(let j=0;j<sg.chars.length;j++) if(sg.chars[j]<=e.charIndex) k=j;
-        const tb=CLK.t; if(!sg.st){ sg.st=tb; sg.iv.t0=tb; } for(let j=sg.a;j<=sg.a+k;j++) lightHer(ln,j); sg.bi=sg.a+k; sg.bt=tb; },
-      end:()=>{ if(tok!==ln.tok) return; sg.done=CLK.t; if(!sg.st){ sg.st=sg.done-.2; sg.iv.t0=sg.st; } sg.iv.t1=sg.done; },
-      err:e=>{ if(tok!==ln.tok||(e&&(e.error==='interrupted'||e.error==='canceled'))) return; sg.fail=CLK.t; }});
-  } else toSynth(g,ln,sg,t,sg.a);
+function showOptions(g){
+  const b=g.c.beats[g.bi]; g.order=shuffle([0,1,2]);
+  E.btns.forEach((x,k)=>{ const r=b.r[g.order[k]]; $('span',x).textContent=r.t; x.setAttribute('aria-label',`Reply ${k+1}: ${r.t}`); });
+  void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
+  E.hint.textContent=FINE?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); E.bar.style.transform='scaleX(1)';
 }
-function toSynth(g,ln,sg,t,from){
-  const trail=ln.si<ln.segs.length-1, p=plan(ln.ws.slice(from,sg.b),t,{...HER_O,trail,wi0:from});
-  sg.mode='synth'; sg.plan=p; sg.from=from; sg.end=p.end; if(sg.iv) sg.iv.t1=Math.min(sg.iv.t1,t); sg.iv=ivAdd(HER,{t0:t,t1:p.end,sy:p.sy});
-  if(!g.demo&&A.on){ const av=audio(); if(av) sing(av.her,p.sy,.3,0,av.cv); }
+function choose(g,k){
+  if(!g||g.ph!=='pick') return;
+  const b=g.c.beats[g.bi], wi=g.warm?0:1, rt=g.t; let q, dt_, din, note, label;
+  if(k<0){ q=0; dt_=-10; din=-6; note='On a cold call, silence reads as doubt.'; label='Dead air'; g.dead++; A.buzz(); }
+  else { const r=b.r[g.order[k]]; q=r.q[wi]; [dt_,din]=r.d[wi]; note=r.n[wi]; label=['Misread','Fair','Good read'][q]; g.pick=k; if(/\?\s*$/.test(r.t)) g.qs++; g.rts.push(rt); }
+  g.tr=clamp(g.tr+dt_,0,100); g.in=clamp(g.in+din,0,100);
+  // points: the read, a little for speed, more for a run of good reads
+  let pts=0; if(q===2){ g.streak++; g.good++; } else g.streak=0;
+  if(q>0){ const spd=Math.round(100*clamp(1-(rt-1.2)/7,0,1)); pts=Math.round(([0,120,300][q]+spd)*(q===2?1+.25*Math.min(g.streak-1,4):1)); g.score+=pts; }
+  if(q===0&&!g.worst) g.worst={i:g.bi,n:note};
+  // what the room does
+  MK[g.bi]=k<0?0:q; mkGeo.attributes.aK.array[g.bi]=MK[g.bi]; mkGeo.attributes.aK.needsUpdate=true;
+  U2.uHit.value=q===2?1:q===0?-1:.35;
+  if(q===2){ A.chime(10+Math.min(g.streak,5)); A.chime(14+Math.min(g.streak,5),.08,.03); burst.emit(tv0.set(0,0,0),Math.floor(40*Q+14),1.6,COL.warm.clone().lerp(COL.ice,1-g.in/100),.2,1.1); feedback(.04,.3); }
+  else if(q===1){ A.blip(); }
+  else { A.buzz(); feedback(.18,.9,COL.red); }
+  // the cards
+  E.btns.forEach((x,i)=>{ if(i===k){ x.classList.add('pick'); x.dataset.q=q; } else x.classList.add('dim'); });
+  if(q<2){ const bi=[0,1,2].find(i=>b.r[g.order[i]].q[wi]===2); if(bi!==undefined) E.btns[bi].classList.add('best'),E.btns[bi].classList.remove('dim'); }
+  noteShow(q,label,note,pts); meters(g); E.combo.textContent=g.streak>1?`${g.streak} good reads in a row`:'';
+  E.time.classList.remove('low'); g.ph='show'; g.t=0; setPh('show'); E.hint.textContent=FINE?'Space for the next line':'Tap for the next line';
+  if(g.bi>=1&&g.tr<=8) g.hung=true;
 }
-function lightHer(ln,j){ const w=ln.ws[j]; if(!w||w.lit) return; w.lit=true; if(ln.demo||!w.el) return; w.el.classList.add('on','now'); if(ln.cur&&ln.cur!==w.el) ln.cur.classList.remove('now'); ln.cur=w.el; }
-function stopHer(ln,t){ ln.tok++; const sg=ln.segs[ln.si]; if(sg&&sg.iv) sg.iv.t1=Math.min(sg.iv.t1,t); if(sg&&sg.mode==='tts') TTS.stop(); if(AV){ hush(AV.her); hush(AV.cv); } }
-function wdur(sg,j){ const o=j-sg.a, at=sg.est.at; return (o+1<at.length?at[o+1]:sg.est.end)-at[o]; }
-/* advance to time `now`, taking every transition in order at its own time, so slow frames never change the timing */
-function step(g,now){ for(let n=0;n<40;n++){ if(!adv(g,now)) break; } }
-function adv(g,now){
-  if(g.over){ if(now>=g.over){ g.over=0; finish(g); } return false; }
-  const ln=g.ln;
-  if(!ln||ln.st==='done'){ if(g.hello&&now>=g.hello){ g.ln=mkLine(g,g.li,g.hello,'hello'); g.hello=0; if(!g.demo) setUI('listen'); return true; } if(now>=g.next){ nextLine(g,g.next); return true; } return false; }
-  if(ln.st==='pre'){ const ts=ln.t0+(ln.kind==='line'?LEAD:.35); if(now>=ts){ startSeg(g,ln,ts); return true; } return false; }
-  if(ln.st==='her'){ const sg=ln.segs[ln.si];
-    if(sg.mode==='tts'){
-      if(sg.fail||(!sg.st&&now-sg.t0>sg.wait)||(!A.on&&!sg.done)){ // speech failed, never started, or the sound was muted: carry on with the formant schedule
-        if(!sg.st) TTS.broken=true; ln.tok++; TTS.stop(); let f=sg.a; while(f<sg.b&&ln.ws[f].lit) f++; toSynth(g,ln,sg,Math.max(now,sg.t0),f); return true; }
-      if(sg.st&&!sg.done){ // light words between boundaries from the syllable estimate, a little slow so real boundaries pull it forward
-        let j=sg.bt?sg.bi+1:sg.a, t=sg.bt?sg.bt+wdur(sg,sg.bi)*1.08:sg.st;
-        for(;j<sg.b-1;j++){ if(t>now) break; lightHer(ln,j); t+=wdur(sg,j)*1.08; } }
-      let end=sg.done; if(!end&&now>sg.deadline){ end=sg.deadline; ln.tok++; TTS.stop(); }
-      if(!end) return false; for(let j=sg.a;j<sg.b;j++) lightHer(ln,j); return segEnd(g,ln,end);
-    }
-    const at=sg.plan.at; for(let o=0;o<at.length&&at[o]<=now;o++) lightHer(ln,sg.from+o);
-    return now>=sg.end?segEnd(g,ln,sg.end):false; }
-  if(ln.st==='trap'){ if(g.demo&&ln.cutAt&&now>=ln.cutAt){ act(g,'demo',ln.cutAt); return true; } if(now>=ln.trapEnd){ ln.si++; startSeg(g,ln,ln.trapEnd); return true; } return false; }
-  if(ln.st==='open'){ if(g.demo&&now>=ln.endAt+ln.auto){ act(g,'demo',ln.endAt+ln.auto); return true; }
-    if(now>=ln.endAt+DEAD){ grade(g,ln,'dead',ln.endAt+DEAD,0); return true; } return false; }
-  if(ln.st==='you'){ const t0=ln.my.t0; if(g.demo&&now>=t0+ln.D+ln.autoL){ endTalk(g,t0+ln.D+ln.autoL); return true; }
-    if(now>=t0+ln.D+OVER){ endTalk(g,t0+ln.D+OVER,true); return true; } return false; }
-  if(ln.st==='end'){ if(now>=ln.endAt+.3){ ln.st='gone'; g.over=ln.endAt+1.25; if(!g.demo){ if(g.outcome==='She hung up'||g.outcome==='Send an email'){ A.beep(480); setTimeout(()=>A.beep(480),190); setTimeout(()=>A.beep(480),380); } else A.chime(9,0,.04); } return true; } return false; }
-  return false;
+function next(g){
+  if(!g||g.ph!=='show'||g.t<.6) return;
+  if(g.hung||g.bi>=NB-1){ finish(g); return; }
+  startBeat(g,g.bi+1);
 }
-function segEnd(g,ln,t){
-  const sg=ln.segs[ln.si]; if(sg.iv) sg.iv.t1=Math.min(sg.iv.t1,t); if(ln.cur){ ln.cur.classList.remove('now'); ln.cur=null; } g.her+=Math.max(0,t-(sg.st||sg.t0));
-  if(ln.si<ln.segs.length-1){ ln.st='trap'; ln.trapEnd=t+TRAP; ivAdd(TRP,{t0:t+.08,t1:t+TRAP-.05}); if(g.demo&&Math.random()<.3) ln.cutAt=t+.45+Math.random()*.3; return true; }
-  ln.endAt=t;
-  if(ln.kind==='close'){ ln.st='end'; if(!g.demo) setUI('idle'); return true; }
-  if(ln.kind==='hello'){ ln.st='done'; g.next=t+.7; return true; }
-  ln.st='open';
-  // the start window, and a preview of your line with its bracket, placed as if you start on time
-  guide(t+WIN0,t+WIN1,0,1); guide(t+WIN1,t+SLOW,0,.38);
-  const ps=t+.32; ghost(ps,shift(ln.myPlan.sy,ps),ps+ln.D+.1); guide(ps+ln.D-BR0,ps+ln.D+BR1,2,1);
-  ln.auto=.2+Math.random()*.32;
-  if(!g.demo){ setUI('turn'); if(g.li===0) hint('Your turn. '+HOW); }
-  return true;
-}
-
-/* ---------- the one control: a press starts talking and a second press stops; a press held past HOLD stops on release ---------- */
-function press(g,src,t){ if(!g) return; step(g,t); act(g,src,t); }
-function act(g,src,t){
-  const ln=g.ln, tk=g.talk;
-  if(tk.on){ endTalk(g,t); tk.ign=src; return; }
-  if(!ln||ln.kind!=='line'||ln.st==='pre'||ln.st==='done'){ tk.ign=src; if(!g.demo&&ln&&ln.kind==='line') hint('Wait for her line.',1300); return; }
-  if(ln.st==='her'||ln.st==='trap'){ // talking over her
-    tk.ign=src; const inTrap=ln.st==='trap'; stopHer(ln,t); if(inTrap) for(const iv of TRP) if(iv.t1>t) iv.t1=Math.max(iv.t0,t);
-    ivAdd(RED,{t0:t,t1:t+.34}); ivAdd(YOU,{t0:t,t1:t+.34,sy:null,k:.8});
-    if(!g.demo){ A.buzz(); feedback(.22,.7,TINT.set(.1,0,0)); hint(inTrap?'She paused, but she had not finished.':'Let her finish first.',2600); }
-    grade(g,ln,'cut',t,0); return; }
-  if(ln.st!=='open'){ tk.ign=src; return; }
-  // your answer starts: re-place the preview where you really started
-  const my=ln.my={t0:t,gap:t-ln.endAt,plan:shift(ln.myPlan.sy,t)}; ln.st='you';
-  Object.assign(tk,{on:true,src,down:src!=='demo',t0:t}); ln.autoL=(Math.random()-.35)*.42;
-  my.iv=ivAdd(YOU,{t0:t,t1:Infinity,sy:my.plan});
-  for(let ch=1;ch<4;ch++) guide(ln.endAt,ln.endAt+ln.D+4.5,ch,0);
-  ghost(t,my.plan,t+ln.D+.1); guide(t+ln.D-BR0,t+ln.D+BR1,2,1);
-  if(g.demo) return;
-  setUI('talk'); A.tick(); if(AV) sing(AV.you,my.plan.filter(s=>s.t<t+ln.D+OVER),.16,1,null);
-  hint(g.li===0?'Stop when your line is said. Tap again, or let go.':'');
-  const S0=ln.D+BR1+.6; E.mb.style.left=(100*(ln.D-BR0)/S0).toFixed(1)+'%'; E.mb.style.width=(100*(BR0+BR1)/S0).toFixed(1)+'%';
-}
-function release(g,src,t){
-  const tk=g&&g.talk; if(!tk) return;
-  if(tk.ign===src){ tk.ign=null; return; }
-  if(!tk.on||tk.src!==src||!tk.down) return; tk.down=false;
-  if(t-tk.t0>HOLD) endTalk(g,t);
-}
-function endTalk(g,t,tuned){
-  const ln=g.ln; g.talk.on=false; g.talk.down=false; if(!ln||ln.st!=='you') return;
-  const my=ln.my; my.t1=t; my.iv.t1=t; if(!g.demo){ if(AV) hush(AV.you); litMine(ln,t); }
-  const L=t-my.t0, D=ln.D, gap=my.gap; g.you+=L; g.gaps.push(gap);
-  let k; if(tuned) k='tuned'; else if(L<D-BR0) k='short'; else if(L>D+BR1) k='ramble'; else k=gap>SLOW?'late':gap>=WIN0&&gap<=WIN1?'perfect':'clean';
-  const sp=gap<WIN0?150:gap<=WIN1?300:gap<=SLOW?130:0; let pts;
-  if(k==='perfect'||k==='clean'||k==='late') pts=sp+300+Math.round(160*Math.max(0,1-Math.abs(L-D-.05)/.5));
-  else if(k==='short') pts=sp*.5+60; else if(k==='ramble') pts=sp*.5+Math.max(0,140-(L-D-BR1)*90); else pts=sp*.3;
-  if(gap>SLOW) g.late++;
-  if(k==='perfect'||k==='clean') guide(my.t0+D-BR0,my.t0+D+BR1,3,1);
-  grade(g,ln,k,t,Math.round(pts));
-}
-const TINT=new T.Color();
-function grade(g,ln,k,t,pts){
-  const G0=GR[k]; ln.st='done'; ln.grade=k; g.talk.on=false; g.next=t+(k==='dead'?.35:BEAT);
-  const good=k==='perfect'||k==='clean'; if(good){ g.streak++; g.best=Math.max(g.best,g.streak); } else g.streak=0;
-  if(k==='perfect') g.perfect++; if(k==='clean') g.clean++; if(k==='cut') g.cut++; if(k==='dead') g.dead++; if(k==='ramble'||k==='tuned') g.ramble++; if(k==='short') g.short++;
-  const mult=1+Math.min(g.streak,6)*.25, got=Math.round(pts*(good?mult:1));
-  g.score+=got; g.mom=clamp(g.mom+G0.m,0,100);
-  ripple(U.uNowCol.value,k==='cut'?U.uRowB.value:U.uRowY.value,G0.c,k==='perfect'?1.15:good?.9:.8,t);
-  if(g.demo) return;
-  const isLast=g.li>=LINES.length-1, hang=g.mom<=0&&g.li>=2;
-  if(isLast||hang){ const o=hang?OUT[3]:OUT.find(x=>g.mom>=x[0]); g.outcome=o[1]; g.close=o[2]; }
-  U.uFlash.value=k==='perfect'?1:.45; setUI('wait');
-  E.grade.textContent=G0.t; E.gp.dataset.c=G0.c; E.pts.textContent=got>0?'+'+fmt(got)+(good&&mult>1?'   ×'+mult.toFixed(2):''):'';
-  E.gpi.getAnimations().forEach(a=>a.cancel());
-  capOff(); E.gpi.animate([{opacity:0,transform:'translate(-50%,-25%) scale(.97)',easing:'cubic-bezier(.16,1,.3,1)'},{opacity:1,transform:'translate(-50%,-50%) scale(1)',offset:.16},{opacity:1,transform:'translate(-50%,-53%)',offset:.74,easing:'cubic-bezier(.65,0,.35,1)'},{opacity:0,transform:'translate(-50%,-62%)'}],{duration:1650,delay:120,fill:'both'});
-  if(k==='perfect'){ A.chime(7+Math.min(g.streak,5)); A.ping(1318,.025); feedback(.06,.25); }
-  else if(k==='clean') A.chime(5); else if(k==='late'||k==='short') A.chime(1,0,.04); else if(k==='ramble'||k==='tuned') A.beep(392);
-  else if(k==='dead'){ A.beep(300); feedback(.12,.4,TINT.set(.08,0,0)); }
-  if(k==='dead') hint('Silence after a question reads as doubt.',2600); else if(k==='ramble') hint('Stop when your point is made.',2400);
-  else if(k==='tuned') hint('She stopped listening.',2400); else if(k==='short') hint('Finish your line before you stop.',2400);
-  else if(k==='late') hint('Answer sooner. A long gap sounds unsure.',2400); else if(g.li===0&&good) hint('That is the rhythm. Six more.',2400);
-  hud(g);
-  if(k==='dead'&&!g.outcome){ g.hello=t+1.55; g.next=Infinity; } // she checks you are still there, then moves on
-}
-function hud(g){ E.combo.textContent=g.streak>1?`Streak ×${(1+Math.min(g.streak,6)*.25).toFixed(2)}`:''; E.mom.style.setProperty('--v',g.mom/100); E.mom.classList.toggle('low',g.mom<35); }
 function finish(g){
-  if(game!==g) return;
-  const ans=g.gaps.length, avg=ans?g.gaps.reduce((a,b)=>a+b,0)/ans:0, ratio=g.you/Math.max(.1,g.you+g.her);
-  const parts=[]; if(g.cut) parts.push(g.cut===1?'You talked over her once.':`You talked over her ${g.cut} times.`);
-  if(g.dead||g.late) parts.push('Silence after a question reads as doubt.'); if(g.ramble) parts.push('Long answers lose the room.'); if(g.short) parts.push('Cut-short answers sound unsure.');
-  if(!parts.length) parts.push(g.perfect>=5?'Clean timing all the way through.':'Good timing, with room to tighten.');
-  freezeBoard=true; setUI('idle'); capOff(); hint(''); game=null;
-  el.classList.add('kr-arm'); resAt=performance.now(); setTimeout(()=>el.classList.remove('kr-arm'),750);
-  st.result({grade:g.outcome||'She hung up',score:g.score,stats:[['Perfect lines',`${g.perfect} / ${LINES.length}`],['Avg reply gap',ans?avg.toFixed(2)+' s':'None'],
-    ['Talked over her',g.cut],['Dead air',g.dead+g.late],['Ran long',g.ramble],['Your share of talk',Math.round(ratio*100)+'%']],
-    text:parts.slice(0,2).join(' ')+' Kríos lets reps rehearse calls like this against a voice that answers back, before a real buyer hears them.'});
-  if(g.outcome==='Demo booked') A.chord(); else A.dock();
+  const R=(g.tr+g.in)/2, last=MK[NB-1];
+  g.outcome=g.hung?3:(R>=72&&last===2)?0:R>=54?1:R>=34?2:3;
+  g.ph='end'; g.t=0; setPh('end'); noteHide(); E.ops.classList.remove('in'); E.hint.textContent='';
+  g.words=setLine(g.outcome===3?g.c.hang:g.c.end[g.outcome]); g.wi=0; g.wt=0;
+  if(g.outcome===3){ A.beep(330); setTimeout(()=>A.beep(250),260); } else if(g.outcome===0) A.chord(); else A.pop();
 }
-function startDemo(pre){ demo=newGame(true,CLK.t-pre); }
-
-/* ---------- build ---------- */
-st.build=function(){
-  TTS.init();
-  const geo=new T.PlaneGeometry(1,1,96,1);
-  board=new T.Mesh(geo,boardMat(0)); board.frustumCulled=false; board.renderOrder=2; sc.add(board);
-  refl=new T.Mesh(geo,boardMat(1)); refl.frustumCulled=false; refl.scale.y=-1; refl.renderOrder=1; sc.add(refl);
-  layN=null; layout();
-  st.anchors=[new T.Vector3(),new T.Vector3(),new T.Vector3()];
-};
+function results(g){
+  const bonus=[600,300,100,0][g.outcome]; const total=g.score+bonus;
+  const grade=['Demo booked','Follow-up set','Send an email',g.c.pr+' hung up'][g.outcome];
+  const avg=g.rts.length?g.rts.reduce((a,b)=>a+b,0)/g.rts.length:0, turns=g.bi+1;
+  const lines=[];
+  if(g.outcome===0) lines.push(`${g.c.name.split(' ')[0]} booked the demo.`);
+  if(g.worst) lines.push(`Turn ${g.worst.i+1}: ${g.worst.n}`);
+  else if(g.dead) lines.push(`You went quiet ${g.dead===1?'once':g.dead+' times'}. On a call, silence reads as doubt.`);
+  else if(g.outcome!==0) lines.push('No misreads, but the room never got warm enough to ask for the meeting.');
+  lines.push('Kríos lets reps rehearse calls like this against a buyer who answers back, before a real one hears them.');
+  st.result({grade,score:total,stats:[['Good reads',`${g.good} / ${turns}`],['Avg reply time',avg?avg.toFixed(1)+' s':'None'],['Questions asked',g.qs],
+    ['Trust at the end',Math.round(g.tr)+'%'],['Interest at the end',Math.round(g.in)+'%'],['Dead air',g.dead]],text:lines.join(' ')});
+}
+const COL={ice:new T.Color('#A5C3FF'),warm:new T.Color('#FFB475'),red:new T.Color(.06,.01,0)}, tv0=new T.Vector3();
 
 /* ---------- input ---------- */
-const docked=()=>S.stId==='kr'&&(S.mode==='station'||S.mode==='docking');
-let tabAt=-1e9, kbFocus=false, lastDown={t:0,el:null};
+E.btns.forEach((x,k)=>x.addEventListener('click',()=>{ if(game&&game.ph==='pick'&&S.stId==='kr'&&st.state==='play') choose(game,k); }));
 addEventListener('keydown',e=>{
-  if(e.code==='Tab'){ tabAt=performance.now(); return; }
-  if(!docked()) return;
-  const sp=e.code==='Space', en=e.code==='Enter'||e.code==='NumpadEnter';
-  if(!sp&&!en) return;
-  if(sp) e.preventDefault(); // never scroll, never press whatever has focus
-  if(st.state==='play'){ e.preventDefault(); if(!e.repeat&&game) press(game,'key',CLK.t); return; }
-  const a=document.activeElement, mine=a&&a!==document.body&&(el.contains(a)||a.id==='back');
-  if(sp){ if(mine) a.blur(); if(st.state==='menu'&&!e.repeat&&S.mode==='station') st.start(); return; }
-  // Enter: only a control reached with Tab may act; anything else focused is stale and must not navigate
-  if(mine&&!kbFocus){ e.preventDefault(); e.stopImmediatePropagation(); a.blur(); if(st.state==='menu'&&!e.repeat&&S.mode==='station') st.start(); }
-},true);
-addEventListener('keyup',e=>{ if(!docked()) return; const sp=e.code==='Space', en=e.code==='Enter'||e.code==='NumpadEnter';
-  if(sp||(en&&st.state==='play')) e.preventDefault(); if((sp||en)&&game) release(game,'key',CLK.t); },true);
-addEventListener('focusin',()=>{ kbFocus=performance.now()-tabAt<600; });
-addEventListener('blur',()=>{ if(game&&game.talk.on&&game.talk.src==='key'&&game.talk.down) release(game,'key',CLK.t); }); // a held key can never send keyup now
-addEventListener('pointerdown',e=>{ lastDown={t:performance.now(),el:e.target}; },true);
-/* a click only counts if the press began on that same control, and results buttons only after the panel has appeared.
-   This is what stops a tap meant for the game from landing on krios.ie or Back to orbit as the panel opens under it. */
-addEventListener('click',e=>{
-  const t=e.target; if(!(t instanceof Element)||!el.contains(t)) return;
-  if(t.closest('#krTalk')){ e.stopPropagation(); return; }
-  const ctl=t.closest('a,button'), inRes=!!t.closest('.res'); if(!inRes&&!(ctl&&ctl.matches('a[href]'))) return;
-  const ok=e.detail===0?kbFocus&&document.activeElement===ctl:!!(ctl&&lastDown.el&&ctl.contains(lastDown.el))&&(!inRes||lastDown.t>resAt+150);
-  if(!ok){ e.preventDefault(); e.stopImmediatePropagation(); }
-},true);
-E.btn.addEventListener('pointerdown',e=>{ if(e.button>0) return; e.preventDefault(); if(st.state==='play'&&game) press(game,'p'+e.pointerId,CLK.t); });
-E.btn.addEventListener('mousedown',e=>e.preventDefault());
-E.btn.addEventListener('contextmenu',e=>e.preventDefault());
-const up=e=>{ if(game) release(game,'p'+e.pointerId,CLK.t); };
-addEventListener('pointerup',up); addEventListener('pointercancel',up);
-st.onPointer=e=>{ if(st.state==='play'&&game&&e.button<=0) press(game,'p'+e.pointerId,CLK.t); };
-canvas.addEventListener('contextmenu',e=>{ if(docked()&&st.state==='play') e.preventDefault(); });
-/* a hidden tab stops the clock; the line that was playing starts again when you come back */
-document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden){ CLK.go(); return; } CLK.hold(); const g=game, ln=g&&g.ln; if(!ln||ln.st==='done'||ln.st==='end'||ln.st==='gone') return;
-  stopHer(ln,CLK.t); if(AV) hush(AV.you); if(ln.my&&ln.my.iv) ln.my.iv.t1=Math.min(ln.my.iv.t1,CLK.t); Object.assign(g.talk,{on:false,down:false,ign:null});
-  for(let ch=0;ch<4;ch++) guide(CLK.t,CLK.t+8,ch,0);
-  if(ln.kind==='line') g.li--; else if(ln.kind==='close') g.closed=false;
-  ln.st='done'; ln.tok++; g.next=CLK.t+.7; capOff(); setUI('listen');
+  if(S.stId!=='kr'||S.mode!=='station'||st.state!=='play'||!game||e.repeat) return;
+  const n={Digit1:0,Digit2:1,Digit3:2,Numpad1:0,Numpad2:1,Numpad3:2}[e.code];
+  if(n!==undefined&&game.ph==='pick'){ e.preventDefault(); choose(game,n); return; }
+  if((e.code==='Space'||e.code==='Enter')){ e.preventDefault(); if(game.ph==='show') next(game); else if(game.ph==='line') skipLine(game); }
 });
-function blurInside(){ const a=document.activeElement; if(a&&a!==document.body&&(el.contains(a)||a.id==='back')) a.blur(); }
+st.onPointer=e=>{ if(st.state!=='play'||!game) return; if(game.ph==='show') next(game); else if(game.ph==='line') skipLine(game); };
+// a tap anywhere outside the cards lands on the canvas (the HUD lets it through), so phones never need to aim
+function skipLine(g){ if(g.wi<g.words.length){ g.words.forEach(w=>w.classList.add('on')); g.wi=g.words.length; g.wt=-.15; } }
 
 /* ---------- lifecycle ---------- */
-function stopAudio(){ TTS.stop(); if(AV){ hush(AV.her); hush(AV.cv); hush(AV.you); } }
+function resetDial(){ MK.fill(-1); mkGeo.attributes.aK.array.fill(-1); mkGeo.attributes.aK.needsUpdate=true; MKU.uCur.value=-9; }
 st.play=function(){
-  stopAudio(); blurInside(); demo=null; freezeBoard=false; clearBoard(); powT=CLK.t; shown=0;
-  game=newGame(false,CLK.t+1.5); hud(game);
-  if(A.on){ TTS.unlock(); const ring=()=>{ if(game&&st.state==='play'){ A.ping(440,.02); A.ping(480,.02); } }; ring(); setTimeout(ring,420); } E.score.textContent='0'; E.turn.textContent=`Line 1 / ${LINES.length}`;
-  E.her.textContent=''; E.me.textContent=''; capOn(); setUI('listen'); hint('');
-  audio(); st.setState('play'); const cu=$('#cur'); if(cu) cu.classList.remove('big');
+  game=newGame(); resetDial(); MKU.uCur.value=0; shownScore=0; st.setState('play'); setPh('ring');
+  E.score.textContent='0'; E.combo.textContent=''; E.turn.textContent=`Turn 1 / ${NB}`; meters(game); noteHide(); E.ops.classList.remove('in');
+  E.who.textContent=`${game.c.name} · ${game.c.role}`; setLine('Calling '+game.c.name.split(' ')[0]+'...'); game.words.forEach(w=>w.classList.add('on'));
+  E.hint.textContent=''; A.beep(440); setTimeout(()=>{ if(game&&game.ph==='ring') A.beep(440); },420);
 };
-st.abort=function(){ stopAudio(); if(game&&game.ln) game.ln.tok++; game=null; setUI('idle'); hint(''); if(!demo){ freezeBoard=false; startDemo(0); } };
-st.enter=function(){ stopAudio(); game=null; freezeBoard=false; st.setState('menu'); $('#krBest').textContent='Best '+fmt(store.get('kr',0));
-  clearBoard(); layN=null; layout(); startDemo(5.5); wK=Math.floor((CLK.t-5.5)*RATE); powT=CLK.t; U.uPow.value=0; setUI('idle'); };
-st.exit=function(){ stopAudio(); game=null; demo=null; };
+st.abort=function(){ game=null; setPh('idle'); E.ops.classList.remove('in'); noteHide(); resetDial(); };
+st.enter=function(){ U2.uIn.value=0; resetDial(); setPh('idle'); layout(true); };
+st.exit=function(){ game=null; };
+let lay=null;
+function layout(force){ const n=NARROW(), key=n+'|'+st.state; if(!force&&key===lay) return; lay=key; const play=st.state!=='menu';
+  // in a call the room sits in the gap between the buyer's line and the replies
+  if(n){ if(play){ st.camP.set(0,.85,16.5); st.camL.set(0,.8,0); } else { st.camP.set(0,.35,12.5); st.camL.set(0,-.15,0); } }
+  else { if(play){ st.camP.set(0,.6,11.6); st.camL.set(0,.56,0); } else { st.camP.set(0,.35,7.6); st.camL.set(0,-.5,0); } } }
 
-/* ---------- frame ---------- */
-/* camera per layout and state: board centre at screen fraction (sx, sy), board takes share fw of the width, seen from yaw and elevation */
-const CAM={w:{menu:[.45,.4,.76,.42,.1],play:[.5,.57,.84,.05,.07],res:[.5,.5,.8,.2,.1]},n:{menu:[.5,.6,1.3,.1,.1],play:[.5,.555,1.04,.03,.05],res:[.5,.6,1,.1,.07]}};
-const _a=new T.Vector3(), _dir=new T.Vector3(), _rt=new T.Vector3(), _up=new T.Vector3(), UPV3=new T.Vector3(0,1,0);
-function frameCam(t){
-  const c=CAM[layN?'n':'w'][st.state]||CAM.w.menu, asp=innerWidth/innerHeight, th=Math.tan(18*Math.PI/180), dr=RM?0:1;
-  const yaw=c[3]+Math.sin(t*.07)*.022*dr, e2=c[4]+Math.sin(t*.09+1)*.01*dr;
-  const d=Math.max(U.uW.value*.97*(.35+.65*Math.cos(yaw))/(c[2]*2*th*asp),U.uH.value*2.3/(.9*2*th))*(1-.035*Math.max(U.uTurn.value,U.uTalk.value)), hh=d*th;
-  _dir.set(-Math.sin(yaw)*Math.cos(e2),-Math.sin(e2),-Math.cos(yaw)*Math.cos(e2)); _rt.crossVectors(_dir,UPV3).normalize(); _up.crossVectors(_rt,_dir);
-  const xc=(2*c[0]-1)*hh*asp+Math.sin(t*.11)*.05*dr, yc=(1-2*c[1])*hh+Math.sin(t*.083)*.03*dr;
-  st.camL.set(0,0,0).addScaledVector(_rt,-xc).addScaledVector(_up,-yc);
-  st.camP.copy(st.camL).addScaledVector(_dir,-d);
-}
-function place(e,c,r){ boardPt(c,r,_a); const p=proj(_a,stCam); e.style.transform=`translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`; }
-let brOn=false, lastTm='', tickN=0;
-st.update=function(dt,t){ try{ frameUpdate(dt,t); }catch(err){ if(!st.err){ st.err=1; console.error('kr update',err); } } };
-function frameUpdate(dt,t){
-  const now=CLK.t; layout();
-  if(game) step(game,now); if(demo) step(demo,now);
-  if(!freezeBoard) bt=now; write(bt);
-  U.uHead.value=((bt*RATE)%N+N)%N; U.uNowT.value=bt; U.uClk.value=now;
-  U.uPow.value=clamp((now-powT)/1.5,0,1); U.uFlash.value=damp(U.uFlash.value,0,3.5,dt);
-  const ln=game&&game.ln, turn=!!(ln&&ln.st==='open'), tk=!!(ln&&ln.st==='you');
-  U.uTurn.value=damp(U.uTurn.value,turn?1:0,8,dt); U.uTalk.value=damp(U.uTalk.value,tk?1:0,8,dt);
-  U.uLive.value=damp(U.uLive.value,st.state==='menu'?.95:st.state==='res'?.7:1,3,dt);
-  frameCam(t);
-  if(st.state==='play'){
-    if(game&&shown!==game.score){ shown=Math.min(game.score,shown+Math.max(1,(game.score-shown)*Math.min(1,dt*9))); E.score.textContent=fmt(shown); }
-    if(turn){ const n=Math.floor((now-ln.endAt-SLOW)/.45); if(n>=0&&n!==tickN&&now-ln.endAt<DEAD){ tickN=n; A.tick(); } } else tickN=-1;
-    if(tk){ const L=now-ln.my.t0, s=L.toFixed(1)+' s'; if(s!==lastTm){ lastTm=s; E.tm.textContent=s; E.nowT.textContent=s; }
-      E.mf.style.transform=`scaleX(${Math.min(1,L/(ln.D+BR1+.6)).toFixed(3)})`; litMine(ln,now); }
-    const top=U.uRows.value+1.4;
-    place(E.now,U.uNowCol.value,top); place(E.lb,-1.6,U.uRowB.value); place(E.ly,-1.6,U.uRowY.value); place(E.meP,U.uCols.value/2,layN?-7.5:-6.2);
-    const b0=(tk||turn)?(tk?ln.my.t0:ln.endAt+.32)+ln.D-BR0-bt:-9, showBr=b0+BR0+BR1>.05; if(showBr) place(E.br,clamp(colAt(b0+(BR0+BR1)/2),U.uNowCol.value,U.uCols.value-2),-1.1);
-    if(showBr!==brOn){ brOn=showBr; E.br.classList.toggle('on',brOn); }
+let shownScore=0;
+st.update=function(dt,t){
+  layout(false);
+  const g=game, play=st.state==='play'&&g;
+  // the room breathes on the title screen; in a call it follows trust and interest
+  const wT=play?g.in/100:.32+.18*Math.sin(t*.35), cT=play?g.tr/100:.62+.12*Math.sin(t*.27);
+  U2.uWarm.value=damp(U2.uWarm.value,wT,1.8,dt); U2.uCalm.value=damp(U2.uCalm.value,cT,1.8,dt);
+  U2.uIn.value=damp(U2.uIn.value,1,2.2,dt); U2.uSpeak.value=Math.max(0,U2.uSpeak.value-dt*3.2); U2.uHit.value=damp(U2.uHit.value,0,2.4,dt);
+  orb.rotation.y=t*.07; orb.rotation.x=Math.sin(t*.13)*.12; dial.rotation.z=play?0:Math.sin(t*.2)*.04;
+  if(!play&&st.state==='menu'&&Math.sin(t*1.7)>.985) U2.uSpeak.value=Math.max(U2.uSpeak.value,.5);
+  burst.update(dt,0,1.6);
+  if(play){
+    g.t+=dt;
+    if(g.ph==='ring'&&g.t>1.7){ A.blip(); startBeat(g,0); }
+    else if(g.ph==='line'||g.ph==='end'){
+      g.wt+=dt; const step=g.ph==='end'?.11:.085;
+      while(g.wi<g.words.length&&g.wt>=step){ g.wt-=step; g.words[g.wi++].classList.add('on'); U2.uSpeak.value=1; if(g.wi%2) A.key(); }
+      if(g.wi>=g.words.length){ if(g.ph==='line'&&g.wt>.35) showOptions(g); if(g.ph==='end'&&g.wt>1.5){ const gg=g; game=null; setPh('idle'); results(gg); } }
+    }
+    else if(g.ph==='pick'){
+      const left=WIN-g.t; E.bar.style.transform=`scaleX(${Math.max(0,left/WIN).toFixed(4)})`;
+      if(left<4&&!E.time.classList.contains('low')){ E.time.classList.add('low'); }
+      if(left<3.5&&Math.floor(left)!==Math.floor(left+dt)) A.tick();
+      if(left<=0) choose(g,-1);
+    }
+    else if(g.ph==='show'&&g.t>4.5) next(g);
+    if(game){ shownScore=Math.abs(game.score-shownScore)<1?game.score:lerp(shownScore,game.score,1-Math.exp(-8*dt)); E.score.textContent=fmt(shownScore); }
   }
-  if(st.state==='menu'){ const nc=U.uNowCol.value, cps=U.uCps.value;
-    boardPt(nc-2.2*cps,U.uRowB.value+1,st.anchors[0]); boardPt(nc,U.uRowR.value,st.anchors[1]); boardPt(Math.min(U.uCols.value-8,nc+1.4*cps),U.uRowY.value,st.anchors[2]);
-    notesUpdate(st); }
-}
-function litMine(ln,now){ const my=ln.my, n=ln.myWs.length; let j=-1; for(const s of my.plan){ if(s.t>now) break; j=s.wi; }
-  for(let i=0;i<=Math.min(j,n-1);i++){ const w=ln.myWs[i]; if(!w.lit){ w.lit=true; w.el&&w.el.classList.add('on'); } }
-  if(j>=n){ if(!my.over){ my.over=1; E.me.classList.add('over'); } while(E.me.children.length<n+Math.min(j-n+1,FILL.length)){ const s=document.createElement('span'); s.className='kw on fill'; s.textContent=FILL[E.me.children.length-n]; E.me.appendChild(document.createTextNode(' ')); E.me.appendChild(s); } } }
-
-/* test hooks: read the state, drive the clock */
-st.dbg={CLK,U,TTS,get AV(){ return AV; },get game(){ return game; },get demo(){ return demo; },
-  end(){ const g=game; if(!g) return; const ln=g.ln; if(ln){ stopHer(ln,CLK.t); ln.st='done'; ln.tok++; } g.talk.on=false; g.outcome=OUT[2][1]; g.close=OUT[2][2]; g.closed=false; g.hello=0; g.next=CLK.t; },
-  now(){ const t=CLK.t; if(game) step(game,t); const ln=game&&game.ln; return {t,state:st.state,li:game?game.li:-1,st:ln?ln.st:null,kind:ln?ln.kind:null,endAt:ln?ln.endAt:0,D:ln?ln.D:0,
-    my:ln&&ln.my?{t0:ln.my.t0,gap:ln.my.gap}:null,grade:ln?ln.grade:null,score:game?game.score:0,mom:game?game.mom:0,talk:game?game.talk.on:false,ks:el.dataset.ks}; }};
+  if(st.state==='menu') notesUpdate(st);
+};
+st.build=function(){ resetDial(); };
+/* test hook: the current call, and which card is the good read */
+st._dbg={get game(){ return game; }, best(){ const g=game; if(!g||g.ph!=='pick') return -1; const wi=g.warm?0:1, b=g.c.beats[g.bi]; return [0,1,2].find(k=>b.r[g.order[k]].q[wi]===2); }};
 })();
 
 /* ===== station ae ===== */
