@@ -11,14 +11,14 @@ async function boot(){
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
   try{ BH.makeSky(); }catch(e){ console.warn('sky',e); } BH.render(hubCam); renderer.setRenderTarget(null); setP(.1);
-  const steps=STA.map(s=>[s.name,s.id]).filter(x=>ST[x[1]]);
+  const steps=STA.map(s=>[s.name,s.id]).concat([['Earth','cr']]).filter(x=>ST[x[1]]); // Earth is not in orbit but is built with the rest
   for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
   txt.textContent='Compiling shaders'; await nextFrame();
   universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
   try{ renderer.compile(U.scene,hubCam); }catch(e){} renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
   universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=false; setP(.7);
   for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
-    try{ renderer.compile(st.scene,stCam); }catch(e){} renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
+    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(rtB); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   setP(1); $('#load').classList.add('ready'); S.ready=true;
 }
@@ -54,9 +54,13 @@ function toHub(){
 
 /* ---------- horizon ---------- */
 function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.hush(); }
-function hzLeave(){ unreveal($('#horizon .h')); show('#horizon',false); post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; }
-$('#hzBack').addEventListener('click',()=>{ hzLeave(); S.mode='story'; toHub(); toast('Respawned at 19 rs'); });
-$('#hzBeacon').addEventListener('click',()=>{ hzLeave(); const b=BEACON; S.mode='hub'; spawnProbe(b.R+2.4,b.a); chasePose(chase); hubBase.p.copy(chase.p); hubBase.q.copy(chase.q); hubCam.position.copy(chase.p); hubCam.quaternion.copy(chase.q); show('#hub',true); cine(false); dock(b); });
+/* past the horizon: Earth. The fall ends in white, and the white opens on the rocket coming down through the clouds */
+function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; toHub(); return; }
+  S.mode='station'; S.stId='cr'; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.flash=1; post.uniforms.uStretch.value=0; post.uniforms.uIrisCol.value.set('#FFC392'); cine(false);
+  st.enter(); if(st.cutscene) st.cutscene(); show('#station',true); st.showUI(); where('Earth'); }
+/* and back: a flash of white, and you are in orbit again */
+function leaveEarth(){ const st=ST.cr; if(S.stId!=='cr'||!st) return; st.abort(); st.hideUI(); A.hush(); A.whoosh(false,1.3); S.flash=1;
+  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; toHub(); toast('Back in orbit'); }
 
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
@@ -95,7 +99,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Visit all four projects. Then the horizon opens.'); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at a station, or fall into the hole.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -118,8 +122,7 @@ function frame(now){
     hubCam.position.lerp(tv[2].set(P.p.x*1.4,.8,P.p.z*1.4+.01),dt*2); hubCam.lookAt(0,0,0); hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion);
     const c=tv[3].set(0,0,0).project(hubCam); post.uniforms.uSC.value.set(c.x*.5+.5,c.y*.5+.5);
     S.flash=Math.max(S.flash,sstep(.75,1,k));
-    if(k>=1){ S.mode='beyond'; A.hush(); A.update(t,{pad:0,sub:0}); setTimeout(()=>{ if(S.mode==='beyond') A.chord(); },500); U.probe.visible=U.trail.visible=false; cine(false);
-      $('#hzStats').innerHTML=statsHTML([['Proper time',fmtT(S.tau)],['Stations docked',S.docked.size+' / '+NST],['Games played',S.games]]); show('#horizon',true); reveal($('#horizon .h')); }
+    if(k>=1){ A.hush(); A.update(t,{pad:0,sub:0}); U.probe.visible=U.trail.visible=false; enterEarth(); }
   }
   // camera shake, flashes, grade
   if(S.shake>0&&!RM){ const a=S.shake*S.shake*.25; if(S.iris<2.5&&S.mode!=='station'){ hubCam.position.add(tv[4].set((Math.random()-.5)*a,(Math.random()-.5)*a,(Math.random()-.5)*a)); } }
@@ -141,7 +144,7 @@ function frame(now){
   }
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
-  if(needB){ setPx(stCam); renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); }
+  if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   requestAnimationFrame(frame);
@@ -151,10 +154,10 @@ requestAnimationFrame(frame);
 boot();
 /* test helper: straight into a station with no transitions */
 function jump(id){
-  const s=STA.find(x=>x.id===id), st=ST[id]; if(!s||!st||!S.ready) return false;
-  ['#load','#story','#hub','#horizon'].forEach(q=>show(q,false)); show('#chrome',true); $('#frame').classList.add('on'); A.start();
+  const s=STA.find(x=>x.id===id), st=ST[id]; if(!st||!S.ready) return false;
+  ['#load','#story','#hub'].forEach(q=>show(q,false)); show('#chrome',true); $('#frame').classList.add('on'); A.start();
   if(S.st&&S.st!==st){ S.st.abort(); S.st.exit(); S.st.el.classList.remove('on'); }
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
-  post.uniforms.uIrisCol.value.set(s.color); st.enter(); show('#station',true); st.showUI(); where(s.name); return true;
+  post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,jump,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};

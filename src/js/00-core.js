@@ -92,7 +92,7 @@ const A=(()=>{
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
-    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); },
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); if(n.mus) set(n.mus.gain,0,.3); },
     /* station beacons: a soft glass tone per station in the score's key, each with its own slow pulse,
        louder as you approach and panned to where the station is */
     beacons(notes){ if(!ctx||n.beacons) return;
@@ -107,6 +107,43 @@ const A=(()=>{
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
       s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.12); },
+    /* a small bird: two or three quick rising notes, placed left or right */
+    chirp(p){ if(!on||muted||!ctx) return; const n0=2+Math.floor(Math.random()*2), base=2200+Math.random()*1600; let pn=null;
+      if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.5; pn.connect(sg); sg.connect(revIn); }
+      for(let k=0;k<n0;k++){ const t0=ctx.currentTime+k*(.08+Math.random()*.05), o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
+        o.frequency.setValueAtTime(base*(1+k*.08),t0); o.frequency.exponentialRampToValueAtTime(base*(1.35+k*.1),t0+.06);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.022,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09);
+        o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.12); } },
+    /* a footstep: 0 a soft brush on grass, 1 a tap on the pavement, 2 a hollow knock on wooden boards */
+    step(kind=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter();
+      if(kind===1){ b.type='bandpass'; b.frequency.value=1500+Math.random()*700; b.Q.value=1.3; } else if(kind===2){ b.type='bandpass'; b.frequency.value=420+Math.random()*120; b.Q.value=2.2; tone(150+Math.random()*30,.09,.03,'sine',90); }
+      else { b.type='lowpass'; b.frequency.value=520+Math.random()*380; b.Q.value=.6; }
+      const a=ctx.createGain(), g=kind===1?.045:kind===2?.07:.07; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g+Math.random()*.03,t0+(kind?.004:.012)); a.gain.exponentialRampToValueAtTime(.0001,t0+(kind===1?.07:.16));
+      s.connect(b); b.connect(a); a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.2); },
+    /* a voice while someone talks: a soft blip a little above or below their own pitch */
+    voice(f){ if(!on||muted||!ctx) return; tone(f*(.94+Math.random()*.14),.06,.016,'triangle',0,0,.15,.004); },
+    /* music for Earth: a slow, warm loop (keys, a plucked melody, soft bass, brushes and a little vinyl), built note by note
+       in the score's own scheduler. music(v) sets the level; call it every frame while it should play. */
+    music(v){ if(!ctx) return;
+      if(!n.mus){ n.mus=ctx.createGain(); n.mus.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3400; lp.Q.value=.5; n.mus.connect(lp); lp.connect(comp);
+        const sg=ctx.createGain(); sg.gain.value=.4; lp.connect(sg); sg.connect(revIn); n.mt=ctx.currentTime+.15; n.ms=0; n.mel=7; }
+      set(n.mus.gain,v*.62,.9); if(v<=.001) return; if(n.mt<ctx.currentTime) n.mt=ctx.currentTime+.05;
+      const mf=m=>440*Math.pow(2,(m-69)/12), beat=60/72, bus=n.mus;
+      const play=(f,t0,dur,g,type,atk,f2)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.6);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+dur+.05); };
+      const hit=(t0,dur,g,f,type,q)=>{ const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q; const a=ctx.createGain();
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*1.5); s.stop(t0+dur+.05); };
+      const PROG=[[53,57,60,64,67],[52,55,59,62,66],[50,53,57,60,64],[48,52,55,59,62]], BASS=[41,40,38,36], SCALE=[60,62,64,67,69,72,74,76,79];
+      while(n.mt<ctx.currentTime+.35){ const k=n.ms, t0=n.mt, pos=k%8, bar=Math.floor(k/8), ch=PROG[bar%4];
+        if(pos===0){ ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*3.6,.018,'sine',.03); play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
+        if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t0+i*.01,beat*1.3,.011,'sine',.02)); play(mf(BASS[bar%4]+7),t0,beat*.9,.05,'sine',.02); }
+        if(pos===0||pos===5) play(95,t0,.22,.07,'sine',.005,42);                    // a soft kick
+        if(pos===4) hit(t0,.16,.022,1900,'bandpass',.9);                            // a brush on the snare
+        if(k%2===1) hit(t0,.045,.007+Math.random()*.004,7000,'highpass',.7);        // brushes on the offbeat
+        if(Math.random()<.18) hit(t0+Math.random()*.2,.012,.012,3000+Math.random()*3000,'bandpass',3); // vinyl
+        if([0,3,4,6].includes(pos)&&Math.random()<.62){ n.mel=clamp(n.mel+Math.floor(Math.random()*5)-2,0,SCALE.length-1); const f=mf(SCALE[n.mel]);
+          play(f,t0,beat*1.5,.024,'sine',.004); play(f*3.01,t0,beat*.35,.005,'sine',.002); }
+        n.ms++; n.mt+=beat*(k%2?.44:.56); } },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
@@ -153,9 +190,9 @@ const rtA=mkRT(), rtB=mkRT();
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
-    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1}},
+    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1},uFlat:{value:0}},
   vertexShader:`varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position.xy,0.,1.);}`,
-  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade; varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom,uFlat; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade; varying vec2 vUv;
   float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
   vec3 bl(sampler2D t,vec2 uv){ vec2 px=vec2(1./uAspect,1.)*.0045; vec2 qx=vec2(px.x,-px.y);
@@ -178,11 +215,10 @@ const post=new T.ShaderMaterial({
     if(m<1.){ if(uWarp>.001){ vec3 s=vec3(0.); for(int i=0;i<6;i++){ float f=float(i)/5.; s+=lookA(mix(uv,uIC,f*uWarp*.3),ca); } a=s/6.; } else a=lookA(uv,ca); }
     if(m>0.) b=lookB(uv,ca);
     vec3 c=mix(a,b,m)*uExpo+uIrisCol*rim*.9;
-    c=aces(c*1.05);
-    c=pow(c,vec3(.96));
+    c=mix(pow(aces(c*1.05),vec3(.96)),clamp(c,0.,1.),uFlat); // uFlat: a daylit scene authored in display colour skips the film curve
     c=mix(c,c*vec3(1.35,.5,.42),uStretch);
     c*=uGrade;
-    float v=smoothstep(1.3,.3,length((vUv-.5)*vec2(uAspect,1.))*uVig); c*=mix(.5,1.,v);
+    float v=smoothstep(1.3,.3,length((vUv-.5)*vec2(uAspect,1.))*uVig); c*=mix(.5+.38*uFlat,1.,v);
     c+=uTint;
     c+=(hash(vUv*vec2(1920.,1080.)+fract(uTime))-.5)*.03;
     c=mix(c,vec3(1.,.98,.95),clamp(uFlash,0.,1.));
