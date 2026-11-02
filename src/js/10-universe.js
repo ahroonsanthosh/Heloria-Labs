@@ -5,7 +5,7 @@ U.scene.add(BH.back); U.scene.add(BH.occ);
 
 /* stations, coloured by temperature on the same blackbody scale as the disk, evenly spaced from 9.5 to 27.5 */
 const STA=[
-  {id:'kr',name:'Kríos',game:'Dead Air',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
+  {id:'kr',name:'Kríos',game:'Read the Room',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
   {id:'ae',name:'Aetos',game:'Hold the Sky',R:13.1,ph:4.3,K:6600,color:'#F2EEE6'},
   {id:'ph',name:'Pharos',game:'Lost Signal',R:16.7,ph:1.1,K:4300,color:'#FFD5B3'},
   {id:'og',name:'Ogive',game:'Apogee',R:20.3,ph:3.3,K:3100,color:'#FFB475'},

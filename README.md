@@ -6,7 +6,7 @@ six stations. Four of them are the lab's projects, each with a game built from t
 
 | Station | Project | Game |
 | --- | --- | --- |
-| Kríos | [krios.ie](https://krios.ie), voice practice for sales teams | Dead Air: answer a buyer at the right moment and stop inside the bracket |
+| Kríos | [krios.ie](https://krios.ie), voice practice for sales teams | Read the Room: a cold call in six turns; pick the replies that win trust, then book the demo |
 | Aetos | [Aetos](https://github.com/ahroonsanthosh/Aetos), counter-drone command software | Hold the Sky: read the radar, identify, intercept, never hit a friendly |
 | Pharos | [pharos](https://github.com/ahroonsanthosh/pharos), GPS-free drone navigation | Lost Signal: find the drone on the map from its camera, then see the correlation surface |
 | Ogive | [ogive](https://github.com/michaelsheffernan/ogive), AI tools for OpenRocket | Apogee: design the rocket, launch, open the chute at the top |
