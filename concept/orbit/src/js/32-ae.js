@@ -1,8 +1,9 @@
 /* ================= AETOS: HOLD THE SKY ================= */
 (()=>{
+const STA_AE_A=[new T.Vector3(0,.3,0),new T.Vector3(1.9,.2,1.1),new T.Vector3(-2.1,.2,.55)];
 const st=mkStation('ae',{arrive:new T.Vector3(0,6,8)});
 const sc=st.scene, el=st.el, MAXD=48, MAXM=10, AMMO=6;
-const COL={unk:new T.Color('#d8d4e6'),hos:new T.Color('#ff6a5a'),fri:new T.Color('#7fb8ff')};
+const COL={unk:new T.Color('#C9C2B4'),hos:new T.Color('#FF5636'),fri:new T.Color('#A5C3FF')};
 const TYPES={scout:{spd:1.25,hp:1,sc:1,pts:100,label:'SCOUT'},swarm:{spd:.55,hp:1,sc:.62,pts:60,label:'SWARM'},heavy:{spd:.45,hp:2,sc:1.55,pts:250,label:'HEAVY'},friend:{spd:.95,hp:1,sc:1.1,pts:-400,label:'FRIENDLY'}};
 const WAVES=[{dur:20,every:1.55,mix:[['scout',.72],['friend',.28]],name:'Scouts inbound'},{dur:22,every:1.35,mix:[['scout',.42],['friend',.22],['swarm',.36]],name:'Swarms inbound'},{dur:25,every:1.15,mix:[['scout',.34],['friend',.2],['swarm',.24],['heavy',.22]],name:'Heavies inbound'}];
 const SITES=[{name:'Substation',p:new T.Vector3(1.9,0,1.1)},{name:'Airfield',p:new T.Vector3(-2.1,0,.55)},{name:'Water works',p:new T.Vector3(.25,0,-2.25)}];
@@ -26,16 +27,16 @@ st.build=function(){
     if(w>.62){ const lines=r[2]<.5, az=lines?Math.floor(r[0]*16)/16*TAU:r[0]*TAU, e=lines?r[1]*Math.PI/2:Math.floor(r[1]*5)/5*Math.PI/2+.02; o[0]=Math.cos(az)*Math.cos(e)*R;o[1]=Math.sin(e)*R*.55;o[2]=Math.sin(az)*Math.cos(e)*R; }
     else if(w>.48){ const az=Math.floor(r[0]*12)/12*TAU,rr=r[1]*R; o[0]=Math.cos(az)*rr;o[1]=0;o[2]=Math.sin(az)*rr; }
     else { const ring=r[2]<.7,az=r[0]*TAU,rr=ring?(Math.floor(r[1]*6)+1)/6*R+gauss()*.012:Math.sqrt(r[1])*R; o[0]=Math.cos(az)*rr;o[1]=0;o[2]=Math.sin(az)*rr; } }),
-    PM({size:.032,color:'#ff8478',uniforms:sweepU,decl:'uniform float uSw;',body:`float a=atan(p.z,p.x); float d=mod(uSw-a,6.28318); float ph=exp(-d*2.4);
-      b=aR.w>.62?.08+.28*ph:.1+1.2*ph; col=mix(uCol,vec3(1.,.9,.85),ph*.6);`})));
+    PM({size:.032,color:'#D8D0C2',uniforms:sweepU,decl:'uniform float uSw;',body:`float a=atan(p.z,p.x); float d=mod(uSw-a,6.28318); float ph=exp(-d*2.4);
+      b=aR.w>.62?.06+.24*ph:.07+1.1*ph; col=mix(uCol,vec3(1.,.97,.93),ph*.7);`})));
   // sweep beam wedge
-  sc.add(pts(cloud(Math.floor(5000*Q+1000),(i,r,o)=>{o[0]=r[0];o[1]=r[1];o[2]=0;}),PM({size:.04,color:'#ffb0a6',uniforms:sweepU,decl:'uniform float uSw;',
+  sc.add(pts(cloud(Math.floor(5000*Q+1000),(i,r,o)=>{o[0]=r[0];o[1]=r[1];o[2]=0;}),PM({size:.04,color:'#F2EEE6',uniforms:sweepU,decl:'uniform float uSw;',
     body:`float a=uSw-position.y*.35; float rr=sqrt(position.x)*6.6; p=vec3(cos(a)*rr,.02,sin(a)*rr); b=.5*(1.-position.y);`})));
   // command post + sites
-  const cp=new T.Mesh(new T.OctahedronGeometry(.22,0),FM('#ffffff',{int:1.6,core:.2})); cp.position.y=.25; sc.add(cp); st.cp=cp;
-  SITES.forEach(s=>{ const m=new T.Mesh(new T.CylinderGeometry(.3,.36,.24,6),FM('#dcd6ff',{int:1.5,core:.12})); m.position.copy(s.p).setY(.12); sc.add(m); s.mesh=m;
-    const ring=new T.LineLoop(ringGeo(.62,64),dashMat('#dcd6ff','float a=.5*step(.5,fract(vAng*4.+uTime*.2));')); ring.material.uniforms.uOp.value=1; ring.position.copy(s.p).setY(.02); sc.add(ring); s.ring=ring; });
-  inst=new T.InstancedMesh(droneGeo(),FM('#ffffff',{int:1.4,core:.35}),MAXD); inst.frustumCulled=false;
+  const cp=new T.Mesh(new T.OctahedronGeometry(.22,0),LM('#F2EEE6',{emit:.4,rim:1.2})); cp.position.y=.25; sc.add(cp); st.cp=cp;
+  SITES.forEach(s=>{ const m=new T.Mesh(new T.CylinderGeometry(.3,.36,.24,6),LM('#D8D0C2',{emit:.08,rim:1.1,amb:.15,key:'#FFFFFF'})); m.position.copy(s.p).setY(.12); sc.add(m); s.mesh=m;
+    const ring=new T.LineLoop(ringGeo(.62,64),dashMat('#D8D0C2','float a=.5*step(.5,fract(vAng*4.+uTime*.2));')); ring.material.uniforms.uOp.value=1; ring.position.copy(s.p).setY(.02); sc.add(ring); s.ring=ring; });
+  inst=new T.InstancedMesh(droneGeo(),LM('#FFFFFF',{emit:.55,rim:1.1,amb:.2,key:'#FFFFFF'}),MAXD); inst.frustumCulled=false;
   for(let i=0;i<MAXD;i++){ M4.makeScale(0,0,0); inst.setMatrixAt(i,M4); inst.setColorAt(i,COL.unk); } sc.add(inst);
   navP=new Float32Array(MAXD*3).fill(999); navB=new Float32Array(MAXD); navG=new T.BufferGeometry(); navG.setAttribute('position',new T.BufferAttribute(navP,3)); navG.setAttribute('aB',new T.BufferAttribute(navB,1));
   navG.setAttribute('aR',new T.BufferAttribute(new Float32Array(MAXD*4).fill(.6),4)); navG.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
@@ -58,7 +59,7 @@ function spawn(type,at,center){
 function kill(d,byJam){
   d.dead=true; const T_=TYPES[d.type]; boom.emit(d.p,d.type==='heavy'?80:46,2.6,d.type==='friend'?COL.fri:COL.hos,.4,.9); A.pop();
   if(!game) return;
-  if(d.type==='friend'){ game.score-=400; game.blue++; feedback(.35,1,new T.Color(0,.03,.14)); showBanner('Friendly hit','−400'); A.buzz(); }
+  if(d.type==='friend'){ game.score-=400; game.blue++; feedback(.35,1,new T.Color(0,.03,.14)); showBanner(banner,'Friendly hit','−400'); A.buzz(); }
   else { game.score+=T_.pts; game.kills++; feedback(.12,.25); }
 }
 function fire(d){
@@ -70,7 +71,6 @@ function jam(){
   if(!game||game.jamCD>0) return; game.jamCD=10; game.jamT=0; A.jam(); feedback(.18,.5,new T.Color(0,.02,.08));
   drones.forEach(d=>d.jamHit=false);
 }
-function showBanner(h,s){ banner.innerHTML=`<span class="mono rv" style="color:var(--acc)">${s||''}</span><h3 class="split">${h}</h3>`; const h3=$('h3',banner); split(h3); reveal(banner); clearTimeout(banner._t); banner._t=setTimeout(()=>unreveal(banner),1600); }
 st.onPointer=function(e){
   if(st.state!=='play'||!game||game.inter>0&&game.wave===0) return;
   let best=null,bd=e.pointerType==='mouse'?70:95;
@@ -81,22 +81,20 @@ $('#aeJam').addEventListener('click',jam);
 addEventListener('keydown',e=>{ if(S.stId==='ae'&&S.mode==='station'&&e.code==='Space'&&!e.repeat){ e.preventDefault(); jam(); } });
 st.play=function(){
   drones=[]; miss.forEach(m=>m.on=false); boom.clear(); smoke.clear();
-  SITES.forEach(s=>{ s.hp=3; s.mesh.material.uniforms.uC.value.set('#dcd6ff'); });
+  SITES.forEach(s=>{ s.hp=3; s.mesh.material.uniforms.uC.value.set('#D8D0C2'); });
   game={wave:0,wt:0,inter:2.2,spawnT:0,score:0,kills:0,shots:0,blue:0,siteHits:0,ammo:AMMO,reload:0,jamCD:0,jamT:-1,ending:-1};
-  st.setState('play'); showBanner('Wave 1',WAVES[0].name); A.drone(240);
+  st.setState('play'); showBanner(banner,'Wave 1',WAVES[0].name);
 };
 st.abort=function(){ game=null; drones=[]; miss.forEach(m=>m.on=false); trk.forEach(t=>t.style.display='none'); };
 function end(){
-  const g=game; game=null; S.games++;
-  const hp=SITES.reduce((a,s)=>a+Math.max(0,s.hp),0); const total=g.score+hp*100;
-  const best=store.get('ae',0), isNew=total>best; if(isNew) store.set('ae',total); $('#aeBest').textContent=fmt(Math.max(best,total));
-  const grade=hp===0?'Airspace lost.':g.blue>0?'Held, with a blue-on-blue.':hp===9?'Airspace held. Flawless.':hp>=6?'Airspace held.':'Damaged, but standing.';
-  $('#aeGrade').textContent=grade; $('#aeFinal').textContent=fmt(total); $('#aeNew').textContent=isNew?'New best':'Best '+fmt(best);
-  $('#aeStats').innerHTML=statsHTML([['Intercepted',g.kills],['Accuracy',g.shots?Math.round(g.kills/g.shots*100)+'%':'–'],['Friendlies hit',g.blue],['Site damage',g.siteHits],['Sites standing',SITES.filter(s=>s.hp>0).length+' / 3'],['Waves',Math.min(3,g.wave+1)+' / 3']]);
-  $('#aeLine').textContent=(g.blue?'Identification matters as much as speed. Let the sweep classify before you fire. ':'')+'Aetos is built around this loop: detect, identify, decide, act, with every track accounted for.';
-  st.setState('res'); A.dock(); A.drone(200); trk.forEach(t=>t.style.display='none');
+  const g=game; game=null;
+  const hp=SITES.reduce((a,s)=>a+Math.max(0,s.hp),0); const total=Math.max(0,g.score+hp*100);
+  const grade=hp===0?'Airspace lost':g.blue>0?'Held, with a blue-on-blue':hp===9?'Flawless':hp>=6?'Airspace held':'Damaged, standing';
+  st.result({grade,score:total,stats:[['Intercepted',g.kills],['Accuracy',g.shots?Math.round(g.kills/g.shots*100)+'%':'-'],['Friendlies hit',g.blue],['Site damage',g.siteHits],['Sites standing',SITES.filter(s=>s.hp>0).length+' / 3'],['Waves',Math.min(3,g.wave+1)+' / 3']],
+    text:(g.blue?'Identification matters as much as speed. Let the sweep classify a contact before you fire. ':'')+'Aetos is built around this loop: detect, identify, decide, act, with every track accounted for.'});
+  A.dock(); trk.forEach(t=>t.style.display='none');
 }
-st.enter=function(){ st.abort(); st.setState('menu'); SITES.forEach(s=>s.hp=3); $('#aeBest').textContent=fmt(store.get('ae',0));
+st.enter=function(){ st.abort(); st.setState('menu'); SITES.forEach(s=>s.hp=3); $('#aeBest').textContent='Best '+fmt(store.get('ae',0));
   for(let i=0;i<6;i++){ const d=spawn(Math.random()<.3?'friend':'scout'); if(d){ d.p.setLength(2+Math.random()*4); d.p.y=1.2+Math.random(); d.demo=true; } } };
 st.exit=function(){ st.abort(); };
 st.update=function(dt,t){
@@ -108,9 +106,9 @@ st.update=function(dt,t){
       g.wt+=dt; $('#aeWaveM').style.setProperty('--v',clamp(g.wt/W.dur,0,1));
       if(g.wt<W.dur){ g.spawnT-=dt; if(g.spawnT<=0){ g.spawnT=W.every*(.7+Math.random()*.6); let r=Math.random(),type='scout'; for(const [k,p] of W.mix){ if(r<p){type=k;break;} r-=p; }
           if(type==='swarm'){ const a=Math.random()*TAU; const c=new T.Vector3(Math.cos(a)*7.3,1.4,Math.sin(a)*7.3); const s0=spawn('swarm',a); for(let k=0;k<4;k++){ const s=spawn('swarm',a,c); if(s&&s0) s.site=s0.site; } } else spawn(type); } }
-      else if(!drones.some(d=>!d.dead&&d.type!=='friend')||g.wt>W.dur+6){ if(g.wave<2){ g.wave++; g.wt=0; g.inter=2.4; showBanner('Wave '+(g.wave+1),WAVES[g.wave].name); A.alarm(); } else return end(); }
+      else if(!drones.some(d=>!d.dead&&d.type!=='friend')||g.wt>W.dur+6){ if(g.wave<2){ g.wave++; g.wt=0; g.inter=2.4; showBanner(banner,'Wave '+(g.wave+1),WAVES[g.wave].name); A.alarm(); } else return end(); }
     }
-    $('#aeWave').textContent=`Wave ${g.wave+1} of 3`; $('#aeScore').textContent=fmt(g.score);
+    $('#aeWave').textContent=`Wave ${g.wave+1} / 3`; $('#aeScore').textContent=fmt(g.score);
     if(g.ammo<AMMO){ g.reload+=dt; if(g.reload>=1.25){ g.reload=0; g.ammo++; } }
     [...pips.children].forEach((p,i)=>p.classList.toggle('e',i>=g.ammo));
     if(g.jamCD>0) g.jamCD=Math.max(0,g.jamCD-dt); $('#aeJam').style.setProperty('--p',1-g.jamCD/10);
@@ -130,7 +128,7 @@ st.update=function(dt,t){
       d.p.y=damp(d.p.y,dist<2?.32:1.4,1.2,dt);
       if(d.demo&&Math.hypot(d.p.x,d.p.z)<1){ d.p.setLength(6.5); }
       if(!d.demo&&dist<.42&&d.p.y<.7&&s.hp>0){ d.dead=true; s.hp--; boom.emit(s.p.clone().setY(.3),90,3,COL.hos,1,1); smoke.emit(s.p.clone().setY(.3),40,.6,null,1.2,2.2); A.alarm(); A.pop(); feedback(.5,1,new T.Color(.18,0,0));
-        if(game){ game.score-=150; game.siteHits++; } if(s.hp<=0) s.mesh.material.uniforms.uC.value.set('#ff6a5a'); } }
+        if(game){ game.score-=150; game.siteHits++; } if(s.hp<=0) s.mesh.material.uniforms.uC.value.set('#FF5636'); } }
     // the sweep identifies contacts
     if(d.cls==='unk'){ const a=Math.atan2(d.p.z,d.p.x); const df=((sw-a)%TAU+TAU)%TAU; if(df<TAU/2.4*dt*1.6+.02){ d.cls=d.type==='friend'?'fri':'hos'; if(playing) A.beep(d.cls==='fri'?520:1040); } }
   });
@@ -159,12 +157,12 @@ st.update=function(dt,t){
     table.innerHTML=rows.map(d=>`<tr class="${d.cls}"><td>TRK-${String(d.id).padStart(3,'0')}</td><td>${d.cls==='unk'?'UNKNOWN':d.cls==='fri'?'FRIEND':'HOSTILE'}</td><td>${(Math.hypot(d.p.x,d.p.z)*180).toFixed(0)} m</td><td>${d.jam>0?'JAMMED':d.lock?'ENGAGED':d.type==='friend'?'TRANSIT':d.cls==='hos'?SITES[d.site].name.split(' ')[0].toUpperCase():'TRACKING'}</td></tr>`).join('');
     $('#aeCount').textContent=drones.length+' active'; }
   // sites
-  SITES.forEach((s,i)=>{ V.copy(s.p).project(stCam); const e=siteEls[i]; e.style.transform=`translate(${(V.x*.5+.5)*innerWidth}px,${(-V.y*.5+.5)*innerHeight}px) translate(-50%,14px)`; e.classList.toggle('dead',s.hp<=0);
+  SITES.forEach((s,i)=>{ V.copy(s.p).project(stCam); const e=siteEls[i]; e.style.transform=`translate(${(V.x*.5+.5)*innerWidth}px,${(-V.y*.5+.5)*innerHeight}px) translate(-50%,30px)`; e.classList.toggle('dead',s.hp<=0);
     [...e.querySelectorAll('.hp i')].forEach((p,k)=>p.classList.toggle('x',k>=s.hp)); e.style.opacity=st.state==='res'?0:1;
     s.mesh.position.y=.12+(s.hp>0?0:-.08); if(s.hp<=0&&Math.random()<dt*8) smoke.emit(s.p.clone().setY(.25),1,.2,null,.8,2); });
   st.cp.rotation.y=t;
   boom.update(dt,1.5,1.8); smoke.update(dt,-.4,.8);
   const nar=NARROW(); st.camP.set(0,nar?13.5:9.4,nar?10.5:8.6); st.camL.set(nar?0:-.6,-.2,.5);
-  cursorAim(playing&&FINE);
+  cursorAim(playing&&FINE); if(!playing&&st.state==='menu'){ st.anchors=[STA_AE_A[0],STA_AE_A[1],STA_AE_A[2]]; notesUpdate(st); }
 };
 })();
