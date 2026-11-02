@@ -99,7 +99,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at a station, or fall into the hole.'); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at any station. Then the horizon opens.'); },3400); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){

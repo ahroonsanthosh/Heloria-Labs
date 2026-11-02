@@ -50,9 +50,12 @@ function grid(A,x,z){ const fx=(x+CAPR)/CS, fz=(z+CAPR)/CS, i=clamp(Math.floor(f
 /* ---------- light: three tones of sun with cast shadows, a little sky from above, haze far away ---------- */
 const N2=`float h2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   float vn2(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y); }`;
-const NEAR=`void nearFade(vec3 w){ float k=smoothstep(.7,1.25,distance(cameraPosition,w)); if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
+const NEAR=`uniform vec3 uPly; uniform float uCut;
+  void nearFade(vec3 w){ float k=smoothstep(.7,1.25,distance(cameraPosition,w));
+    if(uCut>.5){ vec3 ab=uPly-cameraPosition; float L2=dot(ab,ab); if(L2>.25){ float t=dot(w-cameraPosition,ab)/L2; if(t>0.&&t<.95) k=min(k,smoothstep(.5,.66,length(w-cameraPosition-ab*t))); } }
+    if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
 const SHN=LO?1536:2048;
-const LU={uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0}};
+const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0}};
 const LIGHT=`uniform vec3 uSun,uSky,uFog; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg;
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
@@ -76,8 +79,8 @@ const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varyi
 const TOON_F=`uniform vec3 uC; uniform float uOp; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
   void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(toon(uC*vC,n,vW),uOp); }`;
 const mcache=new Map();
-function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc?1:0)+'|'+C3(color).getHexString(); if(!o.fresh&&mcache.has(key)) return mcache.get(key);
-  const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
+function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc?1:0)+'|'+(o.fig?1:0)+'|'+C3(color).getHexString(); if(!o.fresh&&mcache.has(key)) return mcache.get(key);
+  const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op},uCut:{value:o.fig?0:1}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
   if(!o.fresh) mcache.set(key,m); return m; }
 /* what the ink pass sees: the normal and the distance of every surface; what the sun sees: only depth */
 const INK_F=`varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
@@ -132,7 +135,7 @@ function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); 
 function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post!==false;
   if(post){ box(M,'#6d5544',-w*.38,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',w*.38,0,-.04,.08,y+h/2,.08); }
   const ox=o.x||0; box(M,o.board||'#5b4636',ox,y-h/2-.03,-.06,w+.1,h+.06,.06);
-  const mat=new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
+  const mat=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
   const m=new T.Mesh(new T.PlaneGeometry(w,h),mat); m.matrixAutoUpdate=false; m.matrix.copy(sub(M,ox,y,-.025)); m.userData.cast=true; sc.add(m); return m; }
 
 /* ---------- prefabs ---------- */
@@ -149,7 +152,7 @@ function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o
   (o.win||[-w*.3,w*.3]).forEach((wx,i)=>windowAt(M,wx,1.42,d/2,0,{flowers:o.flowers&&i===0,trim:tr}));
   if(o.up) (o.win||[-w*.3,w*.3]).concat([o.doorX||0]).forEach(wx=>windowAt(M,wx,h-.85,d/2,0,{trim:tr}));
   windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
-  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+1); return M; }
+  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+(o.flat?.35:(o.rh||1.3)+.3)); return M; }  // as tall as the ridge
 function lamp(x,z){ const M=frameAt(x,z,0); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
   box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(x,z,.2,1.2); }
 function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
@@ -331,7 +334,7 @@ const SHM=new T.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:
   fragmentShader:`varying vec2 vU; void main(){ float r=length(vU-.5)*2.; gl_FragColor=vec4(.12,.18,.16,(1.-smoothstep(.55,1.,r))*.32); }`});
 const capG=new Map(); const CAPS=(r,l)=>{ const k=r+'|'+l; if(!capG.has(k)) capG.set(k,new T.CapsuleGeometry(r,l,4,10)); return capG.get(k); };
 const SPH=new T.SphereGeometry(1,20,14), BOXG=new T.BoxGeometry(1,1,1);
-function mesh(g,c,x=0,y=0,z=0,sx=1,sy=sx,sz=sx){ const m=new T.Mesh(g,toonMat(c)); m.position.set(x,y,z); m.scale.set(sx,sy,sz); return m; }
+function mesh(g,c,x=0,y=0,z=0,sx=1,sy=sx,sz=sx){ const m=new T.Mesh(g,toonMat(c,{fig:true})); m.position.set(x,y,z); m.scale.set(sx,sy,sz); return m; }
 const HAIR={
   curly:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.186,20,12,0,TAU,0,Math.PI*.55),c,0,.02,-.01); cap.rotation.x=-.2; h.add(cap);
     for(let k=0;k<54;k++){ const ph=Math.acos(1-(k+.5)/54*1.25), th=k*2.39996, x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th); if(ph>.95&&z>.2) continue; if(ph>1.25) continue; h.add(mesh(SPH,c,x*.183,y*.183+.025,z*.183-.012,.042+(k%3)*.007)); } },
@@ -349,7 +352,7 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
   const eyes=[-1,1].map(s=>{ const e=mesh(CAPS(.016,.022),'#1d1712',s*.062,.012,.152); head.add(e); return e; });
   [-1,1].forEach(s=>{ const b=mesh(BOXG,o.hairC,s*.064,.07,.158,.065,.016,.02); b.rotation.z=-s*.12; head.add(b); });
   head.add(mesh(SPH,o.skin,0,-.03,.17,.024,.022,.02));
-  const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c')); mo.position.set(0,-.08,.152); head.add(mo);
+  const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c',{fig:true})); mo.position.set(0,-.08,.152); head.add(mo);
   HAIR[o.hair](head,o.hairC);
   if(o.pack){ body.add(mesh(BOXG,o.pack,0,.8,-.17,.24,.3,.12)); body.add(mesh(BOXG,'#3f4b58',0,.93,-.235,.2,.05,.03)); }
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
@@ -383,7 +386,7 @@ const HULL_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; varying vec3 vC
   void main(){ nearFade(vW); if(!gl_FrontFacing){ gl_FragColor=vec4(.13,.12,.13,1.); return; } gl_FragColor=vec4(toon(uC,normalize(vN),vW),1.); }`;
 function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); RK.g=g;
   const add=(m,x,y,z)=>{ m.position.set(x,y,z); g.add(m); return m; };
-  const hullM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')}},LU),vertexShader:TOON_V(),fragmentShader:HULL_F,side:T.DoubleSide});
+  const hullM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')},uCut:{value:1}},LU),vertexShader:TOON_V(),fragmentShader:HULL_F,side:T.DoubleSide});
   add(new T.Mesh(new T.CylinderGeometry(rAt(BAND),rAt(RKB),BAND-RKB,40,1,true,GAP,TAU-2*GAP),hullM),0,(RKB+BAND)/2,0);
   add(new T.Mesh(new T.ConeGeometry(rAt(BAND),RKH-(BAND-RKB),40,1,true),hullM),0,BAND+(RKH-(BAND-RKB))/2,0);
   add(new T.Mesh(new T.CircleGeometry(rAt(FLOOR)-.02,32).rotateX(-Math.PI/2),toonMat('#6a6560')),0,FLOOR,0);
@@ -421,16 +424,12 @@ function puffsUpdate(dt){ for(const p of RK.puffs){ if(p.t>=p.life){ p.m.visible
 /* the landing: out of the hole, a long braking curve, a hover, a soft touchdown, the hatch drops, and out you walk */
 const CUT={on:false,t:0,look:new T.Vector3()}, CAMC=[PAD[0]+2.6,PAD[1]+6.6];
 function rocketLanded(){ rocketPose(padTop,PADU); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
-function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.hgt=C.HGT; C.zoom=1; C.dragT=9; P.tgt=null; P.speed=0;
-  [P.x,P.z]=START; C.dist=camLimit(START[0],START[1],P.u,P.f,C.D0()); P.h=standH(START[0],START[1]); C.base.copy(P.u).multiplyScalar(R+P.h); }
+function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.zoom=1; C.dragT=9; C.tk=0; P.tgt=null; P.speed=0;
+  [P.x,P.z]=START; P.h=standH(START[0],START[1]); C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dist=rigLimit(START[0],START[1],P.u,P.f,C.pitch,C.D0()); }
 function endCut(){ CUT.on=false; el.classList.remove('cut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
 function skipCut(){ if(CUT.on){ CUT.t=T_END; endCut(); } }
 st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.landed=false; CUT.door=false; CUT.ph=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
 function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
-/* how far back the camera can sit behind a point before something tall is in the way */
-function camLimit(px,pz,u,f,D0){ let lim=D0; const [cx,cz]=loc(V.copy(u).multiplyScalar(R).addScaledVector(f,-1).normalize()), bx=cx-px, bz=cz-pz, bl=Math.hypot(bx,bz)||1, ux=bx/bl, uz=bz/bl;
-  for(const o of OBS){ if(o.h<1.3) continue; const ox=o.x-px, oz=o.z-pz, tt=ox*ux+oz*uz; if(tt<.2||tt>lim+o.r) continue; const dd=Math.abs(ox*uz-oz*ux); if(dd<o.r+.35) lim=Math.min(lim,Math.max(1.7,tt-Math.sqrt(Math.max(0,(o.r+.35)**2-dd*dd))-.3)); }
-  return lim; }
 /* the walk out, as distance from the middle of the rocket toward the hatch: along the floor, down the ramp, onto the pad */
 const rampY=z=>z<HINGE_Z?FLOOR:z<RAMP_END?FLOOR-(z-HINGE_Z)*Math.tan(DROP):0;
 const cT=new T.Vector3(), cG=new T.Vector3(), cL=new T.Vector3(), cF=new T.Vector3();
@@ -458,11 +457,12 @@ function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
   const lk=sstep(T_LAND-.6,T_LAND+.6,c); cL.copy(fPos).addScaledVector(fAx,1.4); cG.copy(padTop).addScaledVector(up,1.5).addScaledVector(RKN,.7); CUT.look.copy(cL).lerp(cG,lk);
   st.camP.copy(cT); st.camL.copy(CUT.look);
   const bk=E.io(clamp((c-T_CAM)/(T_END-T_CAM),0,1));
-  if(bk>0){ at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); const D1=camLimit(START[0],START[1],V2,V3,C.D0()), a0=Math.atan2(CAMC[0]-START[0],CAMC[1]-START[1]), r0=Math.hypot(CAMC[0]-START[0],CAMC[1]-START[1]), a1=Math.atan2(-FACE[0],-FACE[1]);
-    let da=a1-a0; da=Math.atan2(Math.sin(da),Math.cos(da)); const a=a0+da*bk, r=lerp(r0,D1,bk);
-    camAt(START[0]+Math.sin(a)*r,START[1]+Math.cos(a)*r,lerp(1.45,C.HGT,bk),cG); st.camP.copy(cG);
-    at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); cL.copy(V2).multiplyScalar(R+standH(START[0],START[1])+C.LOOKH).addScaledVector(V3,C.LOOKF); st.camL.copy(CUT.look).lerp(cL,bk); }
-  stUp.copy(at(lerp(CAMC[0],START[0],bk),lerp(CAMC[1],START[1],bk))); stCam.up.copy(stUp); UPU.value.copy(stUp); S.stSnap=true;
+  if(bk>0){ at(START[0],START[1],V2); tang(V2,at(START[0]+FACE[0],START[1]+FACE[1]),V3); const hs=standH(START[0],START[1]);
+    V4.copy(V2).multiplyScalar(R+hs+C.HEAD); rigPose(V4,V2,V3,C.PITCH,rigLimit(START[0],START[1],V2,V3,C.PITCH,C.D0()),cG,cL);
+    const [ex,ez]=loc(camW.copy(cG).normalize()), eh=cG.length()-R-standH(ex,ez), a0=Math.atan2(CAMC[0]-START[0],CAMC[1]-START[1]), r0=Math.hypot(CAMC[0]-START[0],CAMC[1]-START[1]), a1=Math.atan2(ex-START[0],ez-START[1]), r1=Math.hypot(ex-START[0],ez-START[1]);
+    let da=a1-a0; da=Math.atan2(Math.sin(da),Math.cos(da)); const a=a0+da*bk, r=lerp(r0,r1,bk);
+    camAt(START[0]+Math.sin(a)*r,START[1]+Math.cos(a)*r,lerp(1.45,eh,bk),cT); st.camP.copy(cT); st.camL.copy(CUT.look).lerp(cL,bk); }
+  stUp.copy(at(lerp(CAMC[0],START[0],bk),lerp(CAMC[1],START[1],bk))); stCam.up.copy(stUp); UPU.value.copy(stUp); S.stSnap=true; LU.uPly.value.copy(st.camP);
   puffsUpdate(dt);
   if(c>=T_END) endCut(); }
 
@@ -543,7 +543,19 @@ st.build=async function(){
 
 /* ---------- walking on a sphere ---------- */
 const player={u:at(START[0],START[1]),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:START[0],z:START[1]};
-const C={f:new T.Vector3(0,0,1),dist:4.3,hgt:2,zoom:1,dragT:9,base:new T.Vector3(),HGT:2,LOOKH:1.15,LOOKF:2.4,D0:()=>(innerHeight>innerWidth?5.2:4.3)*C.zoom};
+/* ---------- the camera: an orbit rig round a point at your head. Everything about it is smoothed in its own terms (which way
+   it looks, how far down, how far back, what it centres on), so it never cuts a corner, bobs on a kerb or swings about.
+   It follows lazily when you walk forward and holds still when you step sideways or back; it never fights a drag; it only
+   comes in for houses and big landmarks, and trees or poles between it and you fade out instead. ---------- */
+const C={f:new T.Vector3(0,0,1),pitch:.34,pEff:.34,dist:4.6,zoom:1,dragT:9,tgt:new T.Vector3(),mid:new T.Vector3(),camH:0,tk:0,tf:new T.Vector3(),PITCH:.34,HEAD:1.15,
+  D0:()=>(innerHeight>innerWidth?5.6:4.6)*C.zoom};
+function rigPose(target,u,f,pitch,dist,oP,oL){ oP.copy(target).addScaledVector(f,-Math.cos(pitch)*dist).addScaledVector(u,Math.sin(pitch)*dist); return oL&&oL.copy(target).addScaledVector(f,1.6).addScaledVector(u,-.25); }
+/* how far back the rig can sit before a house or a big landmark is in the way of the line to your head */
+function rigLimit(px,pz,u,f,pitch,D){ const cp=Math.cos(pitch), tp=Math.tan(pitch); let lim=D*cp;
+  const [cx,cz]=loc(V.copy(u).multiplyScalar(R).addScaledVector(f,-1).normalize()), bx=cx-px, bz=cz-pz, bl=Math.hypot(bx,bz)||1, ux=bx/bl, uz=bz/bl;
+  for(const o of OBS){ if(o.r<.6||o.h<1.8) continue; const ox=o.x-px, oz=o.z-pz, tt=ox*ux+oz*uz; if(tt<.2||tt>lim+o.r) continue; if(C.HEAD+tt*tp>o.h+.15) continue;
+    const dd=Math.abs(ox*uz-oz*ux); if(dd<o.r+.35) lim=Math.min(lim,Math.max(1.5,tt-Math.sqrt(Math.max(0,(o.r+.35)**2-dd*dd))-.3)); }
+  return lim/cp; }
 function rot(f,u,a){ V.crossVectors(u,f); return f.multiplyScalar(Math.cos(a)).addScaledVector(V,Math.sin(a)).normalize(); }
 function walk(P,dist){ const th=dist/R, c=Math.cos(th), s=Math.sin(th); V.copy(P.u); P.u.multiplyScalar(c).addScaledVector(P.f,s).normalize(); P.f.multiplyScalar(c).addScaledVector(V,-s); P.f.addScaledVector(P.u,-P.u.dot(P.f)).normalize(); }
 const tang=(u,to,o)=>o.copy(to).addScaledVector(u,-u.dot(to)).normalize();
@@ -551,20 +563,22 @@ function walkable(x,z){ if(onJetty(x,z)) return true; const h=grid(GH,x,z); if(h
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ball=new T.Sphere(new T.Vector3(),R), hits=[];
 function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); hits.length=0; ray.layers.set(0);
   ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o) return people.find(p=>p.g===o); } return null; }
-let down=null, hov=null, started=false, cardT=0;
+let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
+const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
+  if(look&&e.pointerId===look.id){ turnBy(e.clientX-look.lx,e.clientY-look.ly); look.lx=e.clientX; look.ly=e.clientY; return; }
   if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>7) down.moved=true;
     if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
-    else if(down.moved){ rot(C.f,player.u,-dx*.0065); C.hgt=clamp(C.hgt-(e.clientY-down.ly)*.008,1,3.8); C.dragT=0; began(); }
+    else if(down.moved){ turnBy(dx,e.clientY-down.ly); began(); }
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
-addEventListener('pointerup',e=>{ if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   const p=pickPerson(e); if(p) openTalk(p,p.lines.length-1); });
-addEventListener('pointercancel',()=>{ down=null; stickOff(); });
+addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
@@ -591,7 +605,7 @@ let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
 st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; });
-  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · walk up to someone to talk';
+  hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
   stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ CUT.on=false; el.classList.remove('cut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
@@ -604,7 +618,7 @@ function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(wal
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
   d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
   if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016); }
-let talkK=0, talkSide=0, talkAng=1.15;
+
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
   const port=innerHeight>innerWidth, fov=port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
   if(CUT.on) cutUpdate(dt,t); else {
@@ -627,29 +641,30 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
   P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)?2:rd<RW+SW?1:0); }
-  // the camera: behind you and a little above. It turns to follow you when you walk forward, holds still when you walk
-  // sideways or toward it, comes in rather than looking through a wall, and you can drag it round or scroll to zoom
+  // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
-  const fw=Math.max(0,P.f.dot(C.f));
-  if(P.speed>.3&&C.dragT>1.2&&!TALK.p){ C.f.lerp(P.f,1-Math.exp(-2.6*fw*fw*Math.min(1,P.speed/2.7)*dt)); tang(P.u,C.f,C.f); }
-  const D0=C.D0(), lim=camLimit(P.x,P.z,P.u,C.f,D0);
-  C.dist=damp(C.dist,lim,lim<C.dist?8:1.8,dt);
-  C.base.lerp(V.copy(P.u).multiplyScalar(R+P.h),1-Math.exp(-12*dt));
-  stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
-  const rise=(D0-C.dist)*.3;   // pulled in by a wall or a tree: rise a little to see over it
-  st.camP.copy(C.base).addScaledVector(P.u,C.hgt+rise).addScaledVector(C.f,-C.dist);
-  st.camL.copy(C.base).addScaledVector(P.u,C.LOOKH).addScaledVector(C.f,C.LOOKF);
-  // while talking: over your shoulder, so you see their face
-  const tp=TALK.p; talkK=damp(talkK,tp?1:0,2.6,dt); const tE=talkK*talkK*(3-2*talkK);
-  if(tp&&talkK>.001){ const a=V2.copy(tp.dir).sub(P.u).normalize(), sd=camR.crossVectors(P.u,a).normalize(), mid=camW.copy(P.u).add(tp.dir).normalize().multiplyScalar(R+P.h);
-    if(talkSide===0){ const lean=Math.sign(sd.dot(V3.copy(stCam.position).sub(mid)))||1, [mx,mz]=loc(V3.copy(mid).normalize()); let best=-9;
-      for(const sg of [lean,-lean]) for(const an of [1.15,.85,1.45,.55]){ let c=9; const [sx,sz]=loc(V3.copy(mid).addScaledVector(sd,3.1*Math.sin(an)*sg).addScaledVector(a,-3.1*Math.cos(an)).normalize());
-        for(const o of OBS){ if(o.h<1.3) continue; for(const k of [.35,.6,.8,1]) c=Math.min(c,Math.hypot(mx+(sx-mx)*k-o.x,mz+(sz-mz)*k-o.z)-o.r); }
-        c-=Math.abs(an-1.15)*.25; if(c>best+.05){ best=c; talkSide=sg; talkAng=an; } } }
-    camT.copy(mid).addScaledVector(P.u,1.55).addScaledVector(sd,3.1*Math.sin(talkAng)*talkSide).addScaledVector(a,-3.1*Math.cos(talkAng)); st.camP.lerp(camT,tE);
-    camT.copy(mid).addScaledVector(P.u,1.0).addScaledVector(a,.3); st.camL.lerp(camT,tE);
+  if(P.speed>.3&&C.dragT>2.5&&!TALK.p){ const sg=Math.sign(V.crossVectors(C.f,P.f).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(P.f),-1,1));
+    if(a>.12&&a<2.3) rot(C.f,P.u,sg*Math.min(a,1.05*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*(1-a/3.2)*dt)); }
+  // talking: centre between the two of you, turned to see you both a little from the side; afterwards it simply stays turned
+  const tp=TALK.p; C.tk=damp(C.tk,tp?1:0,2.4,dt); const tE=C.tk*C.tk*(3-2*C.tk);
+  C.camH=damp(C.camH,P.h,3,dt); camT.copy(P.u).multiplyScalar(R+C.camH+C.HEAD);
+  if(tp){ V2.copy(tp.dir).multiplyScalar(R+standH(tp.x,tp.z)+C.HEAD); C.mid.copy(camT).lerp(V2,.5); tang(P.u,V3.copy(V2).sub(camT),V4);
+    const [mx,mz]=loc(camW.copy(C.mid).normalize());
+    if(!TALK.side){ let best=-9; for(const sg of [1,-1]){ const f=rot(V3.copy(V4),P.u,.95*sg), sc=rigLimit(mx,mz,P.u,f,.2,4)-Math.acos(clamp(f.dot(C.f),-1,1))*.6; if(sc>best){ best=sc; TALK.side=sg; } } }
+    rot(C.tf.copy(V4),P.u,.95*TALK.side); const sg=Math.sign(V.crossVectors(C.f,C.tf).dot(P.u))||1, aa=Math.acos(clamp(C.f.dot(C.tf),-1,1)); rot(C.f,P.u,sg*aa*(1-Math.exp(-2.6*dt)));
     tang(P.u,tp.dir,V4); const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4); rot(P.f,P.u,clamp(Math.atan2(s,c),-6*dt,6*dt)); }
-  else if(talkK<.02) talkSide=0;
+  else TALK.side=0;
+  camT.lerp(C.mid,tE);
+  const pitch=lerp(C.pitch,.2,tE), D=lerp(C.D0(),4,tE), [tx,tz]=loc(camW.copy(camT).normalize()), lim=rigLimit(tx,tz,P.u,C.f,pitch,D);
+  // pressed against a house while you move: slide slowly round to whichever side is more open
+  if(lim<D*.55&&P.speed>.3&&!tp&&C.dragT>1.2){ let best=lim, bs=0; for(const a of [.45,-.45,.9,-.9]){ const l2=rigLimit(tx,tz,P.u,rot(V3.copy(C.f),P.u,a),pitch,D); if(l2>best+.3){ best=l2; bs=a; } }
+    if(bs) rot(C.f,P.u,Math.sign(bs)*Math.min(Math.abs(bs),.8*dt)); }
+  C.pEff=damp(C.pEff,pitch,2.5,dt);
+  C.dist=damp(C.dist,lim,lim<C.dist?7:1.6,dt);
+  C.tgt.lerp(camT,1-Math.exp(-14*dt));
+  stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
+  rigPose(C.tgt,stUp,C.f,C.pEff,C.dist,st.camP,st.camL);
+  LU.uPly.value.copy(P.u).multiplyScalar(R+P.h+1);   // what the camera must always see: you
   S.stSnap=true; // the camera does its own smoothing
   }
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt);

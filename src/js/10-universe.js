@@ -113,6 +113,8 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
+/* the seal: a dashed ring just outside the horizon that holds the probe off until it has docked at one station */
+U.seal=new T.LineLoop(ringGeo(2.4,260),dashMat('#FF5636','float a=(.07+.75*uNear)*step(.5,fract(vAng*15.9+uTime*.12));')); U.seal.material.uniforms.uOp.value=0; U.scene.add(U.seal); U.sealU=U.seal.material.uniforms;
 /* boundary curtain */
 U.fenceU={uPA:{value:0},uNear:{value:0}};
 U.fence=pts(cloud(Math.floor(3000*Q+800),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a)*RB;o[1]=gauss()*.5;o[2]=Math.sin(a)*RB;}),PM({size:.06,color:'#FFC392',uniforms:U.fenceU,decl:'uniform float uPA,uNear;',
@@ -168,5 +170,5 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*(holeOpen()?0:1);
 }

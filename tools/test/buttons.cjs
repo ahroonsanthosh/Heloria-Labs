@@ -88,8 +88,12 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const dockedNear = await until(() => window.__heloria.S.mode === 'station', null, 180000); rec(dockedNear, mobile ? 'Dock button docks' : 'E docks');
   if (dockedNear) { await wait(2500); await tap('#back', 'Orbit button after docking'); await until(() => window.__heloria.S.mode === 'hub', null, 180000); await wait(800); }
 
-  /* ---- the horizon is open from the start: nothing bounces you off it (falling in is tested at the end) ---- */
-  rec(await H(h => typeof h.crossHorizon === 'function' && !document.querySelector('#qtxt') && !document.querySelector('#horizon')), 'no checkpoint: no counter, no horizon page');
+  /* ---- the horizon is sealed until you have docked at one station (falling in is tested at the end) ---- */
+  rec(await H(h => typeof h.crossHorizon === 'function' && !document.querySelector('#qtxt') && !document.querySelector('#horizon')), 'no counter and no horizon page');
+  const docked0 = await H(h => [...h.S.docked]); await H(h => { h.S.docked.clear(); h.S.ap = null; const P = h.S.probe; P.p.set(1.6, 0, 0); P.v.set(0, 0, 0); });
+  await wait(4000);
+  rec(await H(h => h.S.mode === 'hub' && Math.hypot(h.S.probe.p.x, h.S.probe.p.z) > 2), 'the horizon is sealed before any station is visited');
+  await H((h, d) => d.forEach(x => h.S.docked.add(x)), docked0);
   await H(h => { const P = h.S.probe; P.p.set(10.5, 0, 0); P.v.set(0, 0, Math.sqrt(60 / 10.5)); });
   await wait(1500);
 
