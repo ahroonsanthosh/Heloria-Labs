@@ -126,8 +126,9 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await covered('#chrome', 'chrome');
   rec(await page.evaluate(() => !document.querySelector('#snd')), 'no sound indicator anywhere');
   rec(await page.evaluate(() => !document.querySelector('#rail,.tele,#where')), 'no chapter rail, telemetry or location label');
-  // station labels set autopilot (look at one first: while the contact calls, off-screen stations have no marker)
-  await H(h => { const P = h.S.probe.p, s = h.STA.reduce((a, b) => b.pos.distanceTo(P) < a.pos.distanceTo(P) ? b : a); h.S.yaw = Math.atan2(P.x - s.pos.x, P.z - s.pos.z); }); await wait(2500);
+  // station labels and edge markers set autopilot. While the contact calls, the stations off the screen have no marker (checked
+  // above), so this generic check steps out of that for a moment, as it is once you have been to Earth
+  await H(h => { h.__push = h.S.push; h.S.push = false; }); await wait(1500);
   const ids = await H(h => h.STA.map(s => s.id));
   let apOk = 0;
   for (const id of ids) {
@@ -141,7 +142,8 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     if (await H((h, id) => h.S.ap && h.S.ap.id === id || h.S.mode !== 'hub', id)) apOk++;
     await H(h => { h.S.ap = null; });
   }
-  rec(apOk > 0, 'station labels start autopilot', apOk + ' of ' + ids.length + ' visible ones worked');
+  rec(apOk > 0, 'station labels or edge markers start autopilot', apOk + ' of ' + ids.length + ' visible ones worked');
+  await H(h => { h.S.push = h.__push; });
   // radar click flies somewhere
   await H(h => { h.S.ap = null; });
   const rr = await page.evaluate(() => { const r = document.querySelector('#radar').getBoundingClientRect(); return [r.left, r.top, r.width]; });
