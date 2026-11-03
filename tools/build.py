@@ -25,7 +25,9 @@ def parts(only):
     ids = [i for i in ORDER if os.path.isdir(os.path.join(SRC, 'stations', i)) and (not only or i in only)]
     css = read('css/core.css') + '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.css' % i) for i in ids)
     html = read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids))
-    core = CORE_JS + (['26-journey.js'] if os.path.exists(os.path.join(SRC, 'js', '26-journey.js')) else [])   # the journey version adds its director
+    has = lambda f: os.path.exists(os.path.join(SRC, 'js', f))
+    core = [x for f in CORE_JS for x in ((['28-finale.js'] if f == '29-station.js' and has('28-finale.js') else []) + [f])]   # the last flight, before the stations
+    core += ['26-journey.js'] if has('26-journey.js') else []   # the journey version adds its director
     js = '\n'.join(read('js/' + f) for f in core)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')

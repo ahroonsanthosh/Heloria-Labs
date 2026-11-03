@@ -141,17 +141,21 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await tap('#crSkip', 'Skip the landing'); rec(await until(() => !window.__heloria.ST.cr._dbg.cut().on, null, 20000), 'Skip ends the landing');
   await wait(1500);
   { const id = 'cr';
-    { // Earth: click one of us in town; the conversation opens on the page with the photo and LinkedIn; See you closes it
+    { // Earth: click one of us in town; you walk over by yourself and the conversation opens; it ends on the photo and LinkedIn; See you closes it
       const xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
       if (mobile) await page.touchscreen.tap(xy[0], xy[1]); else await page.mouse.click(xy[0], xy[1]);
-      rec(await until(() => { const t = document.querySelector('#crTalk'); return t.classList.contains('on') && t.classList.contains('last'); }, null, 20000), 'cr: clicking a person opens their photo and LinkedIn');
+      await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 240 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
+      rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.p.first === 'Ahroon' && T.i === 0; }), 'cr: clicking a person walks you over and starts the conversation');
+      for (let i = 0; i < 16 && !(await page.evaluate(() => document.querySelector('#crTalk').classList.contains('last'))); i++) { await H(h => h.ST.cr._dbg.nextTalk()); await wait(150); }
+      rec(await until(() => { const t = document.querySelector('#crTalk'); return t.classList.contains('on') && t.classList.contains('last'); }, null, 20000), 'cr: the conversation ends on their photo and LinkedIn');
       await wait(900); await covered('#crTalk', 'cr conversation'); await linkCheck('#crTalk', 'cr conversation');
       rec(await page.evaluate(() => /linkedin\.com\/in\//.test(document.querySelector('#crLink').href) && /^data:image|^https?:/.test(document.querySelector('#crImg').src)), 'cr: the conversation has the photo and LinkedIn');
       await shot((mobile ? 'm-' : '') + 'cr-talk');
       await tap('#crClose', 'cr See you'); rec(await until(() => !document.querySelector('#crTalk').classList.contains('on'), null, 20000), 'cr: See you closes the conversation');
       // walking up to someone starts a conversation by itself
-      await H(h => { const st = h.ST.cr, d = st._dbg; d.people[0].greeted = false; d.player.tgt = d.at(d.people[0].x, d.people[0].z).multiplyScalar(24); for (let i = 0; i < 200 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
-      rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.i === 0 && T.p.first === 'Ahroon'; }), 'cr: walking up to someone starts a conversation');
+      await H(h => { const st = h.ST.cr, d = st._dbg; d.MET.clear(); d.place(); d.people[0].greeted = false; d.player.tgt = d.at(d.people[0].x, d.people[0].z).multiplyScalar(24); for (let i = 0; i < 200 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
+      rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.i === 0 && T.p.first === 'Ahroon'; }), 'cr: walking up to someone you have not met starts a conversation');
+      rec(await page.evaluate(() => [...document.querySelectorAll('#crLabels .crl')].every(l => getComputedStyle(l).pointerEvents !== 'none' || !l.classList.contains('on'))), 'cr: name tags you can see can be clicked');
       await H(h => h.ST.cr._dbg.closeTalk()); await wait(600);
       // walking with the stick, the same one that flies the rocket: press, drag, and you walk that way
       await H(h => h.ST.cr._dbg.place());
@@ -166,6 +170,23 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await covered('#station > #back', 'Earth back button');
   await tap('#back', 'Earth Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub' || window.__heloria.S.mode === 'tohub', null, 180000), 'the Orbit button takes you from Earth back to orbit');
   rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'back in orbit and flying');
+
+  /* ---- the last flight: meet all three, Ahroon asks, and it runs all the way to the white page ---- */
+  await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); h.S.ap = null; });
+  rec(await until(() => window.__heloria.S.stId === 'cr', null, 180000), 'falling in again lands you on Earth');
+  await H(h => h.ST.cr._dbg.skipCut()); await wait(800);
+  await H(h => { const d = h.ST.cr._dbg; [1, 2, 0].forEach(i => { d.openTalk(d.people[i], 0); d.closeTalk(true); }); });
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 900 && !(d.talk().p && d.talk().ask); i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } return !!d.talk().ask; }), 'once you have met all three, Ahroon comes over and asks');
+  await H(h => { const d = h.ST.cr._dbg; for (let i = 0; i < 8; i++) d.nextTalk(); });
+  await wait(600); await covered('#crTalk', 'the invitation');
+  await tap('#crFly', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
+  await H(h => { h.S.finX = 6; });
+  rec(await until(() => window.__heloria.S.mode === 'finale', null, 600000), 'the rocket climbs out and space takes over');
+  rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
+  rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'it burns by itself if you do not, and throws you out into the white');
+  await H(h => { h.S.finX = 1; }); await wait(20000);
+  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /Just three young lads who dare to chase the impossible/.test(f.innerText) && !/Kríos|Aetos|Pharos|Ogive/.test(f.innerText); }), 'the last page is white and ends on the three of us');
+  await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
 
   const fails = results.filter(r => !r.ok);
   console.log('\nSUMMARY ' + (results.length - fails.length) + ' passed, ' + fails.length + ' failed');

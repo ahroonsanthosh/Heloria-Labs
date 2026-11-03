@@ -1,7 +1,6 @@
 <canvas id="gl" aria-hidden="true"></canvas>
 <div class="grain" aria-hidden="true"></div>
 <div class="lb t" aria-hidden="true"></div><div class="lb b" aria-hidden="true"></div>
-<div class="frame" id="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <!-- LOADER + ENTER -->
 <section class="layer" id="load" aria-label="Heloria Labs">
@@ -66,6 +65,15 @@
   </div>
   <div id="toast" class="ui off" role="status"></div>
 </header>
+
+<!-- THE LAST FLIGHT: one thing to do at the bottom of the well, and the white page at the end -->
+<div id="holdp" class="ui" aria-live="polite"><i aria-hidden="true"></i><span>Hold to burn</span></div>
+<section id="fin" hidden aria-label="The end">
+  <div class="fc f1"><span class="ui">Heloria Labs</span></div>
+  <div class="fc f2"><p>Ahroon Santhosh</p><p>Michael Sweeney Heffernan</p><p>Abraham Sabu Kurian</p></div>
+  <div class="fc f3"><h2 class="disp">Just three young lads who dare to chase the impossible.</h2>
+    <div class="fa"><button class="btn hit" id="finAgain" type="button" data-cur="Again">Fly again</button><a class="ui" href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></div></div>
+</section>
 
 <div id="cur"><span id="curT">Open</span></div><div id="curd"></div>
 

@@ -29,6 +29,7 @@ addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 let drag=null;
 canvas.addEventListener('pointerdown',e=>{
+  if(S.mode==='finale'){ finHold(true); return; }
   if(S.mode==='station'&&S.st&&S.st.onPointer) return S.st.onPointer(e);
   if(S.mode!=='hub') return;
   drag={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,touch:e.pointerType!=='mouse',id:e.pointerId};
@@ -72,7 +73,7 @@ function hubPhysics(dt){
   const tl=Math.min(1.5,thrust.length()); P.thr=damp(P.thr,tl,10,dt);
   const acc=tv[8].set(-P.p.x,0,-P.p.z).multiplyScalar(GM/(r*r*r)).addScaledVector(thrust,9);
   if(tl<.05&&r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.4); }
-  if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; toast('Edge of the Heloria system'); A.beep(440); } }
+  if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; A.beep(440); } }
   if(S.ap&&S.ap!==HOLE&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
@@ -84,7 +85,8 @@ function hubPhysics(dt){
   else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
-  if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3).add(P.p); for(let k=0;k<Math.ceil(P.thr*4*Q);k++) U.exhaust.emit(tv[4],1,.5,null,0,.6); }
+  if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3+P.thr*.35).add(P.p); for(let k=0;k<Math.ceil(P.thr*3*Q);k++) U.exhaust.emit(tv[4],1,.35,null,0,.45+Math.random()*.3); }
+  U.exhaust.update(dt,0,2.2);   // the sparks drift, cool and go out behind you
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
@@ -145,13 +147,11 @@ function labelsUpdate(){
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
       const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
       s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
-      s.el.classList.toggle('call',S.call===s&&S.callK>.5);
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
       let dx=sx-W/2, dy=sy-H/2; if(behind){dx=-dx;dy=-dy;} const a=Math.atan2(dy,dx);
       const k=Math.min(hw/Math.max(1e-6,Math.abs(Math.cos(a))),hh/Math.max(1e-6,Math.abs(Math.sin(a))));
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
-      s.edge.classList.toggle('call',S.call===s&&S.callK>.5);
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
   { const H_=HOLE.el; if(holeOpen()&&S.sealK<1&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
@@ -229,7 +229,7 @@ function dockUpdate(rdt){
 }
 $('#back').addEventListener('click',()=>undock());
 function undock(){
-  if(S.mode!=='station') return;
+  if(S.mode!=='station'||S.fin) return;
   if(S.stId==='cr') return leaveEarth(); // Earth is past the horizon, not a station in orbit
   const s=STA.find(x=>x.id===S.stId), st=S.st;
   st.abort(); st.hideUI(); cine(true); A.hush(); A.whoosh(false,1.3); S.mode='undocking';
@@ -255,10 +255,10 @@ function undockUpdate(rdt,dt){
     if(holeOpen()&&S.sealK>=1) sealBreak(); }
 }
 
-/* ---------- a station calls you: the nearest one you have not played rings its bell and sends out rings of light ----------
-   No words: you see it pulse, you hear which side it is on, and you go. When you have played it, the next one starts. */
-const _cp=new T.Vector3(), WHITE3=new T.Color(1,1,1);
-function callOff(){ S.callK=0; U.callRing.visible=false; STA.forEach(x=>x.callU.uCall.value=0); }
+/* ---------- a station calls you: the nearest one you have not played rings its bell, from the side where it is ----------
+   Nothing on screen: you hear which way it is, and you go. When you have played it, the next one starts. */
+const _cp=new T.Vector3();
+function callOff(){ S.callK=0; }
 function callUpdate(dt){
   const P=S.probe, open=STA.filter(s=>!S.docked.has(s.id));
   S.callWait-=dt; S.callT+=dt;
@@ -269,12 +269,10 @@ function callUpdate(dt){
     const best=open.reduce((a,b)=>dist(b)<dist(a)?b:a);
     if(!want||(dist(best)<dist(want)*.5&&dist(best)<8&&S.callT>6)) want=best; }   // keep calling the same one unless you are right by another
   if(!open.length||SB.t>=0) want=null;
-  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; if(want) U.callRing.material.uniforms.uCol.value.copy(want.c).lerp(WHITE3,.45); }
+  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; }
   const s=S.call, d=s?s.pos.distanceTo(P.p):99, k=s&&d>2.8?1:0;
   S.callK=damp(S.callK,k,k?1.6:5,dt);
-  STA.forEach(x=>{ x.callU.uCall.value=damp(x.callU.uCall.value,x===s?S.callK:0,4,dt); });
-  U.callRing.visible=!!s&&S.callK>.01; U.callRing.material.uniforms.uK.value=S.callK;
-  if(s){ U.callRing.position.copy(s.pos);
+  if(s){
     // the bell, once a ring: louder as you get close, softer if you have been ignoring it a while
     const beat=Math.floor(G.uTime.value/2.4); if(beat!==S.callBeat){ S.callBeat=beat;
       if(S.callK>.4&&A.ctx){ _cr.setFromMatrixColumn(hubCam.matrixWorld,0); _cp.copy(s.pos).sub(P.p); _cp.y=0; const pan=clamp(_cp.dot(_cr)/Math.max(d,.5)*1.3,-1,1);

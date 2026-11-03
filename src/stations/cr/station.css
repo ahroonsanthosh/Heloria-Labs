@@ -26,6 +26,21 @@ html.earth #back{z-index:3}
 .st-cr .crtalk.last .crtk-ph{display:block}
 .st-cr .crtalk.last .crtk-a{display:flex}
 .st-cr .crtalk.last .crtk-go{display:none}
+/* Ahroon's one more thing: the last page asks, with two answers */
+.st-cr .crtk-q{display:none;gap:10px;flex-wrap:wrap;margin-top:14px}
+.st-cr .crtk-q .btn{color:#2a241d;border-color:rgba(42,36,29,.4)}
+.st-cr .crtk-q .btn.pri{background:#ef8a3c;color:#2a241d;border-color:#2a241d}
+.st-cr .crtalk.ask .crtk-q{display:flex}
+.st-cr .crtalk.ask .crtk-go{display:none}
+.st-cr .crtalk.ask .crtk-b{cursor:default}
+/* name tags: you can click one to walk over; Ahroon's calls you once you have met everyone */
+.st-cr .crl{pointer-events:auto;cursor:pointer}
+.st-cr .crl:not(.on){pointer-events:none}
+.st-cr .crl.ask{background:#ef8a3c}
+.st-cr .crl.ask::after{content:"";display:inline-block;width:6px;height:6px;margin-left:8px;vertical-align:1px;background:#2a241d;border-radius:50%;animation:crask 1.1s ease-in-out infinite}
+@keyframes crask{50%{transform:scale(.4);opacity:.4}}
+/* the last flight: nothing on screen but the picture */
+.st-cr.fin .card,.st-cr.fin #crLabels,.st-cr.fin .crhint,.st-cr.fin .crtalk,.st-cr.fin .crskip{opacity:0!important;pointer-events:none!important;transition:none!important}
 .st-cr .crtk-go{position:absolute;right:14px;bottom:14px;width:36px;height:36px;display:grid;place-items:center;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;padding:0;cursor:pointer;animation:crbob 1.1s ease-in-out infinite}
 .st-cr .crtk-go svg{width:12px;height:12px}
 .st-cr .crtalk.typing .crtk-go{opacity:.35;animation:none}
