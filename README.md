@@ -28,6 +28,24 @@ world burns away like paper onto the real, traced system; you swing once round t
 bottom of the well you hold to burn. It throws you out, the system falls away to a point, and the light takes over: a
 white page with the three of us, and why.
 
+## Tamed
+
+`tamed/` is a second, separate site for people who want the calm version: Heloria in daylight. A pavilion of pale
+stone stands in still water at golden hour; scroll walks you through it as the evening goes on (the sundial in the
+corner reads the same sun). Through the doorway are four rooms of light, one per project (two chairs and a voice for
+Kríos, a skyspace with one bird outlined for Aetos, a dark room swept by one beam for Pharos, a shaft of light with a
+rocket rising for Ogive), each with a calm project page. Then a courtyard where the three of us rise out of the pool as
+framed portraits, and a sunset over the water to finish. Press and hold anywhere for every place. The first screen
+offers both ways in: Tamed, or Untamed.
+
+```bash
+python3 tamed/build.py                 # dist/tamed.html
+```
+
+```bash
+node tamed/test/run.cjs --html dist/tamed.html --lowq --scenario tamed/test/flow.cjs --out /tmp/tamed
+```
+
 ## Deploy on GitHub Pages
 
 The built site is in `docs/` and needs no build step on GitHub.
