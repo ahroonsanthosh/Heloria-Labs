@@ -27,6 +27,7 @@ function camAt(name,s,cam){
   const keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2);
   let f=trackEval(keys,s,_cp,_ct);
   if(S.camOv&&S.camOv[0]===name){ const o=S.camOv; _cp.fromArray(o[1]); _ct.fromArray(o[2]); f=o[3]; }
+  if(name==='out'&&LAUNCH.camK>.001){ const k=LAUNCH.camK; _ct.lerp(LAUNCH.mid,k); f=lerp(f,LAUNCH.fov,k); }
   cam.position.copy(_cp); cam.lookAt(_ct);
   if(!RM){ cam.rotateY(-PAR.x*.03); cam.rotateX(PAR.y*.018); }
   if(Math.abs(cam.fov-f)>1e-3){ cam.fov=f; cam.updateProjectionMatrix(); }
@@ -69,11 +70,11 @@ function frame(tn){
   requestAnimationFrame(frame);
   const raw=Math.max(0,(tn-last)/1000); last=tn;
   const dt=Math.min(TEST?.25:.05,raw); S.dt=dt; S.t+=dt; S.frame++;
-  const tsT=S.mode==='gate'?(S.gateHover==='tamed'?.25:S.gateHover==='untamed'?2.2:1):1;
+  const way=S.mode==='gate'?S.gateHover:null, tsT=way==='walk'?.25:way==='fly'?2.2:1;
   S.timeScale=damp(S.timeScale,tsT,2.4,dt); S.ut=(S.ut||0)+dt*S.timeScale; GU.uTime.value=RM?S.ut*.4:S.ut;
   QM.tick(raw*1000); UI.cursor(dt);
   if(!S.ready||!GL_OK) return;
-  scrollTick(dt); VEIL.tick(dt); holdTick();
+  scrollTick(dt); VEIL.tick(dt); holdTick(); launchTick(dt); UI.gateTick(dt);
   if(S.mode==='entering'){ S.enterT+=dt; S.veil=1-E.io(clamp(S.enterT/2.6,0,1)); S.enterK=sstep(1.3,2.5,S.enterT); if(S.enterT>2.7){ S.mode='world'; S.veil=0; S.enterK=1; } }
   let s=warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
   const [el,az]=S.sunOv||sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
@@ -84,6 +85,7 @@ function frame(tn){
     G.px=GU.uRes.value.y/(2*Math.tan(CAM.out.fov*DEG/2)); OUT.seeds.mat.uniforms.uPx.value=G.px;
     if(TXT.dirty){ drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex; }
     const wu=OUT.waterMat.uniforms; wu.uTextK.value.set(SECS[0].vis>0?SECS[0].vis:0,SECS[SECS.length-1].vis>0?SECS[SECS.length-1].vis:0); wu.uTextCol.value.copy(_fg); wu.uHorizon.value=horizonY(CAM.out); }
+  launchHit();
   if(needGal){ camAt('gal',s,CAM.gal); G.px=GU.uRes.value.y/(2*Math.tan(CAM.gal.fov*DEG/2)); GAL.update(dt); GAL.applyLight(tod,TINT,s); }
   const Wd={out:OUT,gal:GAL};
   let src;
@@ -95,15 +97,20 @@ function frame(tn){
   cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
   cu.uBloom.value=lerp(.038,.18,inside);
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
-  cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,S.gateHover==='tamed'?.8:1,2.5,dt):S.veil;
-  cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  /* the gate: Walk thins the mist so the walk shows through; Fly brings the dark in round a black hole. Then the rocket at
+     the end of the walk: the night comes in from it as you follow it up */
+  cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,way==='walk'?.6:1,2.5,dt):S.veil;
+  const dk=LAUNCH.dark>.001?LAUNCH.dark*1.15:(way==='fly'?1:0);
+  cu.uDark.value=LAUNCH.dark>.001?dk:damp(cu.uDark.value,dk,way==='fly'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  if(LAUNCH.dark>.001){ const v=LAUNCH.sc.copy(LAUNCH.mid).project(CAM.out); cu.uDarkC.value.set(v.x*.5+.5,v.y*.5+.5); cu.uHole.value.z=0; cu.uKeep.value=1; }
+  else { const H=UI.holeAt(); cu.uDarkC.value.set(.5,.5); cu.uKeep.value=0; cu.uHole.value.set(H[0],H[1],damp(cu.uHole.value.z,way==='fly'?H[2]:0,way==='fly'?1.6:4,dt)); }
   cu.uDim.value=damp(S.idim||0,HOLD.open?.7:0,6,dt); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
   cu.uDimCol.value.set(1,1,1).lerp(TINT,.5);
   const fk=VEIL.k; cu.uFlood.value=fk; if(VEIL.k>0){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
   const d=QL.dpr; cu.uMouse.value.set(M.x*d,(innerHeight-M.y)*d); cu.uVel.value.set(M.vx*d,-M.vy*d); M.vx*=Math.exp(-6*dt); M.vy*=Math.exp(-6*dt);
   cu.uDropR.value=damp(cu.uDropR.value,(UI.isBig()?24:12)*d*(HOLD.open?1.4:1),9,dt);
   cu.uDropK.value=damp(cu.uDropK.value,FINE&&M.on?1:0,8,dt);
-  cu.uGrain.value=S.mode==='gate'&&S.gateHover==='tamed'?.016:.032;
+  cu.uGrain.value=way==='walk'?.016:.032;
   POST.pass(POST.comp,null);
   UI.update(s,dt);
   A.update(dt,audioState(s,inside)); RSND.length=0;
@@ -111,10 +118,10 @@ function frame(tn){
 function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
   const beam=GAL&&prox(3)>.01?GAL.rooms[2].lock:0;   // how sure the drone is of where it is
-  const gate=S.mode==='gate';
-  return {music:gate?0:1-inside*.3, musF:lerp(9000,2600,inside), water:gate?0:lerp(1,.36,inside)*(1-court*.3), waterF:lerp(2400,320,inside)+contact*1800,
-    wind:gate?0:(1-inside)*(1-court*.7), birds:gate?0:(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
-    warm:gate&&S.gateHover==='tamed'?1:0, dark:gate&&S.gateHover==='untamed'?1:0};
+  const gate=S.mode==='gate', way=gate?S.gateHover:null, go=LAUNCH.near;
+  return {music:gate?0:(1-inside*.3)*(1-go*.6), musF:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:0):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?1500:lerp(2400,320,inside)+contact*1800,
+    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
+    warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 
@@ -145,7 +152,7 @@ requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
-window.__tamed={S,SC,A,QL,PLACES,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
+window.__tamed={S,SC,A,QL,PLACES,LAUNCH,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,

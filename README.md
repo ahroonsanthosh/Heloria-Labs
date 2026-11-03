@@ -1,11 +1,16 @@
 # Heloria Labs
 
-The website of Heloria Labs, a software lab in Ireland: one site with two ways in. The front door offers both.
+The website of Heloria Labs, a software lab in Ireland: one site with three ways in, chosen at the front door.
 
-- **Tamed** is the calm walk, for anyone who wants to see the work without playing for it. It is the front door.
-- **Untamed** is the whole thing, wild and playable: a universe with a black hole in the middle and a game for every
-  project. It lives at `untamed/`; its opening stays just the mark and one prompt, and Beacon (the contact station)
-  links back to the calm walk.
+- **Walk** is the calm way, for anyone who wants to see the work without playing for it. It is Tamed, the front door,
+  and it stays clean.
+- **Land** goes straight down to Earth (`untamed/#land`): a small drawn town where the rocket lands, every project
+  stands, and the three of us are waiting to talk. It opens in the front door's own daylight.
+- **Fly** is the whole thing, wild and playable (`untamed/`): a universe with a black hole in the middle, a game for
+  every project, and Earth on the other side of the horizon.
+
+The rocket at the end of the walk is a fourth door: catch it and it goes up into orbit at Aetos (`untamed/#aetos`),
+skipping the story. Land and Fly end on a white page whose first button walks you through the calm site.
 
 Both are about the same four projects:
 
@@ -21,7 +26,15 @@ Kurian works on Kríos. Kríos is our group project: all three of us are behind 
 
 ## Tamed
 
-Heloria in daylight. A pavilion of pale stone stands in still water at golden hour; scroll walks you through it as the
+The front door is a gate with three ways in, each with one line and a rough time: **Walk** (a calm walk through our
+work, about 2 minutes), **Land** (straight down to Earth to meet the three of us, about 4) and **Fly** (the whole
+universe, about 10). Pointing at one, or focusing it, shows its world behind the letters before you choose it, with its
+own sound: for Walk the mist thins over the pavilion in the water; for Land a bright drawn sky over a small town, with a
+rocket coming down onto its pad; for Fly the dark comes in and bends round a black hole. A phone, with nothing to point
+with, shows the three in turn. Land and Fly go over to their world's light before the page changes: on the site they
+are `untamed/#land` and `untamed/`, in the same tab.
+
+Walk is Heloria in daylight. A pavilion of pale stone stands in still water at golden hour; scroll walks you through it as the
 evening goes on (the sundial in the corner reads the same sun). Through the doorway are four rooms of light, one per
 project, each showing what the product does:
 
@@ -43,19 +56,30 @@ for your voice, pointing at a drone in Aetos marks it, your hand is a small torc
 the Ogive shaft names the height, so the next designs are worked to it.
 
 Then a courtyard where the three of us rise out of the pool as framed portraits, our names cut into the plinths; point
-at one of us for what we do and a link to LinkedIn. A sunset over the water to finish. Press and hold anywhere, or click
-the sundial, for every place. Sound is part of it, and the water is used sparingly: close by the lake, muffled inside
-the rooms.
+at one of us for what we do and a link to LinkedIn. A sunset over the water to finish, and the last thing on the walk:
+now and then a rocket goes up from behind the far hills into the evening, its rumble arriving a couple of seconds after
+its light. Catch it and the camera follows it up into the night, into orbit at Aetos (`untamed/#aetos`); the quiet
+link under the address, "Or fly the whole thing", is the way in from the start. Press and hold anywhere, or click the
+sundial, for every place. Sound is part of it, and the water is used sparingly: close by the lake, muffled inside the
+rooms.
 
 ## Untamed
 
-A small playable universe. You fall towards a ray-traced black hole through a four-chapter story, escape into orbit,
-fly a probe around the system and dock at five stations: the four projects, each with a game built from the project's
-real idea, and Beacon (join us, contact). The nearest station you have not played calls you with a bell you can place
-by ear. The black hole is sealed until you have played one station; the first time you come back, the seal cracks.
+A small playable universe. You fall towards a ray-traced black hole through a four-chapter story and fire the engine
+to escape it. Aetos's radar picks you up as an unidentified contact and brings you in on autopilot, the rest of the
+system dark, and you dock there: play Hold the Sky (about two minutes), or skip it and fly on. Leaving Aetos breaks the
+seal round the horizon. Its wave wakes the other stations (the four projects, each with a game built from the
+project's real idea, and Beacon: join us, contact), all of them yours to visit, and the screen says what to do: fly
+into the black hole, where Aetos has an unidentified contact. You fly in by hand. The stations make no sound; the one
+thing that calls is the contact, a low pulse with a radar's thin return from the side where the hole is, quicker and
+louder as you close in.
 
 Fall in and you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out.
-Every station you have played is built there, springing up the first time you see it. Ahroon is by Aetos, Abraham by
+Every station you have stopped at is built there, springing up the first time you see it, and Ahroon tells you what the
+contact inside the horizon was: us. Land comes straight here, with every project standing and at work (the Kríos
+sculpture lighting in turn as the voices go back and forth, a drone over Aetos picked out and taken down, a drone
+finding itself by the Pharos lighthouse, a test fire under Ogive's hoop); walk up to one and a card says what it is,
+with its link. Ahroon is by Aetos, Abraham by
 Kríos and Michael by Ogive, and each talks about what you have built. Click one of them (or their name tag) and you
 walk over by yourself; walk up to someone you have not met and they start talking.
 
@@ -69,12 +93,17 @@ world burns away like paper onto the traced system; you swing once round the hol
 hold to burn. It throws you out, and the light takes over: a white page with the three of us, and one line,
 3 lads building the impossible.
 
+Each way in has its own prompt on the opening screen (Scroll to begin, Scroll to land, Scroll into orbit), and while
+everything is built behind it one quiet line says what is being made. The untamed plays louder than the walk, and the
+sounds you hear again and again are never quite the same twice.
+
 ## The repository
 
 ```
 tools/
-  build.py              builds the whole site into docs/, and both single-file builds into dist/
-  site-smoke.cjs        serves docs/ under a sub-path, as GitHub Pages does, and checks both ways in
+  build.py              builds the whole site into docs/, both single-file builds into dist/, or (--bundle) one artifact
+  site-smoke.cjs        serves docs/ under a sub-path, as GitHub Pages does, and checks both sites
+  bundle-check.cjs      checks the one-artifact build: every way in stays in the same tab and opens the right way
 tamed/
   src/                  head.html, body.html, css/, js/ (base, sound, renderer, sky, water, outside, the gallery,
                         post, the walk, input, page, main loop), assets/og.jpg (the social image)
@@ -145,6 +174,35 @@ node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/btn --scenario un
 
 ```bash
 node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/monkey --scenario untamed/test/monkey.cjs
+```
+
+```bash
+node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/earth --scenario untamed/test/earth.cjs
+```
+
+```bash
+node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/entry --scenario untamed/test/entry.cjs --hash land
+```
+
+`entry.cjs` checks one way in per run: no `--hash` for Fly, `--hash land`, or `--hash aetos`. The untamed tests are slow
+(software rendering, a few frames a second), so run them one at a time.
+
+The whole site also goes up as one claude.ai artifact: the front door as its page and the untamed as a second page
+beside it (`untamed/index.html`), so every way in stays in the same tab and keeps its `#land` or `#aetos`:
+
+```bash
+python3 tools/build.py --bundle /tmp/one
+```
+
+```bash
+node tools/bundle-check.cjs /tmp/one
+```
+
+For a separate preview, where an artifact address cannot carry `#land` or `#aetos`, the untamed build can bake the way
+in:
+
+```bash
+python3 untamed/build.py --entry land --artifact /tmp/land.html
 ```
 
 ## Deploy on GitHub Pages

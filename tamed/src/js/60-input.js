@@ -2,13 +2,17 @@
    A damped virtual scroll. Input moves a target; the walk follows it with weight. When the hand goes
    quiet the walk settles on the nearest place, leaning the way you were going. It never pulls against
    a trackpad that is still moving. */
-const SC={v:0, target:0, lastIn:-9, dir:1, glide:null, touch:null, inertia:0};
-const PXSTOP=()=>FINE?820:Math.max(420,innerHeight*.62);
+const SC={v:0, target:0, lastIn:-9, dir:1, glide:null, touch:null, inertia:0, base:0};
+/* how far the hand travels for one place: generous, so the walk keeps its pace however hard you scroll */
+const PXSTOP=()=>FINE?1250:Math.max(560,innerHeight*.85);
+/* one gesture takes you at most one place on: a fling of the trackpad never skips a room */
+const REACH=1.12, reach=v=>{ if(Math.abs(SC.v-SC.base)>REACH+.3) SC.base=Math.round(SC.v); return clamp(v,SC.base-REACH,SC.base+REACH); };   // (after a jump, the base is wherever you landed)
 const now=()=>performance.now()/1000;
 function scrollMax(){ return STOPS.length-1; }
 function nudge(dv){
   if(S.mode!=='world') return;
-  SC.glide=null; SC.pin=false; SC.target=clamp(SC.target+dv,-.12,scrollMax()+.12); SC.lastIn=now(); SC.lastF=S.frame; if(dv) SC.dir=Math.sign(dv);
+  if(now()-SC.lastIn>.45&&!SC.inertia) SC.base=Math.round(SC.v);   // a fresh gesture starts from where you stand
+  SC.glide=null; SC.pin=false; SC.target=clamp(reach(SC.target+dv),-.12,scrollMax()+.12); SC.lastIn=now(); SC.lastF=S.frame; if(dv) SC.dir=Math.sign(dv);
   UI.firstScroll();
 }
 function scrollTick(dt){
@@ -16,17 +20,17 @@ function scrollTick(dt){
   if(S.mode==='world'||S.mode==='veil'){
     const quiet=t-SC.lastIn, touching=!!SC.touch;
     if(SC.glide!==null||touching) SC.pin=false;
-    if(SC.inertia&&!touching){ const step=SC.inertia*dt; SC.target=clamp(SC.target+step,-.12,scrollMax()+.12); SC.inertia*=Math.exp(-4.2*dt); if(Math.abs(SC.inertia)<.02) SC.inertia=0; SC.lastIn=t-.05; }
+    if(SC.inertia&&!touching){ const step=SC.inertia*dt; SC.target=clamp(reach(SC.target+step),-.12,scrollMax()+.12); SC.inertia*=Math.exp(-4.2*dt); if(Math.abs(SC.inertia)<.02) SC.inertia=0; SC.lastIn=t-.05; }
     /* settle once the hand has been still a moment: on the nearest place, or the way you were going when you stopped between two */
     const QUIET=TEST?1.6:.4, still=!TEST||S.frame-(SC.lastF||0)>6;
     if(!touching&&!SC.inertia&&quiet>QUIET&&still&&SC.glide===null&&!SC.pin){
       const f=SC.target-Math.floor(SC.target); let goal;
       if(f<.3) goal=Math.floor(SC.target); else if(f>.7) goal=Math.ceil(SC.target); else goal=SC.dir>0?Math.ceil(SC.target):Math.floor(SC.target);
       goal=clamp(goal,0,scrollMax());
-      SC.target=damp(SC.target,goal,Math.min(3.6,1.2+(quiet-QUIET)*5),dt);
+      SC.target=damp(SC.target,goal,Math.min(2.6,.9+(quiet-QUIET)*4),dt);
       if(Math.abs(SC.target-goal)<1e-4) SC.target=goal;
     }
-    const k=SC.glide!==null?2.2:(touching?9:4.2);
+    const k=SC.glide!==null?1.8:(touching?6:2.6);   // the walk follows the hand with weight: unhurried
     SC.v=damp(SC.v,SC.target,k,dt);
     if(SC.glide!==null&&Math.abs(SC.v-SC.glide)<.004){ SC.v=SC.target=SC.glide; SC.glide=null; }
   }
@@ -62,20 +66,20 @@ addEventListener('pointermove',e=>{
   if(HOLD.down&&!HOLD.open){ const d=Math.hypot(e.clientX-HOLD.x,e.clientY-HOLD.y); if(d>(e.pointerType==='touch'?10:14)){ HOLD.moved=true; HOLD.down=false; UI.ring(0); } }
   if(HOLD.open) UI.indexHover(e.clientX,e.clientY);
   if(SC.touch&&e.pointerId===SC.touch.id){ const dy=SC.touch.y-e.clientY;
-    if(S.mode==='world'){ SC.target=clamp(SC.touch.v0+dy/PXSTOP(),-.15,scrollMax()+.15); SC.lastIn=t; SC.lastF=S.frame; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
+    if(S.mode==='world'){ SC.target=clamp(reach(SC.touch.v0+dy/PXSTOP()),-.15,scrollMax()+.15); SC.lastIn=t; SC.lastF=S.frame; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
     const vt=(dy-SC.touch.py)/Math.max(.008,t-SC.touch.pt); SC.touch.vel=lerp(SC.touch.vel,vt,.4); SC.touch.py=dy; SC.touch.pt=t; }
 },{passive:true});
 addEventListener('pointerdown',e=>{
   if(e.button>0) return;
   M.x=e.clientX; M.y=e.clientY; M.type=e.pointerType;
   if(e.pointerType==='touch'&&S.mode==='world'&&!HOLD.open&&!isUI(e.target)){
-    SC.touch={id:e.pointerId,y:e.clientY,v0:SC.target,vel:0,py:0,pt:now(),last:0}; SC.inertia=0; SC.glide=null; }
-  if(S.mode==='world'&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
+    SC.touch={id:e.pointerId,y:e.clientY,v0:SC.target,vel:0,py:0,pt:now(),last:0}; SC.inertia=0; SC.glide=null; SC.base=Math.round(SC.v); }
+  if(S.mode==='world'&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.f0=S.frame; HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
   if(S.mode==='world'&&!isUI(e.target)&&e.pointerType!=='touch') WORLD.tap(e.clientX,e.clientY);
 },{passive:true});
 const endPointer=e=>{
   if(SC.touch&&e.pointerId===SC.touch.id){ const v=SC.touch.vel; const moved=Math.abs(SC.touch.py)>8;
-    if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-4,4)*.45; }
+    if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-2.5,2.5)*.35; }
     else if(S.mode==='world'&&!moved&&!HOLD.open&&e.type==='pointerup') WORLD.tap(e.clientX,e.clientY);
     SC.touch=null; SC.lastIn=now(); SC.lastF=S.frame; }
   if(HOLD.open){ UI.indexRelease(e.clientX,e.clientY,now()-HOLD.t0); }
@@ -84,9 +88,11 @@ const endPointer=e=>{
 addEventListener('pointerup',endPointer,{passive:true});
 addEventListener('pointercancel',endPointer,{passive:true});
 document.addEventListener('mouseleave',()=>{ M.on=false; });
+/* (a press only counts as held once a few frames have gone by as well: on a slow frame the finger's first move can be
+   waiting behind it, and a swipe must never open the index) */
 function holdTick(){
   if(HOLD.down&&!HOLD.open&&!HOLD.moved){ const k=(now()-HOLD.t0-.12)/.48; UI.ring(clamp(k,0,1),HOLD.x,HOLD.y);
-    if(k>=1){ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
+    if(k>=1&&S.frame-HOLD.f0>=6){ /* a held finger, not one slow frame: the start of a swipe never opens it */ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
 }
 addEventListener('wheel',e=>{
   if(S.mode==='gate'||S.mode==='entering'||S.mode==='plain'){ return; }

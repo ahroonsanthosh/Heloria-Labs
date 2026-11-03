@@ -1,15 +1,15 @@
 /* ================= UNIVERSE (hub scene) ================= */
 const U={scene:new T.Scene()};
-const GM=60, RB=31;
+const GM=60, RB=23.5, BELT=13.25;   // the edge of the system, and the asteroid belt between Aetos and Pharos
 U.scene.add(BH.back); U.scene.add(BH.occ);
 
-/* stations, coloured by temperature on the same blackbody scale as the disk, evenly spaced from 9.5 to 27.5 */
+/* stations, coloured by temperature on the same blackbody scale as the disk, evenly spaced from 9.5 to 20 */
 const STA=[
   {id:'kr',name:'Kríos',game:'Read the Room',R:9.5,ph:.4,K:24000,color:'#A5C3FF'},
-  {id:'ae',name:'Aetos',game:'Hold the Sky',R:13.1,ph:4.3,K:6600,color:'#F2EEE6'},
-  {id:'ph',name:'Pharos',game:'Lost Signal',R:16.7,ph:1.1,K:4300,color:'#FFD5B3'},
-  {id:'og',name:'Ogive',game:'Apogee',R:20.3,ph:3.3,K:3100,color:'#FFB475'},
-  {id:'be',name:'Beacon',game:'Join · contact',R:27.5,ph:.2,K:1850,color:'#FF8100'}
+  {id:'ae',name:'Aetos',game:'Hold the Sky',R:12,ph:4.3,K:6600,color:'#F2EEE6'},
+  {id:'ph',name:'Pharos',game:'Lost Signal',R:14.5,ph:1.1,K:4300,color:'#FFD5B3'},
+  {id:'og',name:'Ogive',game:'Apogee',R:17,ph:3.3,K:3100,color:'#FFB475'},
+  {id:'be',name:'Beacon',game:'Join · contact',R:20,ph:.2,K:1850,color:'#FF8100'}
 ];
 const NST=STA.length, BEACON=STA.find(s=>s.id==='be');
 /* noise for Earth, the world past the horizon */
@@ -22,7 +22,7 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
 /* spacetime grid: a polar mesh outside the disk, dented by every mass */
 {
   const v=[];
-  for(let r=7.5;r<=31;r+=1.25){ const N=Math.max(80,Math.floor(r*9)); for(let k=0;k<N;k++){ const a0=k/N*TAU,a1=(k+1)/N*TAU; v.push(Math.cos(a0)*r,0,Math.sin(a0)*r,Math.cos(a1)*r,0,Math.sin(a1)*r); } }
+  for(let r=7.5;r<=RB;r+=1.25){ const N=Math.max(80,Math.floor(r*9)); for(let k=0;k<N;k++){ const a0=k/N*TAU,a1=(k+1)/N*TAU; v.push(Math.cos(a0)*r,0,Math.sin(a0)*r,Math.cos(a1)*r,0,Math.sin(a1)*r); } }
   for(let s=0;s<56;s++){ const a=s/56*TAU; for(let k=0;k<60;k++){ const r0=7.5+k*.4, r1=7.5+(k+1)*.4; v.push(Math.cos(a)*r0,0,Math.sin(a)*r0,Math.cos(a)*r1,0,Math.sin(a)*r1); } }
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(v),3)); g.boundingSphere=new T.Sphere(new T.Vector3(),1e4);
   U.gridU={uTime:G.uTime,uProbe:{value:new T.Vector3(99,0,99)},uSt:{value:[...Array(NST)].map(()=>new T.Vector3(99,0,99))},uOp:{value:0},uShock:{value:-9},uC:{value:new T.Color('#B9A58E')}};
@@ -32,10 +32,10 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
       // the seal breaking sends one wave out across the whole system
-      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(31.,20.,uShock):0.; y-=.7*sk;
+      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},uShock):0.; y-=.7*sk;
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
-      vA=uOp*((.045+.14*wv)*smoothstep(31.,20.,r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
+      vA=uOp*((.045+.14*wv)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
       gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`uniform vec3 uC; varying float vA; void main(){ gl_FragColor=vec4(uC*vA,1.); }`}));
   U.grid.frustumCulled=false; U.scene.add(U.grid);
@@ -104,14 +104,23 @@ STA.forEach((s,si)=>{
   s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=.86*uNear*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(new Float32Array([0,-.95,0,0,-3.2,0]),3)); tg.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
   s.tether=new T.Line(tg,dashMat(C,'float a=0.;')); s.tether.visible=false; g.add(s.tether);
+  /* a station can sleep: dark and silent. On the way in only Aetos is awake; the rest wake as the seal's wave passes them */
+  s.wake=s.wakeT=1; s._wk=1; s.wk=[];
+  g.traverse(o=>{ const m=o.material; if(!m||o===s.zone||o===s.tether) return; const u=m.uniforms;
+    if(u&&u.uC&&u.uE) s.wk.push({u,c:u.uC.value.clone(),e:u.uE.value,r:u.uRim?u.uRim.value:0});
+    else if(u&&u.uOp&&!u.uNear) s.wk.push({u,op:u.uOp.value});
+    else if(!u&&m.transparent&&'opacity' in m) s.wk.push({m,o:m.opacity}); });
 });
+function stationWake(s,k){ if(Math.abs(k-s._wk)<.002) return; s._wk=k; const d=.08+.92*k;
+  for(const w of s.wk){ if(w.c){ w.u.uC.value.copy(w.c).multiplyScalar(d); w.u.uE.value=w.e*k; if(w.u.uRim) w.u.uRim.value=w.r*d; } else if(w.u) w.u.uOp.value=w.op*k; else w.m.opacity=w.o*k; } }
+function wakeUpdate(dt){ STA.forEach(s=>{ s.wake=s.wakeT>s.wake?Math.min(s.wakeT,s.wake+dt*1.4):s.wakeT; stationWake(s,s.wake); }); }
 
 /* asteroid belt between Aetos and Pharos, lit only by the disk */
 {
   const N=Math.floor(380*Q+120);
   U.belt=new T.InstancedMesh(new T.IcosahedronGeometry(1,0),LM('#8c8070',{rim:.25,amb:.03,key:'#FFC392'}),N);
   const M=new T.Matrix4(), q=new T.Quaternion(), e=new T.Euler(), sc=new T.Vector3(), p=new T.Vector3();
-  for(let i=0;i<N;i++){ const a=Math.random()*TAU, r=14.9+gauss()*.38; p.set(Math.cos(a)*r,gauss()*.12,Math.sin(a)*r); e.set(Math.random()*6,Math.random()*6,Math.random()*6); q.setFromEuler(e);
+  for(let i=0;i<N;i++){ const a=Math.random()*TAU, r=BELT+gauss()*.34; p.set(Math.cos(a)*r,gauss()*.12,Math.sin(a)*r); e.set(Math.random()*6,Math.random()*6,Math.random()*6); q.setFromEuler(e);
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
@@ -200,6 +209,6 @@ function updateStations(t){
   U.sigU.uBe.value.copy(BEACON.pos);
 }
 function universeVisible(k){
-  STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
+  STA.forEach(s=>{ s.grp.visible=k>.01; const w=k*(.12+.88*s.wake); s.orbit.material.uniforms.uOp.value=w; s.zone.material.uniforms.uOp.value=k*s.wake; s.tether.material.uniforms.uOp.value=w; });
   U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*S.sealK; U.shard.material.uniforms.uOp.value=k;
 }
