@@ -90,5 +90,8 @@ function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=F
 /* the white page */
 function credits(){ if(S.mode==='credits') return; S.mode='credits'; FZ.on=false; S.flashMin=1; post.uniforms.uFlash.value=1;
   A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
+  $('#finAgain').textContent=S.entry==='land'?'Fly the whole thing':'Fly again';
   finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }
-$('#finAgain').addEventListener('click',()=>{ location.reload(); });
+/* again, from the very beginning: the whole flight, whichever way you came in */
+$('#finAgain').addEventListener('click',()=>{ if(location.hash) history.replaceState(null,'',location.pathname+location.search); location.reload(); });
+$('#finWalk').addEventListener('click',()=>{ A.hush&&A.hush(); });

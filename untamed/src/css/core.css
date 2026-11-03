@@ -190,6 +190,8 @@ html.fin #back,html.fin #chrome,html.fin #hint{opacity:0!important;pointer-event
 #fin .fa{display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:28px;opacity:0}
 #fin .fa .btn{color:#111;border-color:rgba(17,17,17,.35)}
 #fin .fa .btn:hover{background:#111;color:#fff}
+#fin .fa .walk{background:#111;color:#fff;border-color:#111}   /* the way on: the calm walk through our work */
+#fin .fa .walk:hover{background:#2c2a27;border-color:#2c2a27}
 #fin .fa a{color:#5f5a52}
 #fin.on .f1{animation:finc 4.2s ease 1s both}
 #fin.on .f2{animation:fins 7s ease 5.4s both}
