@@ -21,7 +21,15 @@ Kurian works on Kríos. Kríos is our group project: all three of us are behind 
 
 ## Tamed
 
-Heloria in daylight. A pavilion of pale stone stands in still water at golden hour; scroll walks you through it as the
+The front door is a gate with three ways in, each with one line and a rough time: **Walk** (a calm walk through our
+work, about 2 minutes), **Land** (straight down to Earth to meet the three of us, about 4) and **Fly** (the whole
+universe, about 10). Pointing at one, or focusing it, shows its world behind the letters before you choose it, with its
+own sound: for Walk the mist thins over the pavilion in the water; for Land a bright drawn sky over a small town, with a
+rocket coming down onto its pad; for Fly the dark comes in and bends round a black hole. A phone, with nothing to point
+with, shows the three in turn. Land and Fly go over to their world's light before the page changes: on the site they
+are `untamed/#land` and `untamed/`, in the same tab.
+
+Walk is Heloria in daylight. A pavilion of pale stone stands in still water at golden hour; scroll walks you through it as the
 evening goes on (the sundial in the corner reads the same sun). Through the doorway are four rooms of light, one per
 project, each showing what the product does:
 
@@ -43,9 +51,12 @@ for your voice, pointing at a drone in Aetos marks it, your hand is a small torc
 the Ogive shaft names the height, so the next designs are worked to it.
 
 Then a courtyard where the three of us rise out of the pool as framed portraits, our names cut into the plinths; point
-at one of us for what we do and a link to LinkedIn. A sunset over the water to finish. Press and hold anywhere, or click
-the sundial, for every place. Sound is part of it, and the water is used sparingly: close by the lake, muffled inside
-the rooms.
+at one of us for what we do and a link to LinkedIn. A sunset over the water to finish, and the last thing on the walk:
+now and then a rocket goes up from behind the far hills into the evening, its rumble arriving a couple of seconds after
+its light. Catch it and the camera follows it up into the night, into orbit at Aetos (`untamed/#aetos`); the quiet
+link under the address, "Or fly the whole thing", is the way in from the start. Press and hold anywhere, or click the
+sundial, for every place. Sound is part of it, and the water is used sparingly: close by the lake, muffled inside the
+rooms.
 
 ## Untamed
 

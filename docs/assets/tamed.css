@@ -32,29 +32,40 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #word span:nth-child(2){ transition-delay:.06s } #word span:nth-child(3){ transition-delay:.12s } #word span:nth-child(4){ transition-delay:.04s }
 #word span:nth-child(5){ transition-delay:.1s } #word span:nth-child(6){ transition-delay:.02s } #word span:nth-child(7){ transition-delay:.08s }
 .gate-line{ margin:2.2vh 0 0; font-size:13px; letter-spacing:.2em; text-transform:uppercase; opacity:0; transition:opacity 1.2s var(--ease) .2s; }
-.ways{ display:flex; align-items:stretch; gap:clamp(28px,5vw,80px); margin-top:clamp(36px,7vh,76px); opacity:0; transform:translateY(14px); transition:opacity 1.2s var(--ease) .35s,transform 1.4s var(--ease) .35s; }
+.ways{ display:flex; align-items:stretch; gap:clamp(22px,3.6vw,60px); margin-top:clamp(34px,6.4vh,70px); opacity:0; transform:translateY(14px); transition:opacity 1.2s var(--ease) .35s,transform 1.4s var(--ease) .35s; }
 #gate.ready .gate-line{ opacity:.62; } #gate.ready .ways{ opacity:1; transform:none; }
-.ways-rule{ width:1px; background:currentColor; opacity:.22; }
-.way{ display:flex; flex-direction:column; align-items:center; gap:8px; min-width:12em; transition:opacity .6s var(--ease),filter .6s var(--ease); position:relative; }
+.ways-rule{ width:1px; background:currentColor; opacity:.22; transition:opacity .6s var(--ease); }
+.way{ display:flex; flex-direction:column; align-items:center; gap:7px; width:clamp(10.5em,15.5vw,14.5em); transition:opacity .6s var(--ease),filter .6s var(--ease); position:relative; }
 .way .w{ font-size:clamp(34px,4vw,60px); line-height:1; position:relative; }
 .way .w::after{ content:''; position:absolute; left:8%; right:8%; bottom:-.12em; height:1px; background:currentColor; transform:scaleX(0); transform-origin:50% 50%; transition:transform .7s var(--ease); }
-.way:hover .w::after,.way:focus-visible .w::after{ transform:scaleX(1); }
-.way .d{ font-size:13px; opacity:.6; letter-spacing:.02em; }
+.way:hover .w::after,.way:focus-visible .w::after,.way.on .w::after{ transform:scaleX(1); }
+.way .d{ font-size:13px; line-height:1.4; opacity:.66; letter-spacing:.02em; text-wrap:balance; }
+.way .m{ margin-top:auto; padding-top:3px; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; opacity:.46; white-space:nowrap; }
 .way[disabled]{ opacity:.4; pointer-events:none; }
 .gate-foot{ position:absolute; bottom:max(28px,env(safe-area-inset-bottom)); left:0; right:0; margin:0; text-align:center; font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.55; display:flex; gap:10px; justify-content:center; align-items:center; transition:opacity .8s; }
 .gate-foot .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; animation:breathe 2.4s ease-in-out infinite; }
 @keyframes breathe{ 50%{ transform:scale(.45); opacity:.4; } }
-/* hovering Tamed stills everything into warm light */
-#gate.warm .gate-glow{ opacity:1; transform:translate(-50%,-50%) scale(1.25); }
-#gate.warm #untamed{ opacity:.35; filter:blur(1px); }
-#gate.warm #word{ color:#5A3E22; }
-/* hovering Untamed: a dark tremor */
-#gate.dark{ color:var(--light); }
-#gate.dark .gate-glow{ opacity:0; }
-#gate.dark #tamed{ opacity:.3; filter:blur(1.5px); }
-#gate.dark #word span.in{ animation:tremor .11s steps(2) infinite; }
-#gate.dark #word span.in:nth-child(odd){ animation-duration:.13s; animation-direction:reverse; }
-#gate.dark .gate-line,#gate.dark .gate-foot{ opacity:.35; }
+/* each way shows its own world behind the letters, and the other two step back */
+#gate.walk .way:not([data-way="walk"]),#gate.land .way:not([data-way="land"]),#gate.fly .way:not([data-way="fly"]){ opacity:.3; filter:blur(1.2px); }
+#gate.walk .ways-rule,#gate.land .ways-rule,#gate.fly .ways-rule{ opacity:.1; }
+/* Walk: the mist thins and the walk itself shows through, warm and still */
+#gate.walk .gate-glow{ opacity:1; transform:translate(-50%,-50%) scale(1.25); }
+#gate.walk #word{ color:#5A3E22; }
+/* Land: a bright drawn sky over a small town, and a rocket coming down to it */
+#gateLand{ position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; pointer-events:none; transition:opacity .9s var(--ease); }
+#gate.land #gateLand{ opacity:1; }
+#gate.land .gate-glow{ opacity:0; }
+#gate.land{ color:#2A241D; }
+/* Fly: the dark comes in and bends round a black hole; the letters cannot keep still */
+#gate.fly{ color:var(--light); }
+#gate.fly .gate-glow{ opacity:0; }
+#gate.fly #word span.in{ animation:tremor .11s steps(2) infinite; }
+#gate.fly #word span.in:nth-child(odd){ animation-duration:.13s; animation-direction:reverse; }
+#gate.fly .gate-line,#gate.fly .gate-foot{ opacity:.35; }
+/* choosing Land or Fly: the gate goes over to that world's light before the page changes */
+#gate::after{ content:''; position:absolute; inset:0; background:var(--out,#030305); opacity:0; pointer-events:none; transition:opacity .75s var(--ease2); }
+#gate.leaving::after{ opacity:1; }
+@media (prefers-reduced-motion: reduce){ #gate.fly #word span.in{ animation:none; } }
 @keyframes tremor{ 0%{ transform:translate(.6px,-.4px) } 25%{ transform:translate(-.8px,.6px) } 50%{ transform:translate(.4px,.9px) } 75%{ transform:translate(-.5px,-.7px) } 100%{ transform:translate(.7px,.2px) } }
 #gate.go{ pointer-events:none; }
 #gate.go .gate-glow,#gate.go .gate-line,#gate.go .ways,#gate.go .gate-foot{ opacity:0; transition:opacity .7s var(--ease); }
@@ -65,6 +76,10 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #ui{ position:fixed; inset:0; z-index:10; pointer-events:none; color:var(--fg); opacity:0; transition:opacity 1.4s var(--ease) .6s; }
 #ui.on{ opacity:1; }
 #ui a,#ui button{ pointer-events:auto; }
+#ui .rocket-hit{ position:absolute; left:0; top:0; width:var(--rs,112px); height:var(--rs,112px); margin:calc(var(--rs,112px) / -2) 0 0 calc(var(--rs,112px) / -2); border-radius:50%; pointer-events:none; visibility:hidden; }
+#ui .rocket-hit.on{ pointer-events:auto; visibility:visible; }
+#ui .rocket-hit:focus-visible{ outline:1px solid rgba(255,248,238,.75); outline-offset:-10px; }
+#ui.leaving{ opacity:0; transition:opacity .8s var(--ease); }
 #top{ position:absolute; left:0; right:0; top:0; display:flex; justify-content:space-between; align-items:center; padding:max(26px,env(safe-area-inset-top)) var(--gut) 0; transition:opacity .8s var(--ease); }
 #logo{ font-size:17px; letter-spacing:.3em; font-variation-settings:'wght' 760,'ROND' 100; opacity:0; transition:opacity .8s var(--ease); }
 #logo.on{ opacity:1; }
@@ -214,8 +229,12 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
   /* on a phone the foot of the screen is usually water or a dark room: the small labels there stay pale */
   #dial,#cue{ color:var(--light); } .dial-t,#cue span{ text-shadow:0 1px 10px rgba(20,14,10,.45),0 0 2px rgba(20,14,10,.3); }
   .dial-t{ font-size:11px; }
-  .ways{ flex-direction:column; gap:26px; align-items:center; }
+  .ways{ flex-direction:column; gap:16px; align-items:center; margin-top:4.6vh; }
   .ways-rule{ width:42px; height:1px; }
+  .way{ width:min(20em,84vw); gap:4px; }
+  .way .w{ font-size:clamp(32px,9vw,42px); }
+  .way .d{ font-size:12.5px; }
+  .way .m{ font-size:10px; margin-top:1px; }
 }
 
 /* ---------- without WebGL: the same words as a plain page ---------- */

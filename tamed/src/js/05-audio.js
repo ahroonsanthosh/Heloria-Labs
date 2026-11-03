@@ -61,6 +61,13 @@ const A=(()=>{
     const rb=src(n.brown), rf=ctx.createBiquadFilter(); rf.type='lowpass'; rf.frequency.value=110; rb.connect(rf); rf.connect(n.dark);
     const sub=ctx.createOscillator(); sub.type='sine'; sub.frequency.value=34; const sg2=ctx.createGain(); sg2.gain.value=.6; sub.connect(sg2); sg2.connect(n.dark); sub.start();
     const trm=ctx.createOscillator(); trm.frequency.value=6.5; const trmG=ctx.createGain(); trmG.gain.value=.35; trm.connect(trmG); trmG.connect(sg2.gain); trm.start();
+    n.nextPing=0; n.nextGateBird=0;
+    /* a rocket going up from the far shore: a low, uneven rumble that comes in late and far; it opens up and comes close
+       when you catch it */
+    n.rk=ctx.createGain(); n.rk.gain.value=0; n.rkF=ctx.createBiquadFilter(); n.rkF.type='lowpass'; n.rkF.frequency.value=150; n.rkF.Q.value=.7;
+    const rks=src(n.brown), rkA=ctx.createGain(); rkA.gain.value=.75; rks.connect(n.rkF); n.rkF.connect(rkA); rkA.connect(n.rk); n.rk.connect(n.comp);
+    const rkr=ctx.createGain(); rkr.gain.value=.8; n.rk.connect(rkr); rkr.connect(n.revIn);
+    const crk=ctx.createOscillator(); crk.type='sawtooth'; crk.frequency.value=7.3; const crkG=ctx.createGain(); crkG.gain.value=.28; crk.connect(crkG); crkG.connect(rkA.gain); crk.start();
   }
   function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.start(0,Math.random()*2); return s; }
   const last=new WeakMap();
@@ -143,7 +150,7 @@ const A=(()=>{
     update(dt,st){
       if(!ctx||!on) return;
       const t=ctx.currentTime;
-      if(t>n.nextChord){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
+      if(t>n.nextChord&&!n.tape){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
         if(n.cc%2===0&&st.music>.3){ const M=MOTIF[n.cc%8===0?0:Math.floor(Math.random()*MOTIF.length)], g=.034*st.music, t0=t+1.2; M.forEach(([m,dt],i)=>glass(m,t0+dt+(Math.random()-.5)*.06,g*(1-i*.08),(i%2?.18:-.18))); n.nextNote=Math.max(n.nextNote,t0+4.5); }
         n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,1.6))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,1.2); }
       if(t>n.nextNote){ const C=CH[n.ci]; const pick=()=>{ let m=PENTA[Math.floor(Math.random()*PENTA.length)]; return m; };
@@ -167,7 +174,25 @@ const A=(()=>{
       if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
       set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
+      /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
+      if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
+      if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
+      set(n.rk.gain,(st.rocket||0)*.16+(st.rocketNear||0)*.62,.45); set(n.rkF.frequency,150+(st.rocketNear||0)*1100,.5);
+      if(n.tape&&(st.rocketNear||0)<.05){ n.tape=false; const C=CH[n.ci]; n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,.8))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,.8); }
     },
+    /* the gate: a way being shown, and a way being taken */
+    preview(v){ if(!on) return; const t=ctx.currentTime;
+      if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
+      else if(v==='land'){ noise(3.3,.028,560,150,'bandpass',.9,0,.5); tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
+        setTimeout(()=>{ if(S.gateHover!=='land'||!on) return; tone(80,.35,.05,'sine',52,0,.4,.004); noise(.5,.02,1200,300,'lowpass',.8,0,.3);
+          glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
+      else if(v==='fly'){ tone(mtof(26),2.6,.04,'sine',mtof(24),0,.5,.5); noise(2.4,.03,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
+    leave(v){ if(!on) return; const t=ctx.currentTime;
+      if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
+      else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
+    /* the rocket at the end of the walk, caught: it roars in close, a long rise, and the walk falls quiet under it */
+    rocketGo(){ if(!on) return; const t=ctx.currentTime; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
+      n.tape=true; n.voices.forEach(v=>v.os.forEach(o=>o.frequency.setTargetAtTime(o.frequency.value*.5,t+.3,.75))); n.bass.frequency.setTargetAtTime(n.bass.frequency.value*.5,t+.3,.75); },
     /* the hand */
     hover(){ if(!on) return; const m=PENTA[3+Math.floor(Math.random()*5)]; tone(mtof(m),.32,.016,'sine',0,0,.35,.004); tone(mtof(m)*2,.12,.004,'sine',0,0,0,.002); },
     click(){ if(!on) return; tone(560,.09,.05,'triangle',260,0,.15,.003); noise(.03,.03,2400,1800,'bandpass',2,0,.05); },

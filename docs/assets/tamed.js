@@ -4,14 +4,18 @@
 /* ================= HELORIA TAMED =================
    A pavilion of pale stone standing in still water at golden hour. One evening, one walk:
    scroll moves you through the place and moves the sun down the sky with you. */
-const UNTAMED_URL='untamed/';   // set by the build: untamed/ on the site, the untamed artifact's link as an artifact
-/* the way to the wild site: the same tab when it is part of this site, a new one when it lives somewhere else */
-const untamedLinks=d=>d.querySelectorAll('[data-untamed]').forEach(a=>{ a.href=UNTAMED_URL; if(!/^https?:/.test(UNTAMED_URL)){ a.removeAttribute('target'); a.removeAttribute('rel'); } });
+/* the ways out of the walk, set by the build: on the site untamed/ (Fly), untamed/#land (Land) and untamed/#aetos (the
+   rocket at the end of the walk, into orbit at Aetos); as an artifact, the other artifacts' links */
+const UNTAMED_URL='untamed/', LAND_URL='untamed/#land', ROCKET_URL='untamed/#aetos';
+const sameSite=u=>!/^https?:/.test(u);
+/* the same tab when it is part of this site, a new one when it lives somewhere else */
+const outLinks=d=>[['[data-untamed]',UNTAMED_URL],['[data-land]',LAND_URL],['[data-rocket]',ROCKET_URL]].forEach(([q,u])=>
+  d.querySelectorAll(q).forEach(a=>{ a.href=u; if(sameSite(u)){ a.removeAttribute('target'); a.removeAttribute('rel'); } }));
 const PHOTOS=["assets/img/ahroon.webp", "assets/img/michael.webp", "assets/img/abraham.webp"];
 const T=window.THREE;
 /* without three.js there is no place to walk through: keep the words, as a plain page */
 if(!T){ const d=document; d.documentElement.classList.add('nogl'); const g=d.getElementById('gate'), b=d.getElementById('tamed');
-  untamedLinks(d); g.classList.remove('loading'); g.classList.add('ready'); [...d.querySelectorAll('#word span')].forEach(l=>l.classList.add('in'));
+  outLinks(d); g.classList.remove('loading'); g.classList.add('ready'); [...d.querySelectorAll('#word span')].forEach(l=>l.classList.add('in'));
   b.disabled=false; b.onclick=()=>{ g.style.display='none'; const u=d.getElementById('ui'); u.classList.add('on'); u.removeAttribute('aria-hidden'); d.getElementById('logo').classList.add('on'); };
   throw new Error('Heloria Tamed: three.js did not load, showing the plain page'); }
 const TEST=!!window.__TEST, HQ=!!window.__HQ;
@@ -120,6 +124,13 @@ const A=(()=>{
     const rb=src(n.brown), rf=ctx.createBiquadFilter(); rf.type='lowpass'; rf.frequency.value=110; rb.connect(rf); rf.connect(n.dark);
     const sub=ctx.createOscillator(); sub.type='sine'; sub.frequency.value=34; const sg2=ctx.createGain(); sg2.gain.value=.6; sub.connect(sg2); sg2.connect(n.dark); sub.start();
     const trm=ctx.createOscillator(); trm.frequency.value=6.5; const trmG=ctx.createGain(); trmG.gain.value=.35; trm.connect(trmG); trmG.connect(sg2.gain); trm.start();
+    n.nextPing=0; n.nextGateBird=0;
+    /* a rocket going up from the far shore: a low, uneven rumble that comes in late and far; it opens up and comes close
+       when you catch it */
+    n.rk=ctx.createGain(); n.rk.gain.value=0; n.rkF=ctx.createBiquadFilter(); n.rkF.type='lowpass'; n.rkF.frequency.value=150; n.rkF.Q.value=.7;
+    const rks=src(n.brown), rkA=ctx.createGain(); rkA.gain.value=.75; rks.connect(n.rkF); n.rkF.connect(rkA); rkA.connect(n.rk); n.rk.connect(n.comp);
+    const rkr=ctx.createGain(); rkr.gain.value=.8; n.rk.connect(rkr); rkr.connect(n.revIn);
+    const crk=ctx.createOscillator(); crk.type='sawtooth'; crk.frequency.value=7.3; const crkG=ctx.createGain(); crkG.gain.value=.28; crk.connect(crkG); crkG.connect(rkA.gain); crk.start();
   }
   function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.start(0,Math.random()*2); return s; }
   const last=new WeakMap();
@@ -202,7 +213,7 @@ const A=(()=>{
     update(dt,st){
       if(!ctx||!on) return;
       const t=ctx.currentTime;
-      if(t>n.nextChord){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
+      if(t>n.nextChord&&!n.tape){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
         if(n.cc%2===0&&st.music>.3){ const M=MOTIF[n.cc%8===0?0:Math.floor(Math.random()*MOTIF.length)], g=.034*st.music, t0=t+1.2; M.forEach(([m,dt],i)=>glass(m,t0+dt+(Math.random()-.5)*.06,g*(1-i*.08),(i%2?.18:-.18))); n.nextNote=Math.max(n.nextNote,t0+4.5); }
         n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,1.6))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,1.2); }
       if(t>n.nextNote){ const C=CH[n.ci]; const pick=()=>{ let m=PENTA[Math.floor(Math.random()*PENTA.length)]; return m; };
@@ -226,7 +237,25 @@ const A=(()=>{
       if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
       set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
+      /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
+      if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
+      if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
+      set(n.rk.gain,(st.rocket||0)*.16+(st.rocketNear||0)*.62,.45); set(n.rkF.frequency,150+(st.rocketNear||0)*1100,.5);
+      if(n.tape&&(st.rocketNear||0)<.05){ n.tape=false; const C=CH[n.ci]; n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,.8))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,.8); }
     },
+    /* the gate: a way being shown, and a way being taken */
+    preview(v){ if(!on) return; const t=ctx.currentTime;
+      if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
+      else if(v==='land'){ noise(3.3,.028,560,150,'bandpass',.9,0,.5); tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
+        setTimeout(()=>{ if(S.gateHover!=='land'||!on) return; tone(80,.35,.05,'sine',52,0,.4,.004); noise(.5,.02,1200,300,'lowpass',.8,0,.3);
+          glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
+      else if(v==='fly'){ tone(mtof(26),2.6,.04,'sine',mtof(24),0,.5,.5); noise(2.4,.03,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
+    leave(v){ if(!on) return; const t=ctx.currentTime;
+      if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
+      else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
+    /* the rocket at the end of the walk, caught: it roars in close, a long rise, and the walk falls quiet under it */
+    rocketGo(){ if(!on) return; const t=ctx.currentTime; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
+      n.tape=true; n.voices.forEach(v=>v.os.forEach(o=>o.frequency.setTargetAtTime(o.frequency.value*.5,t+.3,.75))); n.bass.frequency.setTargetAtTime(n.bass.frequency.value*.5,t+.3,.75); },
     /* the hand */
     hover(){ if(!on) return; const m=PENTA[3+Math.floor(Math.random()*5)]; tone(mtof(m),.32,.016,'sine',0,0,.35,.004); tone(mtof(m)*2,.12,.004,'sine',0,0,0,.002); },
     click(){ if(!on) return; tone(560,.09,.05,'triangle',260,0,.15,.003); noise(.03,.03,2400,1800,'bandpass',2,0,.05); },
@@ -983,7 +1012,10 @@ function buildOutside(){
     g.rotateY(Math.PI/2); const m=new T.Mesh(g,W.beamMat); m.position.set(-11.6,Y0,a.c); m.frustumCulled=false; m.renderOrder=960; sc.add(m); beams.push(m); }
   W.beams=beams;
   W.hideInMirror=[W.water,W.seeds.mesh,...beams];
+  /* the last thing on the walk: a rocket from the far shore, now and then */
+  W.launch=makeLaunch(W);
   W.update=(dt,st)=>{
+    W.launch.update(dt,S.s);
     { const gu=W.grass.mat.uniforms; gu.uMouseK.value=damp(gu.uMouseK.value,M.on&&S.mode==='world'?1:0,4,dt); gu.uMouseN.value.set(M.x/innerWidth*2-1,-(M.y/innerHeight*2-1)); gu.uAsp.value=innerWidth/innerHeight; const c=CAM.out; c.updateMatrixWorld(); gu.uVP.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse); gu.uRight.value.setFromMatrixColumn(c.matrixWorld,0); }
     W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale; W.birdMat.uniforms.uTime.value+=dt*S.timeScale;
     for(const p of W.people){
@@ -999,7 +1031,7 @@ function buildOutside(){
       if(prev<.04&&p.reveal>=.04&&p.reveal<.5) W.sim.drop(p.x,p.z,1.1,-.75);
     }
   };
-  W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint);
+  W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint); W.launch.light();
     const k=sstep(4.45,4.8,S.s)*(1-sstep(5.85,6.1,S.s))*sstep(-.5,1.5,SUN.el); W.beamMat.uniforms.uK.value=k;
     const yaw=Math.atan2(SUN.dir.z,-SUN.dir.x), pitch=Math.asin(clamp(SUN.dir.y,-1,1));
     for(const b of W.beams){ b.visible=k>.001; b.rotation.set(0,yaw,-pitch,'YZX'); } };
@@ -1114,6 +1146,124 @@ function makeSeeds(U,N){
     fragmentShader:`uniform vec3 uCol; uniform float uK; varying float vA; void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); float a=smoothstep(.5,.0,d); a=a*a*.7+smoothstep(.18,.0,d)*.6; gl_FragColor=vec4(uCol*a*vA*uK*.8,1.); }`});
   const mesh=new T.Points(g,mat); mesh.frustumCulled=false; mesh.renderOrder=950;
   return {mesh,mat};
+}
+
+/* ---- 27-launch.js ---- */
+/* ================= THE LAST LIGHT: A ROCKET FROM THE FAR SHORE =================
+   At the last stop, now and then a rocket goes up from behind the far hills into the evening, the same cream and
+   peach rocket as the one in the wild universe. Its sound comes a couple of seconds after its light, because it is far.
+   Catch it and the camera follows it up out of the sky into the night: that is the way into orbit, at Aetos. */
+const LAUNCH={vis:false, ph:-1, wait:1.6, turn:.16, heard:0, near:0, go:false, gt:0, back:false, left:false, href:'', camK:0, fov:16, dark:0,
+  p:v3(), dir:v3(0,1,0), mid:v3(), sc:new T.Vector3(), scr:{x:-1,y:-1,on:false}};
+const L_T=21, L_GAP=5, L_LIFT=1.3;   // a flight, the quiet between flights, the engines lit behind the hills before it rises
+function makeLaunch(W){
+  const sc=W.scene, g=new T.Group(); g.visible=false; sc.add(g);
+  /* where it goes up: behind the far hills, right of the sun as you look out from the last stop, then turning away to the
+     right so it climbs clear of the words. A narrow screen sees less of the sky, so there it goes up nearer the middle */
+  const CAMC=v3(-24.5,0,-9.7), FWD=v3(-.9989,0,-.0102), RIGHT=v3(.0102,0,-.9989), D=785, H=60, HILL=24, L0=v3();
+  const base=()=>{ const port=portrait(), a=(port?5.5:12.5)*DEG; L0.copy(CAMC).addScaledVector(FWD,D*Math.cos(a)).addScaledVector(RIGHT,D*Math.sin(a)).setY(-14); LAUNCH.turn=port?.05:.16; pre.mesh.position.set(L0.x,6,L0.z); };
+  /* where it is t seconds after it rises, and gt seconds after you caught it, when it really goes */
+  const pos=(t,gt,o)=>{ const up=.5*2.3*t*t+(gt>0?11*gt*gt:0); return o.copy(L0).addScaledVector(RIGHT,LAUNCH.turn*up+LAUNCH.turn*.0018*up*up).setY(L0.y+up); };
+  /* its own light: the low sun on one side, the sky on the other, the evening haze over it, eased so it still reads */
+  const RV=`varying vec3 vN,vWP; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`;
+  const lit=[];
+  const mat=c=>{ const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:col(c)},uSunCol:{value:new T.Color('#FFD2A6')},uSkyCol:{value:new T.Color('#B9B4CE')}},W.U),
+    vertexShader:RV, fragmentShader:`uniform vec3 uC,uSunCol,uSkyCol; varying vec3 vN,vWP; ${GLSL.haze}
+      void main(){ vec3 N=normalize(vN), V=normalize(cameraPosition-vWP);
+        float key=max(dot(N,normalize(uSunDir+vec3(0.,.25,0.))),0.), rim=pow(1.-abs(dot(N,V)),3.);
+        /* the low sun is behind it from where you stand, so the evening sky and the lake light the side you see */
+        float fill=.55+.45*max(dot(N,V),0.);
+        vec3 c=uC*(uSkyCol*.45+uSunCol*key*.8+vec3(1.,.86,.76)*fill*.62)+uSunCol*rim*.4;
+        gl_FragColor=vec4(mix(c,haze(c,vWP),.38),1.); }`}); lit.push(m); return m; };
+  const body=new T.Group(); g.add(body);
+  const part=(geo,c,y)=>{ const m=new T.Mesh(geo,mat(c)); m.position.y=y; m.frustumCulled=false; body.add(m); return m; };
+  part(new T.CylinderGeometry(2.2,2.9,4,20),'#3B3633',2);
+  part(new T.CylinderGeometry(3.2,3.2,44,28),'#F4EFE6',26);
+  part(new T.CylinderGeometry(3.26,3.26,3,28),'#EF8A3C',37.5);
+  part(new T.ConeGeometry(3.2,12,28),'#F4EFE6',54);
+  for(let i=0;i<4;i++){ const f=new T.Mesh(new T.BoxGeometry(.5,9,6.5),mat('#F2B98D')), a=i*Math.PI/2+.4;
+    f.position.set(Math.cos(a)*5.6,7.5,Math.sin(a)*5.6); f.rotation.y=-a; f.frustumCulled=false; body.add(f); }
+  /* the flame and its glow, which is all you can make out of it while it is far */
+  const flU={uTime:GU.uTime,uK:{value:0}};
+  const flG=new T.CylinderGeometry(2.6,.2,24,20,6,true); flG.translate(0,-12,0);
+  const flame=new T.Mesh(flG,new T.ShaderMaterial({uniforms:flU,...ADD,side:T.DoubleSide,
+    vertexShader:`uniform float uTime; varying float vY; varying vec3 vN,vW; void main(){ vec3 p=position; vY=clamp(-p.y/24.,0.,1.); p.xz*=1.+.18*sin(uTime*29.+p.y*.9)*vY; vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform float uK,uTime; varying float vY; varying vec3 vN,vW; void main(){ vec3 V=normalize(cameraPosition-vW); float f=abs(dot(normalize(vN),V));
+      vec3 c=mix(vec3(1.,.95,.8),vec3(1.,.55,.22),vY); float a=pow(f,1.3)*(1.-vY*.85)*(.86+.14*sin(uTime*41.)); gl_FragColor=vec4(c*a*uK*2.2,1.); }`}));
+  flame.frustumCulled=false; body.add(flame);
+  const glow=glowSprite('#FFD3A0',16); glow.mesh.position.y=-3; glow.mesh.renderOrder=962; body.add(glow.mesh);
+  /* behind the hills before it rises: the light of the engines on the haze */
+  const pre=glowSprite('#FFC48E',70); pre.mesh.renderOrder=961; pre.U.uK.value=0; sc.add(pre.mesh); base();
+  /* the smoke it leaves, lit by the low sun: puffs that spread and fade */
+  const NP=MOBILE?180:300, pp=new Float32Array(NP*3), pb=new Float32Array(NP).fill(-99);
+  const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(pp,3)); tg.setAttribute('aB',new T.BufferAttribute(pb,1)); tg.boundingSphere=new T.Sphere(v3(),1e5);
+  const TU={uNow:{value:0},uPx:{value:600},uCol:{value:new T.Color('#FFC7A8')},uK:{value:1}};
+  const trail=new T.Points(tg,new T.ShaderMaterial({uniforms:TU,...ADD,
+    vertexShader:`attribute float aB; uniform float uNow,uPx; varying float vA; void main(){ float age=uNow-aB; vec4 mv=viewMatrix*vec4(position+vec3(age*.9,age*.5,0.),1.);
+      vA=(age<0.||aB<-90.)?0.:exp(-age/5.5)*smoothstep(0.,.35,age); gl_PointSize=clamp((7.5+age*2.6)*uPx/max(-mv.z,1.),1.5,64.); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uK; varying float vA; void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,.08,d); gl_FragColor=vec4(uCol*a*vA*.11*uK,1.); }`}));
+  trail.frustumCulled=false; trail.renderOrder=958; sc.add(trail);
+  let ip=0, gone=0; const lastP=v3();
+  const _b=v3(), _q=new T.Quaternion(), Y=v3(0,1,0);
+  return {
+    update(dt,s){
+      const here=s>5.9&&(S.mode==='world'||S.mode==='launch');
+      /* the first one goes up soon after you arrive; then one now and then while you stay */
+      if(!here&&!LAUNCH.go){ if(LAUNCH.ph>=0&&s<5.6){ LAUNCH.ph=-1; LAUNCH.wait=1.6; } }
+      else if(LAUNCH.ph<0){ LAUNCH.wait-=dt; if(LAUNCH.wait<=0){ LAUNCH.ph=0; base(); } }
+      if(LAUNCH.ph<0){ g.visible=false; LAUNCH.vis=false; LAUNCH.heard=0; pre.U.uK.value=0; return; }
+      LAUNCH.ph+=dt; const ph=LAUNCH.ph, t=Math.max(0,ph-L_LIFT), gt=LAUNCH.go?LAUNCH.gt:0;
+      const p=pos(t,gt,LAUNCH.p); pos(t+.2,gt+(LAUNCH.go?.2:0),_b);
+      LAUNCH.dir.subVectors(_b,p); if(LAUNCH.dir.lengthSq()<1e-6) LAUNCH.dir.set(0,1,0); LAUNCH.dir.normalize();
+      g.position.copy(p); _q.setFromUnitVectors(Y,LAUNCH.dir); g.quaternion.copy(_q);
+      const ign=sstep(0,L_LIFT,ph), fly=ph>=L_LIFT;
+      pre.U.uK.value=ign*(1-sstep(L_LIFT,L_LIFT+2.5,ph))*1.1; pre.U.uS.value=.8+.4*ign;
+      flU.uK.value=fly?1:0; glow.U.uK.value=fly?1.6:0; glow.U.uS.value=1+.08*Math.sin(GU.uTime.value*37.);
+      g.visible=fly&&(ph<L_T||LAUNCH.go);
+      LAUNCH.vis=g.visible&&p.y>HILL-6;
+      LAUNCH.mid.copy(p).addScaledVector(LAUNCH.dir,H*.45);
+      /* smoke from the nozzle, a puff every couple of metres it climbs, so the column stays whole however fast it goes */
+      if(g.visible){ if(gone<0) lastP.copy(p); const step=p.distanceTo(lastP); gone+=step; let n=0;
+        while(gone>=2.4&&n<12){ gone-=2.4; n++; const f=gone/Math.max(step,1e-3), k=ip%NP;
+          pp[k*3]=p.x+(lastP.x-p.x)*f+(Math.random()-.5)*2.5; pp[k*3+1]=p.y+(lastP.y-p.y)*f-2; pp[k*3+2]=p.z+(lastP.z-p.z)*f+(Math.random()-.5)*2.5; pb[k]=GU.uTime.value; ip++; }
+        if(n) tg.attributes.position.needsUpdate=tg.attributes.aB.needsUpdate=true; lastP.copy(p); } else gone=-1;
+      TU.uNow.value=GU.uTime.value; TU.uPx.value=G.px;
+      /* the sound of it, which comes from that far away about two seconds late */
+      const late=ph-2.3; LAUNCH.heard=late<0?0:(late<L_LIFT?sstep(0,L_LIFT,late)*.6:1-sstep(L_T-5,L_T+1,late))*(here?1:0);
+      if(!LAUNCH.go&&ph>=L_T+L_GAP){ LAUNCH.ph=0; base(); }
+    },
+    /* the evening's light on it */
+    light(){ for(const m of lit){ m.uniforms.uSunCol.value.copy(TODC.sun).multiplyScalar(.9); m.uniforms.uSkyCol.value.copy(TODC.zen).lerp(TODC.hor,.5); }
+      TU.uCol.value.copy(TODC.sun).lerp(TODC.hor,.35); TU.uK.value=.6+.6*sstep(-2,4,SUN.el); },
+  };
+}
+
+/* the round hit area that follows it: Fly on the cursor, and a tap target big enough for a thumb */
+const RK=$('#rocket');
+function launchHit(){
+  const on=!!(OUT&&OUT.launch)&&LAUNCH.vis&&!LAUNCH.go&&S.mode==='world'&&!HOLD.open;
+  if(on){ const v=LAUNCH.sc.copy(LAUNCH.mid).project(CAM.out); const x=(v.x*.5+.5)*innerWidth, y=(-v.y*.5+.5)*innerHeight;
+    LAUNCH.scr.x=x; LAUNCH.scr.y=y; LAUNCH.scr.on=v.z<1&&x>-30&&x<innerWidth+30&&y>-30&&y<innerHeight+30;
+    if(LAUNCH.scr.on){ RK.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`; RK.style.setProperty('--rs',(FINE?112:136)+'px'); } }
+  else LAUNCH.scr.on=false;
+  const show=on&&LAUNCH.scr.on; if(show!==RK.classList.contains('on')){ RK.classList.toggle('on',show); RK.tabIndex=show?0:-1; }
+}
+/* caught: on this site the camera follows it up into the night and then the page changes; when the way into orbit lives
+   somewhere else, the link opens in its own tab and the evening comes back here */
+RK.addEventListener('click',e=>{
+  if(!LAUNCH.vis||LAUNCH.go||S.mode!=='world'){ e.preventDefault(); return; }
+  const local=sameSite(RK.getAttribute('href')||'');
+  if(local) e.preventDefault();
+  LAUNCH.go=true; LAUNCH.gt=0; LAUNCH.back=!local; LAUNCH.left=false; LAUNCH.href=RK.href; S.mode='launch';
+  ui.classList.add('leaving'); RK.classList.remove('on'); A.rocketGo();
+});
+function launchTick(dt){
+  if(!LAUNCH.go){ LAUNCH.camK=damp(LAUNCH.camK,0,2.4,dt); LAUNCH.dark=damp(LAUNCH.dark,0,2.2,dt); LAUNCH.near=damp(LAUNCH.near,0,2,dt); return; }
+  if(!LAUNCH.hold) LAUNCH.gt+=dt; const t=LAUNCH.gt;   // (hold: only the stills tests stop its clock)
+  LAUNCH.camK=RM?0:E.io(clamp(t/1.15,0,1)); LAUNCH.fov=lerp(16,11,sstep(1,2.6,t));
+  LAUNCH.dark=sstep(RM?0:.85,RM?1:2.3,t); LAUNCH.near=sstep(0,1.6,t);
+  if(!LAUNCH.back&&t>=2.75&&!LAUNCH.left){ LAUNCH.left=true; location.assign(LAUNCH.href); }
+  if(LAUNCH.back&&t>=3.4){ LAUNCH.go=false; LAUNCH.ph=L_T+L_GAP-6; S.mode='world'; ui.classList.remove('leaving'); }
 }
 
 /* ---- 30-gallery.js ---- */
@@ -1795,13 +1945,13 @@ const POST={};
       gl_FragColor=vec4(c,1.); }`});
   POST.comp=new T.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{value:null},uRes:GU.uRes,uTime:GU.uTime,uAsp:{value:1},
       uExpo:{value:1},uBloom:{value:.12},uGrade:{value:new T.Color(1,1,1)},uLift:{value:new T.Vector3(.034,.028,.026)},uSat:{value:1.05},
-      uVeil:{value:1},uVeilCol:{value:new T.Color('#F3DDBF')},uDark:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
+      uVeil:{value:1},uVeilCol:{value:new T.Color('#F3DDBF')},uDark:{value:0},uDarkC:{value:new T.Vector2(.5,.5)},uHole:{value:new T.Vector3(.5,.55,0)},uKeep:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
       uFlood:{value:0},uFloodCol:{value:new T.Color(1,1,1)},uFloodC:{value:new T.Vector2(.5,.5)},
       uMouse:{value:new T.Vector2(-999,-999)},uVel:{value:new T.Vector2()},uDropR:{value:15},uDropK:{value:0},
       uCA:{value:.0035},uVig:{value:1},uGrain:{value:.045},uFade:{value:0},uBlN:{value:1/QL.bloomLv}},
     vertexShader:vs, depthTest:false, depthWrite:false,
-    fragmentShader:`uniform sampler2D tScene,tBloom; uniform vec2 uRes,uMouse,uVel,uFloodC; uniform float uTime,uAsp,uExpo,uBloom,uSat,uVeil,uDark,uDim,uFlood,uDropR,uDropK,uCA,uVig,uGrain,uFade,uBlN;
-    uniform vec3 uGrade,uLift,uVeilCol,uDimCol,uFloodCol; varying vec2 vUv; ${GLSL.noise}
+    fragmentShader:`uniform sampler2D tScene,tBloom; uniform vec2 uRes,uMouse,uVel,uFloodC,uDarkC; uniform float uTime,uAsp,uExpo,uBloom,uSat,uVeil,uDark,uDim,uFlood,uDropR,uDropK,uCA,uVig,uGrain,uFade,uBlN,uKeep;
+    uniform vec3 uGrade,uLift,uVeilCol,uDimCol,uFloodCol,uHole; varying vec2 vUv; ${GLSL.noise}
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
     /* most of the curve applied to luminance only, so warm light stays peach instead of turning yellow; the brightest channel rolls to white */
     vec3 tmap(vec3 x){ float L=dot(x,vec3(.2126,.7152,.0722)); float la=aces(vec3(L)).x; vec3 h=x*(la/max(L,1e-5));
@@ -1844,11 +1994,27 @@ const POST={};
       /* light flooding out of a room */
       if(uFlood>0.){ vec2 fq=(vUv-uFloodC)*vec2(uAsp,1.); float fr=length(fq); float n=fbm2(fq*3.+uTime*.2);
         float R=uFlood*2.1; float m=smoothstep(R,R-.35,fr+(n-.5)*.35); c=mix(c,uFloodCol,m*clamp(uFlood*1.3,0.,1.)); }
-      /* the dark: what waits on the other side */
-      if(uDark>0.){ vec2 dq=(vUv-.5)*vec2(uAsp,1.); float dr=length(dq); float n=fbm2(dq*2.6+vec2(uTime*.18,-uTime*.11));
-        float R=uDark*1.3; float edge=(1.-smoothstep(R-.42,R+.02,dr+(n-.5)*.5))*smoothstep(0.,.12,uDark);
-        vec3 ink=vec3(.012,.012,.02); float stars=step(.9965,hash12(floor(fc/2.)))*hash12(floor(fc/2.)+3.)*edge;
-        c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18; }
+      /* the dark: what waits on the other side. It spreads from uDarkC; when there is a hole in it (uHole.z, its radius in
+         heights of the screen), the starlight behind is bent out round it, its shadow is black, and the thin hot disk round it
+         shows its near side across the front and its far side lensed over the top: the Fly way, before you choose it */
+      if(uDark>0.){ vec2 dq=(vUv-uDarkC)*vec2(uAsp,1.); float dr=length(dq); float n=fbm2(dq*2.6+vec2(uTime*.18,-uTime*.11));
+        float R=uDark*1.3; float edge=(1.-smoothstep(R-.42-uKeep*.3,R+.02,dr+(n-.5)*.5*(1.-uKeep*.8)))*smoothstep(0.,.12,uDark);
+        vec3 ink=mix(vec3(.012,.012,.02),vec3(.035,.04,.11),uKeep), keep=bl*uKeep;
+        vec2 hq=(vUv-uHole.xy)*vec2(uAsp,1.); float hr=length(hq), rh=uHole.z;
+        vec2 lq=rh>0.?hq*(1.+rh*rh*1.7/max(hr*hr,1e-5)):hq; vec2 sf=(lq/vec2(uAsp,1.)+uHole.xy)*uRes;
+        float stars=step(.9965,hash12(floor(sf/2.)))*hash12(floor(sf/2.)+3.)*edge;
+        c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18;
+        if(rh>0.){ float tl=-.13, cs=cos(tl), sn=sin(tl); vec2 dk=vec2(hq.x*cs-hq.y*sn,hq.x*sn+hq.y*cs);
+          float sh=1.-smoothstep(rh*.96,rh*1.01,hr);
+          float ring=exp(-pow((hr-rh*1.045)/(rh*.028),2.));
+          float band=exp(-pow(dk.y/(rh*.055),2.))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
+          float over=exp(-pow((hr-rh*1.2)/(rh*.075),2.))*smoothstep(-.05*rh,rh*.5,dk.y);
+          float under=exp(-pow((hr-rh*1.1)/(rh*.045),2.))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
+          float dop=1.+.7*clamp(-dk.x/(rh*2.4),-1.,1.);
+          float flick=.92+.08*fbm2(vec2(atan(dk.y,dk.x)*3.,hr*30.-uTime*.6));
+          c=mix(c,vec3(0.),sh*edge);
+          c+=(vec3(1.,.74,.46)*(band*1.15+over+under)*dop*flick+vec3(1.,.92,.8)*ring*.85)*edge*smoothstep(.25,1.,uDark); }
+        c+=keep*edge; }
       c=c*(1.-lens*.03)+spec*.85-shade+rim*.06;
       c=mix(c,c*vec3(.94,.97,1.03),rim*.6);
       float v=length((vUv-.5)*vec2(uAsp,1.)*uVig); c*=mix(1.,smoothstep(1.25,.25,v),.42);
@@ -2065,9 +2231,12 @@ const endPointer=e=>{
 addEventListener('pointerup',endPointer,{passive:true});
 addEventListener('pointercancel',endPointer,{passive:true});
 document.addEventListener('mouseleave',()=>{ M.on=false; });
+/* (a press only counts as held once a few frames have gone by as well: on a slow frame the finger's first move can be
+   waiting behind it, and a swipe must never open the index) */
 function holdTick(){
-  if(HOLD.down&&!HOLD.open&&!HOLD.moved){ const k=(now()-HOLD.t0-.12)/.48; UI.ring(clamp(k,0,1),HOLD.x,HOLD.y);
-    if(k>=1){ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
+  if(HOLD.down&&!HOLD.open&&!HOLD.moved){ if(HOLD.tk!==HOLD.t0){ HOLD.tk=HOLD.t0; HOLD.f0=S.frame; }
+    const k=(now()-HOLD.t0-.12)/.48; UI.ring(clamp(k,0,1),HOLD.x,HOLD.y);
+    if(k>=1&&S.frame-HOLD.f0>=4){ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
 }
 addEventListener('wheel',e=>{
   if(S.mode==='gate'||S.mode==='entering'||S.mode==='plain'){ return; }
@@ -2097,7 +2266,7 @@ addEventListener('contextmenu',e=>{ if(M.type==='touch'||HOLD.down||HOLD.open) e
 /* ================= THE PAGE OVER THE PLACE ================= */
 const UI={};
 const INK=col('#2B2520'), LIGHT=col('#FFF8EE'), _fg=new T.Color();
-untamedLinks(document);
+outLinks(document);
 /* headlines are split into words: they rise in one by one, and the water reflects each word where it stands */
 $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('aria-label',txt); el.textContent='';
   txt.split(' ').forEach((w,i,a)=>{ const s=document.createElement('span'); s.className='w'; s.setAttribute('aria-hidden','true'); s.style.setProperty('--i',i); s.textContent=w; el.appendChild(s); if(i<a.length-1) el.appendChild(document.createTextNode(' ')); }); });
@@ -2105,19 +2274,38 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
 UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent='Choose how to see us'; };
+UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent='Choose how to see us'; };
+/* the three ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
+   walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down; Fly,
+   the dark coming in round a black hole. On a touch screen, with nothing to point with, the gate shows them in turn */
 S.gateHover=null;
-const setHover=v=>{ if(S.gateHover===v) return; S.gateHover=v; gate.classList.toggle('warm',v==='tamed'); gate.classList.toggle('dark',v==='untamed'); if(v) A.hover(); };
-$('#tamed').addEventListener('pointerenter',()=>setHover('tamed')); $('#tamed').addEventListener('pointerleave',()=>setHover(null));
-$('#untamed').addEventListener('pointerenter',()=>setHover('untamed')); $('#untamed').addEventListener('pointerleave',()=>setHover(null));
-$('#tamed').addEventListener('focus',()=>setHover('tamed')); $('#untamed').addEventListener('focus',()=>setHover('untamed'));
-$('#tamed').addEventListener('blur',()=>setHover(null)); $('#untamed').addEventListener('blur',()=>setHover(null));
+const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
+const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
+  ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
+  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); } };
+WAYS.forEach(w=>{ const v=w.dataset.way;
+  w.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ CYC.off=true; setHover(v); } });
+  w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen') setHover(null); });
+  w.addEventListener('focus',()=>{ CYC.off=true; setHover(v); }); w.addEventListener('blur',()=>{ if(!S.leaving) setHover(null); }); });
 $('#tamed').addEventListener('click',()=>enter());
-/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the two ways can be heard on hover */
+/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the ways can be heard */
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='gate'&&!A.on) A.start(); },{capture:true,passive:true}));
-$('#untamed').addEventListener('click',()=>{ A.click(); });
+/* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
+   cut; when they live somewhere else they open in a tab of their own */
+const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
+  if(!sameSite(a.getAttribute('href')||'')) return;
+  e.preventDefault(); S.leaving=true; CYC.off=true; setHover(v,true); gate.style.setProperty('--out',v==='land'?'#EAF4F4':'#030305');
+  gate.classList.add('leaving'); A.leave(v); setTimeout(()=>location.assign(a.href),RM?120:820); });
+leaveTo($('#land'),'land'); leaveTo($('#untamed'),'fly');
+/* where the Fly way's black hole sits: behind the middle of the word, about as big as the letters are tall */
+let holeK=null; addEventListener('resize',()=>{ holeK=null; });
+UI.holeAt=()=>{ if(!holeK){ const r=$('#word').getBoundingClientRect(); holeK=[(r.left+r.width/2)/innerWidth,1-(r.top+r.height/2)/innerHeight,clamp(r.height*.62/innerHeight,.05,.11)]; } return holeK; };
+/* on a touch screen: Walk, Land and Fly in turn, slowly, each with its name lit, then a breath of the plain gate */
+const CYC={off:FINE,i:-1,t:1.2};
+UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.t-=dt;
+  if(CYC.t<=0){ CYC.i=(CYC.i+1)%4; CYC.t=CYC.i===3?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land','fly',null][CYC.i],true); } };
 
-if(!FINE){ $('#cue span').textContent='Swipe'; }
+if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-go]'); if(!a) return;
@@ -2231,6 +2419,77 @@ document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.
 UI.cursor=(dt)=>{ if(!FINE) return; cx=damp(cx,M.x,22,dt); cy=damp(cy,M.y,22,dt); cur.style.transform=`translate(${cx.toFixed(1)}px,${cy.toFixed(1)}px)`; cur.classList.toggle('off',!M.on); };
 UI.isBig=()=>curBig;
 
+/* ---- 72-gate.js ---- */
+/* ================= THE GATE: LAND, BEFORE YOU CHOOSE IT =================
+   A bright drawn sky over the curve of a small planet, a few houses and trees on it, and the rocket coming down onto its
+   pad, in the flat colours and ink lines of the world Land takes you to. Drawn only while it is being shown. */
+const LANDV=(()=>{
+  const cv=$('#gateLand'), x=cv.getContext('2d');
+  const INK='#2A241D';
+  let on=false, run=false, t0=0, last=0, fade=0, w=0, h=0, dpr=1;
+  const CLOUDS=[[.1,.13,1],[.6,.08,.8],[.88,.16,.7],[.34,.05,.55]];   // high in the sky, clear of the words
+  const size=()=>{ dpr=Math.min(2,devicePixelRatio||1); w=innerWidth; h=innerHeight; const W2=Math.round(w*dpr), H2=Math.round(h*dpr);
+    if(cv.width!==W2||cv.height!==H2){ cv.width=W2; cv.height=H2; } };
+  const cloud=(cx,cy,k)=>{ x.save(); x.translate(cx,cy); x.scale(k,k);
+    const blobs=[[-46,6,26],[-16,-8,34],[20,-2,30],[50,8,22],[4,12,30]];
+    x.fillStyle='#FFFFFF'; x.beginPath(); for(const [bx,by,r] of blobs){ x.moveTo(bx+r,by); x.arc(bx,by,r,0,TAU); } x.fill();
+    x.fillStyle='rgba(205,226,238,.55)'; x.beginPath(); x.ellipse(2,22,70,9,0,0,TAU); x.fill(); x.restore(); };
+  /* something standing on the planet at x along its top: turned so it stands upright on the curve */
+  const stand=(P,px,fn)=>{ const dx=px-P.cx, y=P.cy-Math.sqrt(Math.max(0,P.R*P.R-dx*dx)); x.save(); x.translate(px,y); x.rotate(Math.asin(clamp(dx/P.R,-1,1))); fn(); x.restore(); return y; };
+  const house=(s,roof)=>{ x.lineWidth=2.4; x.strokeStyle=INK; x.lineJoin='round';
+    x.fillStyle='#F7F0E3'; x.beginPath(); x.rect(-s*.5,-s*.78,s,s*.8); x.fill(); x.stroke();
+    x.fillStyle=roof; x.beginPath(); x.moveTo(-s*.66,-s*.74); x.lineTo(0,-s*1.28); x.lineTo(s*.66,-s*.74); x.closePath(); x.fill(); x.stroke();
+    x.fillStyle='#6B5644'; x.beginPath(); x.rect(-s*.12,-s*.36,s*.24,s*.38); x.fill(); x.stroke();
+    x.fillStyle='#9FD2EC'; x.beginPath(); x.rect(s*.18,-s*.62,s*.2,s*.18); x.fill(); x.stroke(); };
+  const tree=s=>{ x.lineWidth=2.4; x.strokeStyle=INK; x.lineJoin='round';
+    x.fillStyle='#7A5A3E'; x.beginPath(); x.rect(-s*.07,-s*.5,s*.14,s*.52); x.fill(); x.stroke();
+    x.fillStyle='#5DA55A'; x.beginPath(); x.arc(0,-s*.78,s*.42,0,TAU); x.fill(); x.stroke();
+    x.fillStyle='rgba(150,210,120,.8)'; x.beginPath(); x.arc(-s*.13,-s*.9,s*.16,0,TAU); x.fill(); };
+  /* the rocket, base at the origin, with its landing burn under it */
+  const rocket=(rh,burn,t)=>{ const rw=rh*.27; x.lineWidth=2.6; x.strokeStyle=INK; x.lineJoin='round'; x.lineCap='round';
+    if(burn>0){ const fl=rh*(.22+.5*burn)*(.88+.12*Math.sin(t*41)+.06*Math.sin(t*67));
+      x.fillStyle='#FF9442'; x.beginPath(); x.moveTo(-rw*.36,0); x.quadraticCurveTo(0,fl*1.15,rw*.36,0); x.closePath(); x.fill();
+      x.fillStyle='#FFE48F'; x.beginPath(); x.moveTo(-rw*.2,0); x.quadraticCurveTo(0,fl*.7,rw*.2,0); x.closePath(); x.fill(); }
+    x.fillStyle='#F2B98D'; for(const sd of [-1,1]){ x.beginPath(); x.moveTo(sd*rw*.5,-rh*.1); x.lineTo(sd*rw*.95,rh*.01); x.lineTo(sd*rw*.95,-rh*.08); x.lineTo(sd*rw*.5,-rh*.36); x.closePath(); x.fill(); x.stroke(); }
+    x.fillStyle='#3B3633'; x.beginPath(); x.rect(-rw*.3,-rh*.06,rw*.6,rh*.06); x.fill(); x.stroke();
+    x.fillStyle='#F4EFE6'; x.beginPath(); x.moveTo(-rw*.5,-rh*.06); x.lineTo(-rw*.5,-rh*.68); x.quadraticCurveTo(-rw*.46,-rh*.92,0,-rh); x.quadraticCurveTo(rw*.46,-rh*.92,rw*.5,-rh*.68); x.lineTo(rw*.5,-rh*.06); x.closePath(); x.fill(); x.stroke();
+    x.fillStyle='#EF8A3C'; x.beginPath(); x.rect(-rw*.5,-rh*.5,rw,rh*.07); x.fill(); x.stroke();
+    x.fillStyle='#2F3336'; x.beginPath(); x.arc(0,-rh*.72,rw*.17,0,TAU); x.fill(); x.stroke(); };
+  const D=3.4;   // seconds from the top of the sky to the pad
+  function draw(now){
+    const t=(now-t0)/1000; size(); x.setTransform(dpr,0,0,dpr,0,0);
+    const port=w/h<.82, P={R:Math.max(w,h)*1.9}; P.cx=w*.5; P.cy=h*(port?.84:.81)+P.R;
+    /* the sky, its sun, its clouds */
+    const sky=x.createLinearGradient(0,0,0,h); sky.addColorStop(0,'#86C4E6'); sky.addColorStop(.5,'#BBDFEF'); sky.addColorStop(.82,'#E9F4EF'); x.fillStyle=sky; x.fillRect(0,0,w,h);
+    const sg=x.createRadialGradient(w*.16,h*.18,0,w*.16,h*.18,h*.32); sg.addColorStop(0,'rgba(255,251,226,.85)'); sg.addColorStop(1,'rgba(255,251,226,0)'); x.fillStyle=sg; x.fillRect(0,0,w,h);
+    const drift=(now/1000)*6;
+    const ck=Math.min(w,h)/900*1.5; for(const [cx,cy,k] of CLOUDS){ const px=((cx*w+drift*k)%(w+260))-130; cloud(px,cy*h,k*ck); }
+    /* the planet: grass over its curve, a lit edge, an ink line */
+    x.fillStyle='#97CF74'; x.beginPath(); x.arc(P.cx,P.cy,P.R,0,TAU); x.fill();
+    x.fillStyle='#86C266'; x.beginPath(); x.arc(P.cx,P.cy,P.R-h*.045,0,TAU); x.fill();
+    x.strokeStyle='rgba(190,232,150,.9)'; x.lineWidth=5; x.beginPath(); x.arc(P.cx,P.cy,P.R-5,Math.PI*1.25,Math.PI*1.75); x.stroke();
+    x.strokeStyle=INK; x.lineWidth=3; x.beginPath(); x.arc(P.cx,P.cy,P.R,Math.PI*1.2,Math.PI*1.8); x.stroke();
+    /* the town on it, kept clear of the words and of the pad */
+    const s=h*(port?.05:.06), rx=w*(port?.86:.8);
+    const things=[[.06,'t',1],[.11,'h','#5C82B8'],[.17,'t',.85],[.23,'h','#C77B62'],[.3,'t',1.1],[.48,'t',.8],[.56,'h','#E59A4C'],[.68,'t',.9],[.92,'h','#7E6DB0'],[.97,'t',1]];
+    let lastX=-1e9; for(const [fx,k,v] of things){ const px=fx*w; if(Math.abs(px-rx)<s*1.7||px-lastX<s*1.45) continue; lastX=px; stand(P,px,()=>k==='t'?tree(s*1.05*v):house(s,v)); }
+    /* the pad, and the rocket coming down to it, slowing, its burn dying away as it touches down */
+    const padY=stand(P,rx,()=>{ x.lineWidth=2.4; x.strokeStyle=INK; x.fillStyle='#C9C4B8'; x.beginPath(); x.rect(-s*.95,-s*.16,s*1.9,s*.18); x.fill(); x.stroke(); });
+    const rh=h*(port?.12:.15), u=RM?1:clamp(t/D,0,1), e=1-Math.pow(1-u,2.4);
+    const ry=lerp(-rh*.35,padY-s*.16,e), burn=u<1?.35+.65*(1-u):0;
+    x.save(); x.translate(rx,ry); x.rotate(Math.asin(clamp((rx-P.cx)/P.R,-1,1))*e); rocket(rh,burn,now/1000); x.restore();
+    /* the dust it throws up when it lands */
+    const pu=RM?0:(t-D)/1.2;
+    if(pu>0&&pu<1){ x.fillStyle=`rgba(255,255,255,${(.85*(1-pu)).toFixed(3)})`; x.strokeStyle=`rgba(42,36,29,${(.5*(1-pu)).toFixed(3)})`; x.lineWidth=2;
+      for(const [dx,r] of [[-1.3,.42],[-.6,.55],[.6,.55],[1.3,.42]]){ x.beginPath(); x.arc(rx+dx*s*(.6+pu),padY-s*.2-pu*s*.3,s*r*(.6+pu*.8),0,TAU); x.fill(); x.stroke(); } }
+  }
+  function loop(now){ if(!run) return; draw(now); fade=on?1:fade-(now-last)/1000; last=now;
+    if(!on&&fade<=0){ run=false; return; } requestAnimationFrame(loop); }
+  addEventListener('resize',()=>{ if(run) size(); });
+  return { show(v){ if(v===on) return; on=v; if(v){ t0=performance.now(); fade=1; if(!run){ run=true; last=t0; requestAnimationFrame(loop); } } else fade=1.1; },
+    get t(){ return on?(performance.now()-t0)/1000:-1; } };
+})();
+
 /* ---- 90-main.js ---- */
 /* ================= BOOT, LOOP ================= */
 const CAM={out:new T.PerspectiveCamera(40,1,.1,3000), gal:new T.PerspectiveCamera(40,1,.1,3000)};
@@ -2261,6 +2520,7 @@ function camAt(name,s,cam){
   const keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2);
   let f=trackEval(keys,s,_cp,_ct);
   if(S.camOv&&S.camOv[0]===name){ const o=S.camOv; _cp.fromArray(o[1]); _ct.fromArray(o[2]); f=o[3]; }
+  if(name==='out'&&LAUNCH.camK>.001){ const k=LAUNCH.camK; _ct.lerp(LAUNCH.mid,k); f=lerp(f,LAUNCH.fov,k); }
   cam.position.copy(_cp); cam.lookAt(_ct);
   if(!RM){ cam.rotateY(-PAR.x*.03); cam.rotateX(PAR.y*.018); }
   if(Math.abs(cam.fov-f)>1e-3){ cam.fov=f; cam.updateProjectionMatrix(); }
@@ -2303,11 +2563,11 @@ function frame(tn){
   requestAnimationFrame(frame);
   const raw=Math.max(0,(tn-last)/1000); last=tn;
   const dt=Math.min(TEST?.25:.05,raw); S.dt=dt; S.t+=dt; S.frame++;
-  const tsT=S.mode==='gate'?(S.gateHover==='tamed'?.25:S.gateHover==='untamed'?2.2:1):1;
+  const way=S.mode==='gate'?S.gateHover:null, tsT=way==='walk'?.25:way==='fly'?2.2:1;
   S.timeScale=damp(S.timeScale,tsT,2.4,dt); S.ut=(S.ut||0)+dt*S.timeScale; GU.uTime.value=RM?S.ut*.4:S.ut;
   QM.tick(raw*1000); UI.cursor(dt);
   if(!S.ready||!GL_OK) return;
-  scrollTick(dt); VEIL.tick(dt); holdTick();
+  scrollTick(dt); VEIL.tick(dt); holdTick(); launchTick(dt); UI.gateTick(dt);
   if(S.mode==='entering'){ S.enterT+=dt; S.veil=1-E.io(clamp(S.enterT/2.6,0,1)); S.enterK=sstep(1.3,2.5,S.enterT); if(S.enterT>2.7){ S.mode='world'; S.veil=0; S.enterK=1; } }
   let s=warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
   const [el,az]=S.sunOv||sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
@@ -2318,6 +2578,7 @@ function frame(tn){
     G.px=GU.uRes.value.y/(2*Math.tan(CAM.out.fov*DEG/2)); OUT.seeds.mat.uniforms.uPx.value=G.px;
     if(TXT.dirty){ drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex; }
     const wu=OUT.waterMat.uniforms; wu.uTextK.value.set(SECS[0].vis>0?SECS[0].vis:0,SECS[SECS.length-1].vis>0?SECS[SECS.length-1].vis:0); wu.uTextCol.value.copy(_fg); wu.uHorizon.value=horizonY(CAM.out); }
+  launchHit();
   if(needGal){ camAt('gal',s,CAM.gal); G.px=GU.uRes.value.y/(2*Math.tan(CAM.gal.fov*DEG/2)); GAL.update(dt); GAL.applyLight(tod,TINT,s); }
   const Wd={out:OUT,gal:GAL};
   let src;
@@ -2329,15 +2590,20 @@ function frame(tn){
   cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
   cu.uBloom.value=lerp(.038,.18,inside);
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
-  cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,S.gateHover==='tamed'?.8:1,2.5,dt):S.veil;
-  cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  /* the gate: Walk thins the mist so the walk shows through; Fly brings the dark in round a black hole. Then the rocket at
+     the end of the walk: the night comes in from it as you follow it up */
+  cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,way==='walk'?.6:1,2.5,dt):S.veil;
+  const dk=LAUNCH.dark>.001?LAUNCH.dark*1.15:(way==='fly'?1:0);
+  cu.uDark.value=LAUNCH.dark>.001?dk:damp(cu.uDark.value,dk,way==='fly'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  if(LAUNCH.dark>.001){ const v=LAUNCH.sc.copy(LAUNCH.mid).project(CAM.out); cu.uDarkC.value.set(v.x*.5+.5,v.y*.5+.5); cu.uHole.value.z=0; cu.uKeep.value=1; }
+  else { const H=UI.holeAt(); cu.uDarkC.value.set(.5,.5); cu.uKeep.value=0; cu.uHole.value.set(H[0],H[1],damp(cu.uHole.value.z,way==='fly'?H[2]:0,way==='fly'?1.6:4,dt)); }
   cu.uDim.value=damp(S.idim||0,HOLD.open?.7:0,6,dt); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
   cu.uDimCol.value.set(1,1,1).lerp(TINT,.5);
   const fk=VEIL.k; cu.uFlood.value=fk; if(VEIL.k>0){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
   const d=QL.dpr; cu.uMouse.value.set(M.x*d,(innerHeight-M.y)*d); cu.uVel.value.set(M.vx*d,-M.vy*d); M.vx*=Math.exp(-6*dt); M.vy*=Math.exp(-6*dt);
   cu.uDropR.value=damp(cu.uDropR.value,(UI.isBig()?24:12)*d*(HOLD.open?1.4:1),9,dt);
   cu.uDropK.value=damp(cu.uDropK.value,FINE&&M.on?1:0,8,dt);
-  cu.uGrain.value=S.mode==='gate'&&S.gateHover==='tamed'?.016:.032;
+  cu.uGrain.value=way==='walk'?.016:.032;
   POST.pass(POST.comp,null);
   UI.update(s,dt);
   A.update(dt,audioState(s,inside)); RSND.length=0;
@@ -2345,10 +2611,10 @@ function frame(tn){
 function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
   const beam=GAL&&prox(3)>.01?GAL.rooms[2].lock:0;   // how sure the drone is of where it is
-  const gate=S.mode==='gate';
-  return {music:gate?0:1-inside*.3, musF:lerp(9000,2600,inside), water:gate?0:lerp(1,.36,inside)*(1-court*.3), waterF:lerp(2400,320,inside)+contact*1800,
-    wind:gate?0:(1-inside)*(1-court*.7), birds:gate?0:(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
-    warm:gate&&S.gateHover==='tamed'?1:0, dark:gate&&S.gateHover==='untamed'?1:0};
+  const gate=S.mode==='gate', way=gate?S.gateHover:null, go=LAUNCH.near;
+  return {music:gate?0:(1-inside*.3)*(1-go*.6), musF:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:0):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?1500:lerp(2400,320,inside)+contact*1800,
+    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
+    warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 
@@ -2379,7 +2645,7 @@ requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
-window.__tamed={S,SC,A,QL,PLACES,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
+window.__tamed={S,SC,A,QL,PLACES,LAUNCH,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,
