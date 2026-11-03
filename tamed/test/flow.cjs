@@ -111,10 +111,12 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
   const names = await page.evaluate(() => [...document.querySelectorAll('.person .nm')].map(a => a.textContent));
   check(names.join('|') === 'Ahroon Santhosh|Michael Sweeney Heffernan|Abraham Sabu Kurian', 'names in order');
   if (!mobile) {
-    const box = await page.evaluate(() => { const r = document.querySelectorAll('.person')[1].getBoundingClientRect(); return [r.left + r.width / 2, r.top + 10]; });
-    await page.mouse.move(box[0], box[1] - 60, { steps: 4 }); await wait(2600);
-    check(await page.evaluate(() => document.querySelectorAll('.person')[1].classList.contains('up')), 'hovering Michael resolves his reflection');
-    await shot('flow-team-hover');
+    let ok = true; try { await page.waitForFunction(() => [...document.querySelectorAll('.person')].every(p => p.classList.contains('up')), null, { timeout: 120000, polling: 400 }); } catch (e) { ok = false; }
+    check(ok, 'standing at Team, the three portraits rise out of the pool one after another');
+    try { await page.waitForFunction(() => window.__tamed.OUT.people.every(p => p.lift > -.05), null, { timeout: 60000, polling: 400 }); } catch (e) {}
+    const lift = await T(t => t.OUT.people.map(p => +p.lift.toFixed(2)));
+    check(lift.every(v => Math.abs(v) < .05), 'every portrait stands on the water (' + lift.join(', ') + ')');
+    await shot('flow-team-risen');
   } else {
     if (true) { await swipe(-380); await at(4.86); await wait(2200); check(await page.evaluate(() => document.querySelectorAll('.person')[0].classList.contains('up')), 'walking up to Ahroon resolves him (mobile)'); await shot('flow-team-ahroon'); }
   }

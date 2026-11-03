@@ -83,7 +83,7 @@ const A=(()=>{
       o.frequency.setValueAtTime(base*(1+i*.06),t0); o.frequency.exponentialRampToValueAtTime(base*(1.3+Math.random()*.25),t0+.05);
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.085); o.connect(a); a.connect(out);
       const s=ctx.createGain(); s.gain.value=.6; a.connect(s); s.connect(n.revIn); o.start(t0); o.stop(t0+.12); } }
-  function plip(g){ const t0=ctx.currentTime, f=1100+Math.random()*1400, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
+  function plip(g,delay=0){ const t0=ctx.currentTime+delay, f=1100+Math.random()*1400, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
     o.frequency.setValueAtTime(f,t0); o.frequency.exponentialRampToValueAtTime(f*1.9,t0+.035);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.07); o.connect(a); a.connect(pan(Math.random()*1.4-.7,n.water)); o.start(t0); o.stop(t0+.1); }
   /* Kríos: two soft voices, humming a conversation through the wall */
@@ -104,7 +104,7 @@ const A=(()=>{
   /* Pharos: a deep slow tone that swells as the beam comes round */
   function roomPharos(){ const R=n.ph={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp); const s=ctx.createGain(); s.gain.value=.5; R.g.connect(s); s.connect(n.revIn);
     R.sw=ctx.createGain(); R.sw.gain.value=.6; R.sw.connect(R.g);
-    [[38,.5,'sine'],[45,.28,'sine'],[50,.12,'triangle'],[26,.4,'sine']].forEach(([m,k,t])=>{ const o=ctx.createOscillator(); o.type=t; o.frequency.value=mtof(m); const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(R.sw); o.start(); });
+    [[38,.46,'sine'],[45,.3,'sine'],[50,.13,'triangle'],[26,.18,'sine']].forEach(([m,k,t])=>{ const o=ctx.createOscillator(); o.type=t; o.frequency.value=mtof(m); const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(R.sw); o.start(); });
     const w=src(n.noise), f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=400; f.Q.value=1.2; R.air=ctx.createGain(); R.air.gain.value=0; w.connect(f); f.connect(R.air); R.air.connect(R.g); R.airF=f; }
   /* Ogive: a shimmer that keeps rising and never arrives */
   function roomOgive(){ const R=n.og={}; R.g=ctx.createGain(); R.g.gain.value=0; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=300; R.g.connect(hp); hp.connect(n.comp);
@@ -138,13 +138,13 @@ const A=(()=>{
       if(st.water>.3&&t>n.nextPlip){ plip(.018*st.water*(st.waterF>1500?1:.4)); n.nextPlip=t+.35+Math.random()*2.4; }
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
       /* rooms */
-      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.6,.5); set(n.og.g.gain,st.og*.45,.5);
+      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.46,.5); set(n.og.g.gain,st.og*.45,.5);
       if(st.kr>.01){ const w=VOICE.who; n.kr.v.forEach((v,i)=>{ const act=i===w?VOICE.env:0; set(v.env.gain,act*.32,.05);
           const base=i?118:158, ip=base*(1+.05*Math.sin(t*1.7+i)+.03*Math.sin(t*4.3+i*2)); v.o.frequency.setTargetAtTime(ip,t,.08); v.o2.frequency.setTargetAtTime(ip,t,.08);
           const vw=(Math.sin(t*2.3+i*1.7)*.5+.5), F=[[700,1150,2600],[400,1900,2550],[550,850,2400]]; const a=F[Math.floor(vw*2.99)];
           v.fs.forEach((b,k)=>b.frequency.setTargetAtTime(a[k]*(i?.9:1.05),t,.12)); }); }
       if(st.ae>.05&&t>n.ae.next){ chirp(Math.random()*1.2-.6,.011*st.ae); if(Math.random()<.3) chirp(Math.random()*1.2-.6,.007*st.ae); n.ae.next=t+1.2+Math.random()*3.5; }
-      if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,f*.12,.15); set(n.ph.airF.frequency,300+f*900,.2); }
+      if(st.ph>.01){ const f=st.beam||0; if(f>.82&&t>(n.ph.bell||0)){ n.ph.bell=t+7; glass(57,t+.05,.034*st.ph,0,n.mus); glass(64,t+.42,.016*st.ph,.15,n.mus); } set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,f*.12,.15); set(n.ph.airF.frequency,300+f*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
       set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
     },
@@ -163,6 +163,6 @@ const A=(()=>{
     index(){ if(!on) return; noise(.7,.04,600,2400,'bandpass',1.2,0,.4); tone(mtof(74),1.2,.02,'sine',0,.05,.7,.02); },
     tick(i){ if(!on) return; tone(mtof(PENTA[(i||0)%PENTA.length]),.25,.014,'sine',0,0,.4,.003); },
     pick(){ if(!on) return; glass(74,ctx.currentTime,.05,0,n.comp); glass(81,ctx.currentTime+.09,.03,0,n.comp); },
-    rise(){ if(!on) return; noise(1.6,.05,180,1500,'bandpass',1.4,0,.6); glass(69,ctx.currentTime+.1,.03,-.2,n.comp); },
+    rise(){ if(!on) return; noise(1.6,.05,180,1500,'bandpass',1.4,0,.6); for(let i=0;i<9;i++) plip(.012+Math.random()*.012,.5+i*.22+Math.random()*.35); glass(69,ctx.currentTime+.1,.03,-.2,n.comp); },
   };
 })();

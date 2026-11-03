@@ -89,6 +89,9 @@ vec3 stoneTex(vec3 p,vec3 n){
   float g=vnoise3(p*3.7)*.55+vnoise3(p*13.)*.45;
   float st=vnoise3(vec3(p.x*.55,p.y*8.,p.z*.55));
   float k=.9+.17*b+.06*g-.07*smoothstep(.62,.92,st);
+  /* travertine: small pores drawn out along the bedding, gone before they are small enough to shimmer */
+  { vec3 q=p*vec3(6.5,21.,6.5); float pn=vnoise3(q)*.7+vnoise3(q*2.3)*.3; float ps=length(fwidth(q));
+    k*=1.-.15*smoothstep(.74,.8,pn)*(1.-smoothstep(.35,.9,ps))*(1.-step(.92,an.y)*.5); }
   if(uJoint>0.){
     float e=1.,id=0.;
     if(an.y>.92){ vec2 q=p.xz/1.24; vec2 f=abs(fract(q)-.5)*1.24; e=min(.62-f.x,.62-f.y); id=hash12(floor(q)); }

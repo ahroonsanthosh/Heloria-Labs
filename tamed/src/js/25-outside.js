@@ -186,7 +186,13 @@ function buildOutside(){
         outgoingLight+=env*fr*wet*.85; } }`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#F2EADF', rough:.9, joint:1, caustic:1, cav:CAV, glsl:WATER, emisGLSL:EMIS,
     albedo:`{ float wet=1.-smoothstep(.02,.5,vWP.y); diffuseColor.rgb*=mix(1.,.7,wet*(wN.y>.9?.5:1.));
-      if(abs(wN.y)<.5){ float u=abs(wN.x)>.5?vWP.z:vWP.x; float st=vnoise(vec2(u*2.3,vWP.y*.16))*vnoise(vec2(u*7.,vWP.y*.5)); diffuseColor.rgb*=1.-.1*smoothstep(.25,.6,st); } }`});
+      if(abs(wN.y)<.5){ float u=abs(wN.x)>.5?vWP.z:vWP.x; float st=vnoise(vec2(u*2.3,vWP.y*.16))*vnoise(vec2(u*7.,vWP.y*.5)); diffuseColor.rgb*=1.-.1*smoothstep(.25,.6,st);
+        /* years of rain run down from the cornice and the imposts; a little soiling at the foot of the walls */
+        float s1=smoothstep(${(YP+5.4).toFixed(2)},${(YP+8.1).toFixed(2)},vWP.y)*(1.-step(${(YP+8.2).toFixed(2)},vWP.y));
+        float s2=smoothstep(${(YP+2.7).toFixed(2)},${(YP+3.95).toFixed(2)},vWP.y)*(1.-step(${(YP+4.0).toFixed(2)},vWP.y))*.6;
+        float sn=vnoise(vec2(u*5.3,vWP.y*.32))*vnoise(vec2(u*17.,vWP.y*1.05));
+        diffuseColor.rgb*=1.-(s1+s2)*.16*smoothstep(.1,.45,sn);
+        diffuseColor.rgb*=mix(.92,1.,smoothstep(${YP.toFixed(2)},${(YP+2.4).toFixed(2)},vWP.y)); } }`});
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
 
   /* deep in the portal: a warm room glowing beyond the inner arch */
@@ -242,11 +248,33 @@ function buildOutside(){
 
   /* tall grass at the edges */
   W.grass=makeGrass(W.U,[
-    {x:-11.5,z:84,rx:4.6,rz:5.4,n:1050,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:23,z:72,rx:5,rz:6,n:1100,h:1.6},{x:8.5,z:73,rx:4,rz:5,n:900,h:1.8},{x:1.5,z:58,rx:2.6,rz:3,n:420,h:1.3},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
+    {x:-11.5,z:84,rx:4.6,rz:5.4,n:1050,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:23,z:72,rx:5,rz:6,n:1100,h:1.6},{x:10.5,z:69,rx:4,rz:5,n:900,h:1.8},{x:1.5,z:58,rx:2.6,rz:3,n:420,h:1.3},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
     {x:-35,z:2,rx:6,rz:4.5,n:900},{x:-36,z:-19,rx:6.5,rz:4.5,n:900},{x:-58,z:-2,rx:3.5,rz:2.5,n:300},{x:-62,z:-15,rx:4,rz:2.5,n:320},
     {x:-10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:10.3,z:-19.7,rx:.7,rz:.7,n:60,h:.6},{x:-10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},{x:10.3,z:-.3,rx:.7,rz:.6,n:60,h:.6},
     {x:24,z:-6,rx:4,rz:7,n:500},{x:-25,z:-30,rx:5,rz:4,n:400}]);
   sc.add(W.grass.mesh);
+
+  /* a few birds crossing the evening: high, slow, mostly gliding, now and then a few wingbeats */
+  {
+    const N=MOBILE?4:6, shape=[[0,.38,0],[-.12,-.1,0],[.12,-.1,0], [-.05,.06,0],[-1,.02,1],[-.06,-.12,0], [.05,.06,0],[1,.02,1],[.06,-.12,0], [-1,.02,1],[-.6,-.1,1],[-.06,-.12,0],[1,.02,1],[.6,-.1,1],[.06,-.12,0]];
+    const P=[], Wt=[]; for(const v of shape){ P.push(v[0],v[1],0); Wt.push(v[2]); }
+    const ig=new T.InstancedBufferGeometry(); ig.setAttribute('position',new T.Float32BufferAttribute(P,3)); ig.setAttribute('aW',new T.Float32BufferAttribute(Wt,1));
+    const R=(()=>{let s=29;return()=>(s=(s*16807)%2147483647)/2147483647;})(), ia=new Float32Array(N*4);
+    for(let i=0;i<N;i++){ ia[i*4]=R(); ia[i*4+1]=R(); ia[i*4+2]=R(); ia[i*4+3]=R(); }
+    ig.setAttribute('aB',new T.InstancedBufferAttribute(ia,4)); ig.instanceCount=N; ig.boundingSphere=new T.Sphere(v3(),1e5);
+    W.birdMat=new T.ShaderMaterial({uniforms:Object.assign({uTime:{value:0},uCol:{value:col('#4A4044')}},W.U),side:T.DoubleSide,
+      vertexShader:`attribute float aW; attribute vec4 aB; uniform float uTime; varying vec3 vWP;
+      void main(){
+        float sp=5.5+aB.y*3.5, ph=fract(uTime*sp/340.+aB.x);
+        vec3 c=vec3(170.-ph*340.,19.+aB.z*20.+sin(uTime*.21+aB.w*9.)*1.6,-58.+aB.w*70.+sin(ph*6.283+aB.x*5.)*7.);
+        float beat=smoothstep(.55,.95,sin(uTime*.37+aB.x*31.)), flap=sin(uTime*(6.+aB.y*2.)+aB.z*20.)*beat;
+        vec3 p=position; float s=.85+aB.y*.5; p.z=aW*abs(p.x)*mix(.1,flap*.65,beat);
+        vec3 w=vec3(p.y*s,p.z*s,p.x*s);
+        vec3 wp=c+vec3(-w.x,w.y,w.z); vWP=wp; gl_Position=projectionMatrix*viewMatrix*vec4(wp,1.);
+      }`,
+      fragmentShader:`uniform vec3 uCol; varying vec3 vWP; ${GLSL.haze} void main(){ gl_FragColor=vec4(haze(uCol,vWP),1.); }`});
+    const birds=new T.Mesh(ig,W.birdMat); birds.frustumCulled=false; birds.renderOrder=905; sc.add(birds);
+  }
 
   /* drifting seeds in the light */
   W.seeds=makeSeeds(W.U,QL.seeds); sc.add(W.seeds.mesh);
@@ -306,7 +334,7 @@ function buildOutside(){
   W.hideInMirror=[W.water,W.seeds.mesh,...beams];
   W.update=(dt,st)=>{
     { const gu=W.grass.mat.uniforms; gu.uMouseK.value=damp(gu.uMouseK.value,M.on&&S.mode==='world'?1:0,4,dt); gu.uMouseN.value.set(M.x/innerWidth*2-1,-(M.y/innerHeight*2-1)); gu.uAsp.value=innerWidth/innerHeight; const c=CAM.out; c.updateMatrixWorld(); gu.uVP.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse); gu.uRight.value.setFromMatrixColumn(c.matrixWorld,0); }
-    W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale;
+    W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale; W.birdMat.uniforms.uTime.value+=dt*S.timeScale;
     for(const p of W.people){
       const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?1.55:1.25,dt); if(Math.abs(p.reveal-p.target)<1e-4) p.reveal=p.target;
       const y=lerp(DEEP,0,E.io2(clamp(p.reveal,0,1))), dy=y-p.lift; p.lift=y; p.grp.position.y=y;
@@ -314,8 +342,8 @@ function buildOutside(){
       p.wet=p.target>0&&p.reveal<.98?Math.min(1,p.wet+dt*2):Math.max(0,p.wet-dt*.16);
       p.plinthM.userData.u.uWetP.value=p.wet; p.mat.uniforms.uWet.value=p.wet;
       /* the water parts where it rises: rings along the plinth's foot while it moves, and one when it breaks the surface */
-      if(Math.abs(dy)>1e-4&&y>-FP.top&&y<-.02){ const k=clamp(Math.abs(dy)/Math.max(dt,1e-3)*.5,0,1.4)*(dy>0?-1:1), o=(S.frame%2?.45:-.45); W.sim.drop(p.x-FP.pd/2-.06,p.z+o,.42,k); W.sim.drop(p.x+FP.pd/2+.06,p.z-o,.42,k*.6); }
-      if((prev<.04&&p.reveal>=.04)) W.sim.drop(p.x,p.z,1.2,-2.4);
+      if(Math.abs(dy)>1e-4&&y>-FP.top&&y<-.02){ const k=clamp(Math.abs(dy)/Math.max(dt,1e-3)*.22,0,.55)*(dy>0?-1:1), o=(S.frame%2?.45:-.45); W.sim.drop(p.x-FP.pd/2-.06,p.z+o,.42,k); W.sim.drop(p.x+FP.pd/2+.06,p.z-o,.42,k*.6); }
+      if((prev<.04&&p.reveal>=.04)) W.sim.drop(p.x,p.z,1.1,-1.3);
     }
   };
   W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint);

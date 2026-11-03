@@ -106,7 +106,7 @@ function peopleUpdate(s,dt){
     _pq.set(fx,p.lift+FP.top,p.z).project(cam); const yt=(-_pq.y*.5+.5)*h;
     const pw=Math.abs(xb-xa);
     el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
-    el.style.setProperty("--pw",Math.max(120,pw).toFixed(0)+"px"); el.style.setProperty("--k",clamp(pw/205,.8,1.55).toFixed(3));
+    el.style.setProperty("--pw",Math.max(120,pw).toFixed(0)+"px"); el.style.setProperty("--k",clamp(pw/235,.8,1.2).toFixed(3));
     const over=M.on&&Math.abs(M.x-x)<pw*.5&&M.y>yt-10&&M.y<y+pw*.2;
     /* on a narrow screen you walk past us one at a time, and whoever you reach rises and stays */
     if(port&&1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i]))>.5) p.seen=true;
