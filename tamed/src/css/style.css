@@ -85,10 +85,10 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .sec.in .no,.sec.in .kick{ transition-delay:.05s } .sec.in .kind{ transition-delay:.35s } .sec.in .sub{ transition-delay:.5s } .sec.in .medium{ transition-delay:.5s } .sec.in .view,.sec.in .mail{ transition-delay:.65s } .sec.in .quiet{ transition-delay:.9s }
 
 /* home */
-.home{ left:0; right:0; top:8vh; text-align:center; padding:0 var(--gut); }
+.home{ left:0; right:0; top:6.6vh; text-align:center; padding:0 var(--gut); }
 .tag{ margin:0 auto; font-size:clamp(40px,5.1vw,86px); line-height:.98; max-width:12.5em; text-wrap:balance; }
-.home .sub{ position:fixed; left:0; right:0; bottom:clamp(92px,13.5vh,130px); margin:0 auto; padding:0 var(--gut); font-size:clamp(14px,1.1vw,16px); max-width:46em; letter-spacing:.01em; }
-.sec.in.home .sub{ opacity:.78; }
+.home .sub{ margin:2.1vh auto 0; font-size:clamp(14px,1.15vw,17px); max-width:34em; letter-spacing:.005em; }
+.sec.in.home .sub{ opacity:.8; }
 
 /* rooms: gallery wall labels */
 .room{ left:var(--gut); bottom:clamp(84px,11vh,120px); max-width:min(34em,86vw); color:var(--light); }

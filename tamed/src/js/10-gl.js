@@ -49,6 +49,16 @@ float fbm3(vec3 p){float s=0.,a=.5;for(int i=0;i<3;i++){s+=a*vnoise3(p);p=p*2.03
 GLSL.sdf=`
 float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
 float archO(float x,float y,float r){ return y>0.?length(vec2(x,y))-r:abs(x)-r; }
+float sdBox2(vec2 p,vec2 b){vec2 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,q.y),0.);}
+`;
+/* sunlight thrown back off moving water: thin bright braided lines, for stone near the waterline */
+GLSL.caustic=`
+float caustic(vec2 uv,float t){
+  vec2 p=mod(uv*6.2831,6.2831)-250.; vec2 i=p; float c=1.,inten=.005;
+  for(int n=0;n<3;n++){ float tt=t*(1.-(3.5/float(n+1))); i=p+vec2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));
+    c+=1./length(vec2(p.x/(sin(i.x+tt)/inten),p.y/(cos(i.y+tt)/inten))); }
+  c/=3.; c=1.17-pow(c,1.4); return pow(abs(c),7.);
+}
 `;
 /* height haze: denser near the water, brighter toward the sun */
 GLSL.haze=`
@@ -110,9 +120,9 @@ function stoneMat(o){
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP; varying vec3 vWN;'+(mir?'\nuniform mat4 uTexMat; varying vec4 vMC;':''))
       .replace('#include <fog_vertex>','#include <fog_vertex>\n{ vec4 w4=modelMatrix*vec4(transformed,1.); vWP=w4.xyz; vWN=normalize(mat3(modelMatrix)*objectNormal);'+(mir?' vMC=uTexMat*w4;':'')+' }');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n#define AO_N '+QL.ao+'\nvarying vec3 vWP; varying vec3 vWN;\nuniform vec3 uEmis; uniform float uRefl;'+(mir?'\nuniform sampler2D uMirror; uniform float uMirrorK; varying vec4 vMC;':'')
-        +GLSL.noise+GLSL.sdf+(o.sdf||'float mapAO(vec3 p){return 1e5;}')+GLSL.ao+GLSL.haze+GLSL.stone+(o.glsl||''))
+        +GLSL.noise+GLSL.sdf+(o.sdf||'float mapAO(vec3 p){return 1e5;}')+GLSL.ao+GLSL.haze+GLSL.stone+(o.caustic?GLSL.caustic:'')+(o.cav||'')+(o.glsl||''))
       .replace('#include <map_fragment>','#include <map_fragment>\n vec3 wN=normalize(vWN); diffuseColor.rgb*=stoneTex(vWP,wN);'+(o.albedo||''))
-      .replace('#include <aomap_fragment>','#include <aomap_fragment>\n{ float ao=sceneAO(vWP,wN); reflectedLight.indirectDiffuse*=ao; reflectedLight.indirectSpecular*=ao; reflectedLight.directDiffuse*=mix(1.,ao,.3); }')
+      .replace('#include <aomap_fragment>','#include <aomap_fragment>\n{ float ao=sceneAO(vWP,wN);'+(o.cav?' ao*=cavity(vWP,wN);':'')+' reflectedLight.indirectDiffuse*=ao; reflectedLight.indirectSpecular*=ao; reflectedLight.directDiffuse*=mix(1.,ao,.3); }')
       .replace('#include <opaque_fragment>',(mir?`{ vec2 ruv=vMC.xy/vMC.w; vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.);
           vec3 rc=textureLod(uMirror,ruv,2.2).rgb*.55+textureLod(uMirror,ruv,4.).rgb*.45; outgoingLight+=rc*uMirrorK*mix(.25,1.,fr)*(1.-uRefl); }`:'')
         +'outgoingLight+=uEmis;'+(o.emisGLSL||'')+'\n#include <opaque_fragment>')

@@ -100,7 +100,7 @@ function waterMat(U,mirror,sim,o={}){
       /* the headline, mirrored about the horizon and broken by the same ripples */
       vec2 sp2=gl_FragCoord.xy/uRes; vec2 tuv=vec2(sp2.x,2.*uHorizon-sp2.y)+off*1.2+vec2(rg.x,rg.y)*.004;
       vec4 tx=texture2D(tText,tuv);
-      float ta=clamp(tx.r*uTextK.x+tx.g*uTextK.y,0.,1.)*(1.-rf.a)*smoothstep(.0,.08,uHorizon-sp2.y)*.9;
+      float ta=clamp(tx.r*uTextK.x+tx.g*uTextK.y,0.,1.)*(1.-rf.a)*smoothstep(.0,.08,uHorizon-sp2.y)*.42;
       c=mix(c,uTextCol*(.6+.4*fr),ta*mix(.55,1.,fr));
       c=haze(c,vWP);
       gl_FragColor=vec4(c,1.);

@@ -9,7 +9,8 @@ function waterAt(x,y,cam,out){
   _nd.set(x/innerWidth*2-1,-(y/innerHeight)*2+1); _ray.setFromCamera(_nd,cam);
   if(!_ray.ray.intersectPlane(_plane,out)) return false; if(out.distanceTo(cam.position)>150) return false;
   const inPool=out.x>POOL.x0&&out.x<POOL.x1&&out.z>POOL.z0&&out.z<POOL.z1;
-  if(out.x>-14&&out.x<14&&out.z>-21.4&&out.z<11.2&&!inPool) return false;
+  if(Math.abs(out.x)<14&&out.z>-21.4&&out.z<.6&&!inPool) return false;
+  if(Math.abs(out.x)<PV.half&&out.z>=.6&&out.z<PV.foot) return false;
   return true;
 }
 function waterInteract(){
@@ -24,7 +25,8 @@ function horizonY(cam){ cam.getWorldDirection(_hd); _hd.y=0; if(_hd.lengthSq()<1
 const PAR={x:0,y:0};
 function camAt(name,s,cam){
   const keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2);
-  const f=trackEval(keys,s,_cp,_ct);
+  let f=trackEval(keys,s,_cp,_ct);
+  if(S.camOv&&S.camOv[0]===name){ const o=S.camOv; _cp.fromArray(o[1]); _ct.fromArray(o[2]); f=o[3]; }
   cam.position.copy(_cp); cam.lookAt(_ct);
   if(!RM){ cam.rotateY(-PAR.x*.03); cam.rotateX(PAR.y*.018); }
   if(Math.abs(cam.fov-f)>1e-3){ cam.fov=f; cam.updateProjectionMatrix(); }
@@ -74,7 +76,7 @@ function frame(tn){
   scrollTick(dt); VEIL.tick(dt); CASE.tick(dt); holdTick();
   if(S.mode==='entering'){ S.enterT+=dt; S.veil=1-E.io(clamp(S.enterT/2.6,0,1)); S.enterK=sstep(1.3,2.5,S.enterT); if(S.enterT>2.7){ S.mode='world'; S.veil=0; S.enterK=1; } }
   let s=S.mode==='page'?CASE.s:warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
-  const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
+  const [el,az]=S.sunOv||sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
   if(S.mode==='page'&&CASE.tint!=null) TINT.lerp(_tc[0],sstep(.3,.8,CASE.tint));
   const mx=sceneMix(s);
   const px=M.on?M.x/innerWidth*2-1:0, py=M.on?-(M.y/innerHeight*2-1):0; PAR.x=damp(PAR.x,px,2,dt); PAR.y=damp(PAR.y,py,2,dt);
@@ -155,4 +157,6 @@ window.__tamed={S,SC,A,QL,PLACES,get OUT(){return OUT;},get GAL(){return GAL;},C
   people(on){ S.peopleAll=!!on; if(OUT) OUT.people.forEach(p=>{ p.target=on?1:0; p.reveal=on?1:0; p.mat.uniforms.uReveal.value=p.reveal; }); },
   state(){ return {mode:S.mode,s:+S.s.toFixed(4),v:+SC.v.toFixed(4),target:+SC.target.toFixed(4),stops:STOPS.slice(),place:placeAt(S.s).id,proj:S.proj,index:HOLD.open,dpr:QL.dpr,frame:S.frame,audio:A.levels()}; },
   hover(v){ setHover(v); },
+  sun(el,az){ S.sunOv=el==null?null:[el,az]; },
+  cam(name,p,t,f){ S.camOv=name?[name,p,t,f]:null; },
 };

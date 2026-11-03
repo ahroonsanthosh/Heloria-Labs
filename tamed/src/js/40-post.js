@@ -43,6 +43,9 @@ const POST={};
     fragmentShader:`uniform sampler2D tScene,tBloom; uniform vec2 uRes,uMouse,uVel,uFloodC; uniform float uTime,uAsp,uExpo,uBloom,uSat,uVeil,uDark,uDim,uFlood,uDropR,uDropK,uCA,uVig,uGrain,uFade,uBlN;
     uniform vec3 uGrade,uLift,uVeilCol,uDimCol,uFloodCol; varying vec2 vUv; ${GLSL.noise}
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+    /* most of the curve applied to luminance only, so warm light stays peach instead of turning yellow; the brightest channel rolls to white */
+    vec3 tmap(vec3 x){ float L=dot(x,vec3(.2126,.7152,.0722)); float la=aces(vec3(L)).x; vec3 h=x*(la/max(L,1e-5));
+      float m=max(h.r,max(h.g,h.b)); if(m>1.) h=mix(h/m,vec3(1.),clamp((m-1.)/(m+.6),0.,1.)); return mix(aces(x),clamp(h,0.,1.),.62); }
     vec3 toS(vec3 c){ return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c)); }
     void main(){
       vec2 uv=vUv, fc=uv*uRes;
@@ -71,7 +74,7 @@ const POST={};
         vec3 mist=uVeilCol*(.78+.3*bl1)*(1.12-vr*.32)+vec3(1.,.86,.62)*exp(-vr*vr*3.)*.22;
         c=mix(c,mist*.92+bl*.1,vm*.84); }
       c*=uExpo;
-      c=aces(c*.92);
+      c=tmap(c*.92);
       float l=dot(c,vec3(.2126,.7152,.0722)); c=mix(vec3(l),c,uSat);
       c=toS(c);
       c=c*(1.-uLift)+uLift;
