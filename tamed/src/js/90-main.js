@@ -2,7 +2,7 @@
 const CAM={out:new T.PerspectiveCamera(40,1,.1,3000), gal:new T.PerspectiveCamera(40,1,.1,3000)};
 const G={px:600};
 let OUT=null, GAL=null, rtA=null, rtB=null;
-const WORLD={onWater:false,offT:0,tap(x,y){ if(!OUT||!(S.mode==='world')) return; const mx=sceneMix(S.s); if(mx.a!=='out'&&mx.b!=='out') return;
+const WORLD={onWater:false,offT:0,tap(x,y){ if(!OUT||!(S.mode==='world')) return; HAND.tapT=now(); const mx=sceneMix(S.s); if(mx.a!=='out'&&mx.b!=='out') return;
   if(waterAt(x,y,CAM.out,_hit)){ OUT.sim.drop(_hit.x,_hit.z,.8,2.4); A.drop(1.1); } }};
 const _ray=new T.Raycaster(), _nd=new T.Vector2(), _hit=v3(), _lastHit=v3(), _plane=new T.Plane(v3(0,1,0),0), _hd=v3(), _hp=v3(), _cp=v3(), _ct=v3();
 function waterAt(x,y,cam,out){
@@ -73,15 +73,14 @@ function frame(tn){
   S.timeScale=damp(S.timeScale,tsT,2.4,dt); S.ut=(S.ut||0)+dt*S.timeScale; GU.uTime.value=RM?S.ut*.4:S.ut;
   QM.tick(raw*1000); UI.cursor(dt);
   if(!S.ready||!GL_OK) return;
-  scrollTick(dt); VEIL.tick(dt); CASE.tick(dt); holdTick();
+  scrollTick(dt); VEIL.tick(dt); holdTick();
   if(S.mode==='entering'){ S.enterT+=dt; S.veil=1-E.io(clamp(S.enterT/2.6,0,1)); S.enterK=sstep(1.3,2.5,S.enterT); if(S.enterT>2.7){ S.mode='world'; S.veil=0; S.enterK=1; } }
-  let s=S.mode==='page'?CASE.s:warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
+  let s=warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
   const [el,az]=S.sunOv||sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
-  if(S.mode==='page'&&CASE.tint!=null) TINT.lerp(_tc[0],sstep(.3,.8,CASE.tint));
   const mx=sceneMix(s);
   const px=M.on?M.x/innerWidth*2-1:0, py=M.on?-(M.y/innerHeight*2-1):0; PAR.x=damp(PAR.x,px,2,dt); PAR.y=damp(PAR.y,py,2,dt);
   const needOut=mx.a==='out'||mx.b==='out', needGal=mx.a==='gal'||mx.b==='gal';
-  if(needOut){ camAt('out',s,CAM.out); OUT.update(dt); OUT.applyLight(tod,TINT); waterInteract(); OUT.sim.step(dt);
+  if(needOut){ camAt('out',s,CAM.out); OUT.update(dt); OUT.applyLight(tod,TINT); waterInteract(); OUT.sim.follow(CAM.out); OUT.sim.step(dt);
     G.px=GU.uRes.value.y/(2*Math.tan(CAM.out.fov*DEG/2)); OUT.seeds.mat.uniforms.uPx.value=G.px;
     if(TXT.dirty){ drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex; }
     const wu=OUT.waterMat.uniforms; wu.uTextK.value.set(SECS[0].vis>0?SECS[0].vis:0,SECS[SECS.length-1].vis>0?SECS[SECS.length-1].vis:0); wu.uTextCol.value.copy(_fg); wu.uHorizon.value=horizonY(CAM.out); }
@@ -98,9 +97,9 @@ function frame(tn){
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
   cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,S.gateHover==='tamed'?.8:1,2.5,dt):S.veil;
   cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
-  cu.uDim.value=Math.max(CASE.dim,damp(S.idim||0,HOLD.open?.7:0,6,dt)); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
+  cu.uDim.value=damp(S.idim||0,HOLD.open?.7:0,6,dt); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
   cu.uDimCol.value.set(1,1,1).lerp(TINT,.5);
-  const fk=Math.max(CASE.floodK||0,VEIL.k); cu.uFlood.value=fk; if(VEIL.k>(CASE.floodK||0)){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
+  const fk=VEIL.k; cu.uFlood.value=fk; if(VEIL.k>0){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
   const d=QL.dpr; cu.uMouse.value.set(M.x*d,(innerHeight-M.y)*d); cu.uVel.value.set(M.vx*d,-M.vy*d); M.vx*=Math.exp(-6*dt); M.vy*=Math.exp(-6*dt);
   cu.uDropR.value=damp(cu.uDropR.value,(UI.isBig()?24:12)*d*(HOLD.open?1.4:1),9,dt);
   cu.uDropK.value=damp(cu.uDropK.value,FINE&&M.on?1:0,8,dt);
@@ -120,7 +119,7 @@ function audioState(s,inside){
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 
 async function boot(){
-  if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='A quiet page, without the place'; return; }
+  if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08);
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
   await nextFrame();
@@ -152,7 +151,6 @@ window.__tamed={S,SC,A,QL,PLACES,get OUT(){return OUT;},get GAL(){return GAL;},C
   enter,travel,
   jump(s){ S.mode='world'; S.veil=0; S.enterK=1; gate.classList.add('go','gone'); ui.classList.add('on'); $('#logo').classList.add('on'); const i=STOPS.indexOf(s); SC.v=SC.target=i>=0?i:s; SC.glide=null; SC.lastIn=-9; SC.pin=false; },
   setV(v){ SC.v=SC.target=v; SC.glide=null; SC.pin=true; },
-  openProject(i){ CASE.open(i,$$('[data-open]')[i]); }, closeProject(){ CASE.close(); }, caseScroll(y){ CASE.ty=CASE.y=y; }, get CASE(){ return CASE; },
   openIndex(){ UI.indexOpen(true); }, closeIndex(){ UI.indexOpen(false); },
   people(on){ S.peopleAll=!!on; if(OUT) OUT.people.forEach(p=>{ p.target=on?1:0; p.reveal=on?1:0; }); },
   holdPeople(v){ S.peopleHold=!!v; },

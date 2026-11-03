@@ -1,5 +1,5 @@
 /* Stills of every place: the gate (and both hovers), Home, the four rooms, Team (reflections, then risen),
-   Contact, the hold index and a project page.
+   Contact and the hold index.
    node tamed/test/run.cjs --scenario tamed/test/shots.cjs --out <dir> [--mobile] [--hq] [--only home,krios] */
 module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, check }) => {
   const only = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
@@ -32,10 +32,4 @@ module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, chec
     }
   }
   if (want('index')) { await T(t => { t.jump(1); }); await settle(2); await T(t => t.openIndex()); await wait(900); await still('12-index'); await T(t => t.closeIndex()); }
-  if (want('case')) {
-    await T(t => { t.jump(1); }); await settle(3); await T(t => t.openProject(0)); await wait(2600); await still('13-case-krios');
-    await T(t => t.caseScroll(t.CASE.tops[0] + innerHeight * 1.1)); await still('14-case-krios-body');
-    await T(t => t.caseScroll(t.CASE.tops[1] - innerHeight * .35)); await still('15-case-next');
-    await T(t => t.closeProject()); await wait(1200); await still('16-closed');
-  }
 };

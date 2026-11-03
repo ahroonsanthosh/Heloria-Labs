@@ -1,18 +1,21 @@
 /* ================= STILL WATER =================
    A wave equation on a ping-pong pair of targets: the cursor, a tap, a person rising from the pool
-   all drop energy in and it spreads in rings. The water samples it for its normals. */
+   all drop energy in and it spreads in rings. The water samples it for its normals.
+   The simulated patch goes where you look: it follows the camera in whole texels, carrying its rings with it, so the
+   water answers anywhere you can see it and a ring never slides */
 const SIM={rect:new T.Vector4(-72,-60,128,128)}; // xz origin and size of the simulated patch, in metres
 function makeSim(){
   const N=QL.sim, o={type:T.HalfFloatType,depthBuffer:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter,wrapS:T.ClampToEdgeWrapping,wrapT:T.ClampToEdgeWrapping};
   const a=RT(N,N,o), b=RT(N,N,o);
   const drops=[]; for(let i=0;i<4;i++) drops.push(new T.Vector4(0,0,0,0));
-  const mat=new T.ShaderMaterial({uniforms:{tPrev:{value:null},uTx:{value:new T.Vector2(1/N,1/N)},uD:{value:drops},uSeg:{value:new T.Vector4()},uSegK:{value:0},uSize:{value:SIM.rect.z},uK:{value:.16},uDamp:{value:.986}},
+  const mat=new T.ShaderMaterial({uniforms:{tPrev:{value:null},uTx:{value:new T.Vector2(1/N,1/N)},uD:{value:drops},uSeg:{value:new T.Vector4()},uSegK:{value:0},uSize:{value:SIM.rect.z},uK:{value:.16},uDamp:{value:.986},uShift:{value:new T.Vector2()}},
     vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
-    fragmentShader:`uniform sampler2D tPrev; uniform vec2 uTx; uniform vec4 uD[4]; uniform vec4 uSeg; uniform float uSegK,uSize,uK,uDamp; varying vec2 vUv;
+    fragmentShader:`uniform sampler2D tPrev; uniform vec2 uTx,uShift; uniform vec4 uD[4]; uniform vec4 uSeg; uniform float uSegK,uSize,uK,uDamp; varying vec2 vUv;
     float seg(vec2 p,vec2 a,vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.,1.); return length(pa-ba*h); }
+    vec4 at(vec2 u){ return (u.x<0.||u.y<0.||u.x>1.||u.y>1.)?vec4(0.):texture2D(tPrev,u); }
     void main(){
-      vec4 c=texture2D(tPrev,vUv); float h=c.r, hp=c.g;
-      float s=texture2D(tPrev,vUv+vec2(uTx.x,0.)).r+texture2D(tPrev,vUv-vec2(uTx.x,0.)).r+texture2D(tPrev,vUv+vec2(0.,uTx.y)).r+texture2D(tPrev,vUv-vec2(0.,uTx.y)).r;
+      vec2 u=vUv+uShift; vec4 c=at(u); float h=c.r, hp=c.g;
+      float s=at(u+vec2(uTx.x,0.)).r+at(u-vec2(uTx.x,0.)).r+at(u+vec2(0.,uTx.y)).r+at(u-vec2(0.,uTx.y)).r;
       float nh=(2.*h-hp+uK*(s-4.*h))*uDamp;
       vec2 wp=vUv*uSize;
       for(int i=0;i<4;i++){ vec4 d=uD[i]; if(d.w!=0.){ float r=length(wp-d.xy)/d.z; nh+=d.w*exp(-r*r*2.); } }
@@ -22,16 +25,28 @@ function makeSim(){
     }`, depthTest:false, depthWrite:false});
   const sc=new T.Scene(), q=new T.Mesh(new T.PlaneGeometry(2,2),mat); q.frustumCulled=false; sc.add(q);
   const cam=new T.OrthographicCamera(-1,1,1,-1,0,1);
-  let cur=a, prev=b, acc=0, nd=0;
+  let cur=a, prev=b, acc=0, nd=0, segW=null;
+  const W=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], want={x:SIM.rect.x,y:SIM.rect.y}, TX=SIM.rect.z/N, _f=v3();
   const sim={ get tex(){ return cur.texture; },
     clear(){ [a,b].forEach(t=>{ renderer.setRenderTarget(t); renderer.setClearColor(0,0); renderer.clear(); }); renderer.setClearColor(0,0); },
-    /* x,z world position, radius metres, strength */
-    drop(x,z,r,k){ if(nd>=4) return; const u=(x-SIM.rect.x), v=(z-SIM.rect.y); if(u<0||v<0||u>SIM.rect.z||v>SIM.rect.w) return; drops[nd++].set(u,v,r,k); },
-    stroke(x0,z0,x1,z1,k){ mat.uniforms.uSeg.value.set(x0-SIM.rect.x,z0-SIM.rect.y,x1-SIM.rect.x,z1-SIM.rect.y); mat.uniforms.uSegK.value=k; },
+    /* x,z world position, radius metres, strength: kept in the world until the next step places it in the patch */
+    drop(x,z,r,k){ if(nd>=4) return; const w=W[nd++]; w[0]=x; w[1]=z; w[2]=r; w[3]=k; },
+    stroke(x0,z0,x1,z1,k){ segW=[x0,z0,x1,z1,k]; },
+    /* where the patch should be: centred a little ahead of the camera, over the water it is looking at */
+    follow(c){ c.getWorldDirection(_f); _f.y=0; if(_f.lengthSq()<1e-6) _f.set(0,0,-1); _f.normalize();
+      const sz=SIM.rect.z; want.x=c.position.x+_f.x*sz*.3-sz/2; want.y=c.position.z+_f.z*sz*.3-sz/2; },
     step(dt){
-      acc+=dt; let n=0; const H=1/40;
-      while(acc>=H&&n<3){ acc-=H; n++; mat.uniforms.tPrev.value=cur.texture; renderer.setRenderTarget(prev); renderer.render(sc,cam); const t=cur; cur=prev; prev=t;
-        for(const d of drops) d.w=0; nd=0; mat.uniforms.uSegK.value=0; }
+      acc+=dt; let n=0; const H=1/40, U=mat.uniforms;
+      while(acc>=H&&n<3){ acc-=H; n++;
+        if(n===1){
+          /* move the patch in whole texels, and the rings with it */
+          const dx=Math.round((want.x-SIM.rect.x)/TX), dz=Math.round((want.y-SIM.rect.y)/TX);
+          U.uShift.value.set(dx/N,dz/N); SIM.rect.x+=dx*TX; SIM.rect.y+=dz*TX;
+          for(let i=0;i<4;i++){ const w=W[i]; if(i<nd){ const u=w[0]-SIM.rect.x, v=w[1]-SIM.rect.y; drops[i].set(u,v,w[2],(u<0||v<0||u>SIM.rect.z||v>SIM.rect.w)?0:w[3]); } else drops[i].w=0; }
+          if(segW){ U.uSeg.value.set(segW[0]-SIM.rect.x,segW[1]-SIM.rect.y,segW[2]-SIM.rect.x,segW[3]-SIM.rect.y); U.uSegK.value=segW[4]; }
+        }
+        U.tPrev.value=cur.texture; renderer.setRenderTarget(prev); renderer.render(sc,cam); const t=cur; cur=prev; prev=t;
+        U.uShift.value.set(0,0); for(const d of drops) d.w=0; nd=0; segW=null; U.uSegK.value=0; }
       if(acc>H*3) acc=0;
     }};
   return sim;

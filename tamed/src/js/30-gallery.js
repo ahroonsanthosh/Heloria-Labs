@@ -42,11 +42,11 @@ function buildGallery(){
   W.sdfGLSL=B.glsl();
   /* Pharos: the room is dark stone. The floor is a map, drawn in light only where the drone's camera is looking,
      with the square it thinks it is in and its circle of doubt */
-  Object.assign(W.U,{uPhD:{value:new T.Vector4(0,roomZ(2),0,1.2)}, uPhM:{value:new T.Vector4(0,roomZ(2),.6,0)}, uPhCol:{value:col('#FFD5B3')}, uPhK:{value:1}});
+  Object.assign(W.U,{uPhD:{value:new T.Vector4(0,roomZ(2),0,1.2)}, uPhM:{value:new T.Vector4(0,roomZ(2),.6,0)}, uPhC:{value:new T.Vector4(0,roomZ(2),0,.95)}, uPhCol:{value:col('#FFD5B3')}, uPhK:{value:1}});
   const PHM=`${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z)`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'gal', color:'#ECE5DA', rough:.88, joint:.55, warm:'#FFF4E6',
     albedo:`{ float ph=smoothstep(${PHM}; diffuseColor.rgb*=mix(1.,.27,ph); }`});
-  const PHG=`uniform vec4 uPhD,uPhM; uniform vec3 uPhCol; uniform float uPhK,uTime;
+  const PHG=`uniform vec4 uPhD,uPhM,uPhC; uniform vec3 uPhCol; uniform float uPhK,uTime;
     float mapLines(vec2 q){ float h=(vnoise(q*.11+3.)*.66+vnoise(q*.24+5.3)*.34)*14.+vnoise(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
       float line=1.-smoothstep(0.,.022+fw,dd); float major=1.-smoothstep(0.,.03+fw*.2,abs(fract(h*.2+.5)-.5)*5.);
       vec2 gq=abs(fract(q/1.24+.5)-.5)*1.24; float gw=fwidth(q.x)+fwidth(q.y); float grid=1.-smoothstep(0.,.005+gw,min(gq.x,gq.y));
@@ -66,6 +66,8 @@ function buildGallery(){
       float rd=length(dm), rr=abs(rd-uPhM.z), fr=fwidth(rd)*1.5+.002; float ring=(1.-smoothstep(0.,fr+.01,rr))*(.3+.7*(1.-uPhM.w));
       float cr=(1.-smoothstep(0.,fm*.5+.01,min(abs(lm.x),abs(lm.y))))*step(max(abs(lm.x),abs(lm.y)),.12*uPhD.w)*uPhM.w;
       vec3 add=uPhCol*(seen*(ml*.9+water+.045)+frame*.35*seen)+uPhCol*(match*(.5+.9*uPhM.w)+ring*.55+cr*1.1)+uPhCol*ml*.022;
+      /* your hand is a small torch: the map shows faintly under it, wherever the drone is not looking */
+      vec2 dc=q-uPhC.xy; add+=uPhCol*uPhC.z*exp(-dot(dc,dc)/(uPhC.w*uPhC.w))*(ml*.62+water*1.1+.03)*(1.-seen*.8);
       outgoingLight+=add*ph*uPhK; } }`;
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
   const shaftM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return 1e5;}', key:'shaft', color:'#ECE3D6', rough:.9, joint:.6,
@@ -96,7 +98,7 @@ function buildGallery(){
 
   W.rooms=[buildKrios(W,roomZ(0)),buildAetos(W,roomZ(1),AP),buildPharos(W,roomZ(2)),buildOgive(W,roomZ(3),OR)];
   W.hideInMirror=[floor];
-  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<-38; };
+  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; handUpdate(dt); for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<-38; };
   W.applyLight=(tod,tint,s)=>{
     const sk=W.sky.material.uniforms;
     sk.uSunDir.value.copy(SUN.dir); sk.uZen.value.copy(TODC.zen); sk.uHor.value.copy(TODC.hor); sk.uHorS.value.copy(TODC.horS); sk.uGlow.value.copy(TODC.glow);
@@ -137,6 +139,20 @@ function lightLine(c,w=3){
         float core=exp(-vV*vV*3.); gl_FragColor=vec4(uCol*core*(on*.6*dash+head)*uK,1.); }`});
   const mesh=new T.Mesh(new T.PlaneGeometry(1,1,48,1),m); mesh.frustumCulled=false; return {mesh,U};
 }
+/* the hand: where the pointer is (on a touch screen, where you last tapped, for a moment), as a ray from the gallery
+   camera and the point of the floor under it. Each room answers it a little, in its own way */
+const HAND={k:0,x:0,y:0,tapT:-9,ray:new T.Raycaster(),nd:new T.Vector2(),floor:v3(),onFloor:false};
+function handUpdate(dt){
+  const tap=now()-HAND.tapT, live=S.mode==='world'&&!HOLD.open&&(M.on||tap<2.4);
+  HAND.k=damp(HAND.k,live?(M.on?1:1-sstep(1.4,2.4,tap)):0,live?7:4,dt);
+  if(live){ HAND.x=M.x; HAND.y=M.y; }
+  CAM.gal.updateMatrixWorld(); HAND.nd.set(HAND.x/innerWidth*2-1,-(HAND.y/innerHeight)*2+1); HAND.ray.setFromCamera(HAND.nd,CAM.gal);
+  const r=HAND.ray.ray; HAND.onFloor=r.direction.y<-1e-3;
+  if(HAND.onFloor) HAND.floor.copy(r.origin).addScaledVector(r.direction,-r.origin.y/r.direction.y);
+}
+/* how much a room is in front of you, from the walk */
+const roomNear=k=>1-sstep(.3,.55,Math.abs(S.s-(k+1)));
+const handIn=(zc,k)=>HAND.onFloor&&Math.abs(HAND.floor.x)<5.9&&Math.abs(HAND.floor.z-zc)<7.9?HAND.k*roomNear(k):0;
 /* a soft round glow that always faces you */
 function glowSprite(c,size){
   const U={uCol:{value:col(c)},uK:{value:1},uS:{value:1}};
@@ -200,23 +216,25 @@ function buildKrios(W,zc){
     F.push(px,pz,h,r); }
   const NF=F.length/4, fA=new T.InstancedBufferAttribute(new Float32Array(F),4);
   const inst=a=>{ const ig=new T.InstancedBufferGeometry(); ig.setAttribute('position',new T.Float32BufferAttribute(a,3)); ig.setAttribute('aF',fA); ig.instanceCount=NF; ig.boundingSphere=new T.Sphere(v3(0,0,zc),24); return ig; };
-  const FU={uVT:{value:0},uTime:GU.uTime,uMic:{value:new T.Vector2(MIC.x,MIC.z)},uOrb:{value:new T.Vector2(ORB.x,ORB.z)},uPx:{value:600},
+  const FU={uVT:{value:0},uTime:GU.uTime,uMic:{value:new T.Vector2(MIC.x,MIC.z)},uOrb:{value:new T.Vector2(ORB.x,ORB.z)},uPx:{value:600},uHand:{value:v3(0,zc,0)},
     uYou:{value:col('#B9CDFF')},uThem:{value:col('#FFDDB8')},uBase:{value:col('#86A0DE')},uK:{value:1}};
-  const FIELD=`attribute vec4 aF; uniform float uVT,uTime,uPx; uniform vec2 uMic,uOrb; ${VOICE_GLSL}
-    void field(out float h,out float a,out float b){ vec2 p=aF.xy; a=vWave(p,uMic,0.,uVT); b=vWave(p,uOrb,1.,uVT);
+  /* your hand in the field: the stems near it lean away and light up, as they do for your voice */
+  const FIELD=`attribute vec4 aF; uniform float uVT,uTime,uPx; uniform vec2 uMic,uOrb; uniform vec3 uHand; ${VOICE_GLSL}
+    void field(out float h,out float a,out float b,out vec2 ln){ vec2 p=aF.xy; a=vWave(p,uMic,0.,uVT); b=vWave(p,uOrb,1.,uVT);
+      vec2 dh=p-uHand.xy; float hd=dot(dh,dh), hk=uHand.z*exp(-hd*1.3);
       float idle=.028*sin(uTime*.6+aF.w*6.2832+p.x*.5)+.016*sin(uTime*1.1+p.y*.8+aF.w*3.);
-      h=aF.z*(1.+.7*(a+b))+idle; }`;
+      h=aF.z*(1.+.7*(a+b)+.24*hk)+idle; a+=hk*.2; ln=dh*inversesqrt(hd+.05)*hk*.18; }`;
   const stemM=new T.ShaderMaterial({uniforms:FU,...ADD,side:T.DoubleSide,
     vertexShader:`${FIELD} varying float vV,vA,vB;
-      void main(){ float h,a,b; field(h,a,b); vec3 base=vec3(aF.x,0.,aF.y); vec3 toC=cameraPosition-base; vec3 r=normalize(vec3(toC.z,0.,-toC.x));
-        float px=length(toC)/uPx; vec3 p=base+vec3(0.,position.y*h,0.)+r*position.x*max(.006,px*1.1);
+      void main(){ float h,a,b; vec2 ln; field(h,a,b,ln); vec3 base=vec3(aF.x,0.,aF.y); vec3 toC=cameraPosition-base; vec3 r=normalize(vec3(toC.z,0.,-toC.x));
+        float px=length(toC)/uPx; vec3 p=base+vec3(ln.x*position.y,position.y*h,ln.y*position.y)+r*position.x*max(.006,px*1.1);
         vV=position.y; vA=a; vB=b; gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
     fragmentShader:`uniform vec3 uYou,uThem,uBase; uniform float uK; varying float vV,vA,vB;
       void main(){ vec3 c=uBase*.05*(.3+.7*vV)+(uYou*vA+uThem*vB)*.45*vV*vV; gl_FragColor=vec4(c*uK,1.); }`});
   const stems=new T.Mesh(inst([0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0].map((v,i)=>i%3===0?v-.5:v)),stemM); stems.frustumCulled=false; stems.renderOrder=956; g.add(stems);
   const tipM=new T.ShaderMaterial({uniforms:FU,...ADD,
     vertexShader:`${FIELD} varying vec2 vQ; varying float vA,vB,vR;
-      void main(){ float h,a,b; field(h,a,b); vec4 mv=viewMatrix*vec4(aF.x,h,aF.y,1.); float s=max(.026+.03*(a+b),-mv.z*2.2/uPx); mv.xy+=position.xy*s;
+      void main(){ float h,a,b; vec2 ln; field(h,a,b,ln); vec4 mv=viewMatrix*vec4(aF.x+ln.x,h,aF.y+ln.y,1.); float s=max(.026+.03*(a+b),-mv.z*2.2/uPx); mv.xy+=position.xy*s;
         vQ=position.xy; vA=a; vB=b; vR=aF.w; gl_Position=projectionMatrix*mv; }`,
     fragmentShader:`uniform vec3 uYou,uThem,uBase; uniform float uK; varying vec2 vQ; varying float vA,vB,vR;
       void main(){ float r=length(vQ); float k=(exp(-r*r*14.)+exp(-r*r*3.)*.3)*(1.-smoothstep(.8,1.,r));
@@ -231,8 +249,10 @@ function buildKrios(W,zc){
         vec2 e=min(vP-vec2(-5.9,${(zc-7.9).toFixed(2)}),vec2(5.9,${(zc+7.9).toFixed(2)})-vP); float edge=smoothstep(0.,.8,min(e.x,e.y));
         gl_FragColor=vec4((uYou*la+uThem*lb)*.62*edge*uK,1.); }`});
   const rings=new T.Mesh(new T.PlaneGeometry(11.8,15.8),ringM); rings.rotation.x=-Math.PI/2; rings.position.set(0,.007,zc); rings.renderOrder=8; g.add(rings);
-  let t0=0, orbK=.4;
-  return {g, spot, dbg:()=>({who:VOICE.who,u:+VOICE.phase.toFixed(2)}), update(dt,t,st){
+  let t0=0, orbK=.4, hx=0, hz=zc, hK=0;
+  return {g, spot, dbg:()=>({who:VOICE.who,u:+VOICE.phase.toFixed(2),hand:+hK.toFixed(2)}), update(dt,t,st){
+    const hk=handIn(zc,0); if(hk>0){ const f=hK<.02; hx=f?HAND.floor.x:damp(hx,HAND.floor.x,9,dt); hz=f?HAND.floor.z:damp(hz,HAND.floor.z,9,dt); }
+    hK=damp(hK,hk,hk>hK?6:2.5,dt); FU.uHand.value.set(hx,hz,hK);
     /* the call: you speak for a few seconds, a breath, then the buyer answers */
     t0+=dt; const turn=3.4, k=t0%(turn*2), who=k<turn?0:1, u=(k%turn)/turn;
     VOICE.who=who; VOICE.phase=u;
@@ -279,7 +299,7 @@ function buildAetos(W,zc,AP){
   for(let i=0;i<N;i++){ const lo=i<6;
     D.push(Object.assign(lo?{kind:'loit',r:2.5+i*1.15+R()*.8,a0:R()*TAU,w:(.045+R()*.05)*(i%2?-1:1),y:27+R()*12,cx:(R()-.5)*3,cz:BZ+(R()-.5)*3}
       :{kind:'cross',ang:R()*TAU,sp:.016+R()*.018,ph:R(),off:(R()-.5)*14,y:25+R()*18},
-      {p:v3(),yaw:0,a:1,fade:1,mk:0,ang:0,inR:9,role:'friend',drop:0,bl:R()*6,seen:0})); }
+      {p:v3(),yaw:0,a:1,fade:1,mk:0,ang:0,inR:9,role:'friend',drop:0,bl:R()*6,seen:0,hov:0})); }
   const posOf=(d,t)=>{ if(d.kind==='loit'){ const a=d.a0+t*d.w; d.p.set(d.cx+Math.cos(a)*d.r,d.y+Math.sin(t*.3+d.a0)*.5,d.cz+Math.sin(a)*d.r); d.yaw=a*.6; }
     else { const dx=Math.cos(d.ang), dz=Math.sin(d.ang), u=((t*d.sp+d.ph)%1+1)%1; d.p.set(dx*(u-.5)*150-dz*d.off,d.y,BZ+dz*(u-.5)*150+dx*d.off); d.yaw=d.ang+.785; } };
   /* seen from below: a body, four arms in an X, four motors, and the blur of four rotors */
@@ -337,11 +357,20 @@ function buildAetos(W,zc,AP){
   /* the intercept, drawn from the edge of the opening up to the threat, and the flash where it meets it */
   const shot=lightLine('#FFD3A4',2.4); shot.mesh.renderOrder=998; g.add(shot.mesh); shot.U.uA.value.set(AP*.55,ROOM.H+.05,zc+AP*.98);
   const flash=glowSprite('#FFE2C0',1); flash.mesh.renderOrder=997; flash.U.uK.value=0; g.add(flash.mesh);
-  const TH={i:-1,st:'pick',t:0,hits:0}, _l=v3();
-  let tb=0, sweep=0;
+  const TH={i:-1,st:'pick',t:0,hits:0}, _l=v3(), _s=v3();
+  let tb=0, sweep=0, hovI=-1;
   const pickThreat=()=>{ let best=-1, bd=9; D.forEach((d,i)=>{ if(d.kind==='loit'&&d.role==='friend'&&d.fade>.99&&d.inR<bd&&d.inR<.62){ bd=d.inR; best=i; } }); return best; };
-  return {g, dbg:()=>({st:TH.st,t:+TH.t.toFixed(2)}), update(dt,t,st){
+  return {g, dbg:()=>({st:TH.st,t:+TH.t.toFixed(2),hov:hovI}), update(dt,t,st){
     tb+=dt; const px=G.px; LUu.uPx.value=MU.uPx.value=shot.U.uPx.value=px;
+    /* the drone nearest your hand, if it is close to it on the screen */
+    let hv=-1, hd=HAND.k>.5&&roomNear(1)>.5?Math.max(46,innerWidth*.045):0;
+    const cp=CAM.gal.position;
+    if(hd) for(let i=0;i<N;i++){ const d=D[i]; if(d.fade<.6||d.role==='down'||(d.role==='threat'&&TH.st!=='search')) continue;
+      /* only one you can see: the line from you to it has to pass through the opening */
+      const k=(ROOM.H-cp.y)/(d.p.y-cp.y), ox=cp.x+(d.p.x-cp.x)*k, oz=cp.z+(d.p.z-cp.z)*k; if(!(k>0&&k<1&&Math.abs(ox)<AP-.05&&Math.abs(oz-zc)<AP-.05)) continue;
+      _s.copy(d.p).project(CAM.gal); if(_s.z>1) continue;
+      const e=Math.hypot((_s.x*.5+.5)*innerWidth-HAND.x,(-_s.y*.5+.5)*innerHeight-HAND.y); if(e<hd){ hd=e; hv=i; } }
+    if(hv!==hovI){ hovI=hv; if(hv>=0) rsnd('ae-hov',clamp(D[hv].p.x*.04,-.8,.8)); }
     radar.lookAt(CAM.gal.position); radar.updateMatrixWorld();
     const sp=TAU/3.2, s0=sweep; sweep=(sweep+dt*sp)%TAU; RU.uA.value=sweep;
     const passed=a=>{ const d0=((a-s0)%TAU+TAU)%TAU, d1=((sweep-s0)%TAU+TAU)%TAU; return d0<=d1&&d1<Math.PI; };
@@ -354,11 +383,12 @@ function buildAetos(W,zc,AP){
       d.seen=Math.max(0,d.seen-dt*.42);
       iP.set([d.p.x,d.p.y,d.p.z],i*3); iY[i]=d.yaw; iA[i]=d.fade;
       LP.set([d.p.x,d.p.y-.02,d.p.z],i*3);
-      const blink=Math.pow(Math.max(0,Math.sin(tb*2.1+d.bl)),24);
+      d.hov=damp(d.hov,i===hovI?1:0,i===hovI?12:2.5,dt);
+      const blink=Math.max(Math.pow(Math.max(0,Math.sin(tb*2.1+d.bl)),24),d.hov);
       if(d.role==='threat'&&TH.st!=='search') LC.set([1,.62,.3,.85*d.fade],i*4); else if(d.role==='down') LC.set([1,.62,.3,0],i*4); else LC.set([1,.98,.92,(.25+.75*blink)*d.fade],i*4);
       MP.set([d.p.x,d.p.y,d.p.z],i*3);
       if(i===TH.i&&TH.st!=='search'&&TH.st!=='clear') MM.set([TH.st==='id'?1:2,d.fade*(TH.st==='down'?Math.max(0,1-TH.t*1.6):1),TH.st==='id'?1.15:lerp(1.15,.85,Math.min(1,TH.t*2.5)),tb*.9],i*4);
-      else MM.set([0,d.seen*d.fade,.82,0],i*4); }
+      else MM.set([0,Math.max(d.seen,d.hov)*(1+.7*d.hov)*d.fade,.82+.16*d.hov,0],i*4); }
     /* the threat: found by the sweep, picked out, locked, then the intercept goes up to it */
     TH.t+=dt; const th=D[TH.i];
     if(TH.st==='pick'){ const k=pickThreat(); if(k>=0){ TH.i=k; D[k].role='threat'; TH.st='search'; TH.t=0; TH.hits=0; } }
@@ -446,9 +476,11 @@ function buildPharos(W,zc){
   /* one slow loop round the room every 24 s, a little uneven, and over the open water once each time round */
   const pos=(tt,o)=>{ const a=tt*TAU/24+.9; return o.set(.35+1.7*Math.cos(a)+.22*Math.sin(a*2.3),CAMY+.12+.05*Math.sin(tt*.9),zc-.4+1.95*Math.sin(a)+.18*Math.cos(a*1.7)); };
   let yaw=0, doubt=.6, lock=0, locked=false, tp=0, first=true;
-  let wetK=0;
-  return {g, get lock(){ return lock; }, dbg:()=>({lock:+lock.toFixed(2),wet:+wetK.toFixed(2),doubt:+doubt.toFixed(2)}), update(dt,t,st){
+  let wetK=0, tK=0;
+  return {g, get lock(){ return lock; }, dbg:()=>({lock:+lock.toFixed(2),wet:+wetK.toFixed(2),doubt:+doubt.toFixed(2),torch:+tK.toFixed(2)}), update(dt,t,st){
     tp+=dt; pos(tp,p); pos(tp+.4,pv);
+    { const hk=handIn(zc,2), C4=U.uPhC.value; if(hk>0){ const f=tK<.02; C4.x=f?HAND.floor.x:damp(C4.x,HAND.floor.x,10,dt); C4.y=f?HAND.floor.z:damp(C4.y,HAND.floor.z,10,dt); }
+      tK=damp(tK,hk,hk>tK?5:2.2,dt); C4.z=tK; }
     const vx=(pv.x-p.x)/.4, vz=(pv.z-p.z)/.4, sp=Math.hypot(vx,vz), want=Math.atan2(vx,vz);
     let dy=((want-yaw+Math.PI)%TAU+TAU)%TAU-Math.PI; yaw+=first?dy:dy*(1-Math.exp(-dt*.9)); first=false;
     const fw=vx*Math.sin(yaw)+vz*Math.cos(yaw), side=vx*Math.cos(yaw)-vz*Math.sin(yaw);
@@ -524,7 +556,8 @@ function buildOgive(W,zc,OR){
   const lp=[]; for(let i=0;i<8;i++){ const a=i/8*TAU; lp.push(0,0,0, Math.cos(a)*.35,.62+.36*Math.cos(Math.PI*.42),Math.sin(a)*.35); }
   const lgeo=new T.BufferGeometry(); lgeo.setAttribute('position',new T.Float32BufferAttribute(lp,3));
   chute.add(new T.LineSegments(lgeo,new T.LineBasicMaterial({color:'#D9C9B6',transparent:true,opacity:.7})));
-  /* the height asked for: a hoop of light in the shaft */
+  /* the height asked for: a hoop of light in the shaft. Point into the shaft and you name it: the hoop goes where your
+     hand is, and the next designs are worked to that height */
   const HY=5.7, hoopU={uK:{value:.5},uCol:{value:col('#FFC690')}};
   const hoop=new T.Mesh(new T.TorusGeometry(.42,.013,10,120),new T.ShaderMaterial({uniforms:hoopU,...ADD,
     vertexShader:`void main(){ gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
@@ -547,12 +580,23 @@ function buildOgive(W,zc,OR){
   W.ogiveDust=dm;
   /* the designs it tries, and how high each would go */
   const DES=[{Lb:1.6,Ln:.5,Fs:.2,Fc:.46},{Lb:2.32,Ln:1.04,Fs:.4,Fc:.74},{Lb:1.88,Ln:.68,Fs:.26,Fc:.56},{Lb:2.05,Ln:.8,Fs:.3,Fc:.62}];
-  const PRED=[4.35,6.75,5.2,HY];
+  const PRED=[-1.35,1.05,-.5,0];   // how far from the height asked for each design would get: short, over, closer, there
   const IT=2.1, T_FLY=IT*4+.7, T_TOP=T_FLY+2.2, T_LAND=T_TOP+3.6, LOOP=T_LAND+1.8;
-  let lt=0, from={...DES[3]}, top=shape(cur), alt=0, beat=-1, said=-1, leave=0;
+  let lt=0, from={...DES[3]}, top=shape(cur), alt=0, beat=-1, said=-1, leave=0, hy=HY, hyT=HY, grab=0;
   const setFrom=()=>{ Object.assign(from,cur); };
-  return {g, rocket, dbg:()=>({lt:+lt.toFixed(2)}), update(dt,t,st){
+  const _n=v3(), _h=v3();
+  return {g, rocket, get hy(){ return hy; }, dbg:()=>({lt:+lt.toFixed(2),hy:+hy.toFixed(2),grab:+grab.toFixed(2)}), update(dt,t,st){
     const s=S.s;
+    /* your hand on the shaft: where the pointer meets the upright plane through its middle, facing you */
+    let over=false;
+    if(HAND.k>.5&&roomNear(3)>.5){ const r=HAND.ray.ray, cp=CAM.gal.position; _n.set(cp.x,0,cp.z-zc); const L=_n.length();
+      if(L>.1){ _n.divideScalar(L); const den=r.direction.dot(_n);
+        if(Math.abs(den)>1e-3){ const tt=(-r.origin.x*_n.x+(zc-r.origin.z)*_n.z)/den; _h.copy(r.origin).addScaledVector(r.direction,tt);
+          if(tt>0&&Math.hypot(_h.x,_h.z-zc)<1.5&&_h.y>top+.4&&_h.y<9){ over=true; hyT=clamp(_h.y,4.7,6); } } } }
+    grab=damp(grab,over?1:0,over?8:3,dt);
+    /* the height stays put while the chosen design flies */
+    if(lt<T_FLY-.7) hy=damp(hy,hyT,4.5,dt);
+    hoop.position.y=hoopG.mesh.position.y=hy;
     /* the next room brightens as you come to it, so Pharos keeps its dark */
     const lk=lerp(.45,1,sstep(3.3,3.85,s)); shaftL.intensity=9000*lk; glowL.intensity=20*lk; W.roomLights[3].intensity=5*lk;
     dm.uniforms.uPx.value=G.px; trace.U.uPx.value=G.px;
@@ -564,20 +608,20 @@ function buildOgive(W,zc,OR){
       if(i!==beat){ beat=i; setFrom(); rsnd('og-tick',.1); }
       const m=E.io(clamp(u/.26,0,1)), d=DES[i]; for(const k in cur) cur[k]=lerp(from[k],d[k],m);
       top=shape(cur); alt=0;
-      const r=clamp((u-.3)/.38,0,1), y=lerp(top+.05,PRED[i],E.o(r));
+      const r=clamp((u-.3)/.38,0,1), y=lerp(top+.05,Math.max(top+.3,hy+PRED[i]),E.o(r));
       beadK=r>0?(u<.86?1:1-(u-.86)/.14):0; beadY=y;
-      if(r>=1&&said!==i){ said=i; rsnd('og-pred',0,(PRED[i]-HY)/2); }
+      if(r>=1&&said!==i){ said=i; rsnd('og-pred',0,PRED[i]/2); }
       if(r>=1) hoopK=i===3?1.4:.42+.25*Math.max(0,Math.sin((u-.68)*40.))*(1-(u-.68)/.32);
       if(i===3&&u>.66) hoopK=1.4;
-    } else if(lt<T_FLY){ hoopK=1.4; beadK=Math.max(0,1-(lt-(T_FLY-.7))/.5); beadY=HY; }
+    } else if(lt<T_FLY){ hoopK=1.4; beadK=Math.max(0,1-(lt-(T_FLY-.7))/.5); beadY=hy; }
     else if(lt<T_TOP){
       /* the flight: hard off the pad, burning out, coasting up to the hoop and stopping there */
       const u=(lt-T_FLY)/(T_TOP-T_FLY); if(beat<9){ beat=9; rsnd('og-launch'); }
-      alt=(HY-top)*(1-Math.pow(1-u,2.2)); flameK=1-sstep(.38,.62,u); hoopK=1.4+.6*sstep(.9,1,u);
+      alt=(hy-top)*(1-Math.pow(1-u,2.2)); flameK=1-sstep(.38,.62,u); hoopK=1.4+.6*sstep(.9,1,u);
     } else if(lt<T_LAND){
       /* the chute opens at the top, and it comes back down to the pad */
       const u=(lt-T_TOP)/(T_LAND-T_TOP); if(beat<10){ beat=10; rsnd('og-chute'); }
-      alt=(HY-top)*(1-sstep(.08,1,u)); chuteK=Math.min(1,u*9)*(1-sstep(.93,1,u)); hoopK=lerp(2,.42,sstep(0,.4,u));
+      alt=(hy-top)*(1-sstep(.08,1,u)); chuteK=Math.min(1,u*9)*(1-sstep(.93,1,u)); hoopK=lerp(2,.42,sstep(0,.4,u));
       if(u>.985&&beat===10){ beat=11; rsnd('og-land'); }
     } else { alt=0; hoopK=.42; }
     /* walking on, out of the room: it goes, straight up the shaft and away */
@@ -588,7 +632,7 @@ function buildOgive(W,zc,OR){
     rocket.rotation.y+=dt*.05;
     flU.uK.value=flameK*.95; nz.U.uK.value=flameK*1.4;
     chute.visible=chuteK>.01; canopy.scale.set(.2+.8*chuteK,.15+.85*chuteK,.2+.8*chuteK); chute.position.y=top-.02; chute.rotation.z=Math.sin(t*.9)*.05*chuteK;
-    hoopU.uK.value=damp(hoopU.uK.value,hoopK,6,dt); hoopG.U.uK.value=hoopU.uK.value*.55;
+    hoopU.uK.value=damp(hoopU.uK.value,hoopK+.45*grab,6,dt); hoopG.U.uK.value=hoopU.uK.value*.55;
     bead.U.uK.value=beadK*1.6; bead.mesh.position.set(0,beadY,zc);
     trace.U.uA.value.set(0,rocket.position.y+top+.04,zc); trace.U.uB.value.set(0,Math.max(beadY,rocket.position.y+top+.06),zc); trace.U.uK.value=beadK*.5;
   }};

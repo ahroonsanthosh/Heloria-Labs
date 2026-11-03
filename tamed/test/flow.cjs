@@ -1,5 +1,5 @@
 /* Functional walk-through with real input: every place by scroll (wheel or swipe), by the menu and by the
-   press-and-hold index; project pages open, continue into the next and close; links point where they should.
+   press-and-hold index; each room's View project goes straight to the project; links point where they should.
    node tamed/test/run.cjs --lowq --scenario tamed/test/flow.cjs --out <dir> [--mobile] */
 const UNTAMED = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn';
 module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, ctx }) => {
@@ -90,23 +90,21 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     await page.keyboard.press('Escape'); await until(x => x.index === false, 'Escape closes the index');
   }
 
-  /* ---- a project page, and on into the next ---- */
+  /* ---- View project goes straight to the project, in a new tab, and the walk stays where it was ---- */
+  const views = await page.evaluate(() => [...document.querySelectorAll('.view')].map(a => a.tagName + '|' + a.href + '|' + a.target + '|' + a.rel));
+  check(JSON.stringify(views) === JSON.stringify(['A|https://krios.ie/|_blank|noopener', 'A|https://github.com/ahroonsanthosh/Aetos|_blank|noopener', 'A|https://github.com/ahroonsanthosh/pharos|_blank|noopener', 'A|https://github.com/michaelsheffernan/ogive|_blank|noopener']), 'each View project is a link to the project: ' + views.join(' '));
+  check(await page.evaluate(() => !document.querySelector('#case') && !document.querySelector('[data-open]')), 'there are no project summary pages');
   await press('#menu a[data-nav="projects"]'); await at(1);
-  await press('#krios .view');
-  await until(x => x.mode === 'page' && x.proj === 0, 'View project opens Kríos');
-  await wait(1500); await shot('flow-case-krios');
-  const ext = await page.evaluate(() => [...document.querySelectorAll('#case .ext')].map(a => a.href + '|' + a.target));
-  check(JSON.stringify(ext) === JSON.stringify(['https://krios.ie/|_blank', 'https://github.com/ahroonsanthosh/Aetos|_blank', 'https://github.com/ahroonsanthosh/pharos|_blank', 'https://github.com/michaelsheffernan/ogive|_blank']), 'project links are right: ' + ext.join(' '));
-  for (let k = 0; k < 40; k++) { if (mobile) { await swipe(300); await wait(60); } else { await page.mouse.wheel(0, 240); await wait(25); } const x = await st(); if (x.proj === 1 && x.s > 1.98) break; }
-  await until(x => x.mode === 'page' && x.proj === 1 && Math.abs(x.s - 2) < .02, 'reading past the end of Kríos glides into Aetos (camera to room 2)');
-  await shot('flow-case-aetos');
-  await press('#back');
-  await until(x => x.mode === 'world' && Math.abs(x.s - 2) < .012, 'Back returns to the gallery at the room you were reading');
-  if (!mobile) { await press('#aetos .view'); await until(x => x.mode === 'page' && x.proj === 1, 'View project opens Aetos'); await page.keyboard.press('Escape'); await until(x => x.mode === 'world', 'Escape closes the project'); }
+  await ctx.route(/krios\.ie/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>krios</title>ok' }));
+  const [tab] = await Promise.all([ctx.waitForEvent('page', { timeout: 20000 }).catch(() => null), press('#krios .view')]);
+  if (tab) { try { await tab.waitForLoadState('domcontentloaded', { timeout: 15000 }); } catch (e) {} }
+  check(!!tab && /krios\.ie/.test(tab.url()), 'View project on Kríos opens krios.ie in a new tab (' + (tab ? tab.url() : 'no tab') + ')');
+  if (tab) await tab.close();
+  await wait(600); { const x = await st(); check(x.mode === 'world' && Math.abs(x.s - 1) < .012, 'the walk stays in Kríos'); }
 
   /* ---- the three of us ---- */
   await press('#menu a[data-nav="team"]'); await at(5);
-  const li = await page.evaluate(() => [...document.querySelectorAll('.person .li')].map(a => a.href));
+  const li = await page.evaluate(() => [...document.querySelectorAll('.person .li')].map(a => a.href + (a.target === '_blank' ? '' : ' (same tab)')));
   check(li.join(' ') === 'https://www.linkedin.com/in/ahroon-santhosh/ https://www.linkedin.com/in/michael-sweeney-heffernan-589155354 https://www.linkedin.com/in/abraham-sabu-kurian/', 'LinkedIn links in order');
   const names = await page.evaluate(() => [...document.querySelectorAll('.person .nm')].map(a => a.textContent));
   check(names.join('|') === 'Ahroon Santhosh|Michael Sweeney Heffernan|Abraham Sabu Kurian', 'names in order');
@@ -117,6 +115,13 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     const lift = await T(t => t.OUT.people.map(p => +p.lift.toFixed(2)));
     check(lift.every(v => Math.abs(v) < .05), 'every portrait stands on the water (' + lift.join(', ') + ')');
     await shot('flow-team-risen');
+    /* each portrait is its LinkedIn link: pointing at one lifts it and lights the LinkedIn line on its plinth */
+    const box = await page.evaluate(() => { const r = document.querySelector('.person[data-i="1"] .li').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * .4, r.width, r.height]; });
+    check(box[2] > 60 && box[3] > 60, 'the middle portrait has a hit area the size of the portrait (' + box[2].toFixed(0) + 'x' + box[3].toFixed(0) + ')');
+    await page.mouse.move(box[0], box[1], { steps: 4 }); await wait(1400);
+    const hov = await T(t => ({ hot: t.OUT.people[1].hot, hov: +t.OUT.people[1].hov.toFixed(2), cur: document.querySelector('#curT').textContent }));
+    check(hov.hot && hov.hov > .5 && hov.cur === 'LinkedIn', 'pointing at Michael lifts his portrait and the cursor says LinkedIn ' + JSON.stringify(hov));
+    await page.mouse.move(vp.width * .5, vp.height * .92, { steps: 4 }); await wait(400);
   } else {
     if (true) { await swipe(-380); await at(4.86); await wait(2200); check(await page.evaluate(() => document.querySelectorAll('.person')[0].classList.contains('up')), 'walking up to Ahroon resolves him (mobile)'); await shot('flow-team-ahroon'); }
   }
