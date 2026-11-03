@@ -74,7 +74,7 @@ addEventListener('pointerdown',e=>{
   M.x=e.clientX; M.y=e.clientY; M.type=e.pointerType;
   if(e.pointerType==='touch'&&S.mode==='world'&&!HOLD.open&&!isUI(e.target)){
     SC.touch={id:e.pointerId,y:e.clientY,v0:SC.target,vel:0,py:0,pt:now(),last:0}; SC.inertia=0; SC.glide=null; SC.base=Math.round(SC.v); }
-  if(S.mode==='world'&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
+  if(S.mode==='world'&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.f0=S.frame; HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
   if(S.mode==='world'&&!isUI(e.target)&&e.pointerType!=='touch') WORLD.tap(e.clientX,e.clientY);
 },{passive:true});
 const endPointer=e=>{
@@ -90,7 +90,7 @@ addEventListener('pointercancel',endPointer,{passive:true});
 document.addEventListener('mouseleave',()=>{ M.on=false; });
 function holdTick(){
   if(HOLD.down&&!HOLD.open&&!HOLD.moved){ const k=(now()-HOLD.t0-.12)/.48; UI.ring(clamp(k,0,1),HOLD.x,HOLD.y);
-    if(k>=1){ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
+    if(k>=1&&S.frame-HOLD.f0>=6){ /* a held finger, not one slow frame: the start of a swipe never opens it */ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
 }
 addEventListener('wheel',e=>{
   if(S.mode==='gate'||S.mode==='entering'||S.mode==='plain'){ return; }
