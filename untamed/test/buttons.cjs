@@ -35,7 +35,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* ---- loader ---- */
   rec(await until(() => document.querySelector('#load').classList.contains('ready')), 'loader becomes ready');
   await covered('#load', 'loader');
-  rec(await page.evaluate(() => document.querySelectorAll('#load button,#load a').length === 0 && document.querySelector('#load').innerText.replace(/\s+/g, ' ').trim().split(' ').length <= 5), 'opening screen is only the mark and a prompt');
+  rec(await page.evaluate(() => document.querySelectorAll('#load button,#load a').length === 0 && [...document.querySelectorAll('#load > :not(#boot)')].map(e => e.innerText).join(' ').replace(/\s+/g, ' ').trim().split(' ').length <= 5), 'opening screen is only the mark and a prompt');
   if (mobile) await tap('#begin', 'Tap to begin'); else { await page.mouse.move(640, 400); await page.mouse.wheel(0, 240); }
   rec(await until(() => window.__heloria.S.mode !== 'load'), mobile ? 'a tap begins' : 'a scroll begins');
   rec(await until(() => window.__heloria.S.mode === 'story'), 'the story starts');

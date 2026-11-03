@@ -52,14 +52,19 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly=''):
 
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
 
-def single(only, inline_three=False, entry=''):
-    ids, css, html, js = parts(only, entry=entry, fly=FLY_ARTIFACT if entry else '')
+def single(only, inline_three=False, entry='', tamed_url=TAMED_ARTIFACT):
+    ids, css, html, js = parts(only, tamed_url=tamed_url, entry=entry, fly=FLY_ARTIFACT if entry else '')
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
     js = js.replace('__PHOTOS__', json.dumps(photos))
     head = read('head.html')
     if entry: head = head.replace('<title>Heloria Labs Orbit</title>', '<title>Heloria Labs %s</title>' % {'land': 'Earth', 'aetos': 'Aetos'}[entry])   # a preview of its own, named for its way in
     three = ('<script>\n' + read('assets/vendor/three.min.js') + '\n</script>') if inline_three else '<script src="%s"></script>' % THREE_CDN
     return head + '\n<style>\n' + css + '\n</style>\n' + html + '\n' + three + '\n<script>\n' + wrap_js(js) + '</script>\n'
+
+def document(only=None, tamed_url=TAMED_ARTIFACT):
+    """a complete single HTML document, everything inside it"""
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
+            + single(only, tamed_url=tamed_url) + '</body></html>')
 
 DOC_HEAD = '''<!doctype html>
 <html lang="en">

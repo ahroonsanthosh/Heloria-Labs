@@ -25,6 +25,8 @@ LAND_ARTIFACT = 'https://claude.ai/artifact/WLrXQD6rpaTTfBLAupCMFB'     # Land: 
 ROCKET_ARTIFACT = 'https://claude.ai/artifact/19hq8DVBDhhNbFvSnbFSwE'   # the rocket at the end of the walk: into orbit, at Aetos
 ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT}
 SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos'}
+# the one artifact that holds everything: this page at its front, the untamed as a page of its own beside it, the same tab
+BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos'}
 LIMIT = 16 * 1024 * 1024
 EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
@@ -74,8 +76,8 @@ def parts(links, photo_list):
     return css, read('body.html').strip(), app
 
 
-def body():
-    css, html, app = parts(ART_LINKS, photos())
+def body(links=ART_LINKS):
+    css, html, app = parts(links, photos())
     return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + html + '\n'
             + '<script src="%s"></script>\n' % THREE_CDN + '<script>\n' + app + '</script>\n')
 

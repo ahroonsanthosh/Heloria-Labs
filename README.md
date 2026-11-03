@@ -101,8 +101,9 @@ sounds you hear again and again are never quite the same twice.
 
 ```
 tools/
-  build.py              builds the whole site into docs/, and both single-file builds into dist/
-  site-smoke.cjs        serves docs/ under a sub-path, as GitHub Pages does, and checks both ways in
+  build.py              builds the whole site into docs/, both single-file builds into dist/, or (--bundle) one artifact
+  site-smoke.cjs        serves docs/ under a sub-path, as GitHub Pages does, and checks both sites
+  bundle-check.cjs      checks the one-artifact build: every way in stays in the same tab and opens the right way
 tamed/
   src/                  head.html, body.html, css/, js/ (base, sound, renderer, sky, water, outside, the gallery,
                         post, the walk, input, page, main loop), assets/og.jpg (the social image)
@@ -186,7 +187,19 @@ node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/entry --scenario 
 `entry.cjs` checks one way in per run: no `--hash` for Fly, `--hash land`, or `--hash aetos`. The untamed tests are slow
 (software rendering, a few frames a second), so run them one at a time.
 
-A preview artifact cannot carry `#land` or `#aetos` in its address, so the untamed build can bake the way in:
+The whole site also goes up as one claude.ai artifact: the front door as its page and the untamed as a second page
+beside it (`untamed/index.html`), so every way in stays in the same tab and keeps its `#land` or `#aetos`:
+
+```bash
+python3 tools/build.py --bundle /tmp/one
+```
+
+```bash
+node tools/bundle-check.cjs /tmp/one
+```
+
+For a separate preview, where an artifact address cannot carry `#land` or `#aetos`, the untamed build can bake the way
+in:
 
 ```bash
 python3 untamed/build.py --entry land --artifact /tmp/land.html
