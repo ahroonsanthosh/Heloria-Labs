@@ -1,7 +1,7 @@
 /* ================= THE PAGE OVER THE PLACE ================= */
 const UI={};
 const INK=col('#2B2520'), LIGHT=col('#FFF8EE'), _fg=new T.Color();
-untamedLinks(document);
+outLinks(document);
 /* headlines are split into words: they rise in one by one, and the water reflects each word where it stands */
 $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('aria-label',txt); el.textContent='';
   txt.split(' ').forEach((w,i,a)=>{ const s=document.createElement('span'); s.className='w'; s.setAttribute('aria-hidden','true'); s.style.setProperty('--i',i); s.textContent=w; el.appendChild(s); if(i<a.length-1) el.appendChild(document.createTextNode(' ')); }); });
@@ -9,19 +9,38 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
 UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent='Choose how to see us'; };
+UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent='Choose how to see us'; };
+/* the three ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
+   walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down; Fly,
+   the dark coming in round a black hole. On a touch screen, with nothing to point with, the gate shows them in turn */
 S.gateHover=null;
-const setHover=v=>{ if(S.gateHover===v) return; S.gateHover=v; gate.classList.toggle('warm',v==='tamed'); gate.classList.toggle('dark',v==='untamed'); if(v) A.hover(); };
-$('#tamed').addEventListener('pointerenter',()=>setHover('tamed')); $('#tamed').addEventListener('pointerleave',()=>setHover(null));
-$('#untamed').addEventListener('pointerenter',()=>setHover('untamed')); $('#untamed').addEventListener('pointerleave',()=>setHover(null));
-$('#tamed').addEventListener('focus',()=>setHover('tamed')); $('#untamed').addEventListener('focus',()=>setHover('untamed'));
-$('#tamed').addEventListener('blur',()=>setHover(null)); $('#untamed').addEventListener('blur',()=>setHover(null));
+const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
+const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
+  ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
+  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); } };
+WAYS.forEach(w=>{ const v=w.dataset.way;
+  w.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ CYC.off=true; setHover(v); } });
+  w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen') setHover(null); });
+  w.addEventListener('focus',()=>{ CYC.off=true; setHover(v); }); w.addEventListener('blur',()=>{ if(!S.leaving) setHover(null); }); });
 $('#tamed').addEventListener('click',()=>enter());
-/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the two ways can be heard on hover */
+/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the ways can be heard */
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='gate'&&!A.on) A.start(); },{capture:true,passive:true}));
-$('#untamed').addEventListener('click',()=>{ A.click(); });
+/* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
+   cut; when they live somewhere else they open in a tab of their own */
+const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
+  if(!sameSite(a.getAttribute('href')||'')) return;
+  e.preventDefault(); S.leaving=true; CYC.off=true; setHover(v,true); gate.style.setProperty('--out',v==='land'?'#EAF4F4':'#030305');
+  gate.classList.add('leaving'); A.leave(v); setTimeout(()=>location.assign(a.href),RM?120:820); });
+leaveTo($('#land'),'land'); leaveTo($('#untamed'),'fly');
+/* where the Fly way's black hole sits: behind the middle of the word, about as big as the letters are tall */
+let holeK=null; addEventListener('resize',()=>{ holeK=null; });
+UI.holeAt=()=>{ if(!holeK){ const r=$('#word').getBoundingClientRect(); holeK=[(r.left+r.width/2)/innerWidth,1-(r.top+r.height/2)/innerHeight,clamp(r.height*.62/innerHeight,.05,.11)]; } return holeK; };
+/* on a touch screen: Walk, Land and Fly in turn, slowly, each with its name lit, then a breath of the plain gate */
+const CYC={off:FINE,i:-1,t:1.2};
+UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.t-=dt;
+  if(CYC.t<=0){ CYC.i=(CYC.i+1)%4; CYC.t=CYC.i===3?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land','fly',null][CYC.i],true); } };
 
-if(!FINE){ $('#cue span').textContent='Swipe'; }
+if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-go]'); if(!a) return;

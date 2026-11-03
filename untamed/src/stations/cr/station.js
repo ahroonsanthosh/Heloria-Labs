@@ -7,6 +7,7 @@
    of things from depth and normals and inks them with a line that wanders a little, like a pen. */
 (()=>{
 const st=mkStation('cr',{arrive:new T.Vector3(0,12,-10)});
+st.land=false;   // Land: straight down to Earth without the flight; every landmark is already built and we talk about them as they are
 const sc=st.scene, el=st.el, hint=$('#crHint',el), labels=$$('#crLabels .crl',el);
 sc.children.filter(o=>o.isPoints).forEach(o=>sc.remove(o)); // no night stars by day
 const R=24, LO=Q<1, UPY=new T.Vector3(0,1,0), V=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3();
@@ -52,7 +53,9 @@ const N2=`float h2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.545
   float vn2(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y); }`;
 const NEAR=`uniform vec3 uPly; uniform float uCut;
   void nearFade(vec3 w){ float k=smoothstep(.7,1.25,distance(cameraPosition,w));
-    if(uCut>.5){ vec3 ab=uPly-cameraPosition; float L2=dot(ab,ab); if(L2>.25){ float t=dot(w-cameraPosition,ab)/L2; if(t>0.&&t<.95) k=min(k,smoothstep(.5,.66,length(w-cameraPosition-ab*t))); } }
+    if(uCut>.5){ vec3 ab=uPly-cameraPosition; float L2=dot(ab,ab); if(L2>.25){ float t=dot(w-cameraPosition,ab)/L2;
+      /* the inside of a thing (its back faces) is cut away wider than its skin, so the gap shows the world beyond, not the dark inside */
+      if(t>0.&&t<.95){ float r0=gl_FrontFacing?.5:1.1; k=min(k,smoothstep(r0,r0+.16,length(w-cameraPosition-ab*t))); } } }
     if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
 const SHN=LO?1536:2048;
 const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0},uFogK:{value:1}};
@@ -108,6 +111,8 @@ const box=(M,c,x,y,z,w,h,d,ry=0,rx=0,rz=0)=>put(M,'box',c,x,y+h/2,z,w,h,d,ry,rx,
 const cyl=(M,c,x,y,z,r,h,g='cyl')=>put(M,g,c,x,y+h/2,z,r,h,r);
 const sub=(M,x,y,z,ry=0)=>new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeRotationY(ry).setPosition(x,y,z));
 const OBS=[]; const obs=(x,z,r,h=3)=>OBS.push({x,z,r,h});
+/* an obstacle at a point in a thing's own frame */
+const _oa=new T.Vector3(); function obsAt(M,lx,lz,r,h=1.2){ const [x,z]=loc(_oa.set(lx,0,lz).applyMatrix4(M).normalize()); obs(x,z,r,h); }
 function obsRect(x,z,yaw,w,d,h=3){ const ax=w>=d, L=ax?w:d, Wd=ax?d:w, n=Math.max(1,Math.ceil(L/Wd)), ux=ax?Math.cos(yaw):Math.sin(yaw), uz=ax?-Math.sin(yaw):Math.cos(yaw);
   for(let k=0;k<n;k++){ const t=(n===1?0:(k/(n-1)-.5))*(L-Wd); obs(x+ux*t,z+uz*t,Wd/2+.12,h); } }
 
@@ -135,7 +140,7 @@ function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); 
     if(sub){ const f2=fit(sub,h*.15); c.font=`900 ${f2}px Doto, monospace`; c.lineWidth=f2*.06; c.strokeText(sub,w/2,h*.74); c.fillText(sub,w/2,h*.74); } tx.needsUpdate=true; };
   draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{}); return tx; }
 function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post!==false;
-  if(post){ box(M,'#6d5544',-w*.38,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',w*.38,0,-.04,.08,y+h/2,.08); }
+  if(post){ box(M,'#6d5544',-w*.38,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',w*.38,0,-.04,.08,y+h/2,.08); [-.38,0,.38].forEach(k=>obsAt(M,w*k,-.04,.15,y+h/2)); }
   const ox=o.x||0; box(M,o.board||'#5b4636',ox,y-h/2-.03,-.06,w+.1,h+.06,.06);
   const mat=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
   const m=new T.Mesh(new T.PlaneGeometry(w,h),mat); m.matrixAutoUpdate=false; m.matrix.copy(sub(M,ox,y,-.025)); m.userData.cast=true; sc.add(m); return m; }
@@ -166,10 +171,10 @@ function tree(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU), th=1.25*s;
   obs(x,z,.26*s,3.5); }
 function pine(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); }
-function bush(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); }
-function rock(x,z,s=1,y=0){ const M=frameAt(x,z,rnd()*TAU); put(M,'rock',rnd()<.5?'#a49e94':'#928c83',0,y+.25*s,0,.62*s,.45*s,.55*s,0,rnd(),rnd()); }
+function bush(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); obs(x,z,.42*s,.6); }
+function rock(x,z,s=1,y=0){ const M=frameAt(x,z,rnd()*TAU); put(M,'rock',rnd()<.5?'#a49e94':'#928c83',0,y+.25*s,0,.62*s,.45*s,.55*s,0,rnd(),rnd()); obs(x,z,.5*s,.5*s); }
 function fence(pts,c='#f3ede2'){ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.5)), yaw=Math.atan2(-(z1-z0),x1-x0);
-    for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const t=k/n, M=frameAt(x0+(x1-x0)*t,z0+(z1-z0)*t,yaw); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); }
+    for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const t=k/n, fx=x0+(x1-x0)*t, fz=z0+(z1-z0)*t, M=frameAt(fx,fz,yaw); obs(fx,fz,.14,.9); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); }
     const Mm=frameAt((x0+x1)/2,(z0+z1)/2,yaw); box(Mm,c,0,.32,0,L,.06,.04); box(Mm,c,0,.6,0,L,.06,.04); } }
 const POLES=[];
 function pole(x,z,yaw){ const M=frameAt(x,z,yaw); cyl(M,'#7a6352',0,0,0,.1,4.4,'cyl8'); box(M,'#6a5446',0,4.0,0,1.3,.09,.09);
@@ -185,14 +190,29 @@ const MK={}, seen=new Set();
 function mark(id,x,z,y=0){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); const base=at(x,z).multiplyScalar(R+y); return MK[id]={id,g,base,obs:[],k:1,st:'off',t:0}; }
 function markObs(id,h0){ const o=OBS[OBS.length-1]; MK[id].obs.push({o,h:o.h,h0}); }   // the obstacle just added: full height when built, h0 when not
 function markScale(m,k){ m.k=k; const b=m.base; m.g.matrix.makeScale(k,k,k).setPosition(b.x*(1-k),b.y*(1-k),b.z*(1-k)); m.g.matrixWorldNeedsUpdate=true; }
-let PH, AE, KR, BE;
+let PH, AE, KR, BE, OG;
+/* where each landmark stands, how tall it is, and what it says when you walk up to it */
+const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the call out loud, and a buyer answers back.','https://krios.ie','View project'],
+  ae:['Aetos','Counter-drone command software','It reads a sky full of drones and marks the one that matters.','https://github.com/ahroonsanthosh/Aetos','View project'],
+  ph:['Pharos','GPS-free drone navigation','No GPS, so the drone finds itself by matching what it sees to the map.','https://github.com/ahroonsanthosh/pharos','View project'],
+  og:['Ogive','AI tools for OpenRocket','Name the height, and it reworks the rocket until it gets there.','https://github.com/michaelsheffernan/ogive','View project'],
+  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us']};
+/* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
+function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
+  g.add(new T.Mesh(new T.BoxGeometry(.22,.07,.22),dk));
+  for(let k=0;k<4;k++){ const a=k*Math.PI/2+Math.PI/4, ax=Math.cos(a)*.2, az=Math.sin(a)*.2;
+    const arm=new T.Mesh(new T.BoxGeometry(.2,.025,.03),dk); arm.position.set(ax*.5,0,az*.5); arm.rotation.y=-a; g.add(arm);
+    const r=new T.Mesh(new T.CylinderGeometry(.085,.085,.012,14),lt); r.position.set(ax,.04,az); g.add(r); }
+  const L=new T.Mesh(new T.SphereGeometry(.036,8,6),flatMat(light)); L.position.y=-.055; g.add(L); g.userData.light=L; return g; }
+const Mf2=new T.Matrix4(), Mr=new T.Matrix4(), KRY=C3('#3f6fd0'), KRT=C3('#e9873a'), KRC=new T.Color();
 function buildTown(){
   /* the square: Kríos, as a glass sculpture with a voice turning inside it */
   { const M=frameAt(0,0,0); cyl(M,'#c9c1b3',0,0,0,1.55,.16); cyl(M,'#ddd6c8',0,.16,0,1.28,.14); const mk=mark('kr',0,0,.3);
     kitTo('kr'); put(M,'cyl','#e9e3d7',0,.3+.55,0,.34,1.1,.34); cyl(M,'#bba987',0,1.38,0,.42,.08); kitTo();
     const g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(sub(M,0,2.05,0)); mk.g.add(g);
     const orb=new T.Mesh(new T.SphereGeometry(.64,32,20),toonMat('#bcd8e6',{op:.42,fresh:true})); g.add(orb);
-    const bars=new T.InstancedMesh(new T.BoxGeometry(.05,1,.05),toonMat('#3f6fd0'),28); bars.userData.dyn=true; g.add(bars); KR={g,bars,M};
+    const bars=new T.InstancedMesh(new T.BoxGeometry(.05,1,.05),toonMat('#ffffff',{fresh:true}),28); for(let k=0;k<28;k++) bars.setColorAt(k,KRY); bars.userData.dyn=true; g.add(bars); KR={g,bars,M,mt:0};
+    INST.kr={x:0,z:0,h:3.1,r:4.8};
     sign(sub(M,0,0,-1.95,Math.PI),'KRÍOS',{sub:'rehearse the calls that matter',w:1.7,h:.62,y:.95}); obs(0,0,1.6,2.6); markObs('kr',.4); }
   [[1.9,1.9],[-1.9,1.9],[1.9,-1.9],[-1.9,-1.9]].forEach(([x,z])=>bench(x*1.45,z*1.45,yawTo(x,z,0,0)));
   for(let k=0;k<26;k++){ const a=k/26*TAU, r=1.85+rnd()*.25; if(Math.abs(Math.sin(a))<.16||Math.abs(Math.cos(a))<.16) continue; const M=frameAt(Math.cos(a)*r,Math.sin(a)*r,0); put(M,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f','#b9a2e0'][k%5],0,.12,0,.13,.11,.13); put(M,'blob',LEAF[2],0,.04,0,.16,.08,.16); }
@@ -211,12 +231,12 @@ function buildTown(){
   { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); house(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',flat:true,w:4.8,d:3.2,h:3,doorX:1.65,win:[-1.9],
       extra:(M,w,d,h)=>{ box(M,'#8c9599',-.35,.2,d/2+.02,2.1,2.1,.05); for(let k=0;k<11;k++) box(M,'#a9b2b5',-.35,.3+k*.18,d/2+.05,2,.04,.03); box(M,'#59646a',-.35,2.3,d/2+.04,2.3,.12,.08);
         sign(sub(M,-.35,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
-        [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4)); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9);
+        [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4); obsAt(M,cx,cz,.42,.8); }); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
         /* Beacon: a mast on the roof that keeps calling out */
         const B=sub(M,1.4,h+.26,-.7), bw=new T.Vector3(1.4,h+.26,-.7).applyMatrix4(M); const mk=MK.be=mark('be',0,0); mk.base.copy(bw); kitTo('be');
         box(B,'#59646a',0,0,0,.7,.08,.7); for(const [lx,lz] of [[-.2,-.2],[.2,-.2],[0,.22]]) put(B,'cyl8','#8c9599',lx*.5,1.5,lz*.5,.035,3,.035,0,lz*.06,-lx*.06);
         for(let k=0;k<6;k++) cyl(B,'#8c9599',0,.4+k*.45,0,.16-k*.018,.03,'cyl8'); kitTo();
-        const lt=new T.Mesh(new T.SphereGeometry(.1,12,8),flatMat('#ff8a2a')); lt.matrixAutoUpdate=false; lt.matrix.copy(sub(B,0,3.08,0)); mk.g.add(lt); BE={lt}; } }); }
+        const lt=new T.Mesh(new T.SphereGeometry(.1,12,8),flatMat('#ff8a2a')); lt.matrixAutoUpdate=false; lt.matrix.copy(sub(B,0,3.08,0)); mk.g.add(lt); BE={lt}; } }); INST.be={x,z,h:4.6,r:5.6}; }
   // the café
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); house(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
@@ -231,7 +251,8 @@ function buildTown(){
     cyl(M,'#3e4448',0,4.82,0,.92,.1); for(let k=0;k<14;k++){ const a=k/14*TAU; box(M,'#3e4448',Math.cos(a)*.86,4.92,Math.sin(a)*.86,.03,.36,.03); } cyl(M,'#3e4448',0,5.26,0,.88,.03);
     cyl(M,'#e7f1ef',0,4.92,0,.5,.62); put(M,'cone','#cf4a36',0,5.54+.3,0,.66,.6,.66); put(M,'sph','#3e4448',0,6.2,0,.08,.08,.08);
     const beam=new T.Mesh(new T.CylinderGeometry(.03,.36,6,12,1,true).rotateZ(Math.PI/2).translate(3,0,0),toonMat('#fff4c8',{op:.18,fresh:true})); beam.material.depthWrite=false; beam.layers.set(1);
-    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); mk.g.add(bg); PH={beam}; kitTo();
+    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); mk.g.add(bg); PH={beam,M,x,z,a:0,over:false,dr:drone('#f5f3ea')}; mk.g.add(PH.dr); kitTo();
+    INST.ph={x,z,h:6.7,r:7};
     const yy=yawTo(x,z,0,0), rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; house(x+ix*.6+iz*2.7,z+iz*.6-ix*2.7,yy,{wall:'#f4efe6',roof:'#cf4a36',w:2.2,d:2,h:2,win:[-.6],doorX:.5,chim:false});
     sign(sub(M,-1.6,0,1.6,.3),'PHAROS',{sub:'finds its way without GPS',w:1.7,h:.62,y:.95}); obs(x,z,1.25,6); markObs('ph',.6); SEGS.push([10.6,1.7,x-1.2,z-.3,.55]); }
   /* Ogive: a rocket on its pad, with the tower beside it */
@@ -241,6 +262,7 @@ function buildTown(){
     const Gt=sub(M,1.15,.22,0); [[-.32,-.32],[.32,-.32],[-.32,.32],[.32,.32]].forEach(([gx,gz])=>box(Gt,'#c8664b',gx,0,gz,.08,4,.08));
     for(let k=1;k<8;k++){ box(Gt,'#c8664b',0,k*.5,-.32,.64,.05,.05); box(Gt,'#c8664b',0,k*.5,.32,.64,.05,.05); box(Gt,'#c8664b',-.32,k*.5,0,.05,.05,.64); box(Gt,'#c8664b',.32,k*.5,0,.05,.05,.64); }
     box(Gt,'#8c3f2e',0,4,0,.8,.08,.8); box(Gt,'#c8664b',-.55,2.55,0,.8,.08,.12); kitTo();
+    const hoop=new T.Mesh(new T.TorusGeometry(.56,.035,8,44).rotateX(Math.PI/2),flatMat('#ffb26a')); hoop.matrixAutoUpdate=false; mk.g.add(hoop); OG={M:r,hoop,x,z,t:6}; INST.og={x,z,h:6.2,r:7};
     sign(sub(M,-.6,0,2.1),'OGIVE',{sub:'AI tools for OpenRocket',w:1.7,h:.62,y:.95}); obs(x,z,1.9,4); markObs('og',.3); SEGS.push([6.2,10,x-1.4,z-1.5,.55]); }
   /* Aetos: a radar on the rocks, turning */
   { const [x,z]=coastR(-10.2,-11.6,2.6); const yaw=yawTo(x,z,0,0), M=frameAt(x,z,yaw);
@@ -248,13 +270,15 @@ function buildTown(){
     const mk=mark('ae',x,z,1); kitTo('ae'); cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); kitTo(); const hd=new T.Group(); hd.matrixAutoUpdate=false; mk.g.add(hd);
     const dish=new T.Mesh(new T.SphereGeometry(.78,28,12,0,TAU,0,Math.PI*.32),toonMat('#f2f4f2',{side:T.DoubleSide})); dish.rotation.x=-1.25; dish.position.z=.08; hd.add(dish);
     hd.add(new T.Mesh(new T.BoxGeometry(.24,.24,.3),toonMat('#9aa3ab'))); hd.add(new T.Mesh(new T.CylinderGeometry(.018,.018,.6,6).rotateX(-1.25+Math.PI/2).translate(0,.1,.32),toonMat('#9aa3ab')));
-    AE={hd,M:sub(M,0,2.9,0)};
+    AE={hd,M:sub(M,0,2.9,0),B:M,cyc:0}; INST.ae={x,z,h:4.4,r:7};
+    AE.dr=[0,1,2,3,4].map(k=>{ const d=drone(k===0?'#ff8a2a':'#f5f3ea'); mk.g.add(d); return {g:d,a:k*1.31,r:1.9+k*.38,h:3.6+(k%3)*.55,w:(.3+k*.05)*(k%2?-1:1)}; });
+    AE.ring=new T.Mesh(new T.TorusGeometry(.34,.024,6,32).rotateX(Math.PI/2),flatMat('#ff8a2a')); AE.ring.matrixAutoUpdate=false; AE.ring.visible=false; AE.ring.userData.noInk=true; mk.g.add(AE.ring);
     sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); markObs('ae',1.4); SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
   /* the jetty, out from the beach */
   { const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), yaw=Math.atan2(-(b[1]-a[1]),b[0]-a[0]); DECK=Math.max(grid(GH,a[0],a[1]),-.55);
     for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2);
       if(k%5===0){ [-.55,.55].forEach(s=>cyl(M,'#7a5a42',0,DECK-1.1,s,.07,1.4,'cyl8')); } }
-    const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
+    const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); obsAt(E,0,.5,.16,1.6); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
     SEGS.push([7.4,-7.6,a[0],a[1],.5]); }
   /* street lamps, poles and wires, a signpost */
   [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8,9.9],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z])=>lamp(x,z));
@@ -375,26 +399,31 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
 /* what each of us says depends on what you have played up there: your landmark stands, or we tell you it is still to come */
 const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
 const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-function linesFor(i){ const has=id=>S.docked.has(id), left=Object.keys(NAME).filter(id=>!has(id)).map(id=>NAME[id]), back=MET.has(i);
+function linesFor(i){ const land=!!st.land, has=id=>land||S.docked.has(id), left=Object.keys(NAME).filter(id=>!has(id)).map(id=>NAME[id]), back=MET.has(i);
   if(i===0){ const last='And this is me. Come and say hello properly.';
+    if(back&&land) return ['Good to see you again.','Michael is up by his rocket and Abraham is in the square, if you haven\'t caught them yet.',last];
     if(back){ const fr=FRESH.map(id=>NAME[id]);
-      return ['You\'re back!',fr.length?`You played ${andList(fr)} up there, so ${fr.length>1?'they\'re':'it\'s'} built now. Go and have a look.`:'Nothing new has gone up since last time. Every station you play up there gets built down here.',
-        left.length?`There's still ${andList(left)} to play. Each one goes up here too.`:'That\'s every station played, so the whole town is built. Thank you for coming all this way.',last]; }
-    return ['Oh, hello! You came through the hole.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
-      'Here\'s the thing: every station you play up there gets built down here.',
-      has('ae')?'That radar on the rocks is Aetos, mine. You played it, so it\'s up and turning. When the sky fills with drones, it works out which one actually matters.'
-               :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters. Play it up there and the radar goes up.',
-      has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, it keeps going, and it knows when it doesn\'t know.'
-               :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Play it and the lighthouse goes up.',
+      return ['You\'re back!',fr.length?`You stopped at ${andList(fr)} up there, so ${fr.length>1?'they\'re':'it\'s'} built now. Go and have a look.`:'Nothing new has gone up since last time. Every station you stop at up there gets built down here.',
+        left.length?`There's still ${andList(left)} up there. Each one goes up here too.`:'That\'s every station, so the whole town is built. Thank you for coming all this way.',last]; }
+    if(land) return ['Oh, hello! Welcome to Earth.','I\'m Ahroon. Michael, Abraham and I build Heloria Labs together, and everything round here is something we\'ve made.',
+      'That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.',
+      'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.',
+      'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last];
+    return ['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
+      'Here\'s the thing: every station you stop at up there gets built down here.',
+      has('ae')?'That radar on the rocks is Aetos, mine: it\'s what picked you up. When the sky fills with drones, it works out which one actually matters.'
+               :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters.',
+      has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.'
+               :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Stop at it up there and the lighthouse goes up.',
       `Abraham is in the square${has('kr')?' by Kríos':''}, and Michael is up by ${has('og')?'his rocket':'the launch pad'}. Go and say hi.`,last]; }
   if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
-    has('og')?'This rocket is Ogive, my project: AI tools for OpenRocket. You flew it, so here it stands. Say what you want the rocket to do, and it works the design until it does.'
-             :'This empty pad is for Ogive, my project: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does. Fly it up there and the rocket stands here.',
+    has('og')?`This rocket is Ogive, my project: AI tools for OpenRocket.${land?'':' You\'ve been up there, so here it stands.'} Name the height, and it reworks the design until the rocket gets there.`
+             :'This empty pad is for Ogive, my project: AI tools for OpenRocket. Name the height, and it reworks the design until the rocket gets there. Stop at it up there and the rocket stands here.',
     'I built Kríos too, down in the square. That one belongs to all three of us: it\'s our group project.',
     'That\'s me. Come and find me.'];
   return [back?'Hi again!':'Hi, I\'m Abraham.',
-    has('kr')?'The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it. You played it, so here it is.'
-             :'This empty plinth is for Kríos, our group project: Michael built it, and all three of us are behind it. Play it up there and it stands here.',
+    has('kr')?`The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.${land?'':' You\'ve been up there, so here it is.'}`
+             :'This empty plinth is for Kríos, our group project: Michael built it, and all three of us are behind it. Stop at it up there and it stands here.',
     'Reps rehearse the calls that matter against a buyer who answers back, before a real one ever hears them.',
     'That\'s me. Say hi any time.']; }
 const CREW=[
@@ -472,9 +501,9 @@ const CUT={on:false,t:0,look:new T.Vector3()}, CAMC=[PAD[0]+2.6,PAD[1]+6.6];
 function rocketLanded(){ rocketPose(padTop,PADU); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
 function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.zoom=1; C.dragT=9; C.tk=0; P.tgt=null; P.speed=0;
   [P.x,P.z]=START; P.h=standH(START[0],START[1]); C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dist=rigLimit(START[0],START[1],P.u,P.f,C.pitch,C.D0()); }
-function endCut(){ CUT.on=false; el.classList.remove('cut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
+function endCut(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
 function skipCut(){ if(CUT.on){ CUT.t=T_END; endCut(); } }
-st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.landed=false; CUT.door=false; CUT.ph=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
+st.cutscene=function(){ CUT.on=true; CUT.t=0; document.documentElement.classList.add('crcut'); CUT.landed=false; CUT.door=false; CUT.ph=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
 function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
 /* the walk out, as distance from the middle of the rocket toward the hatch: along the floor, down the ramp, onto the pad */
 const rampY=z=>z<HINGE_Z?FLOOR:z<RAMP_END?FLOOR-(z-HINGE_Z)*Math.tan(DROP):0;
@@ -581,7 +610,7 @@ st.build=async function(){
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame();
+  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true});
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -608,9 +637,44 @@ function rot(f,u,a){ V.crossVectors(u,f); return f.multiplyScalar(Math.cos(a)).a
 function walk(P,dist){ const th=dist/R, c=Math.cos(th), s=Math.sin(th); V.copy(P.u); P.u.multiplyScalar(c).addScaledVector(P.f,s).normalize(); P.f.multiplyScalar(c).addScaledVector(V,-s); P.f.addScaledVector(P.u,-P.u.dot(P.f)).normalize(); }
 const tang=(u,to,o)=>o.copy(to).addScaledVector(u,-u.dot(to)).normalize();
 function walkable(x,z){ if(onJetty(x,z)) return true; const h=grid(GH,x,z); if(h>-.04) return true; return grid(GB,x,z)>.45&&h>-.72; }
+/* ---------- finding the way: a grid over the town, so walking over to someone goes round houses, fences and the water ---------- */
+const NAV={S:.4,O:-23,N:0,free:null};
+function buildNav(){ const S=NAV.S, N=NAV.N=Math.ceil(-2*NAV.O/S)+1, f=NAV.free=new Uint8Array(N*N), fixed=OBS.filter(o=>!people.some(p=>p.ob===o));
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const x=NAV.O+i*S, z=NAV.O+j*S; let ok=walkable(x,z);
+    if(ok) for(const o of fixed){ const dx=x-o.x, dz=z-o.z, m=o.r+.3; if(dx*dx+dz*dz<m*m){ ok=false; break; } }
+    f[j*N+i]=ok?1:0; } }
+const navIJ=(x,z)=>[clamp(Math.round((x-NAV.O)/NAV.S),0,NAV.N-1),clamp(Math.round((z-NAV.O)/NAV.S),0,NAV.N-1)];
+const navOK=(i,j)=>i>=0&&j>=0&&i<NAV.N&&j<NAV.N&&NAV.free[j*NAV.N+i]===1;
+function navNear(i,j){ if(navOK(i,j)) return [i,j]; for(let r=1;r<10;r++) for(let dj=-r;dj<=r;dj++) for(let di=-r;di<=r;di++) if(Math.max(Math.abs(di),Math.abs(dj))===r&&navOK(i+di,j+dj)) return [i+di,j+dj]; return null; }
+function navClear(x0,z0,x1,z1){ const n=Math.ceil(Math.hypot(x1-x0,z1-z0)/(NAV.S*.45)); for(let k=1;k<n;k++){ const t=k/n, [i,j]=navIJ(x0+(x1-x0)*t,z0+(z1-z0)*t); if(!navOK(i,j)) return false; } return true; }
+/* from (x0,z0) to a spot between 1 m and reach of (gx,gz): A* over the grid, then pulled tight so it walks straight wherever it can */
+function navPath(x0,z0,gx,gz,reach){ if(!NAV.free) return null; const N=NAV.N, S=NAV.S, s=navNear(...navIJ(x0,z0)); if(!s) return null;
+  const xy=k=>[NAV.O+(k%N)*S,NAV.O+Math.floor(k/N)*S], dG=(i,j)=>Math.hypot(NAV.O+i*S-gx,NAV.O+j*S-gz), H=(i,j)=>Math.max(0,dG(i,j)-reach);
+  const g=new Float32Array(N*N).fill(1e9), from=new Int32Array(N*N).fill(-1), shut=new Uint8Array(N*N), heap=[];
+  const push=(f,k)=>{ heap.push([f,k]); let c=heap.length-1; while(c>0){ const q=(c-1)>>1; if(heap[q][0]<=heap[c][0]) break; [heap[q],heap[c]]=[heap[c],heap[q]]; c=q; } };
+  const pop=()=>{ const top=heap[0], l=heap.pop(); if(heap.length){ heap[0]=l; let c=0; for(;;){ const a=2*c+1, b=a+1; let m=c; if(a<heap.length&&heap[a][0]<heap[m][0]) m=a; if(b<heap.length&&heap[b][0]<heap[m][0]) m=b; if(m===c) break; [heap[m],heap[c]]=[heap[c],heap[m]]; c=m; } } return top; };
+  const k0=s[1]*N+s[0]; g[k0]=0; push(H(s[0],s[1]),k0); let end=-1, it=0;
+  while(heap.length&&it++<25000){ const k=pop()[1]; if(shut[k]) continue; shut[k]=1; const i=k%N, j=(k-i)/N, dg=dG(i,j);
+    if(dg<=reach&&dg>=1){ end=k; break; }
+    for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ if(!di&&!dj) continue; const ni=i+di, nj=j+dj; if(!navOK(ni,nj)) continue;
+      if(di&&dj&&(!navOK(i+di,j)||!navOK(i,j+dj))) continue;   // never across a corner
+      const nk=nj*N+ni, ng=g[k]+(di&&dj?1.4142:1)*S; if(ng<g[nk]){ g[nk]=ng; from[nk]=k; push(ng+H(ni,nj),nk); } } }
+  if(end<0) return null;
+  const cells=[]; for(let k=end;k>=0;k=from[k]) cells.push(xy(k)); cells.reverse();
+  const out=[]; let a=[x0,z0];   // pulled tight: from each corner, the farthest point along the way that it can see
+  for(let k=1;k<cells.length;){ let far=k; for(let m=cells.length-1;m>k;m--) if(navClear(a[0],a[1],cells[m][0],cells[m][1])){ far=m; break; } a=cells[far]; out.push(a); k=far+1; }
+  return out.length?out:[cells[cells.length-1]]; }
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ball=new T.Sphere(new T.Vector3(),R), hits=[];
 function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); hits.length=0; ray.layers.set(0);
-  ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o) return people.find(p=>p.g===o); } return null; }
+  let hit=null; ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o){ hit=people.find(p=>p.g===o); break; } }
+  /* or near enough: within a body's width of the line from their feet to their head, as the screen sees it; when two are
+     in the same place on the screen, the nearer one is the one you mean */
+  let best=null, bd=1; for(const p of people){ const h0=R+standH(p.x,p.z), f=V.copy(p.dir).multiplyScalar(h0).project(stCam); if(f.z>1) continue;
+    const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=V.copy(p.dir).multiplyScalar(h0+1.6).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
+    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, t=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*t,e.clientY-fy-ey*t), r=Math.max(26,Math.sqrt(L2)*.34);
+    if(dd/r<bd){ bd=dd/r; best=p; } }
+  if(hit&&best&&best!==hit&&bd<.6){ const cp=stCam.position; if(V.copy(best.dir).multiplyScalar(R).distanceTo(cp)<V2.copy(hit.dir).multiplyScalar(R).distanceTo(cp)) return best; }
+  return hit||best; }
 let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
@@ -619,12 +683,13 @@ st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if
 const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(look&&e.pointerId===look.id){ turnBy(e.clientX-look.lx,e.clientY-look.ly); look.lx=e.clientX; look.ly=e.clientY; return; }
-  if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>7) down.moved=true;
+  if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>(down.touch?8:13)) down.moved=true;
     if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
     else if(down.moved){ turnBy(dx,e.clientY-down.ly); began(); }
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
 addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+  if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
   const p=pickPerson(e); if(p) goTalk(p); });
 addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
@@ -633,12 +698,14 @@ function began(){ if(started) return; started=true; el.classList.add('walked'); 
 
 /* ---------- talking ---------- */
 const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
+const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null};
+PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
 function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent='';
   tk.classList.toggle('last',last&&!TALK.ask); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
   if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
-function openTalk(p,i=0,L=null){ TALK.ask=!!L; TALK.walkT=0; TALK.p=p; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
+function openTalk(p,i=0,L=null){ TALK.ask=!!L; TALK.walkT=0; TALK.held='?'; TALK.p=p; player.path=null; player.speed=0; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
   tkN.textContent=!TALK.ask&&TALK.i>=TALK.L.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
   player.tgt=null; A.chime(5+p.i*2,0,.035); began(); }
 function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; tkT.textContent=TALK.txt; tk.classList.remove('typing'); return; }
@@ -653,9 +720,13 @@ function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.a
   if(!left.length&&AH.st==='home') { AH.st='wait'; AH.t=was.i===0?.6:.9; } }
 /* say hello: from far away you walk over by yourself; close up the conversation opens. Someone you have met shows you their page */
 function talkTo(p){ TALK.goal=null; if(p.i===0&&allMet()) return openInvite(); openTalk(p,MET.has(p.i)?p.lines.length-1:(p.resume||0)); }
-function goTalk(p){ if(FIN.on||CUT.on||TALK.p) return; const P=player, d=Math.hypot(P.x-p.x,P.z-p.z);
+/* walking over to someone: the way round, found on the grid; straight at them only if there is no way round */
+function walkTo(p){ const P=player, path=navPath(P.x,P.z,p.x,p.z,1.8); P.goalX=p.x; P.goalZ=p.z;
+  if(path){ P.path=path; P.tgt=null; return true; }
+  const d=Math.hypot(P.x-p.x,P.z-p.z)||1, ux=(P.x-p.x)/d, uz=(P.z-p.z)/d; P.path=null; P.tgt=at(p.x+ux*1.6,p.z+uz*1.6).multiplyScalar(R); return false; }
+function goTalk(p){ if(FIN.on||CUT.on||TALK.p||GLN.t>=0) return; const P=player, d=Math.hypot(P.x-p.x,P.z-p.z);
   if(d<2.6) return talkTo(p);
-  const ux=(P.x-p.x)/d, uz=(P.z-p.z)/d; P.tgt=at(p.x+ux*1.6,p.z+uz*1.6).multiplyScalar(R); TALK.goal=p; began(); A.tick(); }
+  walkTo(p); TALK.goal=p; P.stuck=0; P.tries=0; began(); A.tick(); }
 labels.forEach((lb,i)=>lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }));
 $('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,button')) return; nextTalk(); });
 $('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(true); });
@@ -666,6 +737,9 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(FIN.on){ e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
+  if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
+    const P=player; let best=null, bd=3.4; for(const q of people){ const dq=Math.hypot(P.x-q.x,P.z-q.z); if(dq<bd){ bd=dq; best=q; } }
+    if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; } }
   if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     if(TALK.ask&&TALK.i>=TALK.L.length-1&&TALK.shown>=TALK.txt.length&&e.code!=='KeyE'){ startFinale(); } else nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 
@@ -678,7 +752,7 @@ const GLN={t:-1,d:0,P:new T.Vector3(),L:new T.Vector3(),U:new T.Vector3(),q:new 
 const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the flight back
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
-function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.turn=0; AH.lx=a.x; AH.lz=a.z; }
+function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
 function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
@@ -688,12 +762,14 @@ function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on
   if(AH.st!=='come'){ a.walk=damp(a.walk||0,0,6,dt); return; }
   if(TALK.p){ a.walk=0; return; }
   if(d<2.1){ a.walk=0; AH.st='here'; a.wave=1.4; if(!AH.asked) openInvite(); else a.greeted=true; return; }   // he has asked already: he waits by you, and Let's fly stays on screen
-  let dx=(P.x-a.x)/d, dz=(P.z-a.z)/d; if(AH.turn>0){ AH.turn-=dt; const c=Math.cos(1.1), sn=Math.sin(1.1); [dx,dz]=[dx*c-dz*sn,dx*sn+dz*c]; }
+  AH.rp=(AH.rp||0)-dt; if(AH.rp<=0||!AH.path||!AH.path.length){ AH.rp=.9; AH.path=navPath(a.x,a.z,P.x,P.z,1.9)||[[P.x,P.z]]; }
+  let [wx,wz]=AH.path[0]; if(Math.hypot(wx-a.x,wz-a.z)<.4&&AH.path.length>1){ AH.path.shift(); [wx,wz]=AH.path[0]; }
+  const dw=Math.hypot(wx-a.x,wz-a.z)||1, dx=(wx-a.x)/dw, dz=(wz-a.z)/dw;
   const sp=Math.min(3.3,.9+d*.5); let nx=a.x+dx*sp*dt, nz=a.z+dz*sp*dt;
   for(const o of OBS){ if(o===a.ob) continue; const ex=nx-o.x, ez=nz-o.z, dd=Math.hypot(ex,ez), m=o.r+.3; if(dd<m&&dd>1e-4){ nx=o.x+ex/dd*m; nz=o.z+ez/dd*m; } }
-  if(!walkable(nx,nz)){ AH.turn=.7; a.walk=0; return; }
+  if(!walkable(nx,nz)){ AH.rp=0; a.walk=0; return; }
   a.x=nx; a.z=nz; a.dir=at(nx,nz); if(a.ob){ a.ob.x=nx; a.ob.z=nz; } a.walk=sp; a.ph=(a.ph||0)+dt*sp*4.6;
-  AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.turn=.8; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
+  AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.rp=0; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
 /* the shot of him: in front of him and a little to one side, at eye height, looking at him as he waves */
 function glanceStart(d){ const a=people[0]; GLN.t=0; GLN.d=d; a.wave=G_IN+G_HOLD+.4; A.chime(7,.05,.045); A.chime(9,.34,.035); A.whoosh(true,1.1,.05);
   let fx=a.face[0]-a.x, fz=a.face[1]-a.z; const l=Math.hypot(fx,fz)||1; fx/=l; fz/=l; const rx=-fz, rz=fx;
@@ -715,8 +791,8 @@ function glanceApply(dt){ if(GLN.t<0) return false; GLN.t+=dt; if(TALK.ask&&GLN.
 /* ---------- landmarks: shown if you have played the station; one you have just played springs up the first time you see it ---------- */
 const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
 function marksEnter(){ const all=!S.ready; FRESH=[];   // all: the loader, which builds everything once so it is compiled
-  for(const id in MK){ const m=MK[id], has=all||S.docked.has(id);
-    m.st=!has?'off':(all||seen.has(id))?'on':'wait'; if(m.st==='wait') FRESH.push(id);
+  for(const id in MK){ const m=MK[id], has=all||st.land||S.docked.has(id);
+    m.st=!has?'off':(all||st.land||seen.has(id))?'on':'wait'; if(m.st==='wait') FRESH.push(id);
     m.g.visible=m.st==='on'; markScale(m,1); m.obs.forEach(q=>q.o.h=m.st==='on'?q.h:q.h0); }
   people.forEach(p=>{ p.lines=linesFor(p.i); }); baked=false; }
 const mkU=new T.Vector3(), mkE=new T.Vector3(), mkF=new T.Vector3(), mkP=new T.Vector3(), mkV=new T.Vector3();
@@ -838,10 +914,11 @@ st.finaleEnd=function(){ FIN.on=false; S.fin=false; el.classList.remove('fin'); 
 let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
 st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
-  started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
+  started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone');
+  $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
   marksEnter(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
-st.exit=function(){ CUT.on=false; el.classList.remove('cut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
+st.exit=function(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
 
@@ -861,21 +938,34 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  if(TALK.p){ TALK.walkT=ix||iz?(TALK.walkT||0)+dt:0; if(TALK.walkT>.9) closeTalk(); else { ix=iz=0; } }
-  if(ix||iz){ P.tgt=null; TALK.goal=null; C.guide=null; began(); }
+  /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
+  if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
+    if(TALK.held==='?') TALK.held=mv?sig:null; else if(TALK.held&&(sig!==TALK.held||!mv)) TALK.held=null;   // what you were already holding when it began does not count
+    TALK.walkT=mv&&!TALK.held?(TALK.walkT||0)+dt:0; if(TALK.walkT>.55) closeTalk(); else { ix=iz=0; } }
+  if(ix||iz){ P.tgt=null; P.path=null; TALK.goal=null; C.guide=null; began(); }
+  /* walking a path: aim at the next corner, and slow down only for the last one */
+  if(P.path&&P.path.length&&!TALK.p){ const [wx,wz]=P.path[0], dw=Math.hypot(wx-P.x,wz-P.z);
+    if(dw<(P.path.length>1?.45:.22)){ P.path.shift(); if(!P.path.length){ P.path=null; P.tgt=null; } }
+    if(P.path){ P.tgt=at(P.path[0][0],P.path[0][1]).multiplyScalar(R); let rest=0; for(let k=1;k<P.path.length;k++) rest+=Math.hypot(P.path[k][0]-P.path[k-1][0],P.path[k][1]-P.path[k-1][1]); P.rest=rest; } }
   let want=0;
   if(ix||iz){ camR.crossVectors(C.f,P.u); V4.copy(C.f).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=(run?4.2:2.7)*mag; }
-  else if(P.tgt){ const ang=Math.acos(clamp(P.u.dot(V2.copy(P.tgt).normalize()),-1,1)); if(ang*R<.2){ P.tgt=null; } else { tang(P.u,P.tgt,V4); want=Math.min(2.7,ang*R*2+.5); } }
+  else if(P.tgt){ const ang=Math.acos(clamp(P.u.dot(V2.copy(P.tgt).normalize()),-1,1)); if(ang*R<.2&&!P.path){ P.tgt=null; } else { tang(P.u,P.tgt,V4); want=Math.min(2.7,(ang*R+(P.path?P.rest||0:0))*2+.5); } }
   if(want>0){ const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4), a=Math.atan2(s,c); rot(P.f,P.u,clamp(a,-11*dt,11*dt)); if(Math.abs(a)>1.6) want*=.3; }
   if(TALK.p) want=0;
   P.speed=damp(P.speed,want,8,dt);
   if(P.speed>.01){ const u0=P.u.clone(), f0=P.f.clone(); walk(P,P.speed*dt); let [x,z]=loc(P.u);
-    if(!walkable(x,z)){ P.u.copy(u0); P.f.copy(f0); P.speed*=.2; P.tgt=null; }
+    if(!walkable(x,z)){ P.u.copy(u0); P.f.copy(f0); P.speed*=.2; if(P.path) P.stuck=(P.stuck||0)+.4; else P.tgt=null; }
     else { let tx=null,tz=null; if(P.tgt) [tx,tz]=loc(V.copy(P.tgt).normalize());
-      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(tx!==null&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
+      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(tx!==null&&!P.path&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
       if(walkable(x,z)) at(x,z,P.u); else P.u.copy(u0); tang(P.u,P.f,P.f); } }
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
-  if(TALK.goal&&!TALK.p){ const g=TALK.goal; if(Math.hypot(P.x-g.x,P.z-g.z)<2.5) talkTo(g); else if(!P.tgt) TALK.goal=null; }   // walked over to someone
+  /* walked over to someone: talk on arrival. Held up on the way, or they have moved: find the way again; after a few tries,
+     close enough is close enough */
+  if(TALK.goal&&!TALK.p){ const g=TALK.goal, dg=Math.hypot(P.x-g.x,P.z-g.z);
+    if(dg<2.5) talkTo(g);
+    else { P.stuck=Math.max(0,(P.stuck||0)+(P.speed<.3?dt:-dt*.5));
+      if(P.stuck>.7||(Math.hypot(g.x-(P.goalX??g.x),g.z-(P.goalZ??g.z))>1.2)){ P.stuck=0; P.tries=(P.tries||0)+1; if(P.tries>3){ if(dg<6) talkTo(g); else { TALK.goal=null; P.path=null; P.tgt=null; } } else walkTo(g); }
+      else if(!P.tgt&&!P.path) TALK.goal=null; } }
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
   P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)?2:rd<RW+SW?1:0); }
   // the camera rig: a lazy follow when you walk forward, never against a drag
@@ -914,14 +1004,15 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT)&&!FIN.on;
     // walk right up to someone you have not met (or to Ahroon, once he has something to show you) and they start talking
     /* (Ahroon walking over to you after a not yet is not you walking up to him: he does not ask again until you come back to him) */
-    if(d<2.4&&!p.greeted&&!TALK.p&&!CUT.on&&!FIN.on&&P.speed<1.8&&!(i===0&&AH.st==='come')&&(!MET.has(i)||(i===0&&allMet()))) talkTo(p);
-    if(d>4.5) p.greeted=false;
+    /* (on your way over to someone you clicked, nobody else stops you) */
+    if(d<2.3&&!p.greeted&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&(!TALK.goal||TALK.goal===p)&&!(i===0&&AH.st==='come')&&(!MET.has(i)||(i===0&&allMet()))) talkTo(p);
+    if(d>3.3) p.greeted=false;
     if(near&&!p.near) p.wave=1.2; p.near=near; p.wave=Math.max(0,p.wave-dt);
     const faceTo=FIN.on?FIN.look:(near||p.walk>.2)?P.u:at(p.face[0],p.face[1]);
     tang(p.dir,faceTo,V4); p.f.lerp(V4,1-Math.exp(-4*dt)); tang(p.dir,p.f,p.f); standOn(p.g,p.dir,p.f,standH(p.x,p.z)); animate(p.g,p.ph||0,clamp((p.walk||0)/2.7,0,1),FIN.on?FIN.wave:p.wave,t,i);
     p.blink-=dt; const ey=p.blink<.12?.15:1; if(p.blink<0) p.blink=2+Math.random()*3; p.g.userData.eyes.forEach(e=>e.scale.y=ey);
     // name tags: anyone you have not met is always marked, wherever they are; Ahroon's tag calls you once he has one more thing
-    const ask=i===0&&allMet(), lb=labels[i]; lb.classList.toggle('ask',ask); V.copy(p.dir).multiplyScalar(R+standH(p.x,p.z)+1.62).project(stCam); lb.classList.toggle('on',(!MET.has(i)||ask||d<10||hov===p)&&V.z<1&&!TALK.p&&!CUT.on&&!FIN.on);
+    const ask=i===0&&allMet(), lb=labels[i]; lb.classList.toggle('ask',ask); lb.classList.toggle('can',d<3.4&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0); V.copy(p.dir).multiplyScalar(R+standH(p.x,p.z)+1.62).project(stCam); lb.classList.toggle('on',(!MET.has(i)||ask||d<10||hov===p)&&V.z<1&&!TALK.p&&!CUT.on&&!FIN.on);
     lb.style.transform=`translate(${((V.x*.5+.5)*innerWidth).toFixed(1)}px,${((-V.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
     /* the way to whoever you still have to meet: a light over them, and their name at the edge of the screen when they are off it */
     const owed=(!MET.has(i)&&(MET.size>0||i>0))||(ask&&AH.heard), busy=TALK.p||CUT.on||FIN.on||GLN.t>=0;
@@ -932,13 +1023,41 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     if(showE){ let ex=V.z>1?-V.x:V.x, ey=V.z>1?-V.y:V.y; const m=Math.max(Math.abs(ex)/.82,Math.abs(ey)/.74,1e-3); ex/=m; ey/=m;
       ed.style.transform=`translate(${((ex*.5+.5)*innerWidth).toFixed(1)}px,${((-ey*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-50%)`; ed.style.setProperty('--a',Math.atan2(-ey,ex).toFixed(3)+'rad'); } });
   goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0);
+  /* walk up to a landmark and it says what it is, and where to find it */
+  { let best=null, bd=1; if(!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(!MK[id]||MK[id].st!=='on') continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; best=id; } }
+    if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
+      PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
+  }
   // talking: the words type out with a little voice
   if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; tkT.textContent=TALK.txt.slice(0,n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
   // things that move: the radar, the lighthouse, the voice inside Kríos, the birds
   if(AE){ AE.hd.matrix.copy(AE.M).multiply(Mf.makeRotationY(t*.8)); AE.hd.matrixWorldNeedsUpdate=true; }
+  const quiet=TALK.p||CUT.on||FIN.on, near=q=>q?Math.hypot(P.x-q.x,P.z-q.z):99;
+  /* Aetos: 0 to 6 s the drones loiter; 6 the threat is marked; 8 locked; 8.6 it falls; 11 another comes */
+  if(AE&&AE.dr&&MK.ae.st==='on'){ const c0=AE.cyc%11; AE.cyc+=dt; const c=AE.cyc%11, d0=near(INST.ae);
+    AE.dr.forEach((q,k)=>{ q.a+=q.w*dt; let h=q.h+Math.sin(t*1.3+k)*.12, sk=1;
+      if(k===0){ if(c>8.6) h-=Math.pow(Math.min(1,(c-8.6)/1.3),2)*3.4; sk=c>9.9?0:c<.8?c/.8:1; }
+      Mf2.copy(AE.B).multiply(Mf.makeTranslation(Math.cos(q.a)*q.r,h,Math.sin(q.a)*q.r)).multiply(Mr.makeRotationY(-q.a)).multiply(Mf.makeScale(sk||1e-3,sk||1e-3,sk||1e-3));
+      q.g.matrix.copy(Mf2); q.g.matrixWorldNeedsUpdate=true; });
+    const mk=c>6&&c<8.65; AE.ring.visible=mk; if(mk){ const s=c>8?1-.45*sstep(8,8.6,c):1+.08*Math.sin(t*9); AE.ring.matrix.copy(AE.dr[0].g.matrix).multiply(Mf.makeScale(s,s,s)); AE.ring.matrixWorldNeedsUpdate=true; }
+    if(!quiet&&d0<15){ if(c0<6&&c>=6) A.ping(1175,.016*(1-d0/15)); if(c0<8&&c>=8) A.ping(1568,.024*(1-d0/15)); } }
   if(PH) PH.beam.rotation.y=t*.9;
+  /* Pharos: once round the lighthouse every fifteen seconds; over open water there is nothing to match, and it says so */
+  if(PH&&PH.dr&&MK.ph.st==='on'){ PH.a+=dt*.42; const lx=Math.cos(PH.a)*3.3, lz=Math.sin(PH.a)*3.3;
+    PH.dr.matrix.copy(PH.M).multiply(Mf.makeTranslation(lx,3.3+Math.sin(t*1.1)*.12,lz)).multiply(Mr.makeRotationY(-PH.a-Math.PI/2)); PH.dr.matrixWorldNeedsUpdate=true;
+    const sea=isle(V.set(lx,0,lz).applyMatrix4(PH.M).normalize())<0;
+    if(sea!==PH.over){ PH.over=sea; PH.dr.userData.light.material.uniforms.uC.value.setStyle(sea?'#ff9a3c':'#f5f3ea',T.LinearSRGBColorSpace); const d0=near(INST.ph);
+      if(!quiet&&d0<15){ if(sea) A.ping(523,.014*(1-d0/15)); else A.chime(9,0,.03*(1-d0/15)); } } }
+  /* Ogive: the hoop at the height asked for; every so often the engine is fired on the pad */
+  if(OG&&MK.og.st==='on'){ OG.hoop.matrix.copy(OG.M).multiply(Mf.makeTranslation(0,5.3+Math.sin(t*.9)*.08,0)); OG.hoop.matrixWorldNeedsUpdate=true;
+    OG.t+=dt; if(OG.t>14){ OG.t=0; const d0=near(INST.og);
+      for(let k=0;k<12;k++){ const a=k/12*TAU+Math.random()*.3; V2.set(Math.cos(a)*.34,.22,Math.sin(a)*.34).applyMatrix4(OG.M); V3.set(Math.cos(a)*2,.5,Math.sin(a)*2).applyMatrix4(OG.M).sub(V2); puff(V2,V3,.16+Math.random()*.1,1.3); }
+      if(!quiet&&d0<15) A.vent(0); } }
   if(BE) BE.lt.visible=(t/1.6)%1<.3;
-  if(KR){ for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); } KR.bars.instanceMatrix.needsUpdate=true; }
+  if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
+    for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
+    KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;
+    KR.mt-=dt; if(KR.mt<=0){ KR.mt=.15+Math.random()*.09; const d0=near(INST.kr); if(!quiet&&d0<6.5&&MK.kr.st==='on'&&Math.abs(w-.5)>.4) A.voice(w>.5?196:262); } }
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music, birds now and then, the sea near the shore, a light wind
@@ -946,5 +1065,5 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();

@@ -90,5 +90,12 @@ function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=F
 /* the white page */
 function credits(){ if(S.mode==='credits') return; S.mode='credits'; FZ.on=false; S.flashMin=1; post.uniforms.uFlash.value=1;
   A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
+  $('#finAgain').textContent=S.entry==='fly'?'Fly again':'Fly the whole thing';
   finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }
-$('#finAgain').addEventListener('click',()=>{ location.reload(); });
+/* again, from the very beginning: the whole flight, whichever way you came in */
+/* Fly again, or the whole thing from the start: the same page with no way in on its address. A preview built to open on
+   Land or Aetos has the whole thing somewhere else, so it opens that */
+const FLY_URL='__FLY__';
+$('#finAgain').addEventListener('click',()=>{ if(FLY_URL){ window.open(FLY_URL,'_blank','noopener'); return; }
+  if(location.hash) history.replaceState(null,'',location.pathname+location.search); location.reload(); });
+$('#finWalk').addEventListener('click',()=>{ A.hush&&A.hush(); });

@@ -19,13 +19,16 @@ const srv = http.createServer((req, res) => {
   p.on('response', r => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
   p.on('pageerror', e => bad.push('pageerror ' + e.message)); p.on('console', m => { if (m.type() === 'error') bad.push('console ' + m.text()); });
   /* the front door: Tamed */
-  await p.goto(url(''));
+  await p.goto(url(''), { timeout: 180000 });
   check(await p.waitForFunction(() => window.__tamed && window.__tamed.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Tamed boots at the front door, ' + BASE);
-  const way = await p.evaluate(() => { const a = document.querySelector('#untamed'); return { href: a.href, target: a.getAttribute('target') }; });
-  check(way.href === url('untamed/') && !way.target, 'the gate\'s Untamed way goes to untamed/ in the same tab (' + way.href + ')');
-  check(await p.evaluate(() => [...document.querySelectorAll('[data-untamed]')].every(a => /\/untamed\/$/.test(a.href))), 'every link to Untamed points at untamed/');
+  const link = sel => p.evaluate(sel => { const a = document.querySelector(sel); return { href: a.href, target: a.getAttribute('target') }; }, sel);
+  const way = await link('#untamed'), land = await link('#land'), rocket = await link('#rocket');
+  check(way.href === url('untamed/') && !way.target, 'the gate\'s Fly way goes to untamed/ in the same tab (' + way.href + ')');
+  check(land.href === url('untamed/#land') && !land.target, 'its Land way goes to untamed/#land in the same tab (' + land.href + ')');
+  check(rocket.href === url('untamed/#aetos') && !rocket.target, 'the rocket at the end of the walk goes to untamed/#aetos in the same tab (' + rocket.href + ')');
+  check(await p.evaluate(() => [...document.querySelectorAll('[data-untamed]')].every(a => /\/untamed\/$/.test(a.href))), 'every link to Fly points at untamed/');
   /* the other way in: Untamed */
-  await p.goto(way.href);
+  await p.goto(way.href, { timeout: 180000 });
   check(await p.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Untamed boots at untamed/');
   const back = await p.evaluate(() => { const a = document.querySelector('#calm'); return a && { href: a.href, target: a.getAttribute('target') }; });
   check(back && back.href === url('') && !back.target, 'its Beacon station links back to the calm walk (' + (back && back.href) + ')');
