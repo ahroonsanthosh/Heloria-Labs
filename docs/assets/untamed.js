@@ -71,11 +71,13 @@ const A=(()=>{
     s.connect(b); b.connect(a); a.connect(comp); if(send){const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(revIn);} s.start(t0,Math.random()); s.stop(t0+dur+.05);
   }
   const PEN=[0,2,3,7,9]; // D dorian-ish pentatonic
+  /* the untamed plays louder than the walk, and a sound you hear again and again is never quite the same twice */
+  const LOUD=.9, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
     get on(){return on&&!muted}, get ctx(){return ctx},
-    async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:.7,.6); }catch(e){ on=false; } sndUI(); },
-    toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:.7,.3); sndUI(); },
+    async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
+    toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
     _lv(){ if(!ctx) return null; const r=x=>+x.value.toFixed(4); return {pad:r(n.padG.gain),sub:r(n.subG.gain),wind:r(n.wind.g.gain),thrust:r(n.thrust.g.gain),roar:r(n.roar.g.gain),hiss:r(n.hiss.g.gain),whine:r(n.teng.gain),beacons:n.beacons?n.beacons.map(b=>r(b.lvl.gain)):null,pans:n.beacons?n.beacons.map(b=>b.pan?r(b.pan.pan):0):null}; }, // test hook: current levels
     update(t,p){ // p: {sub, wind, pad}
@@ -83,8 +85,8 @@ const A=(()=>{
       if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
       if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.32,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.06,.8); if(p.bright!=null) set(n.padF.frequency,(380+p.bright*900)*(n.muf?.42:1),n.muf?.08:.6); }
     },
-    tick(){ tone(2600,.02,.01,'square'); },
-    click(){ tone(1200,.06,.03,'triangle',600); },
+    tick(){ tone(2600*vr(),.02,.01,'square'); },
+    click(){ const v=vr(); tone(1200*v,.06,.03,'triangle',600*v); },
     whoosh(up=true,dur=1,g=.2){ noise(dur,g,up?220:2400,up?2400:220,'bandpass',1.1,0,.3); },
     stinger(i=0){ tone(note(8+i),2.4,.045,'sine',0,0,.8,.02); tone(note(10+i)*2,1.6,.015,'sine',0,.08,.8,.02); noise(1.4,.06,500,4000,'bandpass',2,0,.5); },
     swell(){ noise(2,.24,160,3400,'bandpass',1.4,0,.5); tone(146.83,2.6,.05,'sine',293.66,0,.6,.3); tone(220,2.4,.035,'sine',440,.15,.6,.3); },
@@ -190,7 +192,7 @@ const A=(()=>{
     /* the seal breaking: a glassy snap, then the pieces falling away */
     crack(){ noise(.35,.32,7000,1400,'highpass',.7,0,.5); noise(1.8,.28,1600,50,'lowpass',.9,.03,.6); tone(1760,1.1,.03,'triangle',820,0,.8); tone(2637,.8,.018,'sine',1240,.05,.8); },
     /* the last flight. The hatch: a heavy seal shutting */
-    clunk(){ tone(62,.5,.22,'sine',38); noise(.18,.2,900,120,'lowpass',1.2); tone(180,.12,.05,'triangle',90,.02); },
+    clunk(){ const v=vr(.06); tone(62*v,.5,.22,'sine',38*v); noise(.18,.2,900*v,120,'lowpass',1.2); tone(180*v,.12,.05,'triangle',90*v,.02); },
     /* a clock in the wait: dry, a little louder and brighter each time */
     tock(k=0){ const g=.05+.012*k; noise(.05,g,4200+k*160,2600,'bandpass',5,0,.35); tone(k%2?1180:1420,.05,g*.35,'triangle',0,0,.25); },
     /* a heartbeat: two soft low knocks */
@@ -219,15 +221,15 @@ const A=(()=>{
     strain(){ tone(55,1,.16,'sawtooth',110,0,.4,.6); noise(1,.12,120,900,'bandpass',2,0,.4); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
     chord(){ [0,2,4,7].forEach((k,j)=>this.chime(10+k,j*.07)); },
-    buzz(){ tone(92,.3,.11,'sawtooth',60); noise(.22,.12,900,200); },
-    pop(){ noise(.45,.3,2400,80); tone(170,.4,.09,'triangle',50); },
+    buzz(){ const v=vr(.05); tone(92*v,.3,.11,'sawtooth',60*v); noise(.22,.12,900*v,200); },
+    pop(){ const v=vr(.07); noise(.45,.3,2400*v,80); tone(170*v,.4,.09,'triangle',50*v); },
     alarm(){ tone(330,.3,.06,'square'); tone(262,.3,.06,'square',0,.17); },
     ping(f=1318,g=.045){ tone(f,1.4,g,'sine',0,0,.6); },
-    blip(){ tone(1760,.08,.035,'square'); },
+    blip(){ tone(1760*vr(.03),.08,.035,'square'); },
     launch(){ noise(1.1,.32,200,2600,'bandpass',.9,0,.2); },
     jam(){ tone(90,1.4,.18,'sine',38); tone(180,1.1,.04,'square',60); noise(.9,.14,600,90); },
-    beep(f=880){ tone(f,.07,.035,'square'); },
-    dock(){ tone(587,.7,.06,'sine',0,0,.5); tone(880,1,.05,'sine',0,.12,.5); },
+    beep(f=880){ tone(f*vr(.015),.07,.035,'square'); },
+    dock(){ const v=vr(.03); tone(587*v,.7,.06,'sine',0,0,.5); tone(880*v,1,.05,'sine',0,.12,.5); },
     key(){ tone(1800+Math.random()*900,.025,.01,'triangle'); },
     /* formant voice: syllables shaped by three resonances. who: 0 buyer, 1 you */
     voice(who){ if(!ctx) return null; const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=who?118:182;
@@ -1297,10 +1299,14 @@ function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=F
 /* the white page */
 function credits(){ if(S.mode==='credits') return; S.mode='credits'; FZ.on=false; S.flashMin=1; post.uniforms.uFlash.value=1;
   A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
-  $('#finAgain').textContent=S.entry==='land'?'Fly the whole thing':'Fly again';
+  $('#finAgain').textContent=S.entry==='fly'?'Fly again':'Fly the whole thing';
   finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }
 /* again, from the very beginning: the whole flight, whichever way you came in */
-$('#finAgain').addEventListener('click',()=>{ if(location.hash) history.replaceState(null,'',location.pathname+location.search); location.reload(); });
+/* Fly again, or the whole thing from the start: the same page with no way in on its address. A preview built to open on
+   Land or Aetos has the whole thing somewhere else, so it opens that */
+const FLY_URL="";
+$('#finAgain').addEventListener('click',()=>{ if(FLY_URL){ window.open(FLY_URL,'_blank','noopener'); return; }
+  if(location.hash) history.replaceState(null,'',location.pathname+location.search); location.reload(); });
 $('#finWalk').addEventListener('click',()=>{ A.hush&&A.hush(); });
 
 /* ================= STATION FRAMEWORK ================= */
@@ -4205,9 +4211,9 @@ function linesFor(i){ const land=!!st.land, has=id=>land||S.docked.has(id), left
       'That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.',
       'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.',
       'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last];
-    return ['Oh, hello! You followed the signal all the way down.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
+    return ['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
       'Here\'s the thing: every station you stop at up there gets built down here.',
-      has('ae')?'That radar on the rocks is Aetos, mine. You\'ve been there, so it\'s up and turning. When the sky fills with drones, it works out which one actually matters.'
+      has('ae')?'That radar on the rocks is Aetos, mine: it\'s what picked you up. When the sky fills with drones, it works out which one actually matters.'
                :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters.',
       has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.'
                :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Stop at it up there and the lighthouse goes up.',
@@ -5024,7 +5030,7 @@ const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
 async function boot(){
-  const mark=$('#mark'), txt={set textContent(v){}}; // the mark's weight is the progress bar
+  const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
   const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
@@ -5043,19 +5049,32 @@ async function boot(){
   setP(1); $('#load').classList.add('ready'); S.ready=true;
 }
 
+/* ---------- three ways in, chosen at the front door: the whole story (Fly), straight down to Earth (#land), or into
+   orbit at Aetos, where the rocket at the end of the walk goes (#aetos). Land opens in its own daylight, the colour the
+   front door left you in ---------- */
+S.entry=({'#land':'land','#aetos':'aetos'})[location.hash]||""||'fly';   // the build fills in a preview's own way in
+if(S.entry==='land') document.documentElement.classList.add('landing');
+
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
+  if(!S.ready||S.mode!=='load') return; A.start();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
-  $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
+  $('#load').classList.add('go');
+  // Land: the word lifts away like cloud, and the rocket is already coming down through the sky behind it
+  if(S.entry==='land'){ S.mode='landing'; A.whoosh(false,2.2,.16); if(ST.cr) ST.cr.land=true;
+    setTimeout(()=>{ show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800); return; }
+  A.swell(); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
   entry.from.p.copy(hubCam.position); entry.from.q.copy(hubCam.quaternion); entry.from.fov=30;
+  // from the walk's rocket: no story, the radar at Aetos already has you
+  if(S.entry==='aetos'){ setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
+    setTimeout(()=>{ if(S.mode!=='entering') return; A.launch(); S.flash=.5; feedback(.8,1.2); S.mode='story'; toHub(true); },1500); return; }
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
 /* the way in: scroll, swipe, tap, click or a key */
-$('#beginT').textContent=FINE?'Scroll to begin':'Swipe up to begin';
+$('#beginT').textContent=(FINE?'Scroll':'Swipe up')+({land:' to land',aetos:' into orbit'}[S.entry]||' to begin');
 addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
@@ -5085,7 +5104,7 @@ function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uS
   st.enter(); if(st.cutscene) st.cutscene(); show('#station',true); st.showUI(); where('Earth'); }
 /* and back: a flash of white, and you are in orbit again */
 function leaveEarth(){ const st=ST.cr; if(S.stId!=='cr'||!st) return; st.abort(); st.hideUI(); A.hush(); A.whoosh(false,1.3); S.flash=1;
-  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; toHub(); toast('Back in orbit'); }
+  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; const lead=!S.docked.has('ae'); toHub(lead); if(!lead) toast('Back in orbit'); }
 
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
@@ -5114,7 +5133,7 @@ function frame(now){
     entry.t+=rdt; chPose(0,_sp,t); const k=E.io5(clamp(entry.t/3.4,0,1));
     hubCam.position.lerpVectors(entry.from.p,_sp.p,k); hubCam.quaternion.slerpQuaternions(entry.from.q,_sp.q,k); hubCam.fov=lerp(30,_sp.fov,k); hubCam.updateProjectionMatrix();
     A.update(t,{sub:.3*(1-k)+.15,pad:k,bright:.5});
-    if(entry.t>2.3&&!entry.rev){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); }
+    if(entry.t>2.3&&!entry.rev&&S.entry==='fly'){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); }
     if(entry.t>=3.4){ S.mode='story'; S.ch=0; story.k=1; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov; }
   }
   else if(S.mode==='story'){ storyUpdate(rdt,t); }

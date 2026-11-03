@@ -110,6 +110,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #begin i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--ink);animation:beginDrip 1.8s var(--io) infinite}
 @keyframes beginDrip{to{top:100%}}
 #load.ready #begin{opacity:1}
+#boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
+#load.ready #boot{opacity:0}
 #load.go #begin{opacity:0;transition-duration:.3s}
 #load.ready{cursor:default}
 
@@ -159,6 +161,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #guide .eb::before,#guide .eb::after{content:"";width:28px;height:1px;background:currentColor}
 #guide h2{margin:0;font-size:clamp(40px,6.2vw,104px);line-height:.9;text-shadow:0 0 24px rgba(5,5,4,.9),0 0 60px rgba(5,5,4,.6)}
 #guide #guideK{margin:0;color:var(--ink2)}
+/* a soft dark behind the words, so they read over the bright disk wherever the hole happens to be */
+#guide .gb::before{content:"";position:absolute;left:50%;top:50%;width:calc(100% + 80px);height:calc(100% + 120px);transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(5,5,4,.62),rgba(5,5,4,.3) 60%,rgba(5,5,4,0));z-index:-1;pointer-events:none}
 #guide #guideK[hidden]{display:none}
 #guide.lead .gb{top:calc(var(--gt) + 150px);gap:14px}
 #guide.lead h2{font-size:clamp(30px,3.8vw,60px)}
@@ -339,7 +343,7 @@ html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
   #story .blk{left:var(--gl);right:var(--gr);bottom:calc(var(--gb) + 60px);max-width:none;gap:16px}
   #radar{width:124px;height:124px}
   #guide .gb{top:30%;gap:14px}
-  #guide .eb{display:block;max-width:26ch;line-height:1.5}
+  #guide .eb{display:block;max-width:26ch;line-height:1.5;text-wrap:balance}
   #guide .eb::before,#guide .eb::after{display:none}
   #guide h2{font-size:clamp(38px,11vw,64px)}
   #guide.lead .gb{top:calc(var(--gt) + 120px)}
@@ -380,3 +384,7 @@ html.nogl,html.nogl *{cursor:auto!important}
 #nogl li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
 #nogl li a{color:var(--ink)} #nogl li a:hover{color:var(--hot)}
 #nogl li span{color:var(--mute)}
+/* Land opens in daylight: the front door's own last colour, the word in ink */
+html.landing,html.landing body{background:#EAF4F4}
+html.landing #load{background:#EAF4F4;color:#2a241d;--ink:#2a241d;--ink2:#4a4037;--mute:#6f6355;--hair2:rgba(42,36,29,.3)}
+html.landing #load.go #mark .c{transform:translate(0,-18vh) scale(1.15);filter:blur(10px)}

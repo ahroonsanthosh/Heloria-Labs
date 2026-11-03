@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Headless playtest helper (Chromium + SwiftShader, so it is slow: think 1 to 4 frames a second).
-   node untamed/test/shot.cjs --html /tmp/x/kr.html --station kr --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000]
+   node untamed/test/shot.cjs --html /tmp/x/kr.html --station kr --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000] [--hash land]
    Default: load, wait until ready, jump straight into the station, screenshot "menu".
    A scenario is a CommonJS module: module.exports = async ({page, shot, wait, H, vp, log}) => { ... }
      shot(name)            screenshot to <out>/<name>.png
@@ -25,7 +25,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const shot = async n => { await page.screenshot({ path: path.join(out, n + '.png'), timeout: 240000 }); console.log('shot', path.join(out, n + '.png')); };
   const H = (fn, arg) => page.evaluate(([src, a]) => (0, eval)('(' + src + ')')(window.__heloria, a), [fn.toString(), arg]);
   const log = (...a) => console.log(...a);
-  await page.goto('file://' + path.resolve(opt.html));
+  await page.goto('file://' + path.resolve(opt.html) + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the other ways in
   await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
   if (opt.station) { await H((h, id) => h.jump(id), opt.station); await W(+(opt.settle || 3000)); if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'menu'); }
   if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile }); }

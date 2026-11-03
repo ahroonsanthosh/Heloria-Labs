@@ -1,11 +1,16 @@
 # Heloria Labs
 
-The website of Heloria Labs, a software lab in Ireland: one site with two ways in. The front door offers both.
+The website of Heloria Labs, a software lab in Ireland: one site with three ways in, chosen at the front door.
 
-- **Tamed** is the calm walk, for anyone who wants to see the work without playing for it. It is the front door.
-- **Untamed** is the whole thing, wild and playable: a universe with a black hole in the middle and a game for every
-  project. It lives at `untamed/`; its opening stays just the mark and one prompt, and Beacon (the contact station)
-  links back to the calm walk.
+- **Walk** is the calm way, for anyone who wants to see the work without playing for it. It is Tamed, the front door,
+  and it stays clean.
+- **Land** goes straight down to Earth (`untamed/#land`): a small drawn town where the rocket lands, every project
+  stands, and the three of us are waiting to talk. It opens in the front door's own daylight.
+- **Fly** is the whole thing, wild and playable (`untamed/`): a universe with a black hole in the middle, a game for
+  every project, and Earth on the other side of the horizon.
+
+The rocket at the end of the walk is a fourth door: catch it and it goes up into orbit at Aetos (`untamed/#aetos`),
+skipping the story. Land and Fly end on a white page whose first button walks you through the calm site.
 
 Both are about the same four projects:
 
@@ -70,7 +75,11 @@ thing that calls is the contact, a low pulse with a radar's thin return from the
 louder as you close in.
 
 Fall in and you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out.
-Every station you have played is built there, springing up the first time you see it. Ahroon is by Aetos, Abraham by
+Every station you have stopped at is built there, springing up the first time you see it, and Ahroon tells you what the
+contact inside the horizon was: us. Land comes straight here, with every project standing and at work (the Kríos
+sculpture lighting in turn as the voices go back and forth, a drone over Aetos picked out and taken down, a drone
+finding itself by the Pharos lighthouse, a test fire under Ogive's hoop); walk up to one and a card says what it is,
+with its link. Ahroon is by Aetos, Abraham by
 Kríos and Michael by Ogive, and each talks about what you have built. Click one of them (or their name tag) and you
 walk over by yourself; walk up to someone you have not met and they start talking.
 
@@ -83,6 +92,10 @@ rocket lights, the smoke rolls across the town, and you climb through the clouds
 world burns away like paper onto the traced system; you swing once round the hole, and at the bottom of the well you
 hold to burn. It throws you out, and the light takes over: a white page with the three of us, and one line,
 3 lads building the impossible.
+
+Each way in has its own prompt on the opening screen (Scroll to begin, Scroll to land, Scroll into orbit), and while
+everything is built behind it one quiet line says what is being made. The untamed plays louder than the walk, and the
+sounds you hear again and again are never quite the same twice.
 
 ## The repository
 
@@ -160,6 +173,23 @@ node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/btn --scenario un
 
 ```bash
 node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/monkey --scenario untamed/test/monkey.cjs
+```
+
+```bash
+node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/earth --scenario untamed/test/earth.cjs
+```
+
+```bash
+node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/entry --scenario untamed/test/entry.cjs --hash land
+```
+
+`entry.cjs` checks one way in per run: no `--hash` for Fly, `--hash land`, or `--hash aetos`. The untamed tests are slow
+(software rendering, a few frames a second), so run them one at a time.
+
+A preview artifact cannot carry `#land` or `#aetos` in its address, so the untamed build can bake the way in:
+
+```bash
+python3 untamed/build.py --entry land --artifact /tmp/land.html
 ```
 
 ## Deploy on GitHub Pages

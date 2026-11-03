@@ -19,6 +19,7 @@ CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap'
 TAMED_ARTIFACT = 'https://claude.ai/artifact/2sQrGTPr8inczHUGHVpFss'   # where the calm site lives when this is an artifact
+FLY_ARTIFACT = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn'     # the whole thing, from the start, as an artifact
 
 def read(p): return open(os.path.join(SRC, p), encoding='utf-8').read()
 def b64(p): return base64.b64encode(open(os.path.join(SRC, p), 'rb').read()).decode()
@@ -28,7 +29,9 @@ def calm_link(html, url):
     attrs = 'href="%s"' % url + ('' if url.startswith('.') or url.startswith('/') else ' target="_blank" rel="noopener"')
     return html.replace('href="__TAMED__"', attrs)
 
-def parts(only, tamed_url=TAMED_ARTIFACT):
+def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly=''):
+    """entry: a way in built into the page ('land' or 'aetos'), for a preview of its own where an address cannot carry
+    #land or #aetos; fly: where Fly the whole thing goes from such a preview (on the site both are left empty)"""
     ids = [i for i in ORDER if os.path.isdir(os.path.join(SRC, 'stations', i)) and (not only or i in only)]
     css = read('css/core.css') + '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.css' % i) for i in ids)
     html = calm_link(read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids)), tamed_url)
@@ -44,12 +47,13 @@ def parts(only, tamed_url=TAMED_ARTIFACT):
         for f in sorted(glob.glob(os.path.join(SRC, 'stations', i, '*.json'))):
             data['%s/%s' % (i, os.path.splitext(os.path.basename(f))[0])] = json.load(open(f))
     js = 'const DATA=%s;\n' % json.dumps(data, separators=(',', ':')) + js
+    js = js.replace("'__ENTRY__'", json.dumps(entry)).replace("'__FLY__'", json.dumps(fly))
     return ids, css, html, js
 
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
 
-def single(only, inline_three=False):
-    ids, css, html, js = parts(only)
+def single(only, inline_three=False, entry=''):
+    ids, css, html, js = parts(only, entry=entry, fly=FLY_ARTIFACT if entry else '')
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
     js = js.replace('__PHOTOS__', json.dumps(photos))
     head = read('head.html')
@@ -99,6 +103,7 @@ def main():
     ap = argparse.ArgumentParser(description='Build Heloria Untamed')
     ap.add_argument('--single'); ap.add_argument('--artifact'); ap.add_argument('--only')
     ap.add_argument('--inline-three', action='store_true')
+    ap.add_argument('--entry', choices=['land', 'aetos'], help='an artifact that opens on this way in: Land, or into orbit at Aetos')
     ap.add_argument('--src', help='build from another source tree, e.g. journey/src (the default is untamed/src)')
     a = ap.parse_args()
     global SRC
@@ -112,7 +117,7 @@ def main():
         os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w', encoding='utf-8').write(doc); print('single ->', p, len(doc))
     if a.artifact:
         p = a.artifact if os.path.isabs(a.artifact) else os.path.join(ROOT, a.artifact)
-        os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w', encoding='utf-8').write(single(only)); print('artifact ->', p)
+        os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w', encoding='utf-8').write(single(only, entry=a.entry or '')); print('artifact ->', p)
 
 if __name__ == '__main__':
     main()

@@ -409,9 +409,9 @@ function linesFor(i){ const land=!!st.land, has=id=>land||S.docked.has(id), left
       'That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.',
       'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.',
       'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last];
-    return ['Oh, hello! You followed the signal all the way down.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
+    return ['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
       'Here\'s the thing: every station you stop at up there gets built down here.',
-      has('ae')?'That radar on the rocks is Aetos, mine. You\'ve been there, so it\'s up and turning. When the sky fills with drones, it works out which one actually matters.'
+      has('ae')?'That radar on the rocks is Aetos, mine: it\'s what picked you up. When the sky fills with drones, it works out which one actually matters.'
                :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters.',
       has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.'
                :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Stop at it up there and the lighthouse goes up.',

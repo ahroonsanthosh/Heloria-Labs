@@ -4,7 +4,7 @@ const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
 async function boot(){
-  const mark=$('#mark'), txt={set textContent(v){}}; // the mark's weight is the progress bar
+  const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
   const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
@@ -23,19 +23,32 @@ async function boot(){
   setP(1); $('#load').classList.add('ready'); S.ready=true;
 }
 
+/* ---------- three ways in, chosen at the front door: the whole story (Fly), straight down to Earth (#land), or into
+   orbit at Aetos, where the rocket at the end of the walk goes (#aetos). Land opens in its own daylight, the colour the
+   front door left you in ---------- */
+S.entry=({'#land':'land','#aetos':'aetos'})[location.hash]||'__ENTRY__'||'fly';   // the build fills in a preview's own way in
+if(S.entry==='land') document.documentElement.classList.add('landing');
+
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); A.swell();
+  if(!S.ready||S.mode!=='load') return; A.start();
   const mark=$('#mark'), mr=mark.getBoundingClientRect(), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
-  $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
+  $('#load').classList.add('go');
+  // Land: the word lifts away like cloud, and the rocket is already coming down through the sky behind it
+  if(S.entry==='land'){ S.mode='landing'; A.whoosh(false,2.2,.16); if(ST.cr) ST.cr.land=true;
+    setTimeout(()=>{ show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800); return; }
+  A.swell(); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
   entry.from.p.copy(hubCam.position); entry.from.q.copy(hubCam.quaternion); entry.from.fov=30;
+  // from the walk's rocket: no story, the radar at Aetos already has you
+  if(S.entry==='aetos'){ setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
+    setTimeout(()=>{ if(S.mode!=='entering') return; A.launch(); S.flash=.5; feedback(.8,1.2); S.mode='story'; toHub(true); },1500); return; }
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
 /* the way in: scroll, swipe, tap, click or a key */
-$('#beginT').textContent=FINE?'Scroll to begin':'Swipe up to begin';
+$('#beginT').textContent=(FINE?'Scroll':'Swipe up')+({land:' to land',aetos:' into orbit'}[S.entry]||' to begin');
 addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
@@ -65,7 +78,7 @@ function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uS
   st.enter(); if(st.cutscene) st.cutscene(); show('#station',true); st.showUI(); where('Earth'); }
 /* and back: a flash of white, and you are in orbit again */
 function leaveEarth(){ const st=ST.cr; if(S.stId!=='cr'||!st) return; st.abort(); st.hideUI(); A.hush(); A.whoosh(false,1.3); S.flash=1;
-  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; toHub(); toast('Back in orbit'); }
+  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; const lead=!S.docked.has('ae'); toHub(lead); if(!lead) toast('Back in orbit'); }
 
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
@@ -94,7 +107,7 @@ function frame(now){
     entry.t+=rdt; chPose(0,_sp,t); const k=E.io5(clamp(entry.t/3.4,0,1));
     hubCam.position.lerpVectors(entry.from.p,_sp.p,k); hubCam.quaternion.slerpQuaternions(entry.from.q,_sp.q,k); hubCam.fov=lerp(30,_sp.fov,k); hubCam.updateProjectionMatrix();
     A.update(t,{sub:.3*(1-k)+.15,pad:k,bright:.5});
-    if(entry.t>2.3&&!entry.rev){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); }
+    if(entry.t>2.3&&!entry.rev&&S.entry==='fly'){ entry.rev=true; show('#story',true); reveal(story.blocks[0]); }
     if(entry.t>=3.4){ S.mode='story'; S.ch=0; story.k=1; story.from.p.copy(hubCam.position); story.from.q.copy(hubCam.quaternion); story.from.fov=hubCam.fov; }
   }
   else if(S.mode==='story'){ storyUpdate(rdt,t); }
