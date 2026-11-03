@@ -158,6 +158,20 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.01); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+d+.05); }); },
     /* the seal breaking: a glassy snap, then the pieces falling away */
     crack(){ noise(.35,.32,7000,1400,'highpass',.7,0,.5); noise(1.8,.28,1600,50,'lowpass',.9,.03,.6); tone(1760,1.1,.03,'triangle',820,0,.8); tone(2637,.8,.018,'sine',1240,.05,.8); },
+    /* the last flight. The hatch: a heavy seal shutting */
+    clunk(){ tone(62,.5,.22,'sine',38); noise(.18,.2,900,120,'lowpass',1.2); tone(180,.12,.05,'triangle',90,.02); },
+    /* a clock in the wait: dry, a little louder and brighter each time */
+    tock(k=0){ const g=.05+.012*k; noise(.05,g,4200+k*160,2600,'bandpass',5,0,.35); tone(k%2?1180:1420,.05,g*.35,'triangle',0,0,.25); },
+    /* a heartbeat: two soft low knocks */
+    beat(v=1){ tone(54,.2,.2*v,'sine',38); tone(50,.22,.14*v,'sine',36,.17); },
+    /* ignition: a deep hit, a tearing roar, crackle */
+    ignite(){ tone(46,4.2,.55,'sine',24); noise(3.6,.5,2600,60,'lowpass',.7,0,.35); noise(1.4,.22,7000,1800,'highpass',.6,.05,.3); tone(92,2.4,.16,'sawtooth',40,0,.2); },
+    /* the bottom of the well: a long falling tone, as if time were slowing */
+    stretch(){ tone(220,7,.05,'sine',55,0,.8,.8); tone(330,7,.025,'sine',82,.2,.8,.8); },
+    /* paper burning away: a soft long crackle */
+    burn(){ for(let k=0;k<14;k++) noise(.12+Math.random()*.2,.03+Math.random()*.04,2400+Math.random()*3000,900,'bandpass',3,k*.22+Math.random()*.15,.3); noise(3.2,.05,600,2200,'bandpass',.8,0,.4); },
+    /* the credits: a few slow notes over the pad, in the score's own key */
+    credits(){ [[0,0],[2,1.6],[4,3.2],[7,4.8],[5,6.4],[4,8.6],[2,10.2],[4,11.8],[0,14.4],[7,16.8],[9,18.4],[7,20.6]].forEach(([n,d])=>{ this.chime(10+n,d,.05); }); },
     /* the seal straining before it goes: a low groan that rises */
     strain(){ tone(55,1,.16,'sawtooth',110,0,.4,.6); noise(1,.12,120,900,'bandpass',2,0,.4); },
     chime(i,delay=0,g=.055){ const f=note(i); tone(f,1.2,g,'sine',0,delay,.6); tone(f*2,.5,g*.3,'sine',0,delay,.6); },
@@ -202,9 +216,9 @@ const rtA=mkRT(), rtB=mkRT();
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
-    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1},uFlat:{value:0}},
+    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1},uFlat:{value:0},uBurn:{value:0}},
   vertexShader:`varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position.xy,0.,1.);}`,
-  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom,uFlat; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade; varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom,uFlat,uBurn; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade; varying vec2 vUv;
   float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
   vec3 bl(sampler2D t,vec2 uv){ vec2 px=vec2(1./uAspect,1.)*.0045; vec2 qx=vec2(px.x,-px.y);
@@ -219,7 +233,10 @@ const post=new T.ShaderMaterial({
     if(uStretch>0.){ vec2 d=uv-uSC; d.x*=uAspect; float r=length(d); vec2 dn=d/max(r,1e-4); d=dn*pow(r,1.+uStretch*1.6)*(1.+uStretch*2.); d.x/=uAspect; uv=uSC+d; }
     float ca=.0012+uCA*.009+uStretch*.03;
     float m=0., rim=0.;
-    if(uIris>2.5) m=1.;
+    if(uBurn>0.){ // the drawn world burning away like paper, from glowing edges, onto the real space behind it
+      vec2 bq=vUv*vec2(uAspect,1.); float n=vn(bq*2.6+3.1)*.55+vn(bq*7.3)*.28+vn(bq*23.)*.17; n=mix(n,length((vUv-.5)*vec2(uAspect,1.))*.9+.05,.35);
+      m=smoothstep(uBurn-.035,uBurn+.01,n); rim=smoothstep(.05,0.,abs(n-uBurn))*step(.001,uBurn)*(1.-step(1.,uBurn))*1.6; }
+    else if(uIris>2.5) m=1.;
     else if(uIris>0.){ vec2 q=(vUv-uIC)*vec2(uAspect,1.); float d=length(q); vec2 dir=q/max(d,1e-4);
       float n=vn(dir*2.2+vec2(uTime*.5,uTime*.3))*.6+vn(vUv*7.+uTime*.7)*.4; float R=uIris*(1.+.2*(n-.5));
       m=smoothstep(R+.01,R-.05,d); rim=smoothstep(.03,0.,abs(d-R))*(1.-smoothstep(1.2,2.,uIris)); }
@@ -227,10 +244,11 @@ const post=new T.ShaderMaterial({
     if(m<1.){ if(uWarp>.001){ vec3 s=vec3(0.); for(int i=0;i<6;i++){ float f=float(i)/5.; s+=lookA(mix(uv,uIC,f*uWarp*.3),ca); } a=s/6.; } else a=lookA(uv,ca); }
     if(m>0.) b=lookB(uv,ca);
     vec3 c=mix(a,b,m)*uExpo+uIrisCol*rim*.9;
-    c=mix(pow(aces(c*1.05),vec3(.96)),clamp(c,0.,1.),uFlat); // uFlat: a daylit scene authored in display colour skips the film curve
+    float fl=uBurn>0.?uFlat*m:uFlat;
+    c=mix(pow(aces(c*1.05),vec3(.96)),clamp(c,0.,1.),fl); // uFlat: a daylit scene authored in display colour skips the film curve
     c=mix(c,c*vec3(1.35,.5,.42),uStretch);
     c*=uGrade;
-    float v=smoothstep(1.3,.3,length((vUv-.5)*vec2(uAspect,1.))*uVig); c*=mix(.5+.38*uFlat,1.,v);
+    float v=smoothstep(1.3,.3,length((vUv-.5)*vec2(uAspect,1.))*uVig); c*=mix(.5+.38*fl,1.,v);
     c+=uTint;
     c+=(hash(vUv*vec2(1920.,1080.)+fract(uTime))-.5)*.03;
     c=mix(c,vec3(1.,.98,.95),clamp(uFlash,0.,1.));
@@ -640,10 +658,8 @@ STA.forEach((s,si)=>{
     const tip=add(new T.Mesh(new T.SphereGeometry(.09,16,10),LM(C,{emit:2.2}))); tip.position.y=1.05;
     add(pts(cloud(1800,(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=1.05;o[2]=Math.sin(a);}),PM({size:.05,color:C,body:'float t=fract(aR.y*.999+uTime*.35+floor(aR.y*3.)/3.); p.xz*=t*2.4; b=(1.-t)*.9;'})));
   }
-  // soft halo, which glows when the station is calling you, and a dock ring that only shows when you are close enough to dock
-  s.callU={uCall:{value:0}};
-  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,uniforms:s.callU,decl:'uniform float uCall;',
-    body:'float pl=fract(uTime/2.4); b=.08+uCall*(.3+.9*exp(-pl*5.)); sz=1.+uCall*.8;'})));
+  // soft halo, and a dock ring that only shows when you are close enough to dock
+  g.add(pts(cloud(300,(i,r,o)=>{const v=[gauss(),gauss(),gauss()],l=Math.hypot(...v)||1,R=1.9+r[0]*.6;o[0]=v[0]/l*R;o[1]=v[1]/l*R;o[2]=v[2]/l*R;}),PM({size:.05,color:C,body:'b=.08;'})));
   s.orbit=new T.LineLoop(ringGeo(s.R,480),dashMat(C,`float df=mod(uAng-vAng,6.28318); float a=(.025+.45*exp(-df*2.))*step(.45,fract(vAng*uR*1.4));`)); s.orbit.material.uniforms.uR.value=s.R; U.scene.add(s.orbit);
   s.zone=new T.LineLoop(ringGeo(2.4,120),dashMat(C,`float a=.86*uNear*step(.5,fract(vAng*6.+uTime*(.3+uNear)));`)); g.add(s.zone);
   const tg=new T.BufferGeometry(); tg.setAttribute('position',new T.BufferAttribute(new Float32Array([0,-.95,0,0,-3.2,0]),3)); tg.setAttribute('aAng',new T.BufferAttribute(new Float32Array([0,1]),1));
@@ -659,10 +675,6 @@ STA.forEach((s,si)=>{
     const s=.025+Math.pow(Math.random(),3)*.09; sc.set(s,s*(.6+Math.random()*.6),s*(.7+Math.random()*.5)); M.compose(p,q,sc); U.belt.setMatrixAt(i,M); }
   U.belt.frustumCulled=false; U.belt.visible=false; U.scene.add(U.belt);
 }
-/* a station calling you: two rings of light go out from it, one after the other, in time with its bell */
-U.callRing=pts(cloud(Math.floor(240*Q+120),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=(r[1]-.5)*.05;o[2]=Math.sin(a);}),PM({size:.12,color:'#ffffff',uniforms:{uK:{value:0}},decl:'uniform float uK;',
-  body:`float ph=fract(uTime/2.4-step(.5,aR.w)*.18); p.xz*=.8+ph*7.; b=uK*pow(1.-ph,1.7)*1.25*smoothstep(0.,.05,ph)*(step(.5,aR.w)>.5?.55:1.); sz=1.2;`}));
-U.callRing.visible=false; U.scene.add(U.callRing);
 /* the seal's pieces, flung out when it breaks */
 U.shardU={uT:{value:-1}};
 U.shard=pts(cloud(Math.floor(520*Q+220),(i,r,o)=>{const a=r[0]*TAU;o[0]=Math.cos(a);o[1]=0;o[2]=Math.sin(a);}),PM({size:.1,color:'#FF6A3D',uniforms:U.shardU,decl:'uniform float uT;',
@@ -681,7 +693,31 @@ U.probe=new T.Group();
 { const hull=new T.Mesh(new T.ConeGeometry(.11,.42,16),LM('#EEE9DF',{emit:.1,rim:1.2})); hull.rotation.x=-Math.PI/2; U.probe.add(hull);
   const fin=new T.Mesh(new T.BoxGeometry(.34,.014,.1),LM('#FFC392',{emit:.3})); fin.position.z=.13; U.probe.add(fin);
   U.engU={uThr:{value:0}};
-  U.probe.add(pts(cloud(40,(i,r,o)=>{o[0]=gauss()*.02;o[1]=gauss()*.02;o[2]=.23+r[0]*.05;}),PM({size:.12,color:'#FFD8B0',uniforms:U.engU,decl:'uniform float uThr;',body:'b=.4+uThr*1.6; sz=1.+uThr;'}))); }
+  U.probe.add(pts(cloud(40,(i,r,o)=>{o[0]=gauss()*.02;o[1]=gauss()*.02;o[2]=.23+r[0]*.05;}),PM({size:.09,color:'#FFD8B0',uniforms:U.engU,decl:'uniform float uThr;',body:'b=.18+uThr*.22; sz=1.+uThr*.35;'})));   // a small glow in the nozzle
+  /* the flame: a jet out of the nozzle, as long as you push. Two shells, a hot blue-white core inside an orange plume,
+     soft at the edges, flickering, with bright shock diamonds when you burn hard; at rest only a small blue pilot light */
+  U.engU.uTime=G.uTime;
+  const jet=(len,rad,core)=>{ const g=new T.CylinderGeometry(1,1,1,28,24,true).translate(0,.5,0).rotateX(Math.PI/2);   // a unit tube from the nozzle (z 0) to the tip (z 1), shaped in the shader
+    const m=new T.ShaderMaterial({uniforms:U.engU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+      vertexShader:`uniform float uThr,uTime; varying float vU; varying vec3 vN,vV;
+        float h(float n){ return fract(sin(n)*43758.5453); }
+        float nz(float x){ float i=floor(x), f=fract(x); f=f*f*(3.-2.*f); return mix(h(i),h(i+1.),f); }
+        void main(){ vec3 p=position; float u=p.z; vU=u; float k=clamp(uThr/1.5,0.,1.);
+          float L=${len.toFixed(3)}*(.18+.82*k)*(1.+.12*(nz(uTime*23.+u*3.)-.5)), R=${rad.toFixed(3)}*(.55+.45*k);
+          float prof=pow(max(1.-u,0.),.75)*(1.+.5*u)*(1.+.22*(nz(uTime*31.+u*9.+${core?'7.':'0.'})-.5)*u);   // full at the nozzle, licking to a point
+          p.xy*=R*prof; p.z=.21+u*L;
+          p.x+=sin(uTime*17.+u*6.)*.012*u*k; p.y+=cos(uTime*13.+u*5.)*.01*u*k;
+          vec4 mv=modelViewMatrix*vec4(p,1.); vV=normalize(-mv.xyz); vN=normalize(normalMatrix*normal);
+          gl_Position=projectionMatrix*mv; }`,
+      fragmentShader:`uniform float uThr,uTime; varying float vU; varying vec3 vN,vV;
+        void main(){ float k=clamp(uThr/1.5,0.,1.), u=clamp(vU,0.,1.); float edge=pow(abs(dot(normalize(vN),normalize(vV))),${core?'1.6':'1.1'});
+          ${core?`vec3 c=mix(vec3(.85,.93,1.),vec3(1.,.86,.55),smoothstep(.05,.7,u)); float a=edge*(1.-smoothstep(.25,1.,u))*(.22+.85*k);
+            a*=1.+.9*k*pow(max(.5+.5*cos(u*34.-uTime*3.),0.),6.)*max(1.-u,0.);`
+          :`vec3 c=mix(vec3(1.,.72,.38),vec3(.95,.3,.08),smoothstep(.15,.85,u)); float a=edge*pow(max(1.-u,0.),1.25)*(.07+.95*k);
+            a*=.75+.25*sin(uTime*40.+u*12.);`}
+          gl_FragColor=vec4(c*a,1.); }`});
+    const ms=new T.Mesh(g,m); ms.frustumCulled=false; ms.renderOrder=3; U.probe.add(ms); return ms; };
+  jet(1.35,.1,false); jet(.62,.045,true); }
 U.probe.visible=false; U.scene.add(U.probe);
 U.exhaust=Burst(U.scene,Math.floor(500*Q+120),'#FFC392',.08);
 const TRL=170; U.trailPos=new Float32Array(TRL*3); U.trailCol=new Float32Array(TRL*3);
@@ -725,7 +761,7 @@ function updateStations(t){
 }
 function universeVisible(k){
   STA.forEach(s=>{ s.grp.visible=k>.01; s.orbit.material.uniforms.uOp.value=k; s.zone.material.uniforms.uOp.value=k; s.tether.material.uniforms.uOp.value=k; });
-  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*S.sealK; U.shard.material.uniforms.uOp.value=k; U.callRing.material.uniforms.uOp.value=k;
+  U.gridU.uOp.value=k; U.fence.material.uniforms.uOp.value=k; U.belt.visible=k>.05; U.sealU.uOp.value=k*S.sealK; U.shard.material.uniforms.uOp.value=k;
 }
 
 /* ================= HUB: FLIGHT, MAP, DOCKING ================= */
@@ -759,6 +795,7 @@ addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 let drag=null;
 canvas.addEventListener('pointerdown',e=>{
+  if(S.mode==='finale'){ finHold(true); return; }
   if(S.mode==='station'&&S.st&&S.st.onPointer) return S.st.onPointer(e);
   if(S.mode!=='hub') return;
   drag={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,touch:e.pointerType!=='mouse',id:e.pointerId};
@@ -802,7 +839,7 @@ function hubPhysics(dt){
   const tl=Math.min(1.5,thrust.length()); P.thr=damp(P.thr,tl,10,dt);
   const acc=tv[8].set(-P.p.x,0,-P.p.z).multiplyScalar(GM/(r*r*r)).addScaledVector(thrust,9);
   if(tl<.05&&r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.4); }
-  if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; toast('Edge of the Heloria system'); A.beep(440); } }
+  if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; A.beep(440); } }
   if(S.ap&&S.ap!==HOLE&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
   P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
   P.p.addScaledVector(P.v,dt); P.p.y=0;
@@ -814,7 +851,8 @@ function hubPhysics(dt){
   else if(r<1.35){ crossHorizon(); return; }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
-  if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3).add(P.p); for(let k=0;k<Math.ceil(P.thr*4*Q);k++) U.exhaust.emit(tv[4],1,.5,null,0,.6); }
+  if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3+P.thr*.35).add(P.p); for(let k=0;k<Math.ceil(P.thr*3*Q);k++) U.exhaust.emit(tv[4],1,.35,null,0,.45+Math.random()*.3); }
+  U.exhaust.update(dt,0,2.2);   // the sparks drift, cool and go out behind you
   U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=P.p.x;U.trailPos[1]=0;U.trailPos[2]=P.p.z;
   for(let i=0;i<TRL;i++){const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85;U.trailCol[i*3+1]=f*.78;U.trailCol[i*3+2]=f;}
   U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
@@ -875,13 +913,11 @@ function labelsUpdate(){
     if(on){ tv[2].setFromMatrixColumn(hubCam.matrixWorld,0).multiplyScalar(1.7).add(s.pos).project(hubCam); const rad=Math.abs((tv[2].x-p.x)*.5*W);
       const sz=clamp(rad*2,32,150); s.el.style.display=''; s.el.style.transform=`translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)`; s.el.style.setProperty('--s',sz.toFixed(0)+'px'); s.el.classList.toggle('low',sy-sz/2<74);
       s.el.classList.toggle('near',S.near===s); s.el.classList.toggle('flip',sx>W-200); s.el.classList.toggle('done',S.docked.has(s.id)); s.edge.style.display='none';
-      s.el.classList.toggle('call',S.call===s&&S.callK>.5);
       const rb=radarBox(); s.el.classList.toggle('under',!!rb&&sx>rb.l&&sx<rb.r&&sy>rb.t&&sy<rb.b); }
     else { s.el.style.display='none';
       let dx=sx-W/2, dy=sy-H/2; if(behind){dx=-dx;dy=-dy;} const a=Math.atan2(dy,dx);
       const k=Math.min(hw/Math.max(1e-6,Math.abs(Math.cos(a))),hh/Math.max(1e-6,Math.abs(Math.sin(a))));
       if(s.edge.style.display==='none'||!s.ew){ s.edge.style.display=''; s.ew=s.edge.offsetWidth||90; }
-      s.edge.classList.toggle('call',S.call===s&&S.callK>.5);
       _edges.push({s,a,x:W/2+Math.cos(a)*k,y:H/2+Math.sin(a)*k}); }
   });
   { const H_=HOLE.el; if(holeOpen()&&S.sealK<1&&(S.mode==='hub'||S.mode==='tohub')){ const p=tv[1].set(0,0,0).project(hubCam), sx=(p.x*.5+.5)*W, sy=(-p.y*.5+.5)*H;
@@ -959,7 +995,7 @@ function dockUpdate(rdt){
 }
 $('#back').addEventListener('click',()=>undock());
 function undock(){
-  if(S.mode!=='station') return;
+  if(S.mode!=='station'||S.fin) return;
   if(S.stId==='cr') return leaveEarth(); // Earth is past the horizon, not a station in orbit
   const s=STA.find(x=>x.id===S.stId), st=S.st;
   st.abort(); st.hideUI(); cine(true); A.hush(); A.whoosh(false,1.3); S.mode='undocking';
@@ -985,10 +1021,10 @@ function undockUpdate(rdt,dt){
     if(holeOpen()&&S.sealK>=1) sealBreak(); }
 }
 
-/* ---------- a station calls you: the nearest one you have not played rings its bell and sends out rings of light ----------
-   No words: you see it pulse, you hear which side it is on, and you go. When you have played it, the next one starts. */
-const _cp=new T.Vector3(), WHITE3=new T.Color(1,1,1);
-function callOff(){ S.callK=0; U.callRing.visible=false; STA.forEach(x=>x.callU.uCall.value=0); }
+/* ---------- a station calls you: the nearest one you have not played rings its bell, from the side where it is ----------
+   Nothing on screen: you hear which way it is, and you go. When you have played it, the next one starts. */
+const _cp=new T.Vector3();
+function callOff(){ S.callK=0; }
 function callUpdate(dt){
   const P=S.probe, open=STA.filter(s=>!S.docked.has(s.id));
   S.callWait-=dt; S.callT+=dt;
@@ -999,12 +1035,10 @@ function callUpdate(dt){
     const best=open.reduce((a,b)=>dist(b)<dist(a)?b:a);
     if(!want||(dist(best)<dist(want)*.5&&dist(best)<8&&S.callT>6)) want=best; }   // keep calling the same one unless you are right by another
   if(!open.length||SB.t>=0) want=null;
-  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; if(want) U.callRing.material.uniforms.uCol.value.copy(want.c).lerp(WHITE3,.45); }
+  if(want!==S.call){ if(S.call&&want&&S.callK>.05){ S.callK=0; } S.call=want; S.callT=0; }
   const s=S.call, d=s?s.pos.distanceTo(P.p):99, k=s&&d>2.8?1:0;
   S.callK=damp(S.callK,k,k?1.6:5,dt);
-  STA.forEach(x=>{ x.callU.uCall.value=damp(x.callU.uCall.value,x===s?S.callK:0,4,dt); });
-  U.callRing.visible=!!s&&S.callK>.01; U.callRing.material.uniforms.uK.value=S.callK;
-  if(s){ U.callRing.position.copy(s.pos);
+  if(s){
     // the bell, once a ring: louder as you get close, softer if you have been ignoring it a while
     const beat=Math.floor(G.uTime.value/2.4); if(beat!==S.callBeat){ S.callBeat=beat;
       if(S.callK>.4&&A.ctx){ _cr.setFromMatrixColumn(hubCam.matrixWorld,0); _cp.copy(s.pos).sub(P.p); _cp.y=0; const pan=clamp(_cp.dot(_cr)/Math.max(d,.5)*1.3,-1,1);
@@ -1088,6 +1122,101 @@ function storyUpdate(rdt,t){
 /* touch screens swipe rather than scroll */
 if(!FINE){ $('#cue').innerHTML='<i></i>Swipe up to fall in'; $$('#story .tease').forEach(el=>{ el.textContent=el.textContent.replace(/^Scroll/,'Swipe up'); });
   $('#hint').innerHTML='<span>Drag anywhere to fly</span><span>Tap a station to autopilot</span>'; }
+
+/* ================= THE LAST FLIGHT, IN SPACE =================
+   Earth's drawn sky has gone black; now the drawn world burns away like paper, and behind it is the real system, traced.
+   You come in on one long curve round the hole, closer than you have ever been. At the bottom of the well time slows,
+   everything goes quiet, and the screen asks for one thing: hold to burn. Burning at the bottom of a gravity well is the
+   best place there is to burn, and it throws you out. The stars stretch, the system falls away to a point, and the light
+   takes over. Then a white page: who made this, and why. */
+const FZ={on:false,t:0,ph:'',th:0,hold:false,held:0,auto:0,esc:0,boost:0,said:false,white:0,beatT:0,sw:false,
+  P:new T.Vector3(),Tn:new T.Vector3(),prev:new T.Vector3(),vel:new T.Vector3(),cam:new T.Vector3(),look:new T.Vector3(),fov:42};
+/* the path: one hyperbola round the hole, tilted a little off the disk so it skims over it, going the way the disk turns */
+const FP={p:6.75,e:1.25,inc:.27,az:.85,th0:-2.05,thE:2.44};
+const fE1=new T.Vector3(), fE2=new T.Vector3(), fT=[...Array(8)].map(()=>new T.Vector3()), FUP=new T.Vector3(0,1,0), FO=new T.Vector3();
+{ const c=Math.cos(FP.az), s=Math.sin(FP.az); fE1.set(c*Math.cos(FP.inc),Math.sin(FP.inc),s*Math.cos(FP.inc)); fE2.set(-s,0,c); }
+function fPath(th,o){ const r=FP.p/(1+FP.e*Math.cos(th)); return o.copy(fE1).multiplyScalar(r*Math.cos(th)).addScaledVector(fE2,r*Math.sin(th)); }
+const fR=th=>FP.p/(1+FP.e*Math.cos(th));
+const holdEl=$('#holdp'), finEl=$('#fin');
+
+/* Earth hands over here, while the rocket is still climbing */
+function finaleSpace(){ if(FZ.on) return;
+  Object.assign(FZ,{on:true,t:0,ph:'burn',th:FP.th0,hold:false,held:0,auto:0,esc:0,boost:0,said:false,white:0,beatT:0,sw:false,fov:42});
+  S.mode='finale'; S.iris=1; post.uniforms.uBurn.value=0; post.uniforms.uIrisCol.value.set('#FFB066');
+  fPath(FZ.th,FZ.P); FZ.prev.copy(FZ.P); fPath(FZ.th+.01,fT[0]); FZ.Tn.copy(fT[0]).sub(FZ.P).normalize();
+  U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true; universeVisible(1); U.belt.visible=true;
+  for(let i=0;i<TRL;i++){ U.trailPos[i*3]=FZ.P.x; U.trailPos[i*3+1]=FZ.P.y; U.trailPos[i*3+2]=FZ.P.z; } U.trailG.attributes.position.needsUpdate=true;
+  finCam(0,true); A.burn(); A.update(S.t,{sub:.2,pad:.5,bright:.25}); A.beacons(BEACON_NOTES); }
+
+function finHold(on){ if(S.mode!=='finale') return; FZ.hold=on; }
+addEventListener('keydown',e=>{ if(S.mode!=='finale') return; if(['Space','Enter','KeyW','ArrowUp','KeyB'].includes(e.code)){ e.preventDefault(); if(!e.repeat) finHold(true); } if(e.code==='Escape') e.preventDefault(); });
+addEventListener('keyup',e=>{ if(S.mode!=='finale') return; if(['Space','Enter','KeyW','ArrowUp','KeyB'].includes(e.code)) finHold(false); });
+addEventListener('pointerup',()=>finHold(false)); addEventListener('pointercancel',()=>finHold(false));
+
+/* where the camera sits: behind you on the way in, out to the side at the bottom (you, small, against the bent light), behind you
+   on the way out with the stars streaking, and at the very end ahead of you, looking back at everything falling away */
+function finCam(rdt,snap){ const P=FZ.P, Tn=FZ.Tn, th=FZ.th;
+  const out=fT[1].copy(P).setY(0).normalize(), side=fT[2].crossVectors(Tn,FUP).normalize();
+  const wW=sstep(-.95,-.38,th)*(1-sstep(.1,.7,FZ.esc)), wE=sstep(0,.8,FZ.esc), wL=sstep(2.4,5,FZ.esc);
+  const cA=fT[3].copy(P).addScaledVector(Tn,-2.7).addScaledVector(FUP,.95), lA=fT[4].copy(P).addScaledVector(Tn,5).lerp(FO,.32);
+  const cW=fT[5].copy(P).addScaledVector(out,1.75).addScaledVector(FUP,.32).addScaledVector(Tn,-.55), lW=fT[6].copy(P).lerp(FO,.42);
+  cA.lerp(cW,wW); lA.lerp(lW,wW);
+  // on the way out you pull ahead of the camera, a little more every second, until you are only a light going into the stars
+  if(wE>0){ cW.copy(P).addScaledVector(Tn,-2.8-9*wL*wL).addScaledVector(FUP,.55+.6*wL).addScaledVector(side,.3); lW.copy(P).addScaledVector(Tn,9); cA.lerp(cW,wE); lA.lerp(lW,wE); }
+  const fov=lerp(lerp(42,58,wW),70+8*wL,wE)*(innerHeight>innerWidth?1.32:1);   // a phone held upright sees less across, so it sees more up and down
+  cA.sub(P); lA.sub(P);   // the camera rides with you; only where it sits around you is smoothed
+  if(snap){ FZ.cam.copy(cA); FZ.look.copy(lA); FZ.fov=fov; }
+  else { const k=1-Math.exp(-4.5*rdt); FZ.cam.lerp(cA,k); FZ.look.lerp(lA,1-Math.exp(-6*rdt)); FZ.fov=damp(FZ.fov,fov,2.5,rdt); }
+  hubCam.position.copy(P).add(FZ.cam); hubCam.up.set(0,1,0); hubCam.lookAt(fT[7].copy(P).add(FZ.look)); hubCam.fov=FZ.fov; hubCam.updateProjectionMatrix(); }
+
+function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=FZ.th;
+  // how fast you move along the curve: brisk far out, slowing as you sink, nearly still at the bottom, then thrown
+  let w;
+  if(FZ.ph==='burn'||FZ.ph==='dive') w=.1+.15*sstep(-.45,-2,FZ.th);
+  else if(FZ.ph==='well') w=FZ.hold?.045:.06;
+  else w=.22+2.2*sstep(0,3.2,FZ.esc)*(1+.35*FZ.boost);
+  FZ.th=Math.min(FP.thE,FZ.th+w*d);
+  fPath(FZ.th,FZ.P); FZ.vel.copy(FZ.P).sub(FZ.prev).divideScalar(Math.max(d,1e-3)); FZ.prev.copy(FZ.P);
+  fPath(FZ.th+.004,fT[0]); FZ.Tn.copy(fT[0]).sub(FZ.P).normalize();
+  const r=fR(FZ.th);
+  // the drawn world burns away
+  if(FZ.ph==='burn'){ const k=clamp(FZ.t/3.4,0,1); post.uniforms.uBurn.value=.001+E.i(k)*1.06;
+    if(k>=1){ post.uniforms.uBurn.value=0; S.iris=0; const st=ST.cr; if(st){ st.finaleEnd&&st.finaleEnd(); st.abort(); st.hideUI(); show('#station',false); st.el.classList.remove('on'); st.exit(); }
+      S.st=null; S.stId=null; FZ.ph='dive'; A.update(t,{sub:.3,pad:.6,bright:.3}); } }
+  // falling in
+  if(FZ.ph==='dive'){ if(FZ.th>-.6&&!FZ.said){ FZ.said=true; holdEl.classList.add('on'); }
+    if(FZ.th>=-.38){ FZ.ph='well'; FZ.auto=0; A.stretch(); } }
+  // the bottom of the well: hold to burn (or it burns for you)
+  if(FZ.ph==='well'){ FZ.auto+=d; FZ.beatT-=d; if(FZ.beatT<=0){ FZ.beatT=1.05; A.beat(.8); }
+    const want=FZ.hold||(FZ.auto>4.2&&FZ.held<1.4);
+    if(want){ if(!FZ.sw){ FZ.sw=true; A.swell(); holdEl.classList.add('go'); } FZ.held+=d; }
+    if((FZ.held>.6&&!want)||FZ.held>2.8){ FZ.ph='esc'; FZ.esc=0; FZ.boost=clamp(FZ.held/2.8,.3,1); holdEl.classList.remove('on','go');
+      A.boom(); A.launch(); A.whoosh(true,2.6,.34); setTimeout(()=>A.chord(),380); S.shake=Math.max(S.shake,1); S.flash=Math.max(S.flash,.12); } }
+  if(FZ.ph==='esc') FZ.esc+=d;
+  // the probe, and its flame
+  U.probe.position.copy(FZ.P); fT[7].copy(FZ.P).sub(FZ.Tn); U.probe.lookAt(fT[7]);
+  const burning=FZ.ph==='well'&&FZ.held>0&&(FZ.hold||FZ.auto>4.2), thr=FZ.ph==='esc'?1.5*(1-sstep(2.5,5,FZ.esc)):burning?1.5:FZ.ph==='well'?.05:.35;
+  S.probe.thr=damp(S.probe.thr,thr,8,rdt); U.engU.uThr.value=S.probe.thr;
+  if(S.probe.thr>.2){ fT[7].copy(FZ.Tn).multiplyScalar(-.3-S.probe.thr*.3).add(FZ.P); for(let k=0;k<Math.ceil(S.probe.thr*3*Q);k++) U.exhaust.emit(fT[7],1,.35,null,0,.5+Math.random()*.3); }
+  U.exhaust.update(rdt,0,2.2);
+  U.trailPos.copyWithin(3,0,(TRL-1)*3); U.trailPos[0]=FZ.P.x; U.trailPos[1]=FZ.P.y; U.trailPos[2]=FZ.P.z;
+  for(let i=0;i<TRL;i++){ const f=Math.pow(1-i/TRL,2)*.8; U.trailCol[i*3]=f*.85; U.trailCol[i*3+1]=f*.78; U.trailCol[i*3+2]=f; }
+  U.trailG.attributes.position.needsUpdate=true; U.trailG.attributes.color.needsUpdate=true;
+  U.dustU.uC.value.copy(FZ.P); U.dustU.uV.value.copy(FZ.vel).clampLength(0,40); U.gridU.uProbe.value.copy(FZ.P);
+  if(FZ.ph==='well'&&burning) S.shake=Math.max(S.shake,.35);
+  finCam(rdt,false); universeVisible(1);
+  // sound: the hole's low note grows as you sink; at the bottom the score thins to almost nothing; then it opens up
+  if(FZ.ph!=='esc'){ const deep=sstep(13,3.2,r), still=FZ.ph==='well'?1:0;
+    A.update(t,{sub:.25+.7*deep,pad:lerp(.6,.12,Math.max(deep*.6,still)),bright:lerp(.35,.04,Math.max(deep*.7,still))}); A.roar(sstep(9,3.2,r)*.22*(1-still*.6)+(burning?.5:0)); A.thrust(burning?1.1:S.probe.thr*.4); A.whine(burning?.2+.5*clamp(FZ.held/2.8,0,1):0); A.wind(.04+.12*deep); }
+  else { const e=FZ.esc; A.update(t,{sub:.4*(1-sstep(0,2,e)),pad:.9*(1-sstep(4,6,e)),bright:.9}); A.roar(.35*(1-sstep(0,2.5,e))); A.thrust(S.probe.thr*.5); A.whine(0); A.wind(.26*sstep(0,1,e)*(1-sstep(3.5,5.5,e))); }
+  // and the light takes over
+  if(FZ.ph==='esc'){ FZ.white=sstep(3.4,5.4,FZ.esc); S.flashMin=FZ.white; if(FZ.esc>5.6) credits(); } }
+
+/* the white page */
+function credits(){ if(S.mode==='credits') return; S.mode='credits'; FZ.on=false; S.flashMin=1; post.uniforms.uFlash.value=1;
+  A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
+  finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }
+$('#finAgain').addEventListener('click',()=>{ location.reload(); });
 
 /* ================= STATION FRAMEWORK ================= */
 const ST={};
@@ -3609,7 +3738,7 @@ const PAD=[-3.2,-15.6], DOOR=[0,1], START=[-3.2,-12.0];
 const AHR=(()=>{ const l=Math.hypot(-.91,.42), fx=-.91/l, fz=.42/l, c=Math.cos(.55), sn=Math.sin(.55); return [START[0]+(fx*c-fz*sn)*4.6,START[1]+(fx*sn+fz*c)*4.6]; })();
 // you step off looking just past Ahroon, so he stands beside you in the picture (on a phone too), not behind you
 const FACE=(()=>{ let x=AHR[0]-START[0], z=AHR[1]-START[1]; const l=Math.hypot(x,z), c=Math.cos(.14), sn=Math.sin(.14); x/=l; z/=l; return [x*c-z*sn,x*sn+z*c]; })();
-const SKYBH={value:new T.Vector3(-.35,.75,.55).normalize()}; // where the hole hangs in the sky: set so the rocket comes down out of it
+const SKYBH={value:new T.Vector3(-.35,.75,.55).normalize()}, SPACEU={value:0};   // SPACEU: how far into the black the sky has gone, climbing out // where the hole hangs in the sky: set so the rocket comes down out of it
 
 /* ---------- the island: the same noise in JavaScript (to build and to walk) and in the shaders ---------- */
 const fr=x=>x-Math.floor(x);
@@ -3637,15 +3766,15 @@ const NEAR=`uniform vec3 uPly; uniform float uCut;
     if(uCut>.5){ vec3 ab=uPly-cameraPosition; float L2=dot(ab,ab); if(L2>.25){ float t=dot(w-cameraPosition,ab)/L2; if(t>0.&&t<.95) k=min(k,smoothstep(.5,.66,length(w-cameraPosition-ab*t))); } }
     if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
 const SHN=LO?1536:2048;
-const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0}};
-const LIGHT=`uniform vec3 uSun,uSky,uFog; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg;
+const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0},uFogK:{value:1}};
+const LIGHT=`uniform vec3 uSun,uSky,uFog; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK;
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
   vec3 toon(vec3 base,vec3 n,vec3 w){ float d=dot(n,uSun), sh=shadowAt(w,.0006+.0024*(1.-clamp(d,0.,1.)));
     float k=min(smoothstep(-.03,.03,d),smoothstep(.35,.65,sh)), hi=smoothstep(.5,.56,d)*k;
     vec3 c=mix(base*vec3(.6,.66,.83),mix(base*vec3(.93,.92,.89),base*vec3(1.05,1.02,.95),hi),k);
     c+=base*uSky*.07*(.5+.5*dot(n,normalize(w))); c=mix(c,vec3(1.,0.,0.),(1.-sh)*uShDbg);
-    return mix(c,uFog,smoothstep(16.,52.,distance(cameraPosition,w))*.55); }`;
+    return mix(c,uFog,smoothstep(16.,52.,distance(cameraPosition,w))*.55*uFogK); }`;
 const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
   void main(){ vec4 p=vec4(position,1.); vec3 nn=normal; vC=vec3(1.); ${uv?'vUv=uv;':''}
     #ifdef USE_INSTANCING
@@ -3908,15 +4037,18 @@ function buildGround(){
         gl_FragColor=vec4(toon(c,normalize(vN),vW),1.); }`}));
   sea.userData.cast=false; sc.add(sea);
   // the sky: blue overhead, pale at the horizon, flat painted clouds, the hole as a pale ring by day
-  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:{uUp:UPU,uBH:SKYBH,uTime:G.uTime},side:T.BackSide,depthWrite:false,
+  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:{uUp:UPU,uBH:SKYBH,uTime:G.uTime,uSpace:SPACEU},side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uUp,uBH; uniform float uTime; varying vec3 vD; ${EARTH_GLSL}
+    fragmentShader:`uniform vec3 uUp,uBH; uniform float uTime,uSpace; varying vec3 vD; ${EARTH_GLSL}
       void main(){ vec3 d=normalize(vD); float h=dot(d,uUp);
         vec3 c=mix(vec3(.85,.92,.9),vec3(.6,.82,.9),smoothstep(-.06,.22,h)); c=mix(c,vec3(.36,.64,.84),smoothstep(.22,.9,h));
         vec3 q=vec3(d.x*1.8,d.y*3.6,d.z*1.8)+vec3(uTime*.006,0.,uTime*.003); float f=efbm(q), fw=fwidth(f)*1.2+.002, band=smoothstep(.0,.1,h)*(1.-smoothstep(.7,.9,h));
         float cl=smoothstep(.57-fw,.57+fw,f)*band, top=smoothstep(.61-fw,.61+fw,efbm(q+vec3(.02,.06,-.02)));
         c=mix(c,vec3(.86,.92,.93),cl); c=mix(c,vec3(.99,.99,.96),top*cl);
         float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-pow((a-.036)*120.,2.))*.22;
+        if(uSpace>0.){ vec3 cell=floor(d*380.); float sh=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
+          float star=step(.9965,sh)*(.5+.5*fract(sh*91.7))*smoothstep(.5,1.,uSpace);
+          c=mix(c,vec3(.012,.014,.022)+star*vec3(.95,.92,.88),smoothstep(0.,1.,uSpace)); }
         gl_FragColor=vec4(c,1.); }`}));
   sky.renderOrder=-1; sky.frustumCulled=false; sky.layers.set(1); sc.add(sky);
 }
@@ -3984,7 +4116,7 @@ const CREW=[
 CREW.forEach((c,i)=>c.lines=linesFor(i));
 let people=[], me=null;
 function buildPeople(){
-  people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,dir:at(x,z),f:tang(at(x,z),at(c.face[0],c.face[1]),new T.Vector3()),near:false,greeted:false,wave:0,blink:2+i}; });
+  people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,ob:OBS[OBS.length-1],walk:0,ph:0,dir:at(x,z),f:tang(at(x,z),at(c.face[0],c.face[1]),new T.Vector3()),near:false,greeted:false,wave:0,blink:2+i}; });
   me=figure({shirt:'#ef8a3c',pants:'#3a3f4a',shoes:'#f2efe8',skin:'#c99a74',hair:'short',hairC:'#3a2a1e',pack:'#5b6b7d'}); sc.add(me); }
 
 /* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
@@ -4012,7 +4144,7 @@ function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(
   const hd=new T.Mesh(new T.BoxGeometry(.06,.2,.05),toonMat('#5a5f63')); hd.position.set(.33,DOOR_L*.55,.09); piv.add(hd);
   const fl=add(new T.Group(),0,.02,0); fl.add(new T.Mesh(new T.ConeGeometry(.5,2.2,16).rotateX(Math.PI).translate(0,-1.1,0),flatMat('#ff9b3d')),new T.Mesh(new T.ConeGeometry(.27,1.25,12).rotateX(Math.PI).translate(0,-.62,0),flatMat('#fff1b8'))); RK.flame=fl;
   const sh=new T.Mesh(SHG,SHM); sh.matrixAutoUpdate=false; sh.renderOrder=1; sh.layers.set(1); sc.add(sh); RK.shadow=sh;
-  const pm=toonMat('#f3efe7'); for(let i=0;i<26;i++){ const m=new T.Mesh(GEO.blob,pm); m.visible=false; sc.add(m); RK.puffs.push({m,t:9,life:1,v:new T.Vector3(),s:1}); }
+  const pm=toonMat('#f3efe7'); for(let i=0;i<120;i++){ const m=new T.Mesh(GEO.blob,pm); m.visible=false; sc.add(m); RK.puffs.push({m,t:9,life:1,v:new T.Vector3(),s:1}); }
   tang(PADU,at(PAD[0]+DOOR[0]*.2,PAD[1]+DOOR[1]*.2),RKN);
   // the hole hangs in the sky behind the pad, 42 degrees up, so the rocket comes down out of it toward you
   SKYBH.value.copy(PADU).multiplyScalar(Math.cos(.73)).addScaledVector(RKN,-Math.sin(.73)).normalize();
@@ -4147,7 +4279,7 @@ st.build=async function(){
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket();
+  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true});
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -4180,7 +4312,7 @@ function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight
 let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(CUT.on){ skipCut(); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
 const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
@@ -4191,7 +4323,7 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
 addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
-  const p=pickPerson(e); if(p) openTalk(p,p.lines.length-1); });
+  const p=pickPerson(e); if(p) goTalk(p); });
 addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
@@ -4199,20 +4331,57 @@ function began(){ if(started) return; started=true; el.classList.add('walked'); 
 
 /* ---------- talking ---------- */
 const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el);
-const TALK={p:null,i:0,shown:0,txt:'',acc:0};
-function page(){ const p=TALK.p, last=TALK.i>=p.lines.length-1; TALK.txt=p.lines[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent=''; tk.classList.toggle('last',last); tk.classList.add('typing');
-  if(last){ tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
-function openTalk(p,i=0){ MET.add(p.i); TALK.p=p; TALK.i=i; tkN.textContent=i>=p.lines.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
+const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
+const allMet=()=>MET.size>=3;
+function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent='';
+  tk.classList.toggle('last',last&&!TALK.ask); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
+  if(last&&!TALK.ask){ tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
+function openTalk(p,i=0,L=null){ TALK.ask=!!L; if(!L) MET.add(p.i); TALK.p=p; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
+  tkN.textContent=!TALK.ask&&TALK.i>=TALK.L.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
   player.tgt=null; A.chime(5+p.i*2,0,.035); began(); }
 function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; tkT.textContent=TALK.txt; tk.classList.remove('typing'); return; }
-  if(TALK.i<TALK.p.lines.length-1){ TALK.i++; if(TALK.i>=TALK.p.lines.length-1) tkN.textContent=TALK.p.name; page(); A.tick(); } else closeTalk(); }
-function closeTalk(){ if(!TALK.p) return; TALK.p=null; tk.classList.remove('on','last','typing'); tk.setAttribute('aria-hidden','true'); }
-$('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,#crClose')) return; nextTalk(); });
-$('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
+  if(TALK.i<TALK.L.length-1){ TALK.i++; if(TALK.i>=TALK.L.length-1&&!TALK.ask) tkN.textContent=TALK.p.name; page(); A.tick(); } else if(!TALK.ask) closeTalk(true); }
+/* closing a conversation: if someone is still to meet, the camera turns gently toward them; once all three are met, Ahroon comes over */
+function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.ask; TALK.p=null; TALK.ask=false; tk.classList.remove('on','last','ask','typing'); tk.setAttribute('aria-hidden','true');
+  if(ask){ AH.heard=true; if(AH.st!=='home') AH.st='here'; return; }
+  if(FIN.on) return;
+  const left=people.filter(q=>!MET.has(q.i));
+  if(left.length&&done){ const P=player; C.guide={p:left.reduce((a,b)=>Math.hypot(P.x-a.x,P.z-a.z)<Math.hypot(P.x-b.x,P.z-b.z)?a:b),t:1.8}; }
+  if(!left.length&&AH.st==='home') { AH.st='wait'; AH.t=was.i===0?.9:1.6; } }
+/* say hello: from far away you walk over by yourself; close up the conversation opens. Someone you have met shows you their page */
+function talkTo(p){ TALK.goal=null; if(p.i===0&&allMet()) return openInvite(); openTalk(p,MET.has(p.i)?p.lines.length-1:0); }
+function goTalk(p){ if(FIN.on||CUT.on||TALK.p) return; const P=player, d=Math.hypot(P.x-p.x,P.z-p.z);
+  if(d<2.6) return talkTo(p);
+  const ux=(P.x-p.x)/d, uz=(P.z-p.z)/d; P.tgt=at(p.x+ux*1.6,p.z+uz*1.6).multiplyScalar(R); TALK.goal=p; began(); A.tick(); }
+labels.forEach((lb,i)=>lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }));
+$('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,button')) return; nextTalk(); });
+$('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(true); });
+$('#crFly',el).addEventListener('click',e=>{ e.stopPropagation(); if(TALK.ask) startFinale(); });
+$('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
+  if(FIN.on){ e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
-  if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){ nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
+  if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
+    if(TALK.ask&&TALK.i>=TALK.L.length-1&&TALK.shown>=TALK.txt.length&&e.code!=='KeyE'){ startFinale(); } else nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
+
+/* ---------- Ahroon comes to find you: once you have met all three of us, he has one more thing to show you ---------- */
+const INVITE=['That\'s all three of us. You\'ve met the whole lab.','One more thing. She\'s fuelled, and she\'s got one flight left in her.','Want to see what she can really do?'];
+const AH={st:'home',t:0,heard:false,ph:0,turn:0,chk:0,lx:0,lz:0};
+function openInvite(){ openTalk(people[0],AH.heard?INVITE.length-1:0,INVITE); }
+function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; AH.st=allMet()?'wait':'home'; AH.t=allMet()?2.5:0; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a||FIN.on||CUT.on) { if(a) a.walk=0; return; }
+  if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t<=0){ AH.st='come'; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } return; }
+  if(AH.st!=='come'){ a.walk=damp(a.walk||0,0,6,dt); return; }
+  if(TALK.p){ a.walk=0; return; }
+  let dx=P.x-a.x, dz=P.z-a.z; const d=Math.hypot(dx,dz);
+  if(d<2.1){ a.walk=0; AH.st='here'; openInvite(); return; }
+  dx/=d; dz/=d; if(AH.turn>0){ AH.turn-=dt; const c=Math.cos(1.1), sn=Math.sin(1.1); [dx,dz]=[dx*c-dz*sn,dx*sn+dz*c]; }
+  const sp=Math.min(3.3,.9+d*.5); let nx=a.x+dx*sp*dt, nz=a.z+dz*sp*dt;
+  for(const o of OBS){ if(o===a.ob) continue; const ex=nx-o.x, ez=nz-o.z, dd=Math.hypot(ex,ez), m=o.r+.3; if(dd<m&&dd>1e-4){ nx=o.x+ex/dd*m; nz=o.z+ez/dd*m; } }
+  if(!walkable(nx,nz)){ AH.turn=.7; a.walk=0; return; }
+  a.x=nx; a.z=nz; a.dir=at(nx,nz); if(a.ob){ a.ob.x=nx; a.ob.z=nz; } a.walk=sp; a.ph=(a.ph||0)+dt*sp*4.6;
+  AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.turn=.8; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
 
 /* ---------- landmarks: shown if you have played the station; one you have just played springs up the first time you see it ---------- */
 const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
@@ -4234,11 +4403,104 @@ function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
   if(m.st==='grow'){ m.t+=dt; const u=clamp(m.t/1.25,0,1); markScale(m,Math.max(.001,backOut(u)));
     if(u>=1){ m.st='on'; seen.add(id); markScale(m,1); baked=false; } } } }   // the sun's shadows are drawn again with it in
 
+/* ---------- the last flight, on the ground. Everyone is at the pad when you get there; you walk up the ramp and the hatch shuts.
+   Then the wait: the music has gone, a clock ticks ten times, a heartbeat quickens, steam breathes out of the base and the
+   rocket starts to shiver. One second of nothing at all. Then it lights, the smoke rolls out across the town, the three of us
+   wave, and you climb, slowly and then not slowly, through the clouds until the sky goes black. ---------- */
+const FIN={on:false,t:0,look:new T.Vector3(),wave:0,mus:0,fov:45,ign:false,shut:false,handed:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,
+  cp:new T.Vector3(),cl:new T.Vector3(),pos:new T.Vector3(),alt:0};
+const F_WALK0=.6, F_WALK1=3.2, F_DOOR0=3.35, F_DOOR1=4.2, F_TICK0=5.3, F_IGN=15.3, F_LIFT=16.6, F_SPACE=9.6;   // F_SPACE: seconds of climbing before space takes over
+const FOUND=(()=>{ const cx=CAMC[0], cz=CAMC[1], fx=PAD[0]-cx, fz=PAD[1]-cz, l=Math.hypot(fx,fz), ux=fx/l, uz=fz/l, rx=-uz, rz=ux;   // to the right of the view from the road
+  return [0,1,2].map(k=>[cx+ux*(3.5+.55*k)+rx*(1.25+.8*k),cz+uz*(3.5+.55*k)+rz*(1.25+.8*k)]); })();
+const fSide=new T.Vector3(), fA=new T.Vector3(), fB=new T.Vector3(), fC=new T.Vector3(), fUp=new T.Vector3();
+/* the launch flame: one drawn shape, banded like a cartoon flame (white-hot where you look straight in, yellow, then orange at the
+   edges and the tip), licking and flickering, with the same ink line round it as everything else */
+const LFU={uTime:G.uTime,uLen:{value:6},uR:{value:.6}};
+let LFLAME=null;
+function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).translate(0,-.5,0);
+  const m=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:0}},LFU,{uPly:LU.uPly}),side:T.DoubleSide,
+    vertexShader:`uniform float uTime,uLen,uR; varying vec3 vN; varying vec3 vW; varying float vU;
+      float h(float n){ return fract(sin(n)*43758.5453); } float nz(float x){ float i=floor(x), f=fract(x); f=f*f*(3.-2.*f); return mix(h(i),h(i+1.),f); }
+      void main(){ vec3 p=position; float u=clamp(-p.y,0.,1.), a=atan(p.z,p.x);
+        float prof=pow(max(1.-u,0.),.55)*(1.+.9*u)*(.62+.38*smoothstep(0.,.08,u));   // a full belly, then a quick lick to the point
+        float lick=1.+.34*(nz(uTime*9.+u*7.+a*1.6)-.5)*u+.12*(nz(uTime*23.+a*3.)-.5);
+        vec2 dir=p.xz/max(length(p.xz),1e-4); p.xz=dir*uR*prof*lick; p.y=-u*uLen*(1.+.12*(nz(uTime*11.)-.5));
+        p.x+=sin(uTime*14.+u*5.)*.08*u*u; p.z+=cos(uTime*12.+u*4.)*.07*u*u;
+        vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*vec3(dir.x,.25,dir.y)); vU=u; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform float uTime; varying vec3 vN; varying vec3 vW; varying float vU; ${NEAR}
+      void main(){ nearFade(vW); vec3 V=normalize(cameraPosition-vW); float f=abs(dot(normalize(vN),V));
+        float b=f*.85+.2-vU*.55+.025*sin(uTime*23.+vU*7.);   // hot and pale near the nozzle, cooling out to the edges and the tip
+        vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
+        gl_FragColor=vec4(c,1.); }`});
+  LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
+function startFinale(){ if(FIN.on) return; closeTalk(); Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0});
+  S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
+  people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
+  AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
+  camAt(CAMC[0],CAMC[1],1.45,FIN.cp); FIN.cl.copy(padTop).addScaledVector(PADU,1.4); A.whoosh(false,1.4,.1); }
+function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
+  // up the ramp and in
+  if(c<F_WALK1){ const wk=clamp((c-F_WALK0)/(F_WALK1-F_WALK0),0,1), z=OUT_Z-(OUT_Z-.15)*wk*wk*(3-2*wk), wv=6*wk*(1-wk);
+    const x0=PAD[0]+DOOR[0]*z, z0=PAD[1]+DOOR[1]*z; at(x0,z0,V2); tang(V2,at(PAD[0]-DOOR[0],PAD[1]-DOOR[1]),cF); standOn(me,V2,cF,.1+rampY(z));
+    FIN.ph+=dt*7.2*Math.min(1,wv*.8); animate(me,FIN.ph,Math.min(1,wv*.75),0,t,9); const stp=Math.floor(FIN.ph/Math.PI); if(wv>.25&&stp!==FIN.st){ FIN.st=stp; A.step(z<RAMP_END+.3?2:1); } }
+  else me.visible=false;
+  // the hatch comes up and shuts
+  const dk=clamp((c-F_DOOR0)/(F_DOOR1-F_DOOR0),0,1); RK.door.rotation.x=lerp(DOOR_OPEN,DOOR_SHUT,dk*dk*(3-2*dk));
+  if(dk>=1&&!FIN.shut){ FIN.shut=true; A.clunk(); S.shake=Math.max(S.shake,.14); document.body.classList.add('tense'); }
+  // the wait: ten ticks of a clock, a heartbeat that quickens, steam from the base, a low drone; then one second of nothing
+  const hold=c>=F_IGN-.95&&c<F_IGN;
+  if(c>=F_TICK0&&c<F_IGN-.95){ const k=Math.floor(c-F_TICK0); if(k!==FIN.clk){ FIN.clk=k; A.tock(k); } }
+  FIN.beat-=dt*(S.finX||1); if(c>F_DOOR1&&c<F_IGN-.95&&FIN.beat<=0){ const k=sstep(F_DOOR1,F_IGN,c); FIN.beat=1.2-.5*k; A.beat(.45+.55*k); }
+  if(c>F_DOOR1+.4&&c<F_IGN){ FIN.vent-=dt; if(FIN.vent<=0){ FIN.vent=.22+Math.random()*.3; const sg=Math.random()<.5?-1:1; fA.crossVectors(up,RKN).normalize();
+      fB.copy(padTop).addScaledVector(fA,sg*1.05).addScaledVector(up,.45); fC.copy(fA).multiplyScalar(sg*(1.1+Math.random()*.6)).addScaledVector(up,.25); puff(fB,fC,.2+Math.random()*.12,1.7); } }
+  // ignition
+  if(c>=F_IGN&&!FIN.ign){ FIN.ign=true; A.ignite(); S.shake=1.2; S.flash=Math.max(S.flash,.22); document.body.classList.remove('tense'); document.body.classList.add('loose');
+    for(let k=0;k<44;k++){ const a=k/44*TAU+Math.random()*.15, r=1.1+Math.random()*.4; at(PAD[0]+Math.cos(a)*r,PAD[1]+Math.sin(a)*r,V2).multiplyScalar(R+.3);
+      tang(up,at(PAD[0]+Math.cos(a)*4,PAD[1]+Math.sin(a)*4),V3).multiplyScalar(3+Math.random()*2.6).addScaledVector(up,.35+Math.random()*.5); puff(V2,V3,.42+Math.random()*.38,3+Math.random()*1.4); } }
+  const fk=c<F_IGN?0:sstep(F_IGN,F_IGN+.4,c), tau=Math.max(0,c-F_LIFT), alt=.075*tau*tau*tau; FIN.alt=alt; FIN.wave=c>F_IGN+.35?1:0;
+  RK.flame.visible=false; LFLAME.visible=fk>.01; LFU.uR.value=.62*(.4+.6*fk)*(1+.25*sstep(0,3,tau)); LFU.uLen.value=fk*(3.8+2.6*sstep(0,2.5,tau))*(.94+.06*Math.sin(t*37));
+  const wob=c>F_IGN-2.8&&tau<1.2?(Math.random()-.5)*.014*sstep(F_IGN-2.8,F_IGN,c)*(c>F_IGN?1.6:1):0;
+  FIN.pos.copy(padTop).addScaledVector(up,alt); rocketPose(FIN.pos,up,wob);
+  if(FIN.ign){ FIN.trail-=dt; let n=0; while(FIN.trail<=0&&n++<4){ FIN.trail+=tau>0?.022:.05; fB.copy(FIN.pos).addScaledVector(up,-.25-Math.random()*.6);
+      fC.set(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1.2).addScaledVector(up,tau>0?-2.5:-.2);
+      if(tau<2.5&&alt<3){ fA.set(Math.random()-.5,0,Math.random()-.5); tang(up,fA.add(padTop),fC).multiplyScalar(3.5+Math.random()*2).addScaledVector(up,.3); }
+      puff(fB,fC,(tau>0?.35:.45)+Math.random()*.3,tau>0?2.6:2.2); } }
+  // sound: the wait, then the roar thinning out to silence as the air goes
+  const air=1-sstep(22,72,alt);
+  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-1,c)); A.thrust(0); } else { A.roar(.78*air); A.thrust(1.1*air); S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt))); }
+  FIN.mus=.55*(1-sstep(0,F_DOOR1-.4,c));
+  A.update(t,{sub:.18*sstep(45,70,alt),pad:.42*sstep(34,66,alt),bright:.2});   // as the air goes, the orbit's own music comes in to meet you
+  if(FIN.ign) BIRDS.forEach(b=>{ b.h=Math.min(b.h+dt*2.4,45); b.r+=dt*1.1; });
+  // the sky goes to black and the haze lifts; through the cloud layer the picture whites out for a moment, with a rush of air
+  SPACEU.value=sstep(20,66,alt); LU.uFogK.value=1-sstep(5,26,alt);
+  if(alt>17&&!FIN.cloud){ FIN.cloud=true; S.flash=Math.max(S.flash,.42); A.whoosh(true,1.4,.2); }
+  FIN.look.copy(tau>0?FIN.pos:fB.copy(padTop).addScaledVector(up,2.2));
+  // the camera: on the road behind the three of us, creeping in during the wait, then up after the rocket and out above it
+  const road=camAt(CAMC[0],CAMC[1],1.45,fA), push=camAt(lerp(CAMC[0],PAD[0],.13),lerp(CAMC[1],PAD[1],.13),1.25,fB);
+  fSide.crossVectors(up,RKN).normalize(); if(fSide.dot(V.copy(road).sub(padTop))<0) fSide.negate();   // the side the road is on
+  const wP=E.io(clamp((c-F_DOOR1)/(F_IGN-F_DOOR1),0,1)), cp=V3.copy(road).lerp(push,wP*.85), cl=V4.copy(padTop).addScaledVector(up,lerp(1.5,2.2,wP));
+  if(c<F_WALK1) cl.lerp(V.copy(me.position).addScaledVector(up,1.1),.45*(1-sstep(F_WALK1-.8,F_WALK1,c)));
+  let k2=0;
+  if(tau>0){ const k1=E.io(clamp((tau-2.4)/4,0,1)); k2=E.io(clamp((tau-6.2)/3,0,1));
+    fC.copy(FIN.pos).addScaledVector(up,-3.6).addScaledVector(fSide,7.5); cp.lerp(fC,k1);
+    fC.copy(FIN.pos).addScaledVector(up,13).addScaledVector(fSide,3.8); cp.lerp(fC,k2);
+    cl.copy(FIN.pos).addScaledVector(up,1.2*(1-k2)-5*k2); }
+  if(c<.05){ FIN.cp.copy(cp); FIN.cl.copy(cl); }
+  FIN.cp.lerp(cp,1-Math.exp(-(tau>0?5:3)*dt)); FIN.cl.lerp(cl,1-Math.exp(-(tau>0?7:3.5)*dt));
+  st.camP.copy(FIN.cp); st.camL.copy(FIN.cl); FIN.fov=lerp(45,40,wP)+(tau>0?12*sstep(0,3,tau):0);
+  // looking straight down, the top of the picture is the way the road was
+  fUp.copy(up).multiplyScalar(1-k2).addScaledVector(fA.crossVectors(fSide,up).normalize(),-k2).normalize();
+  stUp.copy(fUp); stCam.up.copy(fUp); UPU.value.copy(up); LU.uPly.value.copy(FIN.cp); S.stSnap=true;   // uPly at the camera: nothing gets cut away
+  if(tau>=F_SPACE&&!FIN.handed){ FIN.handed=true; if(typeof finaleSpace==='function') finaleSpace(); } }
+/* when space has taken over completely, Earth puts itself back as it was */
+st.finaleEnd=function(){ FIN.on=false; S.fin=false; el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
+  people.forEach(p=>{ [p.x,p.z]=p.at; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; }); BIRDS.forEach(b=>{ b.h=Math.min(b.h,10); }); AH.st='home'; };
+
 /* ---------- lifecycle ---------- */
 let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
 st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
-  started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; });
+  started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone'); people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
   marksEnter(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ CUT.on=false; el.classList.remove('cut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
@@ -4254,13 +4516,13 @@ function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(wal
   if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016); }
 
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
-  const port=innerHeight>innerWidth, fov=port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
-  if(CUT.on) cutUpdate(dt,t); else {
+  const port=innerHeight>innerWidth, fov=FIN.on?FIN.fov*(port?1.3:1):port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
+  if(FIN.on) finUpdate(dt,t); else if(CUT.on) cutUpdate(dt,t); else {
   // input, the same as flying: keys move you relative to the camera; on a touch screen, the stick
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  if(ix||iz){ P.tgt=null; began(); if(TALK.p) closeTalk(); }
+  if(ix||iz){ P.tgt=null; TALK.goal=null; C.guide=null; began(); if(TALK.p) closeTalk(); }
   let want=0;
   if(ix||iz){ camR.crossVectors(C.f,P.u); V4.copy(C.f).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=(run?4.2:2.7)*mag; }
   else if(P.tgt){ const ang=Math.acos(clamp(P.u.dot(V2.copy(P.tgt).normalize()),-1,1)); if(ang*R<.2){ P.tgt=null; } else { tang(P.u,P.tgt,V4); want=Math.min(2.7,ang*R*2+.5); } }
@@ -4273,12 +4535,16 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(tx!==null&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
       if(walkable(x,z)) at(x,z,P.u); else P.u.copy(u0); tang(P.u,P.f,P.f); } }
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
+  if(TALK.goal&&!TALK.p){ const g=TALK.goal; if(Math.hypot(P.x-g.x,P.z-g.z)<2.5) talkTo(g); else if(!P.tgt) TALK.goal=null; }   // walked over to someone
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
   P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)?2:rd<RW+SW?1:0); }
   // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
   if(P.speed>.3&&C.dragT>2.5&&!TALK.p){ const sg=Math.sign(V.crossVectors(C.f,P.f).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(P.f),-1,1));
     if(a>.12&&a<2.3) rot(C.f,P.u,sg*Math.min(a,1.05*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*(1-a/3.2)*dt)); }
+  // after a conversation the camera turns, slowly, toward whoever you have not met yet
+  if(C.guide&&!TALK.p){ const g=C.guide; g.t-=dt; tang(P.u,g.p.dir,V3); const sg=Math.sign(V.crossVectors(C.f,V3).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(V3),-1,1));
+    if(a>.05) rot(C.f,P.u,sg*Math.min(a,1.3*dt*sstep(0,.5,g.t))); if(g.t<=0||C.dragT<.05) C.guide=null; }
   // talking: centre between the two of you, turned to see you both a little from the side; afterwards it simply stays turned
   const tp=TALK.p; C.tk=damp(C.tk,tp?1:0,2.4,dt); const tE=C.tk*C.tk*(3-2*C.tk);
   C.camH=damp(C.camH,P.h,3,dt); camT.copy(P.u).multiplyScalar(R+C.camH+C.HEAD);
@@ -4303,13 +4569,17 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   }
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
-  people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT);
-    if(d<1.75&&!p.greeted&&!TALK.p&&!CUT.on&&P.speed<1.6) openTalk(p,0);
+  ahroonUpdate(dt);
+  people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT)&&!FIN.on;
+    // walk right up to someone you have not met (or to Ahroon, once he has something to show you) and they start talking
+    if(d<2.4&&!p.greeted&&!TALK.p&&!CUT.on&&!FIN.on&&P.speed<1.8&&(!MET.has(i)||(i===0&&allMet()))) talkTo(p);
     if(d>4.5) p.greeted=false;
     if(near&&!p.near) p.wave=1.2; p.near=near; p.wave=Math.max(0,p.wave-dt);
-    tang(p.dir,near?P.u:at(p.face[0],p.face[1]),V4); p.f.lerp(V4,1-Math.exp(-4*dt)); tang(p.dir,p.f,p.f); standOn(p.g,p.dir,p.f,standH(p.x,p.z)); animate(p.g,0,0,p.wave,t,i);
+    const faceTo=FIN.on?FIN.look:(near||p.walk>.2)?P.u:at(p.face[0],p.face[1]);
+    tang(p.dir,faceTo,V4); p.f.lerp(V4,1-Math.exp(-4*dt)); tang(p.dir,p.f,p.f); standOn(p.g,p.dir,p.f,standH(p.x,p.z)); animate(p.g,p.ph||0,clamp((p.walk||0)/2.7,0,1),FIN.on?FIN.wave:p.wave,t,i);
     p.blink-=dt; const ey=p.blink<.12?.15:1; if(p.blink<0) p.blink=2+Math.random()*3; p.g.userData.eyes.forEach(e=>e.scale.y=ey);
-    const lb=labels[i]; V.copy(p.dir).multiplyScalar(R+standH(p.x,p.z)+1.62).project(stCam); lb.classList.toggle('on',(d<10||hov===p)&&V.z<1&&!TALK.p);
+    // name tags: anyone you have not met is always marked, wherever they are; Ahroon's tag calls you once he has one more thing
+    const ask=i===0&&allMet(), lb=labels[i]; lb.classList.toggle('ask',ask); V.copy(p.dir).multiplyScalar(R+standH(p.x,p.z)+1.62).project(stCam); lb.classList.toggle('on',(!MET.has(i)||ask||d<10||hov===p)&&V.z<1&&!TALK.p&&!CUT.on&&!FIN.on);
     lb.style.transform=`translate(${((V.x*.5+.5)*innerWidth).toFixed(1)}px,${((-V.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; });
   // talking: the words type out with a little voice
   if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; tkT.textContent=TALK.txt.slice(0,n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
@@ -4321,10 +4591,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music, birds now and then, the sea near the shore, a light wind
-  A.music(CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; A.chirp((Math.random()-.5)*1.6); }
-  const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))); A.wind(.03+P.speed*.008);
+  A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)) A.chirp((Math.random()-.5)*1.6); }
+  const hush=FIN.on&&FIN.t>F_IGN-.95&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
+  const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={LU,MK,seen,linesFor,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={LU,MK,seen,linesFor,MET,AH,FIN,startFinale,goTalk,talkTo,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
 /* ===== station be ===== */
@@ -4515,7 +4786,7 @@ function enter(){
   $('#load').classList.add('go'); S.mode='entering'; entry.t=0; hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0); hubCam.fov=30; hubCam.updateProjectionMatrix();
   entry.from.p.copy(hubCam.position); entry.from.q.copy(hubCam.quaternion); entry.from.fov=30;
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
-  setTimeout(()=>{ show('#load',false); show('#chrome',true); $('#frame').classList.add('on'); },900);
+  setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
 /* the way in: scroll, swipe, tap, click or a key */
 $('#beginT').textContent=FINE?'Scroll to begin':'Swipe up to begin';
@@ -4582,7 +4853,7 @@ function frame(now){
     hubBase.p.copy(hubCam.position); hubBase.q.copy(hubCam.quaternion); S.sysVis=damp(S.sysVis||0,1,3,rdt); universeVisible(S.sysVis);
     post.uniforms.uWarp.value=RM?0:(1-sstep(0,.9,S.hubT))*.7; post.uniforms.uIC.value.set(.5,.5);
     if(S.hubT>1.3&&!S.hudOn){ S.hudOn=true; show('#hub',true); cine(false); updateQuest(); where('Orbit'); setTimeout(()=>{ if(!S.firstThrust) $('#hint').classList.add('gone'); },15000); }
-    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; toast('Gravity is on. Thrust gently.'); setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at any station. Then the horizon opens.'); },3400); }
+    if(S.hubT>=2.6&&S.mode==='tohub'){ S.mode='hub'; S.hudOn=false; post.uniforms.uWarp.value=0; setTimeout(()=>{ if(S.mode==='hub'&&!S.docked.size) toast('Dock at any station. Then the horizon opens.'); },2200); }
     labelsUpdate();
   }
   else if(S.mode==='hub'){
@@ -4597,6 +4868,8 @@ function frame(now){
       labelsUpdate(); if((radarK++&1)===0) radarDraw(); presenceTick(); }
     universeVisible(1);
   }
+  else if(S.mode==='finale'){ finaleUpdate(rdt,dt,t); }
+  else if(S.mode==='credits'){ requestAnimationFrame(frame); return; }   // the white page: nothing left to draw
   else if(S.mode==='docking'){ dockUpdate(rdt); }
   else if(S.mode==='undocking'){ undockUpdate(rdt,dt); if(S.mode==='hub'||(TR&&TR.t>1.1)){ labelsUpdate(); radarDraw(); } }
   else if(S.mode==='falling'){
@@ -4611,8 +4884,8 @@ function frame(now){
   if(S.shake>0&&!RM){ const a=S.shake*S.shake*.25; if(S.iris<2.5&&S.mode!=='station'){ hubCam.position.add(tv[4].set((Math.random()-.5)*a,(Math.random()-.5)*a,(Math.random()-.5)*a)); } }
   S.shake=Math.max(0,S.shake-rdt*1.8); S.ca=damp(S.ca,0,5,rdt);
   post.uniforms.uTint.value.multiplyScalar(Math.exp(-4*rdt));
-  S.flash=Math.max(0,S.flash-rdt*1.2); post.uniforms.uFlash.value=S.flash;
-  post.uniforms.uCA.value=S.ca+(S.mode==='hub'?S.probe.thr*.2:0);
+  S.flash=Math.max(S.flashMin||0,S.flash-rdt*1.2); post.uniforms.uFlash.value=S.flash;
+  post.uniforms.uCA.value=S.ca+(S.mode==='hub'||S.mode==='finale'?S.probe.thr*.2:0);
   if(S.mode!=='falling'&&S.mode!=='beyond') post.uniforms.uStretch.value=damp(post.uniforms.uStretch.value,0,4,rdt);
   post.uniforms.uGrade.value.lerp(WHITE,1-Math.exp(-6*rdt));
   // station update + its smoothed camera
@@ -4623,7 +4896,7 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if(S.mode==='station'||S.mode==='docking') A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
+    if((S.mode==='station'||S.mode==='docking')&&!S.fin) A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
   }
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
@@ -4638,11 +4911,11 @@ boot();
 /* test helper: straight into a station with no transitions */
 function jump(id){
   const s=STA.find(x=>x.id===id), st=ST[id]; if(!st||!S.ready) return false;
-  ['#load','#story','#hub'].forEach(q=>show(q,false)); show('#chrome',true); $('#frame').classList.add('on'); A.start();
+  ['#load','#story','#hub'].forEach(q=>show(q,false)); show('#chrome',true); A.start();
   if(S.st&&S.st!==st){ S.st.abort(); S.st.exit(); S.st.el.classList.remove('on'); }
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,SB,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,SB,FZ,finaleSpace,credits,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
 
 })();

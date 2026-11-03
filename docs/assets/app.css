@@ -83,16 +83,11 @@ kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 
 .layer{position:fixed;inset:0;z-index:5;pointer-events:none;transition:opacity .9s var(--ease),visibility .9s}
 .layer.off{opacity:0;visibility:hidden}
 .hit{pointer-events:auto}
-.frame{position:fixed;z-index:14;pointer-events:none;top:calc(env(safe-area-inset-top,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));opacity:0;transition:opacity 1.2s var(--ease)}
-.frame.on{opacity:1}
-.frame i{position:absolute;width:12px;height:12px;border:0 solid rgba(238,233,223,.35)}
-.frame i:nth-child(1){left:0;top:0;border-left-width:1px;border-top-width:1px}
-.frame i:nth-child(2){right:0;top:0;border-right-width:1px;border-top-width:1px}
-.frame i:nth-child(3){left:0;bottom:0;border-left-width:1px;border-bottom-width:1px}
-.frame i:nth-child(4){right:0;bottom:0;border-right-width:1px;border-bottom-width:1px}
 .lb{position:fixed;left:0;right:0;height:0;background:#000;z-index:13;pointer-events:none;transition:height 1s var(--io)}
 .lb.t{top:0}.lb.b{bottom:0}
 body.cine .lb{height:7vh}
+body.cine.tense .lb{height:13vh;transition:height 9s cubic-bezier(.3,0,.25,1)}   /* the wait before the last flight: the picture closes in */
+body.cine.loose .lb{transition:height .5s cubic-bezier(.2,.8,.2,1)}
 
 #cur{position:fixed;left:0;top:0;z-index:60;pointer-events:none;width:26px;height:26px;margin:-13px 0 0 -13px;border:1px solid rgba(238,233,223,.5);border-radius:50%;display:grid;place-items:center;transition:width .4s var(--ease),height .4s var(--ease),margin .4s var(--ease),background .3s,border-color .3s,border-radius .3s}
 #cur span{font:900 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;color:#0a0806;opacity:0;transition:opacity .2s;white-space:nowrap}
@@ -168,7 +163,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 .slab.under .tx,.slab.under .rt{pointer-events:none}
 .slab .tx::before{content:"";position:absolute;left:-14px;top:8px;width:10px;height:1px;background:var(--acc);opacity:.8}
 .slab b{font:900 11.5px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase}
-.slab .sub{font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;color:var(--mute)}
+.slab .sub{font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;color:var(--mute);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s var(--ease),opacity .3s}
+.slab.near .sub,.slab:hover .sub{max-height:20px;opacity:1}
 .slab .act{display:flex;gap:8px;align-items:center;font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;max-height:0;opacity:0;overflow:hidden;transition:max-height .4s var(--ease),opacity .3s}
 .slab.near .act{max-height:30px;opacity:1}
 .slab.near .rt{opacity:1;animation:spin 6s linear infinite}
@@ -177,13 +173,44 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 .slab.flip .tx::before{left:auto;right:-14px}
 .slab.low .tx{top:calc(var(--s)*.5 + 8px)}
 @keyframes spin{to{transform:rotate(90deg)}}
-/* a station calling you: its brackets kick out in time with the bell, and its marker at the screen edge brightens */
-.slab.call:not(.near) .rt{opacity:1;animation:callp 2.4s var(--ease) infinite}
-.edge.call{animation:calle 2.4s ease-out infinite}
-@keyframes callp{0%{transform:scale(1)}10%{transform:scale(1.4)}38%,100%{transform:scale(1)}}
-@keyframes calle{0%,45%,100%{filter:none}10%{filter:brightness(1.8) drop-shadow(0 0 6px var(--acc))}}
+/* the last flight */
+html.fin #back,html.fin #chrome,html.fin #hint{opacity:0!important;pointer-events:none!important;transition:none!important}
+#holdp{position:fixed;left:50%;bottom:calc(var(--gb) + 9vh);transform:translate(-50%,8px);z-index:40;display:flex;gap:12px;align-items:center;color:#f3ede2;opacity:0;pointer-events:none;
+  transition:opacity 1.2s var(--ease),transform 1.2s var(--ease);text-shadow:0 0 10px rgba(5,5,4,.9);letter-spacing:.14em}
+#holdp i{width:9px;height:9px;border-radius:50%;background:#FFC392;box-shadow:0 0 12px #FFC392;animation:holdp 1.05s ease-in-out infinite}
+#holdp.on{opacity:1;transform:translate(-50%,0)}
+#holdp.go{opacity:0;transition-duration:.5s}
+@keyframes holdp{50%{transform:scale(.45);opacity:.5}}
+#fin{position:fixed;inset:0;z-index:58;background:#fff;color:#111;display:grid;place-items:center;opacity:0;transition:opacity 1.8s ease;padding:0 24px}
+#fin.on{opacity:1}
+#fin .fc{grid-area:1/1;text-align:center;opacity:0;display:grid;gap:14px;justify-items:center}
+#fin .f1 .ui{letter-spacing:.32em;color:#111}
+#fin .f2 p{margin:0;font:800 clamp(20px,2.4vw,34px)/1.1 var(--disp);font-variation-settings:"ROND" 100;opacity:0}
+#fin .f3 h2{margin:0;max-width:15ch;font-size:clamp(30px,4.6vw,72px);line-height:1.04;color:#111}
+#fin .fa{display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:28px;opacity:0}
+#fin .fa .btn{color:#111;border-color:rgba(17,17,17,.35)}
+#fin .fa .btn:hover{background:#111;color:#fff}
+#fin .fa a{color:#5f5a52}
+#fin.on .f1{animation:finc 4.2s ease 1s both}
+#fin.on .f2{animation:fins 7s ease 5.4s both}
+#fin.on .f2 p:nth-child(1){animation:finup 1.4s ease 5.6s both}
+#fin.on .f2 p:nth-child(2){animation:finup 1.4s ease 6.6s both}
+#fin.on .f2 p:nth-child(3){animation:finup 1.4s ease 7.6s both}
+#fin.on .f3{animation:finup 2.2s ease 12.8s both}
+#fin.on .fa{animation:finup 1.6s ease 16.4s both}
+@keyframes finc{0%{opacity:0}25%,72%{opacity:1}100%{opacity:0}}
+@keyframes fins{0%,80%{opacity:1}100%{opacity:0}}
+@keyframes finup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#gl{-webkit-touch-callout:none}   /* holding a finger down (to burn) never brings up a callout */
+html.fin #cur,html.fin #curd{opacity:0;transition:opacity .6s}   /* nothing over the picture in the last flight */
+html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
+#fin.on~#cur{border-color:rgba(17,17,17,.45)}
+#fin.on~#curd{background:#111}
 .edge{position:absolute;left:0;top:0;display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%);font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;color:var(--acc);white-space:nowrap;pointer-events:auto;text-shadow:0 0 6px rgba(5,5,4,.95),0 0 16px rgba(5,5,4,.7)}
-.edge svg{width:11px;height:11px;flex:none}
+.edge svg{width:12px;height:12px;flex:none;filter:drop-shadow(0 0 4px var(--acc))}
+.edge{gap:0;padding:6px}
+.edge span{max-width:0;opacity:0;overflow:hidden;transition:max-width .4s var(--ease),opacity .3s,margin .4s var(--ease)}
+.edge:hover span{max-width:140px;opacity:1;margin-left:8px}
 #dockp{position:absolute;left:50%;bottom:calc(var(--gb) + 64px);transform:translateX(-50%)}
 #warn{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%);text-align:center;color:var(--alarm);display:grid;gap:8px;opacity:0;transition:opacity .4s}
 #warn b{font:800 clamp(28px,3.4vw,48px)/1 var(--disp);font-variation-settings:"ROND" 100;-webkit-text-stroke:0}
@@ -297,7 +324,7 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
   .cap{top:17%}
   .brand .ui{display:none}
 }
-@media (prefers-reduced-motion:reduce){.grain,#cue i,.slab.near .rt,.slab.call .rt,.edge.call{animation:none}}
+@media (prefers-reduced-motion:reduce){.grain,#cue i,.slab.near .rt{animation:none}}
 
 /* ---------- base reset for standalone hosting ---------- */
 html,body{margin:0;padding:0}
@@ -832,6 +859,21 @@ html.earth #back{z-index:3}
 .st-cr .crtalk.last .crtk-ph{display:block}
 .st-cr .crtalk.last .crtk-a{display:flex}
 .st-cr .crtalk.last .crtk-go{display:none}
+/* Ahroon's one more thing: the last page asks, with two answers */
+.st-cr .crtk-q{display:none;gap:10px;flex-wrap:wrap;margin-top:14px}
+.st-cr .crtk-q .btn{color:#2a241d;border-color:rgba(42,36,29,.4)}
+.st-cr .crtk-q .btn.pri{background:#ef8a3c;color:#2a241d;border-color:#2a241d}
+.st-cr .crtalk.ask .crtk-q{display:flex}
+.st-cr .crtalk.ask .crtk-go{display:none}
+.st-cr .crtalk.ask .crtk-b{cursor:default}
+/* name tags: you can click one to walk over; Ahroon's calls you once you have met everyone */
+.st-cr .crl{pointer-events:auto;cursor:pointer}
+.st-cr .crl:not(.on){pointer-events:none}
+.st-cr .crl.ask{background:#ef8a3c}
+.st-cr .crl.ask::after{content:"";display:inline-block;width:6px;height:6px;margin-left:8px;vertical-align:1px;background:#2a241d;border-radius:50%;animation:crask 1.1s ease-in-out infinite}
+@keyframes crask{50%{transform:scale(.4);opacity:.4}}
+/* the last flight: nothing on screen but the picture */
+.st-cr.fin .card,.st-cr.fin #crLabels,.st-cr.fin .crhint,.st-cr.fin .crtalk,.st-cr.fin .crskip{opacity:0!important;pointer-events:none!important;transition:none!important}
 .st-cr .crtk-go{position:absolute;right:14px;bottom:14px;width:36px;height:36px;display:grid;place-items:center;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;padding:0;cursor:pointer;animation:crbob 1.1s ease-in-out infinite}
 .st-cr .crtk-go svg{width:12px;height:12px}
 .st-cr .crtalk.typing .crtk-go{opacity:.35;animation:none}
