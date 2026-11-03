@@ -4072,7 +4072,7 @@ function buildTown(){
     const mk=mark('ae',x,z,1); kitTo('ae'); cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); kitTo(); const hd=new T.Group(); hd.matrixAutoUpdate=false; mk.g.add(hd);
     const dish=new T.Mesh(new T.SphereGeometry(.78,28,12,0,TAU,0,Math.PI*.32),toonMat('#f2f4f2',{side:T.DoubleSide})); dish.rotation.x=-1.25; dish.position.z=.08; hd.add(dish);
     hd.add(new T.Mesh(new T.BoxGeometry(.24,.24,.3),toonMat('#9aa3ab'))); hd.add(new T.Mesh(new T.CylinderGeometry(.018,.018,.6,6).rotateX(-1.25+Math.PI/2).translate(0,.1,.32),toonMat('#9aa3ab')));
-    AE={hd,M:sub(M,0,2.9,0),B:M,cyc:0}; INST.ae={x,z,h:4.4,r:7};
+    AE={hd,M:sub(M,0,2.9,0),B:M,cyc:0}; INST.ae={x,z,h:4.4,r:4.6};   // close by the landing: the card waits until you walk up to the rocks
     AE.dr=[0,1,2,3,4].map(k=>{ const d=drone(k===0?'#ff8a2a':'#f5f3ea'); mk.g.add(d); return {g:d,a:k*1.31,r:1.9+k*.38,h:3.6+(k%3)*.55,w:(.3+k*.05)*(k%2?-1:1)}; });
     AE.ring=new T.Mesh(new T.TorusGeometry(.34,.024,6,32).rotateX(Math.PI/2),flatMat('#ff8a2a')); AE.ring.matrixAutoUpdate=false; AE.ring.visible=false; AE.ring.userData.noInk=true; mk.g.add(AE.ring);
     sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); markObs('ae',1.4); SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
@@ -4500,7 +4500,7 @@ function began(){ if(started) return; started=true; el.classList.add('walked'); 
 
 /* ---------- talking ---------- */
 const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
-const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null};
+const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null,want:null,dw:0};
 PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
@@ -4826,7 +4826,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       ed.style.transform=`translate(${((ex*.5+.5)*innerWidth).toFixed(1)}px,${((-ey*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-50%)`; ed.style.setProperty('--a',Math.atan2(-ey,ex).toFixed(3)+'rad'); } });
   goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0);
   /* walk up to a landmark and it says what it is, and where to find it */
-  { let best=null, bd=1; if(!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(!MK[id]||MK[id].st!=='on') continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; best=id; } }
+  /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
+     it for a moment, so passing one on your way somewhere does not flash it up */
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(!MK[id]||MK[id].st!=='on') continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+    if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
+    const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
       PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
   }
@@ -4867,7 +4871,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={began,get started(){ return started; },LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
 /* ===== station be ===== */
