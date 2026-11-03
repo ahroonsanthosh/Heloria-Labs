@@ -274,9 +274,23 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await covered('.st-cr', "Earth with the Let's fly button");
   await tap('#crGo', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
   await H(h => { h.S.finX = 6; });
+  // on the pad, after the countdown, the rocket waits for you: hold and the engines spool up until it lights
+  rec(await until(() => window.__heloria.ST.cr._dbg.FIN.ask, null, 300000), 'after the countdown the rocket waits on the pad for you');
+  await wait(900);
+  { const hp = await page.evaluate(() => { const e = document.querySelector('#holdp'); return { on: e.classList.contains('on'), t: e.textContent.trim(), op: +getComputedStyle(e).opacity }; });
+    rec(hp.on && /hold/i.test(hp.t) && /launch/i.test(hp.t), 'the screen asks you to hold to launch', JSON.stringify(hp)); }
+  await wait(1500); rec(await H(h => !h.ST.cr._dbg.FIN.ign), 'and it does not light until you hold');
+  await shot((mobile ? 'm-' : '') + 'launch-hold');
+  if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 51, pointerType: 'touch', clientX: 195, clientY: 500, bubbles: true })));
+  else await page.keyboard.down('Space');
+  rec(await until(() => window.__heloria.ST.cr._dbg.FIN.held > .4, null, 120000) && await H(h => !h.ST.cr._dbg.FIN.ign), 'holding spools the engines up');
+  rec(await until(() => window.__heloria.ST.cr._dbg.FIN.ign, null, 300000), 'and it lights once you have held long enough');
+  if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 51, pointerType: 'touch', clientX: 195, clientY: 500, bubbles: true })));
+  else await page.keyboard.up('Space');
   rec(await until(() => window.__heloria.S.mode === 'finale', null, 600000), 'the rocket climbs out and space takes over');
   rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
-  rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'it burns by itself if you do not, and throws you out into the white');
+  rec(await page.evaluate(() => !document.querySelector('#holdp').classList.contains('on')), 'nothing to hold in space: you only watch');
+  rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'at the bottom the engine burns by itself and throws you out into the white');
   await H(h => { h.S.finX = 1; }); await wait(20000);
   rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /3 lads building the impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
   await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
