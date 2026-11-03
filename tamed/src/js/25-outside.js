@@ -286,19 +286,44 @@ function buildOutside(){
   const frameGeo=(()=>{ const s=new T.Shape(), w=FP.ow/2, h=FP.oh; s.moveTo(-w,0); s.lineTo(w,0); s.lineTo(w,h); s.lineTo(-w,h); s.lineTo(-w,0);
     const p=new T.Path(), iw=FP.iw/2; p.moveTo(-iw,FP.fr); p.lineTo(-iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr); p.lineTo(-iw,FP.fr); s.holes.push(p);
     const g=new T.ExtrudeGeometry(s,{depth:FP.fd-.02,bevelEnabled:true,bevelThickness:.01,bevelSize:.012,bevelSegments:2}); g.translate(0,FP.phh,-FP.fd/2+.01); return g; })();
+  /* each plinth has the name cut into it, as large as its face allows. Red is the cut letters, blue the lit lower lip
+     of each cut. Pointing at the portrait deepens the letters */
+  const PLQ={w:1024,h:Math.round(1024*FP.phh/FP.pw)};
+  const plaque=(el)=>{
+    const cv=document.createElement('canvas'); cv.width=PLQ.w; cv.height=PLQ.h; const x=cv.getContext('2d');
+    const tex=new T.CanvasTexture(cv); tex.anisotropy=8; tex.colorSpace=T.NoColorSpace;
+    const nm=el.querySelector('.nm').textContent.trim(), face='italic 400 #px "Instrument Serif", Georgia, serif';
+    const draw=()=>{
+      const W2=cv.width, H2=cv.height; x.clearRect(0,0,W2,H2); x.textAlign='center'; x.textBaseline='alphabetic';
+      let z=124; for(;z>20;z--){ x.font=face.replace('#',z); if(x.measureText(nm).width<=W2*.82) break; }
+      const y=H2*.5+z*.3; x.lineJoin='round'; x.lineWidth=Math.max(1.5,z*.022);
+      x.globalCompositeOperation='lighter';
+      x.fillStyle=x.strokeStyle='#00f'; x.fillText(nm,W2/2,y+z*.045); x.strokeText(nm,W2/2,y+z*.045);
+      x.fillStyle=x.strokeStyle='#f00'; x.fillText(nm,W2/2,y); x.strokeText(nm,W2/2,y);
+      x.globalCompositeOperation='source-over'; tex.needsUpdate=true; };
+    draw();
+    /* the inscription waits for its font */
+    if(document.fonts&&document.fonts.load) document.fonts.load('italic 124px "Instrument Serif"').then(draw,()=>{});
+    return tex;
+  };
+  const PEO_EL=$$('#people .person');
   const bronze=new T.MeshStandardMaterial({color:'#86644A',roughness:.38,metalness:.62});
   const paper=new T.MeshStandardMaterial({color:'#EEE6D9',roughness:.92});
   W.people=PHOTOS.map((src,i)=>{
     const tex=new T.TextureLoader().load(src); tex.colorSpace=T.SRGBColorSpace; tex.anisotropy=8;
     const grp=new T.Group(); grp.position.set(PEOPLE_AT[i][0],0,PEOPLE_AT[i][1]); grp.rotation.y=-Math.PI/2; sc.add(grp);
-    const plinthM=stoneMat({U:W.U, key:'plinth', color:'#EDE3D4', rough:.8, joint:0, glsl:'uniform float uWetP;',
-      albedo:'diffuseColor.rgb*=1.-.3*uWetP;',
-      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'});
-    plinthM.userData.u.uWetP={value:0};
+    const plinthM=stoneMat({U:W.U, key:'plinth', color:'#EDE3D4', rough:.8, joint:0, glsl:'uniform float uWetP,uPlqHot; uniform sampler2D tPlq; uniform vec4 uPlq;',
+      albedo:`diffuseColor.rgb*=1.-.3*uWetP;
+        vec2 pq=vec2((vWP.z-uPlq.y)/${FP.pw.toFixed(3)}+.5,(vWP.y-uPlq.z)/${FP.phh.toFixed(3)});
+        vec4 plq=texture2D(tPlq,clamp(pq,0.,1.))*step(0.,pq.x)*step(pq.x,1.)*step(0.,pq.y)*step(pq.y,1.)*step(wN.x,-.5);
+        diffuseColor.rgb*=mix(vec3(1.),vec3(.22,.16,.12)*(1.-.35*uPlqHot),plq.r)*(1.+.2*plq.b*(1.-plq.r));`,
+      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
+    plinthM.userData.u.uWetP={value:0}; plinthM.userData.u.uPlqHot={value:0};
+    plinthM.userData.u.tPlq={value:plaque(PEO_EL[i])}; plinthM.userData.u.uPlq={value:new T.Vector4(PEOPLE_AT[i][0]-FP.pd/2,PEOPLE_AT[i][1],0,0)};
     const plinth=new T.Mesh(boxGeo(-FP.pw/2,FP.pw/2,-.4,FP.phh,-FP.pd/2,FP.pd/2),plinthM); plinth.castShadow=plinth.receiveShadow=true; grp.add(plinth);
     const frame=new T.Mesh(frameGeo,bronze); frame.castShadow=frame.receiveShadow=true; grp.add(frame);
     const back=new T.Mesh(boxGeo(-FP.ow/2,FP.ow/2,FP.phh,FP.phh+FP.oh,-FP.fd/2,-FP.fd/2+.02),bronze); back.castShadow=true; grp.add(back);
-    const mat=new T.Mesh(new T.PlaneGeometry(FP.iw,FP.ih),paper); mat.position.set(0,FP.phh+FP.fr+FP.ih/2,-FP.fd/2+.035); mat.receiveShadow=true; grp.add(mat);
+    const mat=new T.Mesh(new T.PlaneGeometry(FP.iw,FP.ih),paper); mat.position.set(0,FP.phh+FP.fr+FP.ih/2,-FP.fd/2+.03); mat.receiveShadow=true; grp.add(mat);
     /* the photograph keeps its own light, warmed by the evening, a little glass sheen on it while it is wet */
     const pm=new T.ShaderMaterial({uniforms:Object.assign({tPhoto:{value:tex},uTintP:{value:new T.Color(1,1,1)},uWet:{value:0},uRefl:GU.uRefl},W.U),
       vertexShader:`varying vec2 vUv; varying vec3 vWP; void main(){ vUv=uv; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
@@ -310,10 +335,10 @@ function buildOutside(){
         float sh=smoothstep(.35,1.,vUv.y+vUv.x*.35)*.06+uWet*.1*smoothstep(.2,1.,vUv.y); c+=vec3(1.,.93,.85)*sh;
         if(uRefl>.5) c*=vec3(.86,.88,.9);
         gl_FragColor=vec4(haze(c,vWP),1.); }`});
-    const photo=new T.Mesh(new T.PlaneGeometry(FP.pw2,FP.ph),pm); photo.position.set(0,FP.phh+FP.fr+FP.mat+FP.ph/2,-FP.fd/2+.037); grp.add(photo);
+    const photo=new T.Mesh(new T.PlaneGeometry(FP.pw2,FP.ph),pm); photo.position.set(0,FP.phh+FP.fr+FP.mat+FP.ph/2,-FP.fd/2+.05); grp.add(photo);
     return {grp,mat:pm,plinthM,reveal:0,target:0,wet:0,i,lift:0,x:PEOPLE_AT[i][0],z:PEOPLE_AT[i][1],h:FP.top,w:FP.pw};
   });
-  W.FP=FP;
+  W.FP=FP; W.PLQ=PLQ;
   const DEEP=-(FP.top+.25);
 
   /* sunbeams: the last light streaming through each arch of the west arcade, dust turning in it */
@@ -339,6 +364,7 @@ function buildOutside(){
       const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?1.55:1.25,dt); if(Math.abs(p.reveal-p.target)<1e-4) p.reveal=p.target;
       p.hov=damp(p.hov||0,p.hot&&p.reveal>.9?1:0,4,dt);
       const y=lerp(DEEP,0,E.io2(clamp(p.reveal,0,1)))+p.hov*.07, dy=y-p.lift; p.lift=y; p.grp.position.y=y;
+      const pu=p.plinthM.userData.u; pu.uPlq.value.z=y; pu.uPlqHot.value=p.hov;
       /* wet as it comes up, drying slowly once it stands */
       p.wet=p.target>0&&p.reveal<.98?Math.min(1,p.wet+dt*2):Math.max(0,p.wet-dt*.16);
       p.plinthM.userData.u.uWetP.value=p.wet; p.mat.uniforms.uWet.value=p.wet;
@@ -355,10 +381,10 @@ function buildOutside(){
     W.sky.position.copy(cam.position);
     /* the water already knows us: in the reflection the portraits always stand, risen or not.
        The mirror uses last frame's shadows, so nothing that has not risen casts one */
-    for(const p of W.people) p.grp.position.y=0;
+    for(const p of W.people){ p.grp.position.y=0; p.plinthM.userData.u.uPlq.value.z=0; }
     renderer.shadowMap.needsUpdate=false;
     W.mirror.render(sc,cam,W.hideInMirror);
-    for(const p of W.people) p.grp.position.y=p.lift;
+    for(const p of W.people){ p.grp.position.y=p.lift; p.plinthM.userData.u.uPlq.value.z=p.lift; }
     renderer.shadowMap.needsUpdate=true;
     W.waterMat.uniforms.tSim.value=W.sim.tex;
     renderer.setRenderTarget(target); renderer.clear(); renderer.render(sc,cam);

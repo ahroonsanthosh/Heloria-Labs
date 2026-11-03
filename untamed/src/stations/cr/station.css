@@ -37,10 +37,20 @@ html.earth #back{z-index:3}
 .st-cr .crl{pointer-events:auto;cursor:pointer}
 .st-cr .crl:not(.on){pointer-events:none}
 .st-cr .crl.ask{background:#ef8a3c}
+/* the way to someone you still have to meet, when they are off the screen */
+.st-cr .cre{position:absolute;left:0;top:0;display:flex;align-items:center;gap:8px;padding:6px 11px 5px 9px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;white-space:nowrap;opacity:0;transition:opacity .4s;pointer-events:none;cursor:pointer;will-change:transform}
+.st-cr .cre.on{opacity:1;pointer-events:auto}
+.st-cr .cre svg{display:block;width:12px;height:12px;flex:none;transform:rotate(var(--a,0rad))}
+/* once Ahroon has asked: the last flight, one click away */
+.st-cr .crgo{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);background:#ef8a3c;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d}
+.st-cr .crgo[hidden]{display:none}
+/* it comes up once the conversation box has gone, never over it */
+.st-cr .crgo:not([hidden]){animation:crgoin .5s var(--ease) .4s both}
+@keyframes crgoin{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 .st-cr .crl.ask::after{content:"";display:inline-block;width:6px;height:6px;margin-left:8px;vertical-align:1px;background:#2a241d;border-radius:50%;animation:crask 1.1s ease-in-out infinite}
 @keyframes crask{50%{transform:scale(.4);opacity:.4}}
 /* the last flight: nothing on screen but the picture */
-.st-cr.fin .card,.st-cr.fin #crLabels,.st-cr.fin .crhint,.st-cr.fin .crtalk,.st-cr.fin .crskip{opacity:0!important;pointer-events:none!important;transition:none!important}
+.st-cr.fin .card,.st-cr.fin #crLabels,.st-cr.fin .crhint,.st-cr.fin .crtalk,.st-cr.fin .crskip,.st-cr.fin .crgo{opacity:0!important;pointer-events:none!important;transition:none!important}
 .st-cr .crtk-go{position:absolute;right:14px;bottom:14px;width:36px;height:36px;display:grid;place-items:center;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;padding:0;cursor:pointer;animation:crbob 1.1s ease-in-out infinite}
 .st-cr .crtk-go svg{width:12px;height:12px}
 .st-cr .crtalk.typing .crtk-go{opacity:.35;animation:none}

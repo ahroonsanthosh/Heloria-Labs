@@ -34,7 +34,6 @@ function scrollTick(dt){
 /* travel: a short walk glides; a long one passes through a wash of light */
 function travel(id){
   const p=placeById(id); if(!p) return;
-  if(S.mode==='page') CASE.close(true);
   let idx=STOPS.indexOf(p.s); if(idx<0) idx=stopOf(p.s);
   if(S.mode!=='world') return;
   const d=Math.abs(idx-SC.v);
@@ -63,22 +62,20 @@ addEventListener('pointermove',e=>{
   if(HOLD.down&&!HOLD.open){ const d=Math.hypot(e.clientX-HOLD.x,e.clientY-HOLD.y); if(d>(e.pointerType==='touch'?10:14)){ HOLD.moved=true; HOLD.down=false; UI.ring(0); } }
   if(HOLD.open) UI.indexHover(e.clientX,e.clientY);
   if(SC.touch&&e.pointerId===SC.touch.id){ const dy=SC.touch.y-e.clientY;
-    if(S.mode==='page') CASE.drag(dy-SC.touch.last), SC.touch.last=dy;
-    else if(S.mode==='world'){ SC.target=clamp(SC.touch.v0+dy/PXSTOP(),-.15,scrollMax()+.15); SC.lastIn=t; SC.lastF=S.frame; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
+    if(S.mode==='world'){ SC.target=clamp(SC.touch.v0+dy/PXSTOP(),-.15,scrollMax()+.15); SC.lastIn=t; SC.lastF=S.frame; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
     const vt=(dy-SC.touch.py)/Math.max(.008,t-SC.touch.pt); SC.touch.vel=lerp(SC.touch.vel,vt,.4); SC.touch.py=dy; SC.touch.pt=t; }
 },{passive:true});
 addEventListener('pointerdown',e=>{
   if(e.button>0) return;
   M.x=e.clientX; M.y=e.clientY; M.type=e.pointerType;
-  if(e.pointerType==='touch'&&(S.mode==='world'||S.mode==='page')&&!HOLD.open&&!isUI(e.target)){
-    SC.touch={id:e.pointerId,y:e.clientY,v0:SC.target,vel:0,py:0,pt:now(),last:0}; SC.inertia=0; SC.glide=null; CASE.stopInertia(); }
-  if((S.mode==='world'||S.mode==='page')&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
+  if(e.pointerType==='touch'&&S.mode==='world'&&!HOLD.open&&!isUI(e.target)){
+    SC.touch={id:e.pointerId,y:e.clientY,v0:SC.target,vel:0,py:0,pt:now(),last:0}; SC.inertia=0; SC.glide=null; }
+  if(S.mode==='world'&&!isUI(e.target)&&!HOLD.open){ HOLD.down=true; HOLD.moved=false; HOLD.t0=now(); HOLD.x=e.clientX; HOLD.y=e.clientY; HOLD.id=e.pointerId; }
   if(S.mode==='world'&&!isUI(e.target)&&e.pointerType!=='touch') WORLD.tap(e.clientX,e.clientY);
 },{passive:true});
 const endPointer=e=>{
   if(SC.touch&&e.pointerId===SC.touch.id){ const v=SC.touch.vel; const moved=Math.abs(SC.touch.py)>8;
-    if(S.mode==='page') CASE.fling(v);
-    else if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-4,4)*.45; }
+    if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-4,4)*.45; }
     else if(S.mode==='world'&&!moved&&!HOLD.open&&e.type==='pointerup') WORLD.tap(e.clientX,e.clientY);
     SC.touch=null; SC.lastIn=now(); SC.lastF=S.frame; }
   if(HOLD.open){ UI.indexRelease(e.clientX,e.clientY,now()-HOLD.t0); }
@@ -98,13 +95,12 @@ addEventListener('wheel',e=>{
   if(e.deltaMode===1) d*=32; else if(e.deltaMode===2) d*=innerHeight;
   d=clamp(d,-260,260); S.wheelLog=(S.wheelLog||[]).slice(-9).concat([[Math.round(e.deltaY),e.deltaMode,Math.round(d),+SC.target.toFixed(3)]]);
   if(HOLD.open) return;
-  if(S.mode==='page') CASE.wheel(d); else nudge(d/PXSTOP());
+  nudge(d/PXSTOP());
 },{passive:false});
 addEventListener('keydown',e=>{
   if(e.target&&e.target.closest&&e.target.closest('input,textarea')) return;
-  if(e.key==='Escape'){ if(HOLD.open){ UI.indexOpen(false); return; } if(S.mode==='page'){ CASE.close(); return; } }
+  if(e.key==='Escape'){ if(HOLD.open){ UI.indexOpen(false); return; } }
   if(S.mode==='gate'||S.mode==='plain') return;
-  if(S.mode==='page'){ if(['ArrowDown','PageDown',' '].includes(e.key)){ e.preventDefault(); CASE.wheel(e.key==='ArrowDown'?120:innerHeight*.8); } if(['ArrowUp','PageUp'].includes(e.key)){ e.preventDefault(); CASE.wheel(e.key==='ArrowUp'?-120:-innerHeight*.8); } return; }
   if(S.mode!=='world') return;
   const f=document.activeElement; const onCtl=f&&f!==document.body&&f.matches&&f.matches('a,button');
   if(['ArrowDown','PageDown','ArrowRight'].includes(e.key)||(e.key===' '&&!onCtl)){ e.preventDefault(); const i=Math.min(scrollMax(),Math.round(SC.target)+1); SC.glide=i; SC.target=i; SC.dir=1; UI.firstScroll(); }
