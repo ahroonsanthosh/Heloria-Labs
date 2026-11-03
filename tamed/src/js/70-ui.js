@@ -9,7 +9,7 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
 UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent='Choose how to see us'; };
+UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent=FINE?'Scroll to choose, click to go':'Swipe to choose, tap to go'; };
 /* the three ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
    walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down; Fly,
    the dark coming in round a black hole. On a touch screen, with nothing to point with, the gate shows them in turn */
@@ -39,6 +39,25 @@ UI.holeAt=()=>{ if(!holeK){ const r=$('#word').getBoundingClientRect(); holeK=[(
 const CYC={off:FINE,i:-1,t:1.2};
 UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.t-=dt;
   if(CYC.t<=0){ CYC.i=(CYC.i+1)%4; CYC.t=CYC.i===3?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land','fly',null][CYC.i],true); } };
+
+/* scroll moves between the three ways, one way per gesture, showing each one's world as it comes; so do a swipe on a
+   phone and the arrow keys. A click, a tap or Enter goes. (A trackpad goes on sending fading wheel events after the
+   fingers lift, so a new gesture is a quiet gap or a clear rise in strength; the rest is ignored) */
+const GW={last:0,peak:0,armed:true,acc:0}, ORDER=['walk','land','fly'];
+const gateStep=d=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.off=true;
+  const i=ORDER.indexOf(S.gateHover); setHover(ORDER[i<0?0:clamp(i+d,0,2)]); };
+addEventListener('wheel',e=>{ if(S.mode!=='gate') return; e.preventDefault();
+  const t=performance.now(), d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.2?e.deltaX:e.deltaY)*(e.deltaMode===1?18:e.deltaMode===2?innerHeight:1), ad=Math.abs(d), gap=t-GW.last; GW.last=t;
+  if(gap>220||ad>GW.peak*1.7+6){ GW.armed=true; GW.acc=0; }
+  GW.peak=gap>220?ad:Math.max(ad,GW.peak*.92);
+  if(!GW.armed) return; GW.acc+=d; if(Math.abs(GW.acc)>36){ gateStep(Math.sign(GW.acc)); GW.acc=0; GW.armed=false; } },{passive:false});
+{ let t0=null; addEventListener('touchstart',e=>{ t0=S.mode==='gate'?[e.touches[0].clientX,e.touches[0].clientY]:null; },{passive:true});
+  addEventListener('touchend',e=>{ if(S.mode!=='gate'||!t0) return; const c=e.changedTouches[0], dx=t0[0]-c.clientX, dy=t0[1]-c.clientY, d=Math.abs(dy)>Math.abs(dx)?dy:dx; t0=null;
+    if(Math.abs(d)>34) gateStep(Math.sign(d)); },{passive:true}); }
+addEventListener('keydown',e=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return;
+  if(['ArrowDown','ArrowRight','PageDown'].includes(e.key)){ e.preventDefault(); gateStep(1); }
+  else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); gateStep(-1); }
+  else if(e.key==='Enter'&&S.gateHover&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gate .way'))){ e.preventDefault(); $('#gate .way[data-way="'+S.gateHover+'"]').click(); } });
 
 if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */

@@ -207,6 +207,11 @@ html.fin #back,html.fin #chrome,html.fin #guide{opacity:0!important;pointer-even
 #holdp i{width:9px;height:9px;border-radius:50%;background:#FFC392;box-shadow:0 0 12px #FFC392;animation:holdp 1.05s ease-in-out infinite}
 #holdp.on{opacity:1;transform:translate(-50%,0)}
 #holdp.go{opacity:0;transition-duration:.5s}
+/* on the pad it is printed like the rest of Earth, and fills as the engines spool up under your hand */
+html.launching #holdp{white-space:nowrap;color:#2a241d;text-shadow:none;letter-spacing:.1em;padding:11px 18px 10px;background:linear-gradient(90deg,#ef8a3c calc(var(--k,0)*100%),#fbf6ec calc(var(--k,0)*100%));border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;bottom:calc(var(--gb) + 26px)}
+html.launching #holdp i{background:#2a241d;box-shadow:none}
+html.launching #holdp.held i{animation-duration:.35s}
+html.fin.launching #holdp{opacity:0}html.fin.launching #holdp.on{opacity:1}
 @keyframes holdp{50%{transform:scale(.45);opacity:.5}}
 #fin{position:fixed;inset:0;z-index:58;background:#fff;color:#111;display:grid;place-items:center;opacity:0;transition:opacity 1.8s ease;padding:0 24px}
 #fin.on{opacity:1}
