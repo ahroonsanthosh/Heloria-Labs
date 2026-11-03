@@ -1,0 +1,106 @@
+/* ================= STILL WATER =================
+   A wave equation on a ping-pong pair of targets: the cursor, a tap, a person rising from the pool
+   all drop energy in and it spreads in rings. The water samples it for its normals. */
+const SIM={rect:new T.Vector4(-72,-60,128,128)}; // xz origin and size of the simulated patch, in metres
+function makeSim(){
+  const N=QL.sim, o={type:T.HalfFloatType,depthBuffer:false,minFilter:T.LinearFilter,magFilter:T.LinearFilter,wrapS:T.ClampToEdgeWrapping,wrapT:T.ClampToEdgeWrapping};
+  const a=RT(N,N,o), b=RT(N,N,o);
+  const drops=[]; for(let i=0;i<4;i++) drops.push(new T.Vector4(0,0,0,0));
+  const mat=new T.ShaderMaterial({uniforms:{tPrev:{value:null},uTx:{value:new T.Vector2(1/N,1/N)},uD:{value:drops},uSeg:{value:new T.Vector4()},uSegK:{value:0},uSize:{value:SIM.rect.z},uK:{value:.16},uDamp:{value:.986}},
+    vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+    fragmentShader:`uniform sampler2D tPrev; uniform vec2 uTx; uniform vec4 uD[4]; uniform vec4 uSeg; uniform float uSegK,uSize,uK,uDamp; varying vec2 vUv;
+    float seg(vec2 p,vec2 a,vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.,1.); return length(pa-ba*h); }
+    void main(){
+      vec4 c=texture2D(tPrev,vUv); float h=c.r, hp=c.g;
+      float s=texture2D(tPrev,vUv+vec2(uTx.x,0.)).r+texture2D(tPrev,vUv-vec2(uTx.x,0.)).r+texture2D(tPrev,vUv+vec2(0.,uTx.y)).r+texture2D(tPrev,vUv-vec2(0.,uTx.y)).r;
+      float nh=(2.*h-hp+uK*(s-4.*h))*uDamp;
+      vec2 wp=vUv*uSize;
+      for(int i=0;i<4;i++){ vec4 d=uD[i]; if(d.w!=0.){ float r=length(wp-d.xy)/d.z; nh+=d.w*exp(-r*r*2.); } }
+      if(uSegK!=0.){ float r=seg(wp,uSeg.xy,uSeg.zw)/.55; nh+=uSegK*exp(-r*r*2.); }
+      vec2 e=min(vUv,1.-vUv); nh*=smoothstep(0.,.02,min(e.x,e.y));
+      gl_FragColor=vec4(clamp(nh,-4.,4.),h,0.,1.);
+    }`, depthTest:false, depthWrite:false});
+  const sc=new T.Scene(), q=new T.Mesh(new T.PlaneGeometry(2,2),mat); q.frustumCulled=false; sc.add(q);
+  const cam=new T.OrthographicCamera(-1,1,1,-1,0,1);
+  let cur=a, prev=b, acc=0, nd=0;
+  const sim={ get tex(){ return cur.texture; },
+    clear(){ [a,b].forEach(t=>{ renderer.setRenderTarget(t); renderer.setClearColor(0,0); renderer.clear(); }); renderer.setClearColor(0,0); },
+    /* x,z world position, radius metres, strength */
+    drop(x,z,r,k){ if(nd>=4) return; const u=(x-SIM.rect.x), v=(z-SIM.rect.y); if(u<0||v<0||u>SIM.rect.z||v>SIM.rect.w) return; drops[nd++].set(u,v,r,k); },
+    stroke(x0,z0,x1,z1,k){ mat.uniforms.uSeg.value.set(x0-SIM.rect.x,z0-SIM.rect.y,x1-SIM.rect.x,z1-SIM.rect.y); mat.uniforms.uSegK.value=k; },
+    step(dt){
+      acc+=dt; let n=0; const H=1/40;
+      while(acc>=H&&n<3){ acc-=H; n++; mat.uniforms.tPrev.value=cur.texture; renderer.setRenderTarget(prev); renderer.render(sc,cam); const t=cur; cur=prev; prev=t;
+        for(const d of drops) d.w=0; nd=0; mat.uniforms.uSegK.value=0; }
+      if(acc>H*3) acc=0;
+    }};
+  return sim;
+}
+
+/* the reflected headline: words drawn where the page shows them, mirrored about the horizon in the water */
+const TXT={cv:document.createElement('canvas'), tex:null, dirty:true, scale:1};
+TXT.ctx=TXT.cv.getContext('2d');
+function drawReflectText(){
+  const c=TXT.cv, k=TXT.scale, w=Math.max(2,Math.floor(innerWidth*k)), h=Math.max(2,Math.floor(innerHeight*k));
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+  const x=TXT.ctx; x.clearRect(0,0,w,h);
+  $$('[data-reflect]').forEach(el=>{
+    const ch=+el.dataset.reflect; x.fillStyle=ch?'#00ff00':'#ff0000'; x.globalCompositeOperation='lighter';
+    const cs=getComputedStyle(el); x.font=`${cs.fontStyle} ${cs.fontWeight} ${parseFloat(cs.fontSize)*k}px ${cs.fontFamily}`; x.textBaseline='alphabetic';
+    const words=$$('.w',el); const list=words.length?words:[el];
+    for(const wd of list){ const r=wd.getBoundingClientRect(); if(!r.width) continue; const tx=wd.textContent;
+      /* the glyph baseline sits about 0.8 of the line box down */
+      x.fillText(tx,(r.left)*k,(r.top+r.height*.78)*k); }
+  });
+  x.globalCompositeOperation='source-over';
+  if(!TXT.tex){ TXT.tex=new T.CanvasTexture(c); TXT.tex.minFilter=T.LinearFilter; TXT.tex.generateMipmaps=false; }
+  TXT.tex.needsUpdate=true; TXT.dirty=false;
+}
+
+function waterMat(U,mirror,sim,o={}){
+  const u=Object.assign({tRefl:{value:mirror.rt.texture}, uTexMat:{value:mirror.texMat}, tSim:{value:null}, uSim:{value:SIM.rect}, uSimTx:{value:1/QL.sim},
+    tText:{value:null}, uTextK:{value:new T.Vector2(0,0)}, uTextCol:{value:new T.Color('#2A2520')}, uHorizon:{value:.5},
+    uDeep:{value:col(o.deep||'#1E2A2A')}, uSunCol:{value:new T.Color()}, uSky:{value:new T.Color()}, uRippleK:{value:1}, uWaveK:{value:1}, uSpec:{value:1}},GU,U);
+  return new T.ShaderMaterial({uniforms:u,
+    vertexShader:`uniform mat4 uTexMat; varying vec3 vWP; varying vec4 vMC; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vMC=uTexMat*w; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform sampler2D tRefl,tSim,tText; uniform vec4 uSim; uniform float uSimTx,uTime,uHorizon,uRippleK,uWaveK,uSpec; uniform vec2 uRes,uTextK;
+    uniform vec3 uDeep,uSunCol,uSky,uTextCol; varying vec3 vWP; varying vec4 vMC;
+    ${GLSL.noise}${GLSL.haze}
+    vec2 waves(vec2 p,float t){
+      vec2 g=vec2(0.);
+      g+=vec2(cos(p.x*.9+t*.7+p.y*.3),cos(p.y*1.1-t*.6))*.010;
+      g+=vec2(cos(p.x*2.3-p.y*1.7+t*1.3),cos(p.y*2.1+p.x*1.3+t*1.1))*.0055;
+      float n1=vnoise(p*1.6+t*.25), n2=vnoise(p*1.6+vec2(5.2,1.3)-t*.22);
+      g+=(vec2(n1,n2)-.5)*.028;
+      return g;
+    }
+    void main(){
+      vec3 toC=cameraPosition-vWP; float dist=length(toC); vec3 V=toC/dist;
+      vec2 suv=(vWP.xz-uSim.xy)/uSim.zw; vec2 rg=vec2(0.);
+      if(suv.x>0.&&suv.y>0.&&suv.x<1.&&suv.y<1.){
+        float hl=texture2D(tSim,suv-vec2(uSimTx,0.)).r, hr=texture2D(tSim,suv+vec2(uSimTx,0.)).r;
+        float hd=texture2D(tSim,suv-vec2(0.,uSimTx)).r, hu=texture2D(tSim,suv+vec2(0.,uSimTx)).r;
+        rg=vec2(hr-hl,hu-hd)*.9*uRippleK;
+      }
+      float far=1./(1.+dist*.035);
+      float paw=smoothstep(.42,.78,vnoise(vWP.xz*.045+vec2(uTime*.018,-uTime*.011))+vnoise(vWP.xz*.11-uTime*.03)*.35);
+      vec2 wg=waves(vWP.xz,uTime)*uWaveK*(.22+.78*far)*(.28+.95*paw);
+      vec3 N=normalize(vec3(-(rg.x+wg.x),1.,-(rg.y+wg.y)));
+      vec2 off=N.xz*(1.1/max(vMC.w,1.));
+      vec2 ruv=vMC.xy/vMC.w+off;
+      vec4 rf=texture2D(tRefl,ruv);
+      float cs=max(dot(N,V),0.);
+      float fr=.02+.98*pow(1.-cs,5.);
+      vec3 body=uDeep*(.55+.45*uSky);
+      vec3 c=mix(body,rf.rgb,clamp(fr*1.04,0.,1.));
+      vec3 Hh=normalize(uSunDir+V); float sp=pow(max(dot(N,Hh),0.),900.)*60.+pow(max(dot(N,Hh),0.),90.)*1.2;
+      c+=uSunCol*sp*uSpec*fr*smoothstep(-.02,.06,uSunDir.y);
+      /* the headline, mirrored about the horizon and broken by the same ripples */
+      vec2 sp2=gl_FragCoord.xy/uRes; vec2 tuv=vec2(sp2.x,2.*uHorizon-sp2.y)+off*1.2+vec2(rg.x,rg.y)*.004;
+      vec4 tx=texture2D(tText,tuv);
+      float ta=clamp(tx.r*uTextK.x+tx.g*uTextK.y,0.,1.)*(1.-rf.a)*smoothstep(.0,.08,uHorizon-sp2.y)*.9;
+      c=mix(c,uTextCol*(.6+.4*fr),ta*mix(.55,1.,fr));
+      c=haze(c,vWP);
+      gl_FragColor=vec4(c,1.);
+    }`});
+}

@@ -1,0 +1,31 @@
+/* Stills of every place: the gate (and both hovers), Home, the four rooms, Team (reflections, then risen),
+   Contact, the hold index and a project page.
+   node tamed/test/run.cjs --scenario tamed/test/shots.cjs --out <dir> [--mobile] [--hq] [--only home,krios] */
+module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, check }) => {
+  const only = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
+  const want = n => !only.length || only.some(o => n.includes(o));
+  const t0 = Date.now();
+  const still = async (n) => { await settle(3); await wait(1200); await settle(2); await shot(n); log('  t=' + ((Date.now() - t0) / 1000).toFixed(0) + 's'); };
+  if (want('gate')) {
+    await wait(2600); await still('01-gate');
+    await T(t => t.hover('untamed')); await wait(1600); await still('02-gate-untamed');
+    await T(t => t.hover('tamed')); await wait(1600); await still('03-gate-tamed');
+    await T(t => t.hover(null));
+  }
+  await T(t => t.enter()); await wait(3200); await settle(4);
+  if (want('home')) await still('04-home');
+  const places = [['krios', '05-krios'], ['aetos', '06-aetos'], ['pharos', '07-pharos'], ['ogive', '08-ogive'], ['team', '09-team'], ['contact', '11-contact']];
+  for (const [id, n] of places) {
+    if (!want(id)) continue;
+    await T((t, id) => { const p = t.PLACES.find(p => p.id === id); t.jump(p.s); }, id);
+    await still(n);
+    if (id === 'team') { await T(t => t.people(true)); await still('10-team-risen'); await T(t => t.people(false)); }
+  }
+  if (want('index')) { await T(t => { t.jump(1); }); await settle(2); await T(t => t.openIndex()); await wait(900); await still('12-index'); await T(t => t.closeIndex()); }
+  if (want('case')) {
+    await T(t => { t.jump(1); }); await settle(3); await T(t => t.openProject(0)); await wait(2600); await still('13-case-krios');
+    await T(t => t.caseScroll(t.CASE.tops[0] + innerHeight * 1.1)); await still('14-case-krios-body');
+    await T(t => t.caseScroll(t.CASE.tops[1] - innerHeight * .35)); await still('15-case-next');
+    await T(t => t.closeProject()); await wait(1200); await still('16-closed');
+  }
+};
