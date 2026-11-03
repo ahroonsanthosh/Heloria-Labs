@@ -144,6 +144,9 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .lite #dial .shadow{ fill:#0E0A08; }
 #dial .gnomon,#dial .pin{ fill:currentColor; }
 .dial-t{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.7; min-width:6em; text-align:left; }
+/* small labels keep a faint halo of the light they sit on, so they read over water as well as sky */
+.dial-t,#cue span,#holdHint{ text-shadow:0 0 12px rgba(255,247,238,.6),0 0 3px rgba(255,247,238,.38); transition:opacity .8s,text-shadow .8s; }
+.lite .dial-t,.lite #cue span,.lite #holdHint{ text-shadow:0 1px 10px rgba(20,14,10,.38); }
 #holdHint{ position:absolute; right:var(--gut); bottom:clamp(26px,4vh,38px); margin:0; font-size:12px; letter-spacing:.06em; opacity:.5; transition:opacity .8s; }
 #cue{ position:absolute; left:50%; bottom:clamp(26px,4vh,38px); transform:translateX(-50%); margin:0; display:flex; flex-direction:column; align-items:center; gap:10px; font-size:11px; letter-spacing:.24em; text-transform:uppercase; opacity:.7; transition:opacity 1s var(--ease); }
 #cue i{ width:1px; height:34px; background:linear-gradient(currentColor,transparent); animation:cue 2.2s var(--ease) infinite; transform-origin:50% 0; }
