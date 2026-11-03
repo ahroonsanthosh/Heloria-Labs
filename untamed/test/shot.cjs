@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Headless playtest helper (Chromium + SwiftShader, so it is slow: think 1 to 4 frames a second).
-   node tools/test/shot.cjs --html /tmp/x/kr.html --station kr --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000]
+   node untamed/test/shot.cjs --html /tmp/x/kr.html --station kr --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000]
    Default: load, wait until ready, jump straight into the station, screenshot "menu".
    A scenario is a CommonJS module: module.exports = async ({page, shot, wait, H, vp, log}) => { ... }
      shot(name)            screenshot to <out>/<name>.png

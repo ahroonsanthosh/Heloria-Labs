@@ -1,5 +1,5 @@
 /* Every-button test for the whole site. Run with the harness:
-   node tools/test/shot.cjs --html dist/heloria.html --out /tmp/btn --scenario tools/test/buttons.cjs [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/btn --scenario untamed/test/buttons.cjs [--mobile]
    Set BTN_ONLY=kr,ae to test only some stations.
    It clicks real elements (Playwright refuses if anything covers them), checks each click does what it should,
    and checks every visible button in each screen is the topmost element at its centre. */
@@ -175,12 +175,13 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); h.S.ap = null; });
   rec(await until(() => window.__heloria.S.stId === 'cr', null, 180000), 'falling in again lands you on Earth');
   await H(h => h.ST.cr._dbg.skipCut()); await wait(800);
-  // meet all three, the last of them far across town from Ahroon: the camera goes over to him for a moment, then comes back
+  // meet all three, the last of them far across town from Ahroon: the camera goes over to him for a moment, comes back,
+  // and he walks across town to you and asks
   await H(h => { const d = h.ST.cr._dbg, P = d.player, m = d.people[1]; d.place(); [P.x, P.z] = [m.x - 1.8, m.z - 1.8]; P.u.copy(d.at(P.x, P.z)); [1, 2, 0].forEach(i => { d.openTalk(d.people[i], 0); d.closeTalk(true); }); });
-  rec(await H(h => { const st = h.ST.cr, d = st._dbg, head = d.head(0); let near = 99, seen = false;
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg, head = d.head(0), a = d.people[0], x0 = a.x, z0 = a.z; let near = 99, seen = false;
     for (let i = 0; i < 220; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); if (d.GLN.t >= 0) { seen = true; near = Math.min(near, st.camP.distanceTo(head)); } }
-    return seen && near < 6 && d.GLN.t < 0 && d.AH.st === 'here'; }), 'once you have met all three, the camera goes to Ahroon for a moment and comes back');
-  rec(await H(h => { const st = h.ST.cr, d = st._dbg; d.goTalk(d.people[0]); for (let i = 0; i < 1400 && !(d.talk().p && d.talk().ask); i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } return !!d.talk().ask; }), 'clicking Ahroon walks you across town to him, and he asks');
+    return seen && near < 6 && d.GLN.t < 0 && d.AH.st === 'come' && Math.hypot(a.x - x0, a.z - z0) > 1; }), 'once you have met all three, the camera goes to Ahroon for a moment, comes back, and he sets off towards you');
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 1400 && !(d.talk().p && d.talk().ask); i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } return !!d.talk().ask && d.talk().p === d.people[0]; }), 'he walks all the way over to you, and asks');
   await H(h => { const d = h.ST.cr._dbg; for (let i = 0; i < 8; i++) d.nextTalk(); });
   await wait(600); await covered('#crTalk', 'the invitation');
   await tap('#crFly', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
@@ -189,7 +190,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
   rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'it burns by itself if you do not, and throws you out into the white');
   await H(h => { h.S.finX = 1; }); await wait(20000);
-  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /Just three young lads who dare to chase the impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
+  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /3 lads building the impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
   await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
 
   const fails = results.filter(r => !r.ok);

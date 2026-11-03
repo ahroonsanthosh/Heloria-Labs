@@ -1,6 +1,6 @@
 /* Lists every button, link and role=button on the site that has no click-type listener of its own.
    Some of those still work through a listener on a parent or the window (delegation), so read the list, don't trust it blindly.
-   node tools/test/shot.cjs --html dist/heloria.html --out /tmp/audit --scenario tools/test/audit-buttons.cjs */
+   node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/audit --scenario untamed/test/audit-buttons.cjs */
 module.exports = async ({ page, log }) => {
   const cdp = await page.context().newCDPSession(page);
   const { result } = await cdp.send('Runtime.evaluate', { expression: `[...document.querySelectorAll('button,[role=button],a[href],canvas#radar,[data-play],[data-back]')]`, returnByValue: false });

@@ -1,7 +1,7 @@
 /* ================= THE PAGE OVER THE PLACE ================= */
 const UI={};
 const INK=col('#2B2520'), LIGHT=col('#FFF8EE'), _fg=new T.Color();
-$$('[data-untamed]').forEach(a=>{ a.href=UNTAMED_URL; });
+untamedLinks(document);
 /* headlines are split into words: they rise in one by one, and the water reflects each word where it stands */
 $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('aria-label',txt); el.textContent='';
   txt.split(' ').forEach((w,i,a)=>{ const s=document.createElement('span'); s.className='w'; s.setAttribute('aria-hidden','true'); s.style.setProperty('--i',i); s.textContent=w; el.appendChild(s); if(i<a.length-1) el.appendChild(document.createTextNode(' ')); }); });

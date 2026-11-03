@@ -29,6 +29,9 @@
 @keyframes beNo{20%{transform:translateX(-6px)}45%{transform:translateX(5px)}70%{transform:translateX(-3px)}100%{transform:none}}
 @keyframes beBlink{50%{opacity:.2}}
 .st-be .mailrow{display:grid;gap:8px;justify-items:start}
+.st-be .calmrow{margin:26px 0 0;display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+.st-be .calmrow a{color:var(--ink2);text-decoration:none;border-bottom:1px solid var(--hair2);padding-bottom:3px;transition:color .3s,border-color .3s}
+.st-be .calmrow a:hover,.st-be .calmrow a:focus-visible{color:var(--acc);border-color:currentColor}
 .mail{user-select:text;-webkit-user-select:text;font:800 clamp(26px,2.6vw,40px)/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;text-align:left;overflow-wrap:anywhere;transition:color .3s;-webkit-text-stroke:0}
 .mail:hover,.mail:focus-visible{color:var(--acc)}
 .mail.ok{animation:beOk 1.2s var(--ease)}

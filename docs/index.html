@@ -4,288 +4,224 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. A playable universe: fall into a ray-traced black hole and play Kríos, Aetos, Pharos and Ogive.">
-<meta name="theme-color" content="#050504">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Heloria Labs">
-<meta property="og:description" content="A software lab in Ireland. Software for problems with physics in them.">
-<meta property="og:image" content="assets/img/og.jpg">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Heloria Labs is a small software lab in Ireland. A pavilion of pale stone in still water at golden hour, with four rooms of light: Kríos, Aetos, Pharos and Ogive.">
+<meta name="theme-color" content="#EFE6D8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23EFE4D3'/%3E%3Ccircle cx='32' cy='31' r='8' fill='%23F0AE6A'/%3E%3Cpath d='M15 55V31a17 17 0 0 1 34 0v24' fill='none' stroke='%232B2520' stroke-width='5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap">
-<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Instrument+Sans:wght@400..600&family=Instrument+Serif:ital@0;1&display=swap">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Heloria Labs">
+<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">
+<meta property="og:image" content="assets/img/og-tamed.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="assets/tamed.css">
 </head>
 <body>
 <canvas id="gl" aria-hidden="true"></canvas>
-<div class="grain" aria-hidden="true"></div>
-<div class="lb t" aria-hidden="true"></div><div class="lb b" aria-hidden="true"></div>
 
-<!-- LOADER + ENTER -->
-<section class="layer" id="load" aria-label="Heloria Labs">
-  <h1 id="mark" class="disp" aria-label="Heloria">Heloria</h1>
-  <span id="begin" class="ui"><i aria-hidden="true"></i><span id="beginT">Scroll to begin</span></span>
-</section>
-
-<!-- STORY -->
-<section class="layer off" id="story" aria-label="Story">
-  <div class="ch" data-i="0"><div class="blk">
-    <span class="eb ui fade"><i></i>A software lab in Ireland</span>
-    <h1 class="disp hero pw">Heloria</h1>
-    <div class="hero-lede fade" style="--fd:500ms"><p class="lede">We build software for problems with physics in them. Voice, flight, airspace, navigation.</p></div>
-  </div></div>
-  <div class="ch" data-i="1"><div class="blk">
-    <span class="eb ui fade"><i></i>01 · Three builders</span>
-    <h2 class="disp pw">Drawn to the hard part.</h2>
-    <p class="lede fade" style="--fd:500ms">A voice that has to sound human. A rocket that has to come down where you said. A drone that has to find its way with no GPS.</p>
-    <p class="ui tease fade" style="--fd:900ms">Keep falling</p>
-  </div></div>
-  <div class="ch" data-i="2"><div class="blk">
-    <span class="eb ui fade"><i></i>02 · The system</span>
-    <h2 class="disp pw">Four projects in orbit.</h2>
-    <p class="lede fade" style="--fd:500ms">Kríos, Ogive, Aetos and Pharos. Every one of them is a game you can play.</p>
-    <p class="ui tease fade" style="--fd:900ms">First, you have to get there</p>
-  </div></div>
-  <div class="ch" data-i="3"><div class="blk">
-    <span class="eb ui fade" style="color:var(--alarm)"><i></i>03 · Warning</span>
-    <h2 class="disp pw">Too close.</h2>
-    <p class="lede fade" style="--fd:500ms">Light can't leave from here. You still can, if you fire now.</p>
-    <p class="ui tease fade" style="--fd:900ms;color:var(--alarm)">Scroll to fire the engine</p>
-  </div></div>
-  <div id="prox" class="ui"><span class="bl">Proximity alarm</span><b id="proxR">2.40</b><span>r / r<sub>s</sub></span></div>
-  <span id="cue" class="ui mute"><i></i>Scroll to fall in</span>
-  <button class="btn hit" id="skip" type="button">Skip to orbit</button>
-</section>
-
-<!-- HUB -->
-<section class="layer off" id="hub" aria-label="Orbit">
-  <div id="labels"></div>
-  <div id="edges"></div>
-  <div id="warn" aria-live="polite"><span class="ui">Tidal forces rising</span><b id="warnR">5.0</b></div>
-  <button class="btn pri hit" id="dockp" type="button" hidden>Dock</button>
-  <div id="hint" class="ui"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust</span><span>Drag to look</span><span>Scroll to zoom</span><span>Click a station to autopilot</span></div>
-  <div class="nav"><span class="ui" id="peers"></span><canvas id="radar" class="hit" width="368" height="368" aria-label="System map. Click a station to fly there."></canvas></div>
-  <div id="stick" hidden><i></i></div>
-</section>
-
-<!-- STATIONS -->
-<section class="layer off" id="station" aria-label="Station">
-  <button class="btn hit" id="back" type="button" data-cur="Orbit"><svg class="ar" viewBox="0 0 12 12" aria-hidden="true" style="transform:rotate(180deg)"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>Orbit <span class="mute">Esc</span></button>
-
-  <article class="st st-kr is-menu" data-st="kr">
-    <div class="notes">
-      <div class="note"><span class="k ui">The skill</span><span class="v">Reading the room: ask before you pitch, take the objection seriously, and know when to ask for the meeting.</span></div>
-      <div class="note"><span class="k ui">The game</span><span class="v">A cold call in six turns. Pick each reply before the line goes quiet. Warm the room, then book the demo.</span></div>
+<!-- the gate: the letters settle, then two ways in -->
+<div id="gate" class="loading" role="dialog" aria-modal="true" aria-label="Heloria Labs">
+  <div class="gate-glow" aria-hidden="true"></div>
+  <div class="gate-in">
+    <h1 id="word" class="mark" aria-label="Heloria"><span>H</span><span>E</span><span>L</span><span>O</span><span>R</span><span>I</span><span>A</span></h1>
+    <p class="gate-line">A small software lab in Ireland</p>
+    <div class="ways">
+      <button id="tamed" class="way" type="button" disabled>
+        <span class="w disp">Tamed</span>
+        <span class="d">A calm walk through our work</span>
+      </button>
+      <span class="ways-rule" aria-hidden="true"></span>
+      <a id="untamed" class="way" href="#" data-untamed target="_blank" rel="noopener">
+        <span class="w disp">Untamed</span>
+        <span class="d">The whole thing, wild and playable</span>
+      </a>
     </div>
-    <div class="card"><span class="idx ui"><span>00 / 00</span></span><h2 class="disp pw">Kríos</h2><p class="lede fade" style="--fd:400ms">Reps rehearse the calls that matter against a buyer who answers back, before a real one hears them.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Read the Room</b><span class="ui s mute" id="krBest">Best 0</span></div><button class="btn pri hit play" data-play type="button" data-cur="Play" aria-label="Play Read the Room">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://krios.ie" target="_blank" rel="noopener" data-cur="Visit">krios.ie <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
-    <div class="ghud">
-      <div class="gtr"><span class="ui mute">Score</span><span class="num" id="krScore">0</span><span class="ui acc" id="krCombo"></span></div>
-      <div class="gtl krmeters">
-        <div class="krm"><span class="ui mute">Trust</span><span class="krbarm"><i id="krTr"></i></span><span class="ui krv" id="krTrV">40</span></div>
-        <div class="krm"><span class="ui mute">Interest</span><span class="krbarm"><i id="krIn"></i></span><span class="ui krv" id="krInV">35</span></div>
-        <span class="ui mute" id="krTurn">Turn 1 / 6</span>
-      </div>
-      <div class="krtop">
-        <span class="ui krwho" id="krWho"></span>
-        <p class="krline" id="krLine" aria-live="polite"></p>
-        <p class="krnote" id="krNote" aria-live="polite"></p>
-      </div>
-      <div class="krpick" id="krPick">
-        <div class="krtime" aria-hidden="true"><i id="krBar"></i></div>
-        <div class="krops" id="krOps" role="group" aria-label="Your reply">
-          <button class="krop hit" type="button" data-i="0" data-cur="Say"><kbd>1</kbd><span></span></button>
-          <button class="krop hit" type="button" data-i="1" data-cur="Say"><kbd>2</kbd><span></span></button>
-          <button class="krop hit" type="button" data-i="2" data-cur="Say"><kbd>3</kbd><span></span></button>
-        </div>
-        <span class="ui mute krhint" id="krHint"></span>
-      </div>
-    </div>
-    <div class="res" role="dialog" aria-label="Call result"><div class="l"><span class="ui acc">Call ended · <span id="krNew"></span></span><h3 class="disp grade" id="krG">Demo booked</h3><div class="score" id="krFinal">0</div></div><div class="r"><div class="stats" id="krStats"></div><p id="krP"></p></div><div class="acts"><button class="btn pri" data-play type="button">Call again</button><button class="btn" data-back type="button">Back to orbit</button><a class="btn" href="https://krios.ie" target="_blank" rel="noopener">krios.ie</a></div></div>
-  </article>
-
-<article class="st st-ae is-menu" data-st="ae">
-    <div class="notes">
-      <div class="note"><span class="k ui">The loop</span><span class="v">Detect, identify, decide, act. Fast, and never at the wrong target.</span></div>
-      <div class="note"><span class="k ui">The game</span><span class="v">Three waves, three sites to defend. The sweep identifies each contact. Never fire on a friendly.</span></div>
-    </div>
-    <div class="card"><span class="idx ui"><span>00 / 00</span></span><h2 class="disp pw">Aetos</h2><p class="lede fade" style="--fd:400ms">When the sky fills with drones, the hard part is not shooting. It is knowing which one to shoot.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Hold the Sky</b><span class="ui s mute" id="aeBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Hold the Sky">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
-    <div class="ghud">
-      <div class="ae-marks" id="aeMarks" aria-hidden="true"></div>
-      <div class="pops" id="aePops"></div>
-      <div class="ae-top"><div class="ae-wv"><span class="ui" id="aeWave">Wave 1 / 3</span><span class="ui mute" id="aeWaveN">Scouts inbound</span></div><div class="ae-meter"><i id="aeWaveM"></i></div><span class="ui s ae-hint" id="aeHint">Click a track or a row to engage</span></div>
-      <div class="ae-warn" id="aeWarn" role="status" aria-live="polite"><span class="ui">Threat</span><b class="ui" id="aeWarnT">Airfield</b></div>
-      <div class="ae-score"><span class="ui mute">Score</span><span class="num" id="aeScore">0</span></div>
-      <div class="ae-tbl hit" role="group" aria-label="Tracks, sorted by time to impact">
-        <div class="ae-th ui"><span>Tracks</span><span class="mute" id="aeCount">0</span></div>
-        <div class="ae-cols ui"><span>Track</span><span>Class</span><span>Range</span><span>Impact</span></div>
-        <div id="aeRows"></div>
-        <div class="ae-key ui"><span><i class="h"></i>Hostile</span><span><i class="f"></i>Friend</span><span><i class="u"></i>Unknown</span></div>
-      </div>
-      <div class="ae-arm hit">
-        <div class="ae-ammo"><span class="ui s mute">Interceptors</span><div class="ae-pips" id="aePips"></div></div>
-        <button class="ae-jam" id="aeJam" type="button" data-cur="Jam" aria-label="Jam, key Space"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="bg" cx="40" cy="40" r="38"/><circle class="fg" id="aeJamP" cx="40" cy="40" r="38"/></svg><span class="t"><b id="aeJamT">Jam</b><kbd>Space</kbd></span></button>
-      </div>
-      <div class="banner" id="aeBanner"></div>
-    </div>
-    <div class="res" role="dialog" aria-label="Defence result"><div class="l"><span class="ui acc">After action report · <span id="aeNew"></span></span><h3 class="disp grade" id="aeG">Sky held</h3><div class="score" id="aeFinal">0</div></div><div class="r"><div class="stats" id="aeStats"></div><p id="aeP"></p></div><div class="acts"><button class="btn pri" data-play data-key="ok" type="button">Defend again</button><button class="btn" data-back data-key="ok" type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">GitHub</a></div></div>
-  </article>
-
-<article class="st st-ph is-menu" data-st="ph">
-    <div class="notes">
-      <div class="note"><span class="k ui">Real flight · 13 min</span><span class="v"><b>92%</b>Trusted within 25 m on a fixed-wing flight. Trusted but wrong: never.</span></div>
-      <div class="note"><span class="k ui">Hardware</span><span class="v">A laptop CPU. No trained models, no paid maps.</span></div>
-    </div>
-    <div class="card"><span class="idx ui"><span>00 / 00</span></span><h2 class="disp pw">Pharos</h2><p class="lede fade" style="--fd:400ms">When GPS is jammed, spoofed or gone, it keeps going. And it knows when it doesn't know.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Lost Signal</b><span class="ui s mute" id="phBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Lost Signal">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
-    <div class="ghud">
-      <div class="gtl"><span class="ui acc" id="phRound">Fix 1 / 5</span><span class="num sm" id="phUnc">± 256 m</span><span class="ui mute" id="phUncL">GPS jammed · dead reckoning</span></div>
-      <div class="gtr"><span class="ui mute">Score</span><span class="num" id="phScore">0</span></div>
-      <div class="phf hit" id="phF">
-        <div class="hd ui s"><span>Downward camera</span><span class="mute" id="phFrm">Frame 0412</span></div>
-        <div class="box" id="phBox" data-cur="Skip"><canvas id="phFeed" width="300" height="300" aria-label="Downward camera frame"></canvas><span class="t1 ui s" id="phTele">Hdg 047° · Tilt 22°</span><span class="t2 ui s" id="phTele2">Alt 120 m</span><i class="cx" aria-hidden="true"></i></div>
-        <ol class="stg ui s" aria-label="Pharos pipeline"><li><b>01</b>Raw</li><li><b>02</b>Rectify</li><li><b>03</b>Describe</li><li><b>04</b>Match</li></ol>
-        <p class="fcap" id="phCap" aria-live="polite"></p>
-      </div>
-      <div class="phm" aria-hidden="true">
-        <span class="mk ring ui s" id="phRing">± 256 m</span>
-        <span class="mk gnss" id="phGnss"><i></i><em class="ui s" id="phGnssL">GNSS fix · ± 3 m</em></span>
-        <span class="mk ln" id="phLn"></span>
-        <span class="mk click" id="phClk"><i></i></span>
-        <span class="mk truth" id="phTru"><i></i><em class="ui s">Truth</em></span>
-        <span class="mk dist" id="phDist">0 m</span>
-      </div>
-      <div class="gbc"><p class="help" id="phHelp" aria-live="polite">Watch the pipeline</p><span class="keys ui s mute" id="phKeys"></span><button class="btn hit nx" id="phNext" type="button" data-key="ok" data-cur="Next">Next fix <kbd>Space</kbd></button></div>
-      <div class="pops" id="phPops"></div>
-      <div class="banner" id="phBanner"></div>
-    </div>
-    <div class="res" role="dialog" aria-label="Navigation result"><div class="l"><span class="ui acc">Five fixes · <span id="phNew"></span></span><h3 class="disp grade" id="phG">Trusted</h3><div class="score" id="phFinal">0</div><ol class="fx ui s" id="phFx"></ol></div><div class="r"><div class="stats" id="phStats"></div><p id="phP"></p></div><div class="acts"><button class="btn pri" data-play data-key="ok" type="button">Play again</button><button class="btn" data-back data-key="ok" type="button">Back to orbit</button><a class="btn" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">GitHub</a></div></div>
-  </article>
-
-<article class="st st-og is-menu ph-design" data-st="og">
-    <div class="notes">
-      <div class="note"><span class="k ui">Stability</span><span class="v" id="ogStabNote"><b>1.91 cal</b>The centre of pressure sits behind the centre of gravity, by Barrowman's equations.</span></div>
-      <div class="note"><span class="k ui">The game</span><span class="v">Drag the nose and fins, pick a motor, then hit a target altitude in three flights.</span></div>
-    </div>
-    <div class="card"><span class="idx ui"><span>00 / 00</span></span><h2 class="disp pw">Ogive</h2><p class="lede fade" style="--fd:400ms">AI tools for OpenRocket. Say what you want the rocket to do, and let it work the design until it does.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Apogee</b><span class="ui s mute" id="ogBest">Best 0</span></div><button class="btn pri hit play" data-play type="button" data-cur="Play" aria-label="Play Apogee">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
-    <div class="ghud">
-      <div class="gtl ogtl">
-        <span class="ui mute">Target apogee</span>
-        <span class="num" id="ogTarget">280 m</span>
-        <span class="ui"><span id="ogTries">Flight 1 / 3</span><span class="mute og-wind"> · Wind 3.5 m/s <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M0 4h10M7 1l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></span></span>
-        <div class="oggauge" id="ogGauge" aria-hidden="true"></div>
-        <span class="ui og-ast" id="ogAst">Ogive's design · assisted</span>
-      </div>
-      <div class="ogcd" id="ogCD" aria-live="assertive"><span class="ui acc" id="ogCDk">Launch in</span><b class="disp tick" id="ogCDn">3</b></div>
-      <div class="ogcap" id="ogCap" aria-live="polite"><span class="ui acc" id="ogCapK"></span><span class="ui" id="ogCapV"></span></div>
-      <div class="ogcg" id="ogCgcp" aria-hidden="true">
-        <i class="rl" id="ogRail"></i><i class="dr" id="ogDrCG"></i><i class="dr cp" id="ogDrCP"></i><i class="dm" id="ogDim"></i>
-        <div class="m cg" id="ogCG"><span class="sym"></span></div><span class="ml ui s" id="ogCGl">CG</span>
-        <div class="m cp" id="ogCP"><span class="sym"></span></div><span class="ml ui s cp" id="ogCPl">CP</span>
-        <div class="stab" id="ogStabL"><b class="ui" id="ogStab">1.91 cal</b><span class="ui s mute" id="ogStabW">Stable</span></div>
-      </div>
-      <div class="handle hit" id="ogHN" tabindex="0" role="slider" aria-label="Nose length, L/D" aria-valuemin="1.5" aria-valuemax="4" aria-valuenow="2.5" data-cur="Drag"><i class="pl"></i><i class="d"></i><i class="ar a"></i><i class="ar b"></i><span class="lb"><span class="ui s">Nose length</span><b class="ui s" id="ogHNv">L/D 2.50</b></span></div>
-      <div class="handle hit" id="ogHF" tabindex="0" role="slider" aria-label="Fin span, millimetres" aria-valuemin="45" aria-valuemax="113" aria-valuenow="75" data-cur="Drag"><i class="pl"></i><i class="d"></i><i class="ar a"></i><i class="ar b"></i><span class="lb"><span class="ui s">Fin span</span><b class="ui s" id="ogHFv">75 mm</b></span></div>
-      <div class="ogfoot">
-        <div class="ogdock hit">
-          <div class="ogsay" id="ogSay" aria-live="polite"><canvas id="ogPlot" width="232" height="88" aria-hidden="true"></canvas><p class="ui" id="ogAI"></p></div>
-          <div class="ogbar">
-            <div class="grp"><span class="ui s mute">Motor</span><div class="seg" id="ogMotor" role="group" aria-label="Motor"><button type="button" data-m="F" data-key="ok" aria-pressed="false">F</button><button type="button" data-m="G" data-key="ok" aria-pressed="true">G</button><button type="button" data-m="H" data-key="ok" aria-pressed="false">H</button></div><span class="ui s mute" id="ogMotS">58 N·s · 1.7 s burn</span></div>
-            <div class="grp"><span class="ui s mute">Nose ballast</span><div class="stepper"><button type="button" id="ogBm" data-key="ok" aria-label="Less ballast">−</button><output id="ogBal">0 g</output><button type="button" id="ogBp" data-key="ok" aria-label="More ballast">+</button></div><span class="ui s mute" id="ogMass">0.53 kg · Cd 0.46</span></div>
-            <button class="btn og-ask" id="ogAsk" type="button" data-cur="Ask" data-key="ok"><span id="ogAskT">Ask Ogive</span></button>
-          </div>
-        </div>
-        <button class="btn pri hit play og-launch" id="ogLaunch" type="button" data-cur="Launch" data-key="ok"><span id="ogLaunchT">Launch</span><kbd>Space</kbd></button>
-      </div>
-      <div class="alt"><span class="ui mute">Altitude</span><span class="num" id="ogA">0</span><span class="ui mute" id="ogV">+0.0 m/s</span><span class="ui mute" id="ogT">T+ 0.0 s</span><span class="ui acc" id="ogX"></span></div>
-      <div class="ogring" id="ogRing" aria-hidden="true"><i class="o" id="ogRingO"></i><i class="i"></i></div>
-      <div class="pops" id="ogPops"></div>
-      <div class="ogchute" id="ogPrompt"><button class="btn pri hit" id="ogChute" type="button" data-cur="Chute" data-key="ok">Open chute</button><span class="ui mute" id="ogPromptT"><kbd>Space</kbd> or tap anywhere, right at the top</span></div>
-    </div>
-    <div class="res" role="dialog" aria-label="Flight result"><div class="l"><span class="ui acc"><span id="ogResEb">Flight 1 / 3</span> · <span id="ogNew"></span></span><h3 class="disp grade" id="ogG">On target</h3><div class="score" id="ogFinal">0</div></div><div class="r"><div class="stats" id="ogStats"></div><p id="ogP"></p></div><div class="acts"><button class="btn pri" id="ogAgain" type="button" data-key="ok">Adjust and fly again</button><button class="btn" id="ogNewT" type="button" data-key="ok">New target</button><button class="btn" data-back type="button" data-key="ok">Back to orbit</button></div></div>
-  </article>
-
-<article class="st st-cr is-menu" data-st="cr">
-    <div class="card"><h2 class="disp pw long">Three builders.</h2><p class="lede fade" style="--fd:400ms" id="crLede">You came through the hole. Walk over and say hello.</p></div>
-    <div id="crLabels" aria-hidden="true"><span class="crl ui">Ahroon</span><span class="crl ui">Michael</span><span class="crl ui">Abraham</span></div>
-    <div class="crtalk" id="crTalk" role="dialog" aria-label="Conversation" aria-hidden="true">
-      <span class="crtk-n ui" id="crTkN">Ahroon</span>
-      <div class="crtk-b" id="crTkB">
-        <div class="crtk-ph"><img id="crImg" alt=""></div>
-        <div class="crtk-m">
-          <p class="crtk-t" id="crTkT"></p>
-          <div class="crtk-a"><a class="btn pri hit" id="crLink" href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener" data-cur="Open">LinkedIn <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a><button class="btn hit" id="crClose" type="button">See you</button></div>
-          <div class="crtk-q"><button class="btn pri hit" id="crFly" type="button" data-cur="Fly">Let's fly</button><button class="btn hit" id="crNot" type="button">Not yet</button></div>
-        </div>
-        <button class="crtk-go hit" id="crNext" type="button" aria-label="Next" data-cur="Next"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2 10 6 3 10Z" fill="currentColor"/></svg></button>
-      </div>
-    </div>
-    <span class="ui crhint" id="crHint"></span>
-    <div class="crstick" id="crStick" hidden><i></i></div>
-    <button class="crskip ui hit" id="crSkip" type="button" data-cur="Skip">Skip</button>
-  </article>
-
-<article class="st st-be is-menu" data-st="be">
-    <div class="card hit">
-      <span class="idx ui"><span>00 / 00</span></span>
-      <h2 class="disp pw long">Always looking for builders.</h2>
-      <p class="lede fade" style="--fd:300ms">No CV, no job titles. Show us something you've built. Your signal joins the orbit.</p>
-      <form class="sig fade" id="sig" style="--fd:450ms" novalidate>
-        <label class="ui mute fld" for="sgName"><span class="fldt">Your name</span><input id="sgName" name="name" maxlength="40" autocomplete="name" required></label>
-        <label class="ui mute fld" for="sgLink"><span class="fldt">Link to something you built</span><input id="sgLink" name="link" maxlength="200" type="url" inputmode="url" autocomplete="url" placeholder="https://" required></label>
-        <div class="wave"><canvas id="sgWave" width="900" height="68" aria-hidden="true"></canvas><div class="wl ui s"><span id="sgLvl">Type to charge the signal</span><span class="mute" id="sgPct">000</span></div></div>
-        <div class="acts"><button class="btn pri" type="submit" id="sgBtn" data-cur="Send" data-key="ok"><span class="bt">Transmit signal</span></button><span class="ui mute" id="sgOut" aria-live="polite"></span></div>
-      </form>
-      <div class="fade mailrow" style="--fd:600ms"><span class="ui mute">Or write to us</span><button class="mail" id="mail" type="button" data-cur="Copy" data-key="ok">contact@helorialabs.com</button><span class="ui s mute" id="copied" aria-live="polite">Click the address to copy it</span></div>
-    </div>
-  </article>
-
-</section>
-
-<!-- CHROME -->
-<header class="layer off" id="chrome">
-  <div class="top">
-    <span class="brand"><b>Heloria</b><span class="ui mute">Labs</span></span>
-    <span class="sp"></span>
-    
   </div>
-  <div id="toast" class="ui off" role="status"></div>
-</header>
+  <p class="gate-foot" aria-hidden="true"><span class="dot"></span><span id="gateState">Settling the light</span></p>
+</div>
 
-<!-- THE LAST FLIGHT: one thing to do at the bottom of the well, and the white page at the end -->
-<div id="holdp" class="ui" aria-live="polite"><i aria-hidden="true"></i><span>Hold to burn</span></div>
-<section id="fin" hidden aria-label="The end">
-  <div class="fc f1"><span class="ui">Heloria Labs</span></div>
-  <div class="fc f2"><p>Ahroon Santhosh</p><p>Michael Sweeney Heffernan</p><p>Abraham Sabu Kurian</p></div>
-  <div class="fc f3"><h2 class="disp">Just three young lads who dare to chase the impossible.</h2>
-    <div class="fa"><button class="btn hit" id="finAgain" type="button" data-cur="Again">Fly again</button><a class="ui" href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></div></div>
-</section>
+<!-- the place: text that belongs to each stop on the walk -->
+<div id="ui" aria-hidden="true">
+  <header id="top">
+    <a id="logo" class="mark" href="#home" data-go="home" aria-label="Heloria Labs, home">HELORIA</a>
+    <nav id="menu" aria-label="Main">
+      <a href="#projects" data-go="krios" data-nav="projects"><span>Projects</span></a>
+      <a href="#team" data-go="team" data-nav="team"><span>Team</span></a>
+      <a href="#contact" data-go="contact" data-nav="contact"><span>Contact</span></a>
+    </nav>
+  </header>
 
-<div id="cur"><span id="curT">Open</span></div><div id="curd"></div>
+  <main id="places">
+    <section class="sec home" id="home" data-place="home">
+      <h1 class="disp tag split">We dare to build where others hesitate.</h1>
+      <p class="sub">We believe in jumping in first, and working things out from there.</p>
+    </section>
 
-<!-- shown only when WebGL is unavailable -->
-<main id="nogl">
-  <h1 class="disp">Heloria</h1>
-  <p class="lede">A software lab in Ireland. We build software for problems with physics in them. This site is normally a playable universe, but your browser could not start WebGL, so here is the plain version.</p>
-  <section><span class="ui mute">Projects</span><ul>
-    <li><a href="https://krios.ie" target="_blank" rel="noopener">Kríos</a><span>Voice practice for sales teams</span></li>
-    <li><a href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">Aetos</a><span>Counter-drone command software</span></li>
-    <li><a href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">Pharos</a><span>GPS-free navigation for drones</span></li>
-    <li><a href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener">Ogive</a><span>AI tools for OpenRocket</span></li>
-  </ul></section>
-  <section><span class="ui mute">Crew</span><ul>
-    <li><a href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener">Ahroon Santhosh</a><span>LinkedIn</span></li>
-    <li><a href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener">Michael Sweeney Heffernan</a><span>LinkedIn</span></li>
-    <li><a href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener">Abraham Sabu Kurian</a><span>LinkedIn</span></li>
-  </ul></section>
-  <section><span class="ui mute">Contact</span><p class="lede">Always looking for builders. Show us something you've built: <a href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></p></section>
-</main>
+    <section class="sec room" id="krios" data-place="krios" style="--c:#A5C3FF">
+      <p class="no"><span>01</span><i></i><span>Room 01 of 04</span></p>
+      <h2 class="disp split">Kríos</h2>
+      <p class="kind">Voice practice for sales teams</p>
+      <p class="medium">Rehearse the call out loud, and a buyer answers back.</p>
+      <button class="view" type="button" data-open="0"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
 
+    <section class="sec room" id="aetos" data-place="aetos" style="--c:#F2EEE6">
+      <p class="no"><span>02</span><i></i><span>Room 02 of 04</span></p>
+      <h2 class="disp split">Aetos</h2>
+      <p class="kind">Counter-drone command software</p>
+      <p class="medium">It reads a sky full of drones and marks the one that matters.</p>
+      <button class="view" type="button" data-open="1"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
 
+    <section class="sec room" id="pharos" data-place="pharos" style="--c:#FFD5B3">
+      <p class="no"><span>03</span><i></i><span>Room 03 of 04</span></p>
+      <h2 class="disp split">Pharos</h2>
+      <p class="kind">GPS-free drone navigation</p>
+      <p class="medium">No GPS, so the drone finds itself by matching what it sees to the map.</p>
+      <button class="view" type="button" data-open="2"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec room" id="ogive" data-place="ogive" style="--c:#FFB475">
+      <p class="no"><span>04</span><i></i><span>Room 04 of 04</span></p>
+      <h2 class="disp split">Ogive</h2>
+      <p class="kind">AI tools for OpenRocket</p>
+      <p class="medium">Name the height, and it reworks the rocket until it gets there.</p>
+      <button class="view" type="button" data-open="3"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec team" id="team" data-place="team">
+      <p class="kick">Team</p>
+      <h2 class="disp split">Three of us, in Ireland.</h2>
+      <p class="sub" id="teamHint">Look into the water.</p>
+    </section>
+
+    <section class="sec contact" id="contact" data-place="contact">
+      <h2 class="disp split" data-reflect="1">Talk to us.</h2>
+      <a class="mail" href="mailto:contact@helorialabs.com"><span>contact@helorialabs.com</span></a>
+      <a class="quiet" href="#" data-untamed target="_blank" rel="noopener"><span>Or see Heloria untamed</span><i aria-hidden="true"></i></a>
+    </section>
+  </main>
+
+  <div id="people" aria-label="Team">
+    <div class="person" data-i="0">
+      <span class="nm disp">Ahroon Santhosh</span>
+      <span class="ld">Leads Aetos and Pharos</span>
+      <a class="li" href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+    <div class="person" data-i="1">
+      <span class="nm disp">Michael Sweeney Heffernan</span>
+      <span class="ld">Built Kríos, leads Ogive</span>
+      <a class="li" href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+    <div class="person" data-i="2">
+      <span class="nm disp">Abraham Sabu Kurian</span>
+      <span class="ld">Works on Kríos, our group project</span>
+      <a class="li" href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+  </div>
+
+  <button id="dial" type="button" aria-label="Every place (or press and hold anywhere)">
+    <svg viewBox="-50 -50 100 100" aria-hidden="true">
+      <defs><filter id="dialBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+      <circle class="plate" r="45"/>
+      <circle class="rim" r="45"/>
+      <g class="ticks"></g>
+      <g class="marks"></g>
+      <path class="shadow" filter="url(#dialBlur)" d="M0 0"/>
+      <path class="gnomon" d="M0 0"/>
+      <circle class="pin" r="2.4"/>
+    </svg>
+    <span class="dial-t" id="dialT">Home</span>
+  </button>
+  <p id="holdHint">Press and hold anywhere to see every place</p>
+  <p id="cue"><i aria-hidden="true"></i><span>Scroll</span></p>
+</div>
+
+<!-- press and hold: every place -->
+<div id="index" aria-hidden="true" role="dialog" aria-label="Every place">
+  <ol>
+    <li data-go="home"><span class="n">00</span><span class="t disp">Home</span></li>
+    <li data-go="krios"><span class="n">01</span><span class="t disp">Kríos</span></li>
+    <li data-go="aetos"><span class="n">02</span><span class="t disp">Aetos</span></li>
+    <li data-go="pharos"><span class="n">03</span><span class="t disp">Pharos</span></li>
+    <li data-go="ogive"><span class="n">04</span><span class="t disp">Ogive</span></li>
+    <li data-go="team"><span class="n">05</span><span class="t disp">Team</span></li>
+    <li data-go="contact"><span class="n">06</span><span class="t disp">Contact</span></li>
+  </ol>
+  <p class="index-cap">Release on a place to go there</p>
+</div>
+
+<!-- a project, read calmly over the room -->
+<div id="case" aria-hidden="true">
+  <div id="caseRoll">
+    <article class="case" data-p="0" style="--c:#A5C3FF">
+      <header class="case-head">
+        <p class="case-no"><span>01</span><i></i><span>Voice practice for sales teams</span></p>
+        <h2 class="case-title disp">Kríos</h2>
+        <p class="case-lead disp">Reps rehearse the calls that matter against a buyer who answers back, before a real one hears them.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>The calls that matter are the hardest ones to practise. Too often, the first time a rep hears the hard question, a real buyer is asking it.</p></div>
+        <div class="row"><h3>What it does</h3><p>Kríos is voice practice for sales teams. A rep talks the call through out loud, and the buyer on the other end answers back. The call gets rehearsed before a real buyer ever hears it.</p></div>
+        <div class="row"><h3>Who built it</h3><p>Michael Sweeney Heffernan built it. Kríos is our group project: all three of us are behind it.</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://krios.ie" target="_blank" rel="noopener">krios.ie</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="1" style="--c:#F2EEE6">
+      <header class="case-head">
+        <p class="case-no"><span>02</span><i></i><span>Counter-drone command software</span></p>
+        <h2 class="case-title disp">Aetos</h2>
+        <p class="case-lead disp">When the sky fills with drones, the hard part is not shooting. It is knowing which one to shoot.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>A crowded sky is a hard thing to read. Friend and threat look alike on a screen, and the decision has to be right.</p></div>
+        <div class="row"><h3>What it does</h3><p>Aetos is counter-drone command software. It reads the radar, tells friend from threat, and puts the intercept on the one that matters.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Ahroon Santhosh</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">github.com/ahroonsanthosh/Aetos</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="2" style="--c:#FFD5B3">
+      <header class="case-head">
+        <p class="case-no"><span>03</span><i></i><span>GPS-free drone navigation</span></p>
+        <h2 class="case-title disp">Pharos</h2>
+        <p class="case-lead disp">When GPS is jammed, spoofed or gone, it keeps going. And it knows when it doesn't know.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>A drone that leans on GPS is lost the moment the signal is jammed, spoofed or gone.</p></div>
+        <div class="row"><h3>What it does</h3><p>Pharos is GPS-free navigation for drones. It finds where the drone is by matching its camera view to the map, and it is honest about the moments it cannot be sure.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Ahroon Santhosh</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">github.com/ahroonsanthosh/pharos</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="3" style="--c:#FFB475">
+      <header class="case-head">
+        <p class="case-no"><span>04</span><i></i><span>AI tools for OpenRocket</span></p>
+        <h2 class="case-title disp">Ogive</h2>
+        <p class="case-lead disp">Say what you want the rocket to do, and let it work the design until it does.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>Getting a rocket design to do what you want usually means changing it by hand, again and again.</p></div>
+        <div class="row"><h3>What it does</h3><p>Ogive is a set of AI tools for OpenRocket. You say what you want the rocket to do, and it works the design until it does.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Michael Sweeney Heffernan</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener">github.com/michaelsheffernan/ogive</a></p></div>
+      </div>
+    </article>
+    <div class="case-next" aria-hidden="true">
+      <p class="case-no"><span>Next</span><i></i><span class="nx-kind"></span></p>
+      <p class="case-title disp nx-title"></p>
+    </div>
+  </div>
+  <button id="back" type="button"><i aria-hidden="true"></i><span>Back to the gallery</span></button>
+  <div id="caseBar" aria-hidden="true"><i></i></div>
+</div>
+
+<div id="ring" aria-hidden="true"><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="26"/></svg></div>
+<div id="cur" aria-hidden="true"><i></i><span id="curT"></span></div>
+
+<!-- without WebGL: the same words, read as a plain page -->
+<noscript><style>#gate,#ui{display:none}</style><div class="plain"><h1>Heloria Labs</h1><p>We dare to build where others hesitate.</p><p><a href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></p></div></noscript>
 <script src="assets/vendor/three.min.js"></script>
-<script src="assets/app.js"></script>
+<script src="assets/tamed.js"></script>
 </body>
 </html>

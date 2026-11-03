@@ -3,7 +3,7 @@
    node tamed/test/run.cjs --html dist/tamed.html --out /tmp/shots --scenario tamed/test/shots.cjs [--mobile] [--hq] [--w 1280 --h 800]
    A scenario is a CommonJS module: module.exports = async (h) => { ... } where h has:
      page, shot(name), wait(ms), T(fn,arg) (fn runs in the page with (t=window.__tamed, arg)), frames(n), settle(n), log, mobile, vp, errors, check(cond,msg)
-   three.js is served from the repo's vendored copy (src/assets/vendor, read only) so the run does not depend on the CDN;
+   three.js is served from the repo's vendored copy (untamed/src/assets/vendor, read only) so the run does not depend on the CDN;
    fonts come through the network proxy when there is one. */
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
@@ -11,7 +11,7 @@ const args = process.argv.slice(2); const opt = {};
 for (let i = 0; i < args.length; i++) { if (args[i].startsWith('--')) { const k = args[i].slice(2); const v = (args[i + 1] && !args[i + 1].startsWith('--')) ? args[++i] : true; opt[k] = v; } }
 const W = ms => new Promise(r => setTimeout(r, ms));
 const ROOT = path.resolve(__dirname, '..', '..');
-const THREE_LOCAL = path.join(ROOT, 'src', 'assets', 'vendor', 'three.min.js');
+const THREE_LOCAL = path.join(ROOT, 'untamed', 'src', 'assets', 'vendor', 'three.min.js');
 (async () => {
   const out = opt.out || '/tmp/tamed-shots'; fs.mkdirSync(out, { recursive: true });
   const launch = { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-renderer-backgrounding', '--disable-background-timer-throttling'] };

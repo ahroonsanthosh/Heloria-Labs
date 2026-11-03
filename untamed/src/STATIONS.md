@@ -1,6 +1,6 @@
 # Writing a station
 
-Each station (project page plus its game) lives in `src/stations/<id>/`:
+Each station (project page plus its game) lives in `untamed/src/stations/<id>/`:
 
 | file | what it is |
 | --- | --- |
@@ -14,10 +14,10 @@ Ids: `kr` Kríos, `ae` Aetos, `ph` Pharos, `og` Ogive, `be` Beacon in orbit; `cr
 ## Build and test
 
 ```bash
-python3 tools/build.py --only kr --single /tmp/kr/kr.html        # just the core plus one station: fast to load
-node tools/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots            # title screen
-node tools/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots --mobile   # 390 x 844
-node tools/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots --scenario my-scenario.cjs
+python3 untamed/build.py --only kr --single /tmp/kr/kr.html        # just the core plus one station: fast to load
+node untamed/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots            # title screen
+node untamed/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots --mobile   # 390 x 844
+node untamed/test/shot.cjs --html /tmp/kr/kr.html --station kr --out /tmp/kr/shots --scenario my-scenario.cjs
 ```
 
 The test browser renders WebGL on the CPU (SwiftShader), so expect 1 to 4 frames a second. Timers inside the page

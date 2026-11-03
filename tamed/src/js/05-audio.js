@@ -94,8 +94,10 @@ const A=(()=>{
       const env=ctx.createGain(); env.gain.value=0;
       const fs=[0,1,2].map(k=>{ const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=[5,8,10][k]; b.frequency.value=[600,1100,2500][k]; pre.connect(b); const bg=ctx.createGain(); bg.gain.value=[1,.55,.2][k]; b.connect(bg); bg.connect(env); return b; });
       p2.connect(env); env.connect(pan(w?.35:-.35,R.g)); o.start(); o2.start(); return {o,o2,env,fs}; }); }
-  /* Aetos: wind high up, and distant birds */
+  /* Aetos: wind high up, and the hum of rotors far above */
   function roomAetos(){ const R=n.ae={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp);
+    const hm=src(n.noise), hmf=ctx.createBiquadFilter(); hmf.type='bandpass'; hmf.frequency.value=190; hmf.Q.value=2.4; const hmg=ctx.createGain(); hmg.gain.value=.05; hm.connect(hmf); hmf.connect(hmg); hmg.connect(R.g);
+    const hl=ctx.createOscillator(); hl.frequency.value=.21; const hlg=ctx.createGain(); hlg.gain.value=.025; hl.connect(hlg); hlg.connect(hmg.gain); hl.start();
     const w=src(n.noise), f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=700; f.Q.value=.45; const wg=ctx.createGain(); wg.gain.value=.22; w.connect(f); f.connect(wg); wg.connect(R.g);
     const l=ctx.createOscillator(); l.frequency.value=.08; const lg=ctx.createGain(); lg.gain.value=420; l.connect(lg); lg.connect(f.frequency); l.start();
     const l2=ctx.createOscillator(); l2.frequency.value=.13; const l2g=ctx.createGain(); l2g.gain.value=.12; l2.connect(l2g); l2g.connect(wg.gain); l2.start();
@@ -111,6 +113,22 @@ const A=(()=>{
     const s=ctx.createGain(); s.gain.value=.9; hp.connect(s); s.connect(n.revIn);
     R.os=[]; for(let i=0;i<6;i++){ const o=ctx.createOscillator(); o.type='sine'; const g=ctx.createGain(); g.gain.value=0; o.connect(g); g.connect(pan((i%2?.3:-.3),R.g)); o.start(); R.os.push({o,g,ph:i/6}); }
     const h=src(n.noise), hf=ctx.createBiquadFilter(); hf.type='bandpass'; hf.frequency.value=6500; hf.Q.value=.7; R.hiss=ctx.createGain(); R.hiss.gain.value=0; h.connect(hf); hf.connect(R.hiss); R.hiss.connect(R.g); }
+
+  /* what just happened in a room: the radar coming round, a threat picked out, locked and taken; the drone finding itself;
+     each design the rocket tries, the one that gets there, the flight, the chute and the landing */
+  function roomSound(nm,p,v,st,t){
+    const ae=st.ae, ph=st.ph, og=st.og;
+    if(nm==='ae-sweep'){ if(ae>.05) tone(1320,.09,.006*ae,'sine',1180,0,.5,.002); }
+    else if(nm==='ae-id'){ if(ae>.05){ glass(76,t+.02,.03*ae,p,n.comp); glass(81,t+.2,.022*ae,p,n.comp); } }
+    else if(nm==='ae-lock'){ if(ae>.05){ glass(83,t+.02,.024*ae,p,n.comp); glass(83,t+.17,.018*ae,p,n.comp); } }
+    else if(nm==='ae-hit'){ if(ae>.05){ tone(150,.9,.05*ae,'sine',70,0,.6,.004); noise(.7,.03*ae,2400,500,'lowpass',.7,0,.5); glass(69,t+.3,.02*ae,p,n.comp); } }
+    else if(nm==='ph-lock'){ if(ph>.05){ glass(57,t+.05,.034*ph,p,n.mus); glass(64,t+.42,.016*ph,p+.15,n.mus); } }
+    else if(nm==='og-tick'){ if(og>.05) tone(1900,.05,.008*og,'triangle',1500,0,.3,.002); }
+    else if(nm==='og-pred'){ if(og>.05){ if(Math.abs(v)<.05){ [74,78,81].forEach((m,i)=>glass(m,t+.02+i*.11,.026*og,(i-1)*.2,n.comp)); } else glass(v<0?69:83,t+.01,.026*og,0,n.comp); } }
+    else if(nm==='og-launch'){ if(og>.05){ noise(2.2,.05*og,300,2600,'bandpass',.8,0,.5); tone(90,1.6,.04*og,'sine',140,0,.4,.05); } }
+    else if(nm==='og-chute'){ if(og>.05) noise(.35,.04*og,900,300,'bandpass',1.2,0,.4); }
+    else if(nm==='og-land'){ if(og>.05) tone(220,.25,.02*og,'sine',160,0,.3,.004); }
+  }
 
   const L={music:0,water:0,waterF:2400,mus:9000,kr:0,ae:0,ph:0,og:0,wind:0};
   return {
@@ -143,8 +161,9 @@ const A=(()=>{
           const base=i?118:158, ip=base*(1+.05*Math.sin(t*1.7+i)+.03*Math.sin(t*4.3+i*2)); v.o.frequency.setTargetAtTime(ip,t,.08); v.o2.frequency.setTargetAtTime(ip,t,.08);
           const vw=(Math.sin(t*2.3+i*1.7)*.5+.5), F=[[700,1150,2600],[400,1900,2550],[550,850,2400]]; const a=F[Math.floor(vw*2.99)];
           v.fs.forEach((b,k)=>b.frequency.setTargetAtTime(a[k]*(i?.9:1.05),t,.12)); }); }
-      if(st.ae>.05&&t>n.ae.next){ chirp(Math.random()*1.2-.6,.011*st.ae); if(Math.random()<.3) chirp(Math.random()*1.2-.6,.007*st.ae); n.ae.next=t+1.2+Math.random()*3.5; }
-      if(st.ph>.01){ const f=st.beam||0; if(f>.82&&t>(n.ph.bell||0)){ n.ph.bell=t+7; glass(57,t+.05,.034*st.ph,0,n.mus); glass(64,t+.42,.016*st.ph,.15,n.mus); } set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,f*.12,.15); set(n.ph.airF.frequency,300+f*900,.2); }
+      for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
+      /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air */
+      if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
       set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
     },

@@ -1,6 +1,6 @@
 # Heloria: the journey
 
-A separate version of the site, built from its own source tree so the original in `src/` stays exactly as it is.
+A separate version of the site, built from its own source tree so the original in `untamed/src/` stays exactly as it is.
 
 Instead of a set of exhibits, it is one trip. You wake in orbit with the three of us on the radio. Home is Earth, on
 the far side of the black hole, and each project is what gets you past the next problem:
@@ -18,8 +18,8 @@ After you land, orbit is free: every station is open as a full game. Every momen
 Build it with the same script, pointing it at this tree:
 
 ```
-python3 tools/build.py --src journey/src --artifact out.html
-python3 tools/build.py --src journey/src --single dist/journey.html
+python3 untamed/build.py --src journey/src --artifact out.html
+python3 untamed/build.py --src journey/src --single dist/journey.html
 ```
 
 What is new here: `src/js/26-journey.js` (the director, the radio, the objective marker and the three orbit

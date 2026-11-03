@@ -390,10 +390,12 @@ function linesFor(i){ const has=id=>S.docked.has(id), left=Object.keys(NAME).fil
   if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
     has('og')?'This rocket is Ogive, my project: AI tools for OpenRocket. You flew it, so here it stands. Say what you want the rocket to do, and it works the design until it does.'
              :'This empty pad is for Ogive, my project: AI tools for OpenRocket. Say what you want the rocket to do, and it works the design until it does. Fly it up there and the rocket stands here.',
+    'I built Kríos too, down in the square. That one belongs to all three of us: it\'s our group project.',
     'That\'s me. Come and find me.'];
   return [back?'Hi again!':'Hi, I\'m Abraham.',
-    has('kr')?'The glass sculpture is Kríos, my project. You played it, so here it is. Reps rehearse the calls that matter against a buyer who answers back.'
-             :'This empty plinth is for Kríos, my project. Reps rehearse the calls that matter against a buyer who answers back. Play it up there and it stands here.',
+    has('kr')?'The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it. You played it, so here it is.'
+             :'This empty plinth is for Kríos, our group project: Michael built it, and all three of us are behind it. Play it up there and it stands here.',
+    'Reps rehearse the calls that matter against a buyer who answers back, before a real one ever hears them.',
     'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
@@ -655,20 +657,32 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
     if(TALK.ask&&TALK.i>=TALK.L.length-1&&TALK.shown>=TALK.txt.length&&e.code!=='KeyE'){ startFinale(); } else nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 
 /* ---------- once you have met all three of us, Ahroon has one more thing. The camera goes over to him for a moment (he waves),
-   then comes back to you; he waits where he is, his name calling, until you go and talk to him ---------- */
+   and as it comes back to you he sets off across town to find you, his name calling, and asks when he gets there.
+   Close enough to see him, he just waves and comes over; right beside you, he asks ---------- */
 const INVITE=['That\'s all three of us. You\'ve met the whole lab.','One more thing. She\'s fuelled, and she\'s got one flight left in her.','Want to see what she can really do?'];
-const AH={st:'home',t:0,heard:false};
+const AH={st:'home',t:0,heard:false,ph:0,turn:0,chk:0,lx:0,lz:0};
 const GLN={t:-1,d:0,P:new T.Vector3(),L:new T.Vector3(),U:new T.Vector3(),q:new T.Vector3()};
 const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the flight back
 function openInvite(){ openTalk(people[0],AH.heard?INVITE.length-1:0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; a.walk=0; if(FIN.on||CUT.on) return;
-  if(AH.st!=='wait'||TALK.p) return;
-  AH.t-=dt; if(AH.t>0) return;
+function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.turn=0; AH.lx=a.x; AH.lz=a.z; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
-  if(d<2.6){ AH.st='here'; openInvite(); return; }              // he is right here: he just asks
-  if(d<7){ AH.st='here'; a.wave=2.4; A.chime(7,0,.04); return; } // close enough to see: he waves you over
-  AH.st='here'; glanceStart(d); }
+  if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
+    if(d<2.6){ AH.st='here'; openInvite(); return; }                          // he is right here: he just asks
+    if(d<7){ AH.st='greet'; AH.t=.9; a.wave=2.4; A.chime(7,0,.04); return; }  // close enough to see: he waves, then comes over
+    AH.st='look'; glanceStart(d); return; }                                    // too far: the camera goes to him first
+  if(AH.st==='greet'){ a.walk=0; AH.t-=dt; if(AH.t<=0) ahroonCome(); return; }
+  if(AH.st==='look'){ a.walk=0; if(GLN.t<0||GLN.t>=G_IN+G_HOLD) ahroonCome(); return; }   // he sets off as the camera leaves him
+  if(AH.st!=='come'){ a.walk=damp(a.walk||0,0,6,dt); return; }
+  if(TALK.p){ a.walk=0; return; }
+  if(d<2.1){ a.walk=0; AH.st='here'; openInvite(); return; }
+  let dx=(P.x-a.x)/d, dz=(P.z-a.z)/d; if(AH.turn>0){ AH.turn-=dt; const c=Math.cos(1.1), sn=Math.sin(1.1); [dx,dz]=[dx*c-dz*sn,dx*sn+dz*c]; }
+  const sp=Math.min(3.3,.9+d*.5); let nx=a.x+dx*sp*dt, nz=a.z+dz*sp*dt;
+  for(const o of OBS){ if(o===a.ob) continue; const ex=nx-o.x, ez=nz-o.z, dd=Math.hypot(ex,ez), m=o.r+.3; if(dd<m&&dd>1e-4){ nx=o.x+ex/dd*m; nz=o.z+ez/dd*m; } }
+  if(!walkable(nx,nz)){ AH.turn=.7; a.walk=0; return; }
+  a.x=nx; a.z=nz; a.dir=at(nx,nz); if(a.ob){ a.ob.x=nx; a.ob.z=nz; } a.walk=sp; a.ph=(a.ph||0)+dt*sp*4.6;
+  AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.turn=.8; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
 /* the shot of him: in front of him and a little to one side, at eye height, looking at him as he waves */
 function glanceStart(d){ const a=people[0]; GLN.t=0; GLN.d=d; a.wave=G_IN+G_HOLD+.4; A.chime(7,.05,.045); A.chime(9,.34,.035); A.whoosh(true,1.1,.05);
   let fx=a.face[0]-a.x, fz=a.face[1]-a.z; const l=Math.hypot(fx,fz)||1; fx/=l; fz/=l; const rx=-fz, rz=fx;

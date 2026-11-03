@@ -7,19 +7,22 @@
   python3 tamed/build.py --single dist/tamed.html --artifact dist/tamed.artifact.html
 
 The page is assembled from tamed/src: head.html, css/*.css, body.html, js/*.js (in name order, wrapped in one
-strict closure). The three portraits are read from src/assets/img (the untamed site's own files, never written to)
-and embedded as base64. three.js r160 is loaded from jsDelivr as a global.
+strict closure). The three portraits are read from untamed/src/assets/img (the untamed site's own files, never written
+to) and embedded as base64. three.js r160 is loaded from jsDelivr as a global.
+
+The deployed site (Tamed at the front, Untamed under untamed/) is written by tools/build.py, which calls write_site() here.
 """
 import argparse, base64, glob, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SRC = os.path.join(HERE, 'src')
-PHOTO_DIR = os.path.join(ROOT, 'src', 'assets', 'img')
+PHOTO_DIR = os.path.join(ROOT, 'untamed', 'src', 'assets', 'img')
 PEOPLE = ['ahroon', 'michael', 'abraham']   # in this order, everywhere
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
+UNTAMED_ARTIFACT = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn'   # where the wild site lives when this is an artifact
 LIMIT = 16 * 1024 * 1024
-EM_DASH = '—'
+EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
 
 def read(p):
@@ -51,16 +54,23 @@ def check_dashes(files):
         sys.exit('em dash found (use a comma, colon or full stop):\n  ' + '\n  '.join(bad))
 
 
-def body():
+def parts(untamed_url, photo_list):
+    """the css, the markup and the script, with the photos and the way to the untamed site filled in"""
     css_files, js_files = sources()
     check_dashes(css_files + js_files + [os.path.join(SRC, 'head.html'), os.path.join(SRC, 'body.html')])
     css = '\n'.join(open(f, encoding='utf-8').read() for f in css_files)
     js = '\n'.join('/* ---- %s ---- */\n' % os.path.basename(f) + open(f, encoding='utf-8').read() for f in js_files)
-    if '__PHOTOS__' not in js:
-        sys.exit('the app script lost its __PHOTOS__ placeholder')
-    js = js.replace('__PHOTOS__', json.dumps(photos()))
+    for key in ('__PHOTOS__', '__UNTAMED__'):
+        if key not in js:
+            sys.exit('the app script lost its %s placeholder' % key)
+    js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__UNTAMED__', untamed_url)
     app = "(()=>{\n'use strict';\n" + js + "\n})();\n"
-    return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + read('body.html').strip() + '\n'
+    return css, read('body.html').strip(), app
+
+
+def body():
+    css, html, app = parts(UNTAMED_ARTIFACT, photos())
+    return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + html + '\n'
             + '<script src="%s"></script>\n' % THREE_CDN + '<script>\n' + app + '</script>\n')
 
 
@@ -79,6 +89,29 @@ def write(path, text):
     if size > LIMIT:
         sys.exit('%s is %d bytes, over the 16 MB artifact limit' % (p, size))
     return p, size
+
+
+def write_site(out):
+    """Tamed's part of the deployed site: out/index.html (the front door, with both ways in), and its css and js in
+    out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
+    css, html, app = parts('untamed/', ['assets/img/%s.webp' % n for n in PEOPLE])
+    head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
+    og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
+    meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
+            '<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">\n'
+            '<meta property="og:image" content="%s">\n<meta name="twitter:card" content="summary_large_image">\n' % og)
+    page = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+            + head + '\n' + meta + '<link rel="stylesheet" href="assets/tamed.css">\n</head>\n<body>\n' + html + '\n'
+            '<script src="assets/vendor/three.min.js"></script>\n<script src="assets/tamed.js"></script>\n</body>\n</html>\n')
+    os.makedirs(os.path.join(out, 'assets', 'img'), exist_ok=True)
+    open(os.path.join(out, 'index.html'), 'w', encoding='utf-8').write(page)
+    open(os.path.join(out, 'assets', 'tamed.css'), 'w', encoding='utf-8').write(css)
+    open(os.path.join(out, 'assets', 'tamed.js'), 'w', encoding='utf-8').write(app)
+    if og.endswith('og-tamed.jpg'):
+        with open(os.path.join(SRC, 'assets', 'og.jpg'), 'rb') as f, open(os.path.join(out, og), 'wb') as g:
+            g.write(f.read())
+    return out
 
 
 def main():

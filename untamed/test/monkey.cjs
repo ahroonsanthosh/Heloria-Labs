@@ -1,6 +1,6 @@
 /* Plays every game roughly: real Play click, then random clicks, drags and keys for a while, with screenshots.
    Catches runtime errors in game loops that a plain button test never reaches.
-   node tools/test/shot.cjs --html dist/heloria.html --out /tmp/monkey --scenario tools/test/monkey.cjs [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/monkey --scenario untamed/test/monkey.cjs [--mobile]
    Set MONKEY_ONLY=kr,ae to limit stations, MONKEY_SECONDS=20 to change how long each game is played. */
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const only = (process.env.MONKEY_ONLY || '').split(',').filter(Boolean);

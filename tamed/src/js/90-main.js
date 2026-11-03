@@ -107,11 +107,11 @@ function frame(tn){
   cu.uGrain.value=S.mode==='gate'&&S.gateHover==='tamed'?.016:.032;
   POST.pass(POST.comp,null);
   UI.update(s,dt);
-  A.update(dt,audioState(s,inside));
+  A.update(dt,audioState(s,inside)); RSND.length=0;
 }
 function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
-  let beam=0; if(GAL&&prox(3)>.01){ const r=GAL.rooms[2]; const b=r.beam, lp=b.position, tp=b.target.position; _hd.subVectors(tp,lp).normalize(); _hp.subVectors(CAM.gal.position,lp).normalize(); beam=Math.pow(Math.max(0,_hd.dot(_hp)),5); }
+  const beam=GAL&&prox(3)>.01?GAL.rooms[2].lock:0;   // how sure the drone is of where it is
   const gate=S.mode==='gate';
   return {music:gate?0:1-inside*.3, musF:lerp(9000,2600,inside), water:gate?0:lerp(1,.36,inside)*(1-court*.3), waterF:lerp(2400,320,inside)+contact*1800,
     wind:gate?0:(1-inside)*(1-court*.7), birds:gate?0:(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
