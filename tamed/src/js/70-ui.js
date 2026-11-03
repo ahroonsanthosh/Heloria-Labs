@@ -93,20 +93,27 @@ PEO.forEach((el,i)=>{ el.addEventListener('pointerenter',()=>{ el._h=1; }); el.a
 function peopleUpdate(s,dt){
   const near=1-sstep(.22,.42,Math.abs(s-5)); const box=$('#people');
   box.style.opacity=near.toFixed(3); box.style.visibility=near>.01?'visible':'hidden';
-  if(!OUT||near<=.01){ if(OUT) OUT.people.forEach(p=>p.target=0); return; }
-  const cam=CAM.out, w=innerWidth, h=innerHeight;
+  if(!OUT||near<=.01){ if(OUT) OUT.people.forEach(p=>{ p.target=0; p.seen=false; }); UI._teamT=0; return; }
+  /* how long you have stood here: a breath with only the reflections, then we rise one after another */
+  UI._teamT=near>.85&&S.mode==='world'?(UI._teamT||0)+dt:Math.max(0,(UI._teamT||0)-dt*2);
+  const cam=CAM.out, w=innerWidth, h=innerHeight, FP=OUT.FP, port=portrait();
   OUT.people.forEach((p,i)=>{
-    const m=p.mesh.position; _pp.set(m.x,-p.h*.98-.18,m.z).project(cam);
-    const x=(_pp.x*.5+.5)*w, y=(-_pp.y*.5+.5)*h; const el=PEO[i];
-    el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-    _pq.set(m.x,p.h,m.z-p.w/2).project(cam); const xa=(_pq.x*.5+.5)*w, y0=(-_pq.y*.5+.5)*h;
-    _pq.set(m.x,-p.h,m.z+p.w/2).project(cam); const xb=(_pq.x*.5+.5)*w, y1=(-_pq.y*.5+.5)*h; const x0=Math.min(xa,xb), x1=Math.max(xa,xb);
-    const over=M.on&&M.x>x0-12&&M.x<x1+12&&M.y>y0-12&&M.y<y1+60;
-    /* on a narrow screen you walk past us one at a time, and whoever is in front of you rises */
-    const walk=portrait()?1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i])):0;
-    const want=(over||el._h||el._tap||walk>.5||S.peopleAll)&&near>.6?1:0;
-    p.target=want; el.classList.toggle('up',p.reveal>.55);
-    if(want&&!p._was){ A.rise(); } p._was=want;
+    const el=PEO[i], fx=p.x-FP.pd/2-.02;
+    _pp.set(fx,p.lift+FP.phh*.5,p.z).project(cam);
+    const x=(_pp.x*.5+.5)*w, y=(-_pp.y*.5+.5)*h;
+    _pq.set(fx,p.lift+FP.phh*.5,p.z-FP.pw/2).project(cam); const xa=(_pq.x*.5+.5)*w;
+    _pq.set(fx,p.lift+FP.phh*.5,p.z+FP.pw/2).project(cam); const xb=(_pq.x*.5+.5)*w;
+    _pq.set(fx,p.lift+FP.top,p.z).project(cam); const yt=(-_pq.y*.5+.5)*h;
+    const pw=Math.abs(xb-xa);
+    el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
+    el.style.setProperty("--pw",Math.max(120,pw).toFixed(0)+"px"); el.style.setProperty("--k",clamp(pw/205,.8,1.55).toFixed(3));
+    const over=M.on&&Math.abs(M.x-x)<pw*.5&&M.y>yt-10&&M.y<y+pw*.2;
+    /* on a narrow screen you walk past us one at a time, and whoever you reach rises and stays */
+    if(port&&1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i]))>.5) p.seen=true;
+    const auto=S.peopleHold?false:(port?p.seen:UI._teamT>1.2+i*.62);
+    const want=((auto||el._tap||S.peopleAll)&&near>.6)?1:0;
+    p.target=want; el.classList.toggle('up',p.reveal>.8); el.classList.toggle('hot',!!(over||el._h));
+    if(want&&!p._was){ setTimeout(()=>A.rise(),i*40); } p._was=want;
   });
 }
 

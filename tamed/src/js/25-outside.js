@@ -69,8 +69,8 @@ const YP=1.12;           // the pavilion's floor, seven steps up out of the wate
 /* the pavilion: wings with deep arcades either side of a tall portal, on a podium whose steps go down into the lake */
 const PV={wing:8.6, face:9.9, portal:10.3, edge:10.9, half:13.2, rise:.155, tread:.42, n:7, arches:[5.85,8.15,10.45]};
 PV.foot=PV.edge+PV.n*PV.tread;
-const POOL={x0:-7.6,x1:8.6,z0:-14,z1:-6.4};
-const PEOPLE_AT=[[7.35,-12.55],[7.35,-10.2],[7.35,-7.85]];   // at the east end of the pool, facing the sunset
+const POOL={x0:-7.6,x1:8.6,z0:-16.5,z1:-3.9};
+const PEOPLE_AT=[[7.6,-14.4],[7.6,-10.2],[7.6,-6]];   // in the water at the east end of the pool, each in the light of its own arch
 const FAR_ARCH={z:-10.2,x:-11.5};                            // on the pool's axis: the last light comes straight down it
 
 function buildPavilion(B){
@@ -146,7 +146,7 @@ function buildOutside(){
     B.wall('z',-21.4,.6,Y0,6.9,-12,-11,CA); B.box(-12.2,-10.8,6.9,7.22,-21.6,.8);
     B.wall('z',-21.4,.6,Y0,4.8,11,11.55,CE); B.box(11.55,12,Y0,4.8,-21.4,.6); B.box(10.84,12.2,4.8,5.1,-21.6,.8);
     B.wall('x',-11,11,Y0,4.8,-21.4,-20.4); B.box(-11,11,4.8,5.1,-21.6,-20.2);
-    B.box(-5.2,5.2,Y0,.76,-15.6,-15); B.box(-5.2,5.2,Y0,.76,-5.4,-4.8);
+    B.box(-5.2,5.2,Y0,.76,-17.7,-17.1); B.box(-5.2,5.2,Y0,.76,-3.3,-2.7);
   });
   W.sdfGLSL=B.glsl();
 
@@ -251,32 +251,42 @@ function buildOutside(){
   /* drifting seeds in the light */
   W.seeds=makeSeeds(W.U,QL.seeds); sc.add(W.seeds.mesh);
 
-  /* the three of us: only reflections at first, standing waist deep at the far end of the pool */
+  /* the three of us: framed portraits on stone plinths at the east end of the pool. The water shows them first,
+     though nothing stands there yet; then each one rises out of it, wet, and its reflection has something to reflect */
+  const FP={ph:1.62, mat:.09, fr:.075, fd:.08, pw:1.96, pd:.54, phh:.58};
+  FP.pw2=FP.ph*360/468; FP.iw=FP.pw2+FP.mat*2; FP.ih=FP.ph+FP.mat*2; FP.ow=FP.iw+FP.fr*2; FP.oh=FP.ih+FP.fr*2; FP.top=FP.phh+FP.oh;
+  const frameGeo=(()=>{ const s=new T.Shape(), w=FP.ow/2, h=FP.oh; s.moveTo(-w,0); s.lineTo(w,0); s.lineTo(w,h); s.lineTo(-w,h); s.lineTo(-w,0);
+    const p=new T.Path(), iw=FP.iw/2; p.moveTo(-iw,FP.fr); p.lineTo(-iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr); p.lineTo(-iw,FP.fr); s.holes.push(p);
+    const g=new T.ExtrudeGeometry(s,{depth:FP.fd-.02,bevelEnabled:true,bevelThickness:.01,bevelSize:.012,bevelSegments:2}); g.translate(0,FP.phh,-FP.fd/2+.01); return g; })();
+  const bronze=new T.MeshStandardMaterial({color:'#86644A',roughness:.38,metalness:.62});
+  const paper=new T.MeshStandardMaterial({color:'#EEE6D9',roughness:.92});
   W.people=PHOTOS.map((src,i)=>{
-    const tex=new T.TextureLoader().load(src); tex.colorSpace=T.SRGBColorSpace; tex.anisotropy=4;
-    const m=new T.ShaderMaterial({uniforms:Object.assign({tPhoto:{value:tex},uReveal:{value:0},uTintP:{value:new T.Color(1,1,1)},uSeed:{value:i*3.7},uRefl:GU.uRefl,uTime:GU.uTime},W.U),
-      transparent:true, depthWrite:false, side:T.DoubleSide,
+    const tex=new T.TextureLoader().load(src); tex.colorSpace=T.SRGBColorSpace; tex.anisotropy=8;
+    const grp=new T.Group(); grp.position.set(PEOPLE_AT[i][0],0,PEOPLE_AT[i][1]); grp.rotation.y=-Math.PI/2; sc.add(grp);
+    const plinthM=stoneMat({U:W.U, key:'plinth', color:'#EDE3D4', rough:.8, joint:0, glsl:'uniform float uWetP;',
+      albedo:'diffuseColor.rgb*=1.-.3*uWetP;',
+      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'});
+    plinthM.userData.u.uWetP={value:0};
+    const plinth=new T.Mesh(boxGeo(-FP.pw/2,FP.pw/2,-.4,FP.phh,-FP.pd/2,FP.pd/2),plinthM); plinth.castShadow=plinth.receiveShadow=true; grp.add(plinth);
+    const frame=new T.Mesh(frameGeo,bronze); frame.castShadow=frame.receiveShadow=true; grp.add(frame);
+    const back=new T.Mesh(boxGeo(-FP.ow/2,FP.ow/2,FP.phh,FP.phh+FP.oh,-FP.fd/2,-FP.fd/2+.02),bronze); back.castShadow=true; grp.add(back);
+    const mat=new T.Mesh(new T.PlaneGeometry(FP.iw,FP.ih),paper); mat.position.set(0,FP.phh+FP.fr+FP.ih/2,-FP.fd/2+.035); mat.receiveShadow=true; grp.add(mat);
+    /* the photograph keeps its own light, warmed by the evening, a little glass sheen on it while it is wet */
+    const pm=new T.ShaderMaterial({uniforms:Object.assign({tPhoto:{value:tex},uTintP:{value:new T.Color(1,1,1)},uWet:{value:0},uRefl:GU.uRefl},W.U),
       vertexShader:`varying vec2 vUv; varying vec3 vWP; void main(){ vUv=uv; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-      fragmentShader:`uniform sampler2D tPhoto; uniform float uReveal,uRefl,uTime,uSeed; uniform vec3 uTintP; varying vec2 vUv; varying vec3 vWP;
-      ${GLSL.noise}${GLSL.haze}
-      void main(){
-        vec4 tx=texture2D(tPhoto,vUv); float a=tx.a; vec3 c=tx.rgb*uTintP;
-        if(uRefl<.5){
-          float n=vnoise(vec2(vUv.x*14.+uSeed,uTime*.7))*.6+vnoise(vec2(vUv.x*41.,uTime*1.3+uSeed))*.4;
-          float edge=uReveal*1.12-.06+(n-.5)*.07;
-          a*=smoothstep(edge+.012,edge-.012,vUv.y);
-          float rim=smoothstep(.03,0.,abs(vUv.y-edge))*step(.002,uReveal)*(1.-smoothstep(.97,1.,uReveal));
-          c+=vec3(1.,.86,.66)*rim*2.2*tx.a;
-          a=max(a,rim*tx.a*.8);
-        } else { c*=vec3(.82,.84,.86); }
-        if(a<.004) discard;
-        gl_FragColor=vec4(haze(c,vWP),a);
-      }`});
-    const h=1.5, w=h*360/468;
-    const g=new T.PlaneGeometry(w,h); g.translate(0,h/2-.02,0);
-    const mesh=new T.Mesh(g,m); mesh.position.set(PEOPLE_AT[i][0],0,PEOPLE_AT[i][1]); mesh.rotation.y=-Math.PI/2; mesh.renderOrder=5; sc.add(mesh);
-    return {mesh,mat:m,reveal:0,target:0,w,h,i,last:0};
+      fragmentShader:`uniform sampler2D tPhoto; uniform float uWet,uRefl; uniform vec3 uTintP; varying vec2 vUv; varying vec3 vWP; ${GLSL.haze}
+      void main(){ vec4 tx=texture2D(tPhoto,vUv);
+        /* the cutout stands in front of a soft studio backdrop, lighter behind the head */
+        vec3 bg=mix(vec3(.62,.57,.52),vec3(.86,.81,.75),smoothstep(.05,.95,vUv.y))*(1.-.22*length((vUv-vec2(.5,.62))*vec2(1.3,1.)));
+        vec3 c=mix(bg,tx.rgb,smoothstep(.04,.96,tx.a))*uTintP;
+        float sh=smoothstep(.35,1.,vUv.y+vUv.x*.35)*.06+uWet*.1*smoothstep(.2,1.,vUv.y); c+=vec3(1.,.93,.85)*sh;
+        if(uRefl>.5) c*=vec3(.86,.88,.9);
+        gl_FragColor=vec4(haze(c,vWP),1.); }`});
+    const photo=new T.Mesh(new T.PlaneGeometry(FP.pw2,FP.ph),pm); photo.position.set(0,FP.phh+FP.fr+FP.mat+FP.ph/2,-FP.fd/2+.037); grp.add(photo);
+    return {grp,mat:pm,plinthM,reveal:0,target:0,wet:0,i,lift:0,x:PEOPLE_AT[i][0],z:PEOPLE_AT[i][1],h:FP.top,w:FP.pw};
   });
+  W.FP=FP;
+  const DEEP=-(FP.top+.25);
 
   /* sunbeams: the last light streaming through each arch of the west arcade, dust turning in it */
   W.beamMat=new T.ShaderMaterial({uniforms:Object.assign({uK:{value:0},uTime:GU.uTime,uCol:{value:new T.Color('#FFC890')}},W.U),transparent:true,depthWrite:false,side:T.DoubleSide,
@@ -297,8 +307,16 @@ function buildOutside(){
   W.update=(dt,st)=>{
     { const gu=W.grass.mat.uniforms; gu.uMouseK.value=damp(gu.uMouseK.value,M.on&&S.mode==='world'?1:0,4,dt); gu.uMouseN.value.set(M.x/innerWidth*2-1,-(M.y/innerHeight*2-1)); gu.uAsp.value=innerWidth/innerHeight; const c=CAM.out; c.updateMatrixWorld(); gu.uVP.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse); gu.uRight.value.setFromMatrixColumn(c.matrixWorld,0); }
     W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale;
-    for(const p of W.people){ const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?2.6:1.5,dt); p.mat.uniforms.uReveal.value=p.reveal;
-      if((prev<.06&&p.reveal>=.06)||(prev>.9&&p.reveal<=.9)){ W.sim.drop(p.mesh.position.x-.2,p.mesh.position.z,.7,-1.4); } }
+    for(const p of W.people){
+      const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?1.55:1.25,dt); if(Math.abs(p.reveal-p.target)<1e-4) p.reveal=p.target;
+      const y=lerp(DEEP,0,E.io2(clamp(p.reveal,0,1))), dy=y-p.lift; p.lift=y; p.grp.position.y=y;
+      /* wet as it comes up, drying slowly once it stands */
+      p.wet=p.target>0&&p.reveal<.98?Math.min(1,p.wet+dt*2):Math.max(0,p.wet-dt*.16);
+      p.plinthM.userData.u.uWetP.value=p.wet; p.mat.uniforms.uWet.value=p.wet;
+      /* the water parts where it rises: rings along the plinth's foot while it moves, and one when it breaks the surface */
+      if(Math.abs(dy)>1e-4&&y>-FP.top&&y<-.02){ const k=clamp(Math.abs(dy)/Math.max(dt,1e-3)*.5,0,1.4)*(dy>0?-1:1), o=(S.frame%2?.45:-.45); W.sim.drop(p.x-FP.pd/2-.06,p.z+o,.42,k); W.sim.drop(p.x+FP.pd/2+.06,p.z-o,.42,k*.6); }
+      if((prev<.04&&p.reveal>=.04)) W.sim.drop(p.x,p.z,1.2,-2.4);
+    }
   };
   W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint);
     const k=sstep(4.45,4.8,S.s)*(1-sstep(5.85,6.1,S.s))*sstep(-.5,1.5,SUN.el); W.beamMat.uniforms.uK.value=k;
@@ -306,8 +324,13 @@ function buildOutside(){
     for(const b of W.beams){ b.visible=k>.001; b.rotation.set(0,yaw,-pitch,'YZX'); } };
   W.render=(cam,target)=>{
     W.sky.position.copy(cam.position);
-    renderer.shadowMap.needsUpdate=true;
+    /* the water already knows us: in the reflection the portraits always stand, risen or not.
+       The mirror uses last frame's shadows, so nothing that has not risen casts one */
+    for(const p of W.people) p.grp.position.y=0;
+    renderer.shadowMap.needsUpdate=false;
     W.mirror.render(sc,cam,W.hideInMirror);
+    for(const p of W.people) p.grp.position.y=p.lift;
+    renderer.shadowMap.needsUpdate=true;
     W.waterMat.uniforms.tSim.value=W.sim.tex;
     renderer.setRenderTarget(target); renderer.clear(); renderer.render(sc,cam);
   };

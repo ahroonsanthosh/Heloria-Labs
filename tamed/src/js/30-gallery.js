@@ -92,6 +92,7 @@ function buildGallery(){
     W.U.uSunDir.value.set(0,1,0);
     W.U.uHazeCol.value.copy(tint).multiplyScalar(.075); W.U.uHazeSun.value.copy(W.U.uHazeCol.value);
     W.exitM.color.copy(TODC.L).lerp(TODC.hazeS,.4).multiplyScalar(2.6);
+    if(W.aetosPour) W.aetosPour.uSky.value.copy(TODC.mid).lerp(TODC.zen,.4);
   };
   W.render=(cam,target)=>{
     W.sky.position.copy(cam.position);
@@ -137,25 +138,36 @@ function buildKrios(W,zc){
         float n=.75+.25*vnoise(vec2(vWP.x*3.+uTime*.2,vWP.y*2.-uTime*.3));
         float a=(1.-e)*smoothstep(1.,.25,h)*smoothstep(0.,.08,h)*n; gl_FragColor=vec4(uCol*a*.05*uK,1.); }`});
   const cone=new T.Mesh(new T.CylinderGeometry(.3,2.5,7,48,1,true),coneM); cone.position.set(0,3.5,zc); g.add(cone);
-  /* the voice: a ribbon of light between the two chairs, carrying the waveform from the one speaking to the one listening */
-  const vm=new T.ShaderMaterial({uniforms:{uCol:{value:col('#C9DAFF')},uTime:GU.uTime,uWho:{value:0},uAmp:{value:0},uPh:{value:0}},transparent:true,depthWrite:false,
+  /* the voice: a ribbon of light between the two chairs. Seven threads of silk light twist through the air; each phrase
+     travels along them from the one speaking to the one listening, and in the pauses they relax to one faint line */
+  const NS=7, rg=new T.InstancedBufferGeometry(), rbase=new T.PlaneGeometry(1,1,240,1);
+  rg.index=rbase.index; rg.attributes.position=rbase.attributes.position;
+  const sd=new Float32Array(NS*4); for(let i=0;i<NS;i++){ sd[i*4]=(i-(NS-1)/2)/((NS-1)/2); sd[i*4+1]=Math.random(); sd[i*4+2]=.6+Math.random()*.4; sd[i*4+3]=Math.random(); }
+  rg.setAttribute('aS',new T.InstancedBufferAttribute(sd,4)); rg.instanceCount=NS; rg.boundingSphere=new T.Sphere(v3(),1e4);
+  const vm=new T.ShaderMaterial({uniforms:{uCol:{value:col('#A5C3FF')},uHot:{value:col('#EAF1FF')},uTime:GU.uTime,uWho:{value:0},uAmp:{value:0},uPh:{value:0},uSyl:{value:0}},transparent:true,depthWrite:false,
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,side:T.DoubleSide,
-    vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uCol; uniform float uTime,uWho,uAmp,uPh; varying vec2 vUv; ${GLSL.noise}
+    vertexShader:`attribute vec4 aS; uniform float uTime,uWho,uAmp,uPh,uSyl; varying float vV,vE,vU,vB;
     void main(){
-      float x=vUv.x; float from=mix(x,1.-x,uWho);
-      float travel=fract(uPh);
-      float env=exp(-pow((from-travel*1.15+.1)*3.2,2.))*uAmp;
-      float w=sin(from*19.-uTime*4.2)*.6+sin(from*31.-uTime*6.1+1.3)*.28+sin(from*9.-uTime*2.3)*.3;
-      w*=env*(.75+.25*vnoise(vec2(from*5.,uTime*1.7)));
-      float y=(vUv.y-.5)*2.;
-      float line=exp(-pow((y-w*.55)*11.,2.));
-      float glow=exp(-pow((y-w*.55)*2.6,2.))*.3;
-      float edge=smoothstep(0.,.12,x)*smoothstep(1.,.88,x);
-      float base=exp(-pow(y*30.,2.))*.32;
-      gl_FragColor=vec4(uCol*(line*(.35+env*1.6)+glow*env+base)*edge,1.);
-    }`});
-  const rib=new T.Mesh(new T.PlaneGeometry(1.72,.62),vm); rib.position.set(0,1.08,zc); g.add(rib);
+      float u=position.x+.5, v=position.y*2.;
+      float from=mix(u,1.-u,uWho);
+      /* the phrase: a packet of energy moving from the speaker to the listener */
+      float trav=uPh*1.25-.1;
+      float env=exp(-pow((from-trav)*2.6,2.))*uAmp*(.7+.3*uSyl);
+      float k=uTime*(3.2+aS.y*.8)*(uWho>.5?-1.:1.);
+      float w=sin(from*17.+aS.y*6.-k*1.3)*.55+sin(from*29.+aS.w*4.-k*1.9)*.25+sin(from*7.-k*.6+aS.y*3.)*.35;
+      float rest=sin(u*6.2832+uTime*.35+aS.y*6.)*.012;
+      float y=w*env*.15+aS.x*(.006+.05*env)+rest;
+      float z=sin(u*9.4+uTime*.8+aS.w*6.)*(.012+.06*env)+aS.x*.01;
+      float tw=u*5.+uTime*.6+aS.y*6.2832, wid=(.005+.017*env)*aS.z*smoothstep(0.,.1,u)*smoothstep(1.,.9,u);
+      vec3 p=vec3(mix(-.96,.96,u),y,z)+vec3(0.,cos(tw),sin(tw))*v*wid;
+      vV=v; vE=env; vU=u; vB=aS.z;
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
+    }`,
+    fragmentShader:`uniform vec3 uCol,uHot; varying float vV,vE,vU,vB;
+    void main(){ float core=exp(-vV*vV*3.2); float ends=smoothstep(0.,.08,vU)*smoothstep(1.,.92,vU);
+      vec3 c=mix(uCol,uHot,clamp(vE*1.3,0.,1.)*core);
+      gl_FragColor=vec4(c*core*ends*vB*(.3+3.2*vE),1.); }`});
+  const rib=new T.Mesh(rg,vm); rib.position.set(0,1.1,zc); rib.frustumCulled=false; rib.renderOrder=958; g.add(rib);
   /* rings of light on the floor, sent out by whoever is speaking */
   const fm=new T.ShaderMaterial({uniforms:{uCol:{value:col('#B9CEFF')},uTime:GU.uTime,uWho:{value:0},uAmp:{value:0}},transparent:true,depthWrite:false,
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
@@ -175,7 +187,7 @@ function buildKrios(W,zc){
     const syl=.55+.45*Math.abs(Math.sin(t*7.3+who*2))*(.6+.4*Math.sin(t*2.1+who));
     VOICE.env=talk*syl;
     VOICE.amp=damp(VOICE.amp,talk,8,dt);
-    vm.uniforms.uWho.value=who; vm.uniforms.uAmp.value=VOICE.amp*(.7+.3*syl); vm.uniforms.uPh.value=u;
+    vm.uniforms.uWho.value=who; vm.uniforms.uAmp.value=VOICE.amp; vm.uniforms.uSyl.value=syl; vm.uniforms.uPh.value=u;
     fm.uniforms.uWho.value=who; fm.uniforms.uAmp.value=VOICE.amp;
     spot.intensity=420*(.92+.08*VOICE.env);
   }};
@@ -188,6 +200,25 @@ function buildAetos(W,zc,AP){
   const cove=[];
   [[-5.3,zc],[5.3,zc],[0,zc-7.2],[0,zc+7.2]].forEach(([x,z])=>{ const l=new T.PointLight('#FFF3E4',26,9,1.5); l.position.set(x,ROOM.H-.5,z); g.add(l); cove.push(l); });
   const skyL=new T.SpotLight('#DCE6FA',120,0,.5,.9,2); skyL.position.set(0,ROOM.H+3,zc); skyL.target.position.set(0,0,zc); g.add(skyL); g.add(skyL.target);
+  /* the sky's light pours down through the opening: a soft falling volume, and a pale square of it on the floor */
+  const pourU={uCol:{value:col('#F4F0EA')},uSky:{value:new T.Color('#A9C3EC')},uTime:GU.uTime,uK:{value:1},uC:{value:v3(0,0,zc)},uA:{value:AP},uH:{value:ROOM.H}};
+  const pourM=new T.ShaderMaterial({uniforms:pourU,transparent:true,depthWrite:false,side:T.BackSide,
+    blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
+    vertexShader:`varying vec3 vWP; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform vec3 uCol,uSky,uC; uniform float uTime,uK,uA,uH; varying vec3 vWP; ${GLSL.noise}
+    float dens(vec3 p){ float spread=1.+(uH-p.y)*.055; vec2 q=abs(p.xz-uC.xz)/(uA*spread); float e=max(q.x,q.y);
+      return (1.-smoothstep(.72,1.02,e))*smoothstep(0.,1.2,p.y)*(.35+.65*smoothstep(0.,uH,p.y))*step(p.y,uH); }
+    void main(){ vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE; float seg=min(tE,9.), t0=tE-seg, dt=seg/12., acc=0.;
+      for(int i=0;i<12;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p); if(d>.001){ float n=vnoise3(p*vec3(.9,.5,.9)+vec3(0.,-uTime*.08,uTime*.03)); acc+=d*(.5+.8*n)*dt; } }
+      gl_FragColor=vec4(mix(uSky,uCol,.55)*acc*.075*uK,1.); }`});
+  const pour=new T.Mesh(boxGeo(-AP*1.45,AP*1.45,0,ROOM.H,zc-AP*1.45,zc+AP*1.45),pourM); pour.frustumCulled=false; pour.renderOrder=950; g.add(pour);
+  const poolM=new T.ShaderMaterial({uniforms:pourU,transparent:true,depthWrite:false,
+    blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
+    vertexShader:`varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 uCol,uSky; uniform float uK,uA; varying vec2 vP; void main(){ vec2 q=abs(vP)/(uA*1.4); float e=max(q.x,q.y);
+      float a=(1.-smoothstep(.62,1.,e))*(.7+.3*(1.-length(vP)/(uA*1.9))); gl_FragColor=vec4(mix(uSky,uCol,.6)*a*.36*uK,1.); }`});
+  const poolL=new T.Mesh(new T.PlaneGeometry(AP*3.2,AP*3.2),poolM); poolL.rotation.x=-Math.PI/2; poolL.position.set(0,.004,zc); poolL.renderOrder=6; g.add(poolL);
+  W.aetosPour=pourU;
   /* birds: flat silhouettes high above, seen from below. Wings flap in the vertex shader */
   const N=14, P=[], Wt=[];
   const bird=[[0,.38,0],[-.12,-.1,0],[.12,-.1,0], [-.05,.06,0],[-1,.02,1],[-.06,-.12,0], [.05,.06,0],[1,.02,1],[.06,-.12,0], [-1,.02,1],[-.6,-.1,1],[-.06,-.12,0],[1,.02,1],[.6,-.1,1],[.06,-.12,0]];
