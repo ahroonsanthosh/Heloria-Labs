@@ -834,7 +834,7 @@ function chasePose(out){
   const P=S.probe, L=S.lead?1.12:1, D=12.5*S.zoom*L, H=5.4*S.zoom*L;
   out.p.set(P.p.x+Math.sin(S.yaw)*D,H,P.p.z+Math.cos(S.yaw)*D);
   tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9;
-  if(S.lead){ const a=S.lead.s.pos; tv[0].x=lerp(tv[0].x,a.x,.34); tv[0].z=lerp(tv[0].z,a.z,.34); }   // on the way in, Aetos is ahead in the frame
+  if(S.lead){ const a=S.lead.s.pos; tv[0].x=lerp(tv[0].x,a.x,.46); tv[0].z=lerp(tv[0].z,a.z,.46); }   // on the way in, Aetos is ahead in the frame, below the words
   if(SB.look>0) tv[0].multiplyScalar(1-SB.look*.5);   // while the seal breaks, the camera turns a little toward the hole
   lookQ(out.p,tv[0],out.q); out.fov=36; return out;
 }
@@ -853,13 +853,13 @@ let drag=null;
 canvas.addEventListener('pointerdown',e=>{
   if(S.mode==='finale'){ finHold(true); return; }
   if(S.mode==='station'&&S.st&&S.st.onPointer) return S.st.onPointer(e);
-  if(S.mode!=='hub'||S.lead) return;
+  if(S.mode!=='hub') return;
   drag={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,touch:e.pointerType!=='mouse',id:e.pointerId};
   if(drag.touch){ const s=$('#stick'); s.hidden=false; s.style.left=e.clientX+'px'; s.style.top=e.clientY+'px'; S.ap=null; }
 });
 addEventListener('pointermove',e=>{
   if(!drag||e.pointerId!==drag.id) return;
-  if(!drag.touch){ S.yaw-=(e.clientX-drag.x)*.005; drag.x=e.clientX; }
+  if(!drag.touch){ S.yaw-=(e.clientX-drag.x)*.005; drag.x=e.clientX; S.lookT=S.t; }
   else { drag.x=e.clientX; drag.y=e.clientY; const dx=clamp(drag.x-drag.ox,-50,50),dy=clamp(drag.y-drag.oy,-50,50); $('#stick i').style.transform=`translate(${dx}px,${dy}px)`; }
 });
 const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick').hidden=true; $('#stick i').style.transform=''; } };
@@ -870,7 +870,9 @@ addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e
    Nothing flies you into it: the stations take autopilot, the horizon you fly into by hand */
 const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
 const holeOpen=()=>S.docked.size>=1, SEALTINT=new T.Color(.06,.015,0);
-function autopilot(s){ if(S.mode!=='hub'||S.lead||!s||s===HOLE) return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
+/* on the way to Aetos nothing flies you: a click on it says how to fly */
+function leadNudge(){ toast(FINE?'Hold W to fire the thruster':'Drag up to fire the thruster'); A.beep(660); }
+function autopilot(s){ if(S.lead){ if(S.mode==='hub') leadNudge(); return; } if(S.mode!=='hub'||!s||s===HOLE) return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
@@ -881,13 +883,15 @@ function hubPhysics(dt){
   if(keys.has('KeyW')||keys.has('ArrowUp')) iz+=1; if(keys.has('KeyS')||keys.has('ArrowDown')) iz-=1;
   if(keys.has('KeyD')||keys.has('ArrowRight')) ix+=1; if(keys.has('KeyA')||keys.has('ArrowLeft')) ix-=1;
   if(drag&&drag.touch){ ix=clamp((drag.x-drag.ox)/50,-1,1); iz=clamp(-(drag.y-drag.oy)/50,-1,1); }
-  if(S.lead){ ix=iz=0; S.lead.t+=dt;
-    // the camera comes round behind the probe, looking along the way in
-    const a=S.lead.s.pos, dx=a.x-P.p.x, dz=a.z-P.p.z, l=Math.hypot(dx,dz)||1; S.yaw+=angDiff(Math.atan2(-dx/l,-dz/l),S.yaw)*Math.min(1,dt*1.5);
-    if(S.lead.t>16&&S.mode==='hub'){ const s=S.lead.s; S.ap=null; dock(s); return; } }   // (never left circling)
+  if(S.lead){ S.lead.t+=dt;
+    // you fly in yourself. The camera keeps Aetos ahead, so the thruster (W, or the stick pushed up) takes you to it,
+    // except for a while after you have dragged to look round. Flying into it docks you
+    const a=S.lead.s.pos, dx=a.x-P.p.x, dz=a.z-P.p.z, l=Math.hypot(dx,dz)||1;
+    if(!(drag&&!drag.touch)&&S.t-(S.lookT??-9)>2.5) S.yaw+=angDiff(Math.atan2(-dx/l,-dz/l),S.yaw)*Math.min(1,dt*(iz>0?2.2:1.2));
+    if(l<2.4&&S.mode==='hub'){ dock(S.lead.s); return; } }
   const thrust=tv[3].copy(fwd).multiplyScalar(iz).addScaledVector(rgt,ix);
-  if(thrust.lengthSq()>.01){ S.firstThrust=true; if(S.guide==='big') S.guideGo=true; }
-  if(S.guide==='big'&&S.guideGo&&S.t-S.guideT>1.4) guide('small');   // once you are moving, and it has been read
+  if(thrust.lengthSq()>.01){ S.firstThrust=true; if(S.guide==='big'||S.guide==='lead') S.guideGo=true; }
+  if((S.guide==='big'||S.guide==='lead')&&S.guideGo&&S.t-S.guideT>1.4) guide('small');   // once you are moving, and it has been read
   const r=Math.max(.5,Math.hypot(P.p.x,P.p.z));
   if(S.ap){ const s=S.ap; const to=tv[4].copy(s.pos).sub(P.p); to.y=0; const dist=to.length();
     const dl=tv[5].copy(to).normalize(); const along=clamp(-P.p.dot(dl),0,dist); const cl=tv[6].copy(P.p).addScaledVector(dl,along); cl.y=0;
@@ -1117,16 +1121,18 @@ function holeCall(dt){
 }
 
 /* ---------- the one thing to do, on the screen: big in the middle when it is new, one line at the foot once you are on
-   your way, gone once you are through. On the way in it is a caption: Aetos has you on its radar ---------- */
+   your way, gone once you are through. Out of the story it is Aetos: its radar has you, fly to it ---------- */
 const GD=$('#guide'), GDe=$('#guideE'), GDh=$('#guideH'), GDk=$('#guideK');
-const CTRL=FINE?'W A S D to fly · drag to look':'Drag anywhere to fly';
+const CTRL=FINE?'W A S D to fly · drag to look':'Drag anywhere to fly', LEADK=FINE?'Hold W to fire the thruster · drag to look':'Drag up to fire the thruster';
 function setGuide(e,h,k){ GDe.textContent=e; GDh.removeAttribute('data-sp'); GDh.textContent=h; prepPW(GDh); GDk.textContent=k; GDk.hidden=!k; }
 function guide(st){ if(S.guide===st) return; const was=S.guide; S.guide=st; S.guideT=S.t; S.guideGo=false; S.guideRv=''; $('#hub').classList.toggle('guided',st==='big'); A.muffle(st==='big');
   if(st==='off'){ GD.classList.remove('on','small'); unreveal(GD); return; }
-  if(st==='lead') setGuide('Aetos · radar','Unidentified contact','Bringing you in');
+  GD.classList.toggle('to-ae',!!S.lead); $('#guideL').textContent=S.lead?'Fly to Aetos':'Fly into the black hole';
+  if(st==='lead') setGuide('Aetos · radar · unidentified contact','Fly to Aetos',LEADK);
   else if(st==='big') setGuide('Unidentified contact · inside the horizon','Fly into the black hole',S.been||S.flown?'':CTRL);
   GD.classList.remove('lead','big','small'); GD.classList.add(st,'on');
-  if(st==='small'){ S.flown=true; GD.classList.remove('off'); } else { reveal(GD); if(was==='small') GD.classList.remove('small'); }
+  if(st==='small'){ if(!S.lead) S.flown=true; GD.classList.remove('off'); }   /* flying to Aetos does not count: the hole still shows its controls once */
+  else { reveal(GD); if(was==='small') GD.classList.remove('small'); }
 }
 
 /* ---------- the seal breaking: the first time you come back from a station, the ring round the horizon strains, cracks and lets go.
@@ -4072,7 +4078,7 @@ function buildTown(){
     const mk=mark('ae',x,z,1); kitTo('ae'); cyl(M,'#9aa3ab',0,1.0,0,.08,1.8,'cyl8'); kitTo(); const hd=new T.Group(); hd.matrixAutoUpdate=false; mk.g.add(hd);
     const dish=new T.Mesh(new T.SphereGeometry(.78,28,12,0,TAU,0,Math.PI*.32),toonMat('#f2f4f2',{side:T.DoubleSide})); dish.rotation.x=-1.25; dish.position.z=.08; hd.add(dish);
     hd.add(new T.Mesh(new T.BoxGeometry(.24,.24,.3),toonMat('#9aa3ab'))); hd.add(new T.Mesh(new T.CylinderGeometry(.018,.018,.6,6).rotateX(-1.25+Math.PI/2).translate(0,.1,.32),toonMat('#9aa3ab')));
-    AE={hd,M:sub(M,0,2.9,0),B:M,cyc:0}; INST.ae={x,z,h:4.4,r:7};
+    AE={hd,M:sub(M,0,2.9,0),B:M,cyc:0}; INST.ae={x,z,h:4.4,r:4.6};   // close by the landing: the card waits until you walk up to the rocks
     AE.dr=[0,1,2,3,4].map(k=>{ const d=drone(k===0?'#ff8a2a':'#f5f3ea'); mk.g.add(d); return {g:d,a:k*1.31,r:1.9+k*.38,h:3.6+(k%3)*.55,w:(.3+k*.05)*(k%2?-1:1)}; });
     AE.ring=new T.Mesh(new T.TorusGeometry(.34,.024,6,32).rotateX(Math.PI/2),flatMat('#ff8a2a')); AE.ring.matrixAutoUpdate=false; AE.ring.visible=false; AE.ring.userData.noInk=true; mk.g.add(AE.ring);
     sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); markObs('ae',1.4); SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
@@ -4500,7 +4506,7 @@ function began(){ if(started) return; started=true; el.classList.add('walked'); 
 
 /* ---------- talking ---------- */
 const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
-const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null};
+const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null,want:null,dw:0};
 PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
@@ -4826,7 +4832,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       ed.style.transform=`translate(${((ex*.5+.5)*innerWidth).toFixed(1)}px,${((-ey*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-50%)`; ed.style.setProperty('--a',Math.atan2(-ey,ex).toFixed(3)+'rad'); } });
   goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0);
   /* walk up to a landmark and it says what it is, and where to find it */
-  { let best=null, bd=1; if(!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(!MK[id]||MK[id].st!=='on') continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; best=id; } }
+  /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
+     it for a moment, so passing one on your way somewhere does not flash it up */
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(!MK[id]||MK[id].st!=='on') continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+    if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
+    const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
       PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
   }
@@ -4867,7 +4877,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={began,get started(){ return started; },LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
 /* ===== station be ===== */
@@ -5081,14 +5091,15 @@ addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); 
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
 addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&['Enter','Space','ArrowDown','PageDown'].includes(e.code)){ e.preventDefault(); enter(); } });
 
-/* ---------- into orbit. Out of the story, Aetos's radar has you: it brings you in, and you dock there ---------- */
+/* ---------- into orbit. Out of the story, Aetos's radar has you, a way off across the system: you fire the thruster and
+   fly in to it yourself, and flying into it docks you ---------- */
 function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math.sin(a)*r); const vc=Math.sqrt(GM/r); P.v.set(-Math.sin(a)*vc,0,Math.cos(a)*vc); P.head=Math.atan2(-P.v.x,-P.v.z); S.yaw=Math.atan2(P.p.x,P.p.z);
   for(let i=0;i<TRL;i++){ U.trailPos[i*3]=P.p.x;U.trailPos[i*3+1]=0;U.trailPos[i*3+2]=P.p.z; } U.trailG.attributes.position.needsUpdate=true; U.probe.position.copy(P.p); }
 function toHub(lead){
   if(S.mode!=='story'&&S.mode!=='beyond') return;
   S.mode='tohub'; S.hubT=0; A.whoosh(true,1.8,.2); cine(true);
   const ae=lead&&ST.ae&&STA.find(s=>s.id==='ae');
-  if(ae){ updateStations(S.t); spawnProbe(10.2,ae.a-1.3); S.lead={s:ae,t:0}; S.ap=ae;
+  if(ae){ updateStations(S.t); spawnProbe(16,ae.a-.85); S.lead={s:ae,t:0}; S.ap=null;   // out past the belt, a dozen units short of Aetos
     const dx=ae.pos.x-S.probe.p.x, dz=ae.pos.z-S.probe.p.z, l=Math.hypot(dx,dz)||1; S.yaw=Math.atan2(-dx/l,-dz/l);
     STA.forEach(s=>{ s.wake=s.wakeT=s===ae?1:0; stationWake(s,s.wake); }); }   // only Aetos is awake on the way in
   else spawnProbe();

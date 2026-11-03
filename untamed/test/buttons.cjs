@@ -52,20 +52,27 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await H(h => { h.__calls = 0; const c = h.A.call; h.A.call = function () { h.__calls++; return c.apply(this, arguments); }; });
   await tap('#skip', 'Skip');
 
-  /* ---- the story ends on the way into Aetos: its radar has you as an unidentified contact, it brings you in, you dock ---- */
+  /* ---- the story ends with Aetos's radar on you, a way off across the system: you fire the thruster and fly in to it
+     yourself, and flying into it docks you ---- */
   rec(await until(() => { const S = window.__heloria.S; return S.mode === 'tohub' || S.mode === 'hub'; }, null, 30000), 'Skip leaves the story');
-  rec(await H(h => !!h.S.lead && !!h.S.ap && h.S.ap.id === 'ae'), 'the story hands you to Aetos on autopilot');
+  rec(await H(h => !!h.S.lead && h.S.lead.s.id === 'ae' && !h.S.ap), 'the story hands you to Aetos, and nothing flies you there');
+  { const d = await H(h => +h.S.probe.p.distanceTo(h.S.lead.s.pos).toFixed(1)); rec(d > 8, 'you start well away from Aetos, not on top of it', d + ' units'); }
   rec(await H(h => h.STA.every(s => s.id === 'ae' ? s.wake === 1 : s.wakeT === 0 && s.el.style.display === 'none')), 'on the way in the other stations are dark and unmarked');
-  if (mobile) { await H(h => { const c = h.renderer.domElement; c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 600, bubbles: true })); window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 31, pointerType: 'touch', clientX: 120, clientY: 560, bubbles: true })); }); await wait(700);
-    rec(await H(h => document.querySelector('#stick').hidden && !!h.S.lead && h.S.ap && h.S.ap.id === 'ae'), 'a drag does not take you off the way in');
-    await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 31, pointerType: 'touch', clientX: 120, clientY: 560, bubbles: true }))); }
-  else { await page.keyboard.down('KeyA'); await wait(700); await page.keyboard.up('KeyA');
-    rec(await H(h => !!h.S.lead && h.S.ap && h.S.ap.id === 'ae'), 'a key does not take you off the way in'); }
-  rec(await until(() => window.__heloria.S.guide === 'lead', null, 90000), 'a caption says Aetos has you');
+  rec(await until(() => window.__heloria.S.guide === 'lead', null, 90000), 'the screen says what to do');
   // (the heading lights up glyph by glyph, so its words are read from its label)
   const gtext = () => page.evaluate(() => [document.querySelector('#guideE').textContent, document.querySelector('#guideH').getAttribute('aria-label') || '', document.querySelector('#guideK').textContent].join(' / '));
-  { const t = await gtext(); rec(/aetos/i.test(t) && /unidentified contact/i.test(t) && /bringing you in/i.test(t), 'the caption: Aetos, an unidentified contact, bringing you in', t); }
-  rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'ae', null, 300000), 'you dock at Aetos by yourself');
+  { const t = await gtext(); rec(/aetos/i.test(t) && /unidentified contact/i.test(t) && /fly to aetos/i.test(t) && (mobile ? /drag up/i : /hold w/i).test(t), 'Aetos\'s radar has you: fly to Aetos, with how to fire the thruster', t); }
+  await until(() => +getComputedStyle(document.querySelector('#guide .gb')).opacity > .98, null, 20000); await wait(600);
+  await shot((mobile ? 'm-' : '') + 'orbit-fly-to-aetos');
+  await H(h => { h.__sawSmall = false; h.__wSmall = setInterval(() => { if (h.S.guide === 'small' && /aetos/i.test(document.querySelector('#guideL').textContent)) h.__sawSmall = true; }, 40); });
+  if (mobile) { await H(h => { const c = h.renderer.domElement; c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 640, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 600, bubbles: true })); window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 585, bubbles: true })); });
+    rec(await H(h => !document.querySelector('#stick').hidden), 'the stick comes up under your thumb'); }
+  else await page.keyboard.down('KeyW');
+  rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'ae', null, 300000), 'holding the thruster flies you into Aetos, and you dock');
+  if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 585, bubbles: true })));
+  else await page.keyboard.up('KeyW');
+  rec(await H(h => { clearInterval(h.__wSmall); return h.__sawSmall; }), 'once you are moving the instruction drops to one line, Fly to Aetos');
   await wait(2600);
   const fc = await page.evaluate(() => { const el = document.querySelector('.st-ae');
     const b = [...el.querySelectorAll('.first .two')].map(x => { const r = x.getBoundingClientRect(); return { t: x.innerText.replace(/\s+/g, ' ').trim(), w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top) }; });

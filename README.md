@@ -66,8 +66,10 @@ rooms.
 ## Untamed
 
 A small playable universe. You fall towards a ray-traced black hole through a four-chapter story and fire the engine
-to escape it. Aetos's radar picks you up as an unidentified contact and brings you in on autopilot, the rest of the
-system dark, and you dock there: play Hold the Sky (about two minutes), or skip it and fly on. Leaving Aetos breaks the
+to escape it. You come out past the asteroid belt, a way off from Aetos, whose radar has you as an unidentified
+contact; the rest of the system is dark, and the screen says fly to Aetos. Nothing flies you there: hold W (on a phone,
+push the stick up) to fire the thruster, the camera keeping Aetos ahead, and flying into it docks you. There you play
+Hold the Sky (about two minutes), or skip it and fly on. Leaving Aetos breaks the
 seal round the horizon. Its wave wakes the other stations (the four projects, each with a game built from the
 project's real idea, and Beacon: join us, contact), all of them yours to visit, and the screen says what to do: fly
 into the black hole, where Aetos has an unidentified contact. You fly in by hand. The stations make no sound; the one
