@@ -43,7 +43,7 @@ const A=(()=>{
     // pad: five detuned voices per chord tone through a breathing low-pass
     n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=520; n.padF.Q.value=.7;
     n.padG=ctx.createGain(); n.padG.gain.value=.05; n.padF.connect(n.padG); n.padG.connect(comp); n.padG.connect(revIn);
-    n.voices=CH[0].map((f,i)=>{ const os=[-6,5].map(dt=>{ const o=ctx.createOscillator(); o.type=i<1?'sine':'sawtooth'; o.frequency.value=f; o.detune.value=dt; const g=ctx.createGain(); g.gain.value=i<1?.9:.22/(1+i*.3); o.connect(g); g.connect(n.padF); o.start(); return o; }); return os; });
+    n.voices=CH[0].map((f,i)=>{ const os=[-6,5].map(dt=>{ const o=ctx.createOscillator(); o.type=i<1?'sine':'sawtooth'; o.frequency.value=f; o.detune.value=dt; o._dt=dt; const g=ctx.createGain(); g.gain.value=i<1?.9:.22/(1+i*.3); o.connect(g); g.connect(n.padF); o.start(); return o; }); return os; });
     const lfo=ctx.createOscillator(); lfo.frequency.value=.07; const lg=ctx.createGain(); lg.gain.value=220; lfo.connect(lg); lg.connect(n.padF.frequency); lfo.start();
     n.chord=0; n.nextChord=ctx.currentTime+9;
     // sub: the hole itself
@@ -78,7 +78,7 @@ const A=(()=>{
     update(t,p){ // p: {sub, wind, pad}
       if(!ctx) return;
       if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
-      if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.32,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.06,.8); if(p.bright!=null) set(n.padF.frequency,380+p.bright*900,.6); }
+      if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.32,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.06,.8); if(p.bright!=null) set(n.padF.frequency,(380+p.bright*900)*(n.muf?.42:1),n.muf?.08:.6); }
     },
     tick(){ tone(2600,.02,.01,'square'); },
     click(){ tone(1200,.06,.03,'triangle',600); },
@@ -92,7 +92,8 @@ const A=(()=>{
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
-    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); if(n.mus) set(n.mus.gain,0,.3); },
+    muffle(v){ n.muf=!!v; },
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.cb) set(n.cb.lvl.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); if(n.mus) set(n.mus.gain,0,.3); },
     /* station beacons: a soft glass tone per station in the score's key, each with its own slow pulse,
        louder as you approach and panned to where the station is */
     beacons(notes){ if(!ctx||n.beacons) return;
@@ -153,6 +154,36 @@ const A=(()=>{
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.9; pn.connect(sg); sg.connect(revIn); }
       [[1,1,1.8],[2.003,.32,1],[3.01,.1,.55]].forEach(([m,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*m;
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.01); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+d+.05); }); },
+    /* the unidentified contact inside the horizon: a low, slow pulse you feel as much as hear, and a moment after it
+       the thin return of a radar finding it. Placed on the side where the hole is; the only call in the system */
+    contactBed(g,near=0,p=0){ if(!ctx) return;
+      if(!n.cb){ const o=ctx.createOscillator(), o2=ctx.createOscillator(), g2=ctx.createGain(), lp=ctx.createBiquadFilter(), lvl=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain(), trem=ctx.createGain();
+        o.type='sine'; o2.type='triangle'; o.frequency.value=62; o2.frequency.value=93; g2.gain.value=.22; lp.type='lowpass'; lp.frequency.value=260; o2.connect(g2); g2.connect(lp);
+        trem.gain.value=.7; lfo.frequency.value=.21; lg.gain.value=.3; lfo.connect(lg); lg.connect(trem.gain); o.connect(trem); lp.connect(trem); trem.connect(lvl); lvl.gain.value=0;
+        let pn=null; if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); lvl.connect(pn); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.45; pn.connect(sg); sg.connect(revIn); } else lvl.connect(comp);
+        o.start(); o2.start(); lfo.start(); n.cb={o,o2,lvl,pn,lfo}; }
+      const c=n.cb, k=clamp(near,0,1); set(c.lvl.gain,g,.5); set(c.o.frequency,62-21*k,.6); set(c.o2.frequency,93-31.5*k,.6); set(c.lfo.frequency,.21+.5*k,.6); if(c.pn) set(c.pn.pan,clamp(p,-1,1),.2); },
+    contact(p,g=.05,pf=1){ if(!on||muted||!ctx) return; const t0=ctx.currentTime; let pn=null;
+      if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.85; pn.connect(sg); sg.connect(revIn); }
+      const dst=pn||comp;
+      { const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(note(0)/2*pf,t0); o.frequency.exponentialRampToValueAtTime(note(-3)/2*pf,t0+.55);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*1.9,t0+.035); a.gain.exponentialRampToValueAtTime(.0001,t0+.8); o.connect(a); a.connect(dst); o.start(t0); o.stop(t0+.85); }
+      { const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='lowpass'; b.frequency.setValueAtTime(420,t0); b.frequency.exponentialRampToValueAtTime(90,t0+.5);
+        const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.7,t0+.02); a.gain.exponentialRampToValueAtTime(.0001,t0+.5); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()); s.stop(t0+.55); }
+      const t1=t0+.16, f=note(15)*pf;
+      [[1,1,1.3],[2.003,.22,.6]].forEach(([m,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f*m,t1); o.frequency.exponentialRampToValueAtTime(f*m*.985,t1+d);
+        a.gain.setValueAtTime(0,t1); a.gain.linearRampToValueAtTime(g*.3*k,t1+.006); a.gain.exponentialRampToValueAtTime(.0001,t1+d); o.connect(a); a.connect(dst); o.start(t1); o.stop(t1+d+.05); }); },
+    /* a radar locking on: two quick returns and a falling sweep, from the side the radar is on */
+    lock(p=0,g=.05){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, pf=.95+Math.random()*.1; let pn=null;
+      if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.7; pn.connect(sg); sg.connect(revIn); }
+      [0,.15].forEach((dl,j)=>{ const o=ctx.createOscillator(), a=ctx.createGain(), t=t0+dl, f=note(16+j*2)*pf; o.type='sine'; o.frequency.setValueAtTime(f,t);
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*(j?.8:1),t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.5); o.connect(a); a.connect(pn||comp); o.start(t); o.stop(t+.55); });
+      const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=6; b.frequency.setValueAtTime(3600,t0+.3); b.frequency.exponentialRampToValueAtTime(700,t0+1.1);
+      const a=ctx.createGain(); a.gain.setValueAtTime(0,t0+.3); a.gain.linearRampToValueAtTime(g*.5,t0+.36); a.gain.exponentialRampToValueAtTime(.0001,t0+1.15); s.connect(b); b.connect(a); a.connect(pn||comp); s.start(t0+.3,Math.random()); s.stop(t0+1.2); },
+    /* the orbit's bed running down like a tape stopping, while it fades: the way out of one world into the next */
+    tapeStop(d=2){ if(!ctx) return; const t0=ctx.currentTime;
+      n.voices.forEach(os=>os.forEach(o=>{ o.detune.cancelScheduledValues(t0); o.detune.setValueAtTime(o._dt||0,t0); o.detune.linearRampToValueAtTime((o._dt||0)-1200,t0+d); o.detune.setValueAtTime(o._dt||0,t0+d+1.5); }));
+      if(n.cb){ const f=n.cb.o.frequency, v0=f.value; f.cancelScheduledValues(t0); f.setValueAtTime(v0,t0); f.linearRampToValueAtTime(Math.max(20,v0*.5),t0+d); f.setValueAtTime(v0,t0+d+1.5); } },
     /* the seal breaking: a glassy snap, then the pieces falling away */
     crack(){ noise(.35,.32,7000,1400,'highpass',.7,0,.5); noise(1.8,.28,1600,50,'lowpass',.9,.03,.6); tone(1760,1.1,.03,'triangle',820,0,.8); tone(2637,.8,.018,'sine',1240,.05,.8); },
     /* the last flight. The hatch: a heavy seal shutting */

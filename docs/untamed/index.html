@@ -44,8 +44,8 @@
   <div class="ch" data-i="2"><div class="blk">
     <span class="eb ui fade"><i></i>02 · The system</span>
     <h2 class="disp pw">Four projects in orbit.</h2>
-    <p class="lede fade" style="--fd:500ms">Kríos, Ogive, Aetos and Pharos. Every one of them is a game you can play.</p>
-    <p class="ui tease fade" style="--fd:900ms">First, you have to get there</p>
+    <p class="lede fade" style="--fd:500ms">Aetos, Kríos, Pharos and Ogive. Every one of them is a game you can play.</p>
+    <p class="ui tease fade" style="--fd:900ms">Aetos already has you on its radar</p>
   </div></div>
   <div class="ch" data-i="3"><div class="blk">
     <span class="eb ui fade" style="color:var(--alarm)"><i></i>03 · Warning</span>
@@ -55,7 +55,7 @@
   </div></div>
   <div id="prox" class="ui"><span class="bl">Proximity alarm</span><b id="proxR">2.40</b><span>r / r<sub>s</sub></span></div>
   <span id="cue" class="ui mute"><i></i>Scroll to fall in</span>
-  <button class="btn hit" id="skip" type="button">Skip to orbit</button>
+  <button class="btn hit" id="skip" type="button">Skip</button>
 </section>
 
 <!-- HUB -->
@@ -64,7 +64,7 @@
   <div id="edges"></div>
   <div id="warn" aria-live="polite"><span class="ui">Tidal forces rising</span><b id="warnR">5.0</b></div>
   <button class="btn pri hit" id="dockp" type="button" hidden>Dock</button>
-  <div id="hint" class="ui"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust</span><span>Drag to look</span><span>Scroll to zoom</span><span>Click a station to autopilot</span></div>
+  <div id="guide" aria-live="polite"><div class="gb"><span class="eb ui fade" id="guideE"></span><h2 class="disp pw" id="guideH"></h2><p class="ui fade" id="guideK" style="--fd:600ms"></p></div><p class="gl ui"><i aria-hidden="true"></i><span>Fly into the black hole</span><b id="guideR">0.0</b><span class="u">r / r<sub>s</sub></span></p></div>
   <div class="nav"><span class="ui" id="peers"></span><canvas id="radar" class="hit" width="368" height="368" aria-label="System map. Click a station to fly there."></canvas></div>
   <div id="stick" hidden><i></i></div>
 </section>
@@ -111,7 +111,7 @@
       <div class="note"><span class="k ui">The game</span><span class="v">Three waves, three sites to defend. The sweep identifies each contact. Never fire on a friendly.</span></div>
     </div>
     <div class="card"><span class="idx ui"><span>00 / 00</span></span><h2 class="disp pw">Aetos</h2><p class="lede fade" style="--fd:400ms">When the sky fills with drones, the hard part is not shooting. It is knowing which one to shoot.</p></div>
-    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Hold the Sky</b><span class="ui s mute" id="aeBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Hold the Sky">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div></div>
+    <div class="go"><div class="lbl"><span class="ui mute">The game</span><b>Hold the Sky</b><span class="ui s mute" id="aeBest">Best 0</span></div><button class="btn pri hit play" data-play data-key="ok" type="button" data-cur="Play" aria-label="Play Hold the Sky">Play <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></button><div class="links"><a class="btn hit" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cur="Code">GitHub <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a></div><div class="first"><button class="btn hit play two" data-play data-key="ok" type="button" data-cur="Play"><b>Play Hold the Sky</b><span>About 2 min</span></button><button class="btn hit play two" data-back type="button" data-cur="Fly"><b>Skip, fly on</b><span>On to the black hole</span></button></div></div>
     <div class="ghud">
       <div class="ae-marks" id="aeMarks" aria-hidden="true"></div>
       <div class="pops" id="aePops"></div>

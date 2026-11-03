@@ -48,15 +48,86 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     rec(await until(c => window.__heloria.S.ch === c, c, 60000), 'chapter ' + c + ' reached');
     await wait(400); await H(h => h.storyUnlock());   // test frames are slow, so release the transition lock by hand
   }
-  await tap('#skip', 'Skip to orbit'); rec(await until(() => window.__heloria.S.mode === 'hub'), 'Skip reaches orbit');
+  rec(await page.evaluate(() => document.querySelector('#skip').textContent.trim() === 'Skip'), 'the story has one Skip');
+  await H(h => { h.__calls = 0; const c = h.A.call; h.A.call = function () { h.__calls++; return c.apply(this, arguments); }; });
+  await tap('#skip', 'Skip');
+
+  /* ---- the story ends on the way into Aetos: its radar has you as an unidentified contact, it brings you in, you dock ---- */
+  rec(await until(() => { const S = window.__heloria.S; return S.mode === 'tohub' || S.mode === 'hub'; }, null, 30000), 'Skip leaves the story');
+  rec(await H(h => !!h.S.lead && !!h.S.ap && h.S.ap.id === 'ae'), 'the story hands you to Aetos on autopilot');
+  rec(await H(h => h.STA.every(s => s.id === 'ae' ? s.wake === 1 : s.wakeT === 0 && s.el.style.display === 'none')), 'on the way in the other stations are dark and unmarked');
+  if (mobile) { await H(h => { const c = h.renderer.domElement; c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 31, pointerType: 'touch', clientX: 195, clientY: 600, bubbles: true })); window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 31, pointerType: 'touch', clientX: 120, clientY: 560, bubbles: true })); }); await wait(700);
+    rec(await H(h => document.querySelector('#stick').hidden && !!h.S.lead && h.S.ap && h.S.ap.id === 'ae'), 'a drag does not take you off the way in');
+    await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 31, pointerType: 'touch', clientX: 120, clientY: 560, bubbles: true }))); }
+  else { await page.keyboard.down('KeyA'); await wait(700); await page.keyboard.up('KeyA');
+    rec(await H(h => !!h.S.lead && h.S.ap && h.S.ap.id === 'ae'), 'a key does not take you off the way in'); }
+  rec(await until(() => window.__heloria.S.guide === 'lead', null, 90000), 'a caption says Aetos has you');
+  // (the heading lights up glyph by glyph, so its words are read from its label)
+  const gtext = () => page.evaluate(() => [document.querySelector('#guideE').textContent, document.querySelector('#guideH').getAttribute('aria-label') || '', document.querySelector('#guideK').textContent].join(' / '));
+  { const t = await gtext(); rec(/aetos/i.test(t) && /unidentified contact/i.test(t) && /bringing you in/i.test(t), 'the caption: Aetos, an unidentified contact, bringing you in', t); }
+  rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'ae', null, 300000), 'you dock at Aetos by yourself');
+  await wait(2600);
+  const fc = await page.evaluate(() => { const el = document.querySelector('.st-ae');
+    const b = [...el.querySelectorAll('.first .two')].map(x => { const r = x.getBoundingClientRect(); return { t: x.innerText.replace(/\s+/g, ' ').trim(), w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top) }; });
+    return { first: el.classList.contains('first'), b, back: getComputedStyle(document.querySelector('#station > #back')).display,
+      other: [...el.querySelectorAll('.go > [data-play], .go > .links')].filter(x => getComputedStyle(x).display !== 'none').length }; });
+  rec(fc.first && fc.b.length === 2 && fc.b.every(x => x.w > 100 && x.h > 40) && Math.abs(fc.b[0].w - fc.b[1].w) < 4 && Math.abs(fc.b[0].y - fc.b[1].y) < 4 && /play hold the sky/i.test(fc.b[0].t) && /skip, fly on/i.test(fc.b[1].t),
+    'the first card offers Play Hold the Sky and Skip, fly on, equal and side by side', JSON.stringify(fc.b));
+  rec(fc.back === 'none' && fc.other === 0, 'and nothing else to choose from');
+  await covered('.st-ae', 'the first card');
+  await shot((mobile ? 'm-' : '') + 'ae-first');
+  await tap('.st-ae .first [data-play]', 'Play Hold the Sky');
+  rec(await until(() => window.__heloria.ST.ae.state === 'play', null, 60000), 'Play Hold the Sky starts the game');
+  await H(h => { const st = h.ST.ae; st.abort(); st.setState('menu'); }); await wait(1600);
+  await tap('.st-ae .first [data-back]', 'Skip, fly on');
+  rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'Skip, fly on takes you back out');
+  rec(await until(() => window.__heloria.S.sealK === 0, null, 120000), 'leaving Aetos breaks the seal');
+  rec(await until(() => window.__heloria.S.guide === 'big', null, 120000), 'then the screen says what to do');
+  await until(() => +getComputedStyle(document.querySelector('#guide .gb')).opacity > .98, null, 20000); await wait(900);
+  const g = await page.evaluate(() => { const h2 = document.querySelector('#guideH'); return { text: document.querySelector('#guideE').textContent + ' / ' + (h2.getAttribute('aria-label') || ''), fs: parseFloat(getComputedStyle(h2).fontSize), k: document.querySelector('#guideK').textContent }; });
+  rec(/fly into the black hole/i.test(g.text) && /unidentified contact/i.test(g.text) && g.fs >= 30, 'big and clear: fly into the black hole, an unidentified contact inside', JSON.stringify(g));
+  rec(mobile ? /drag/i.test(g.k) : /w a s d/i.test(g.k), 'with the controls, the first time (' + g.k + ')');
+  rec(await until(() => window.__heloria.STA.every(s => s.wake > .99), null, 90000), 'and the other stations wake as the wave goes through them');
+  await shot((mobile ? 'm-' : '') + 'orbit-instruction');
+  // the hole is off the screen: one marker at the edge, its own; it takes no click, and neither does the hole on the map
+  await H(h => { const P = h.S.probe.p; h.S.yaw = Math.atan2(P.x, P.z) + Math.PI / 2; });
+  rec(await until(() => window.__heloria.U && document.querySelector('#edges .edge.hole').style.display !== 'none', null, 60000), 'with the hole off to the side, its marker is at the edge');
+  rec(await page.evaluate(() => [...document.querySelectorAll('#edges .edge')].filter(e => e.style.display !== 'none').length === 1), 'and it is the only marker');
+  { const b = await page.evaluate(() => { const r = document.querySelector('#edges .edge.hole').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    try { if (mobile) await page.touchscreen.tap(b[0], b[1]); else await page.mouse.click(b[0], b[1]); } catch (e) {}
+    await wait(500); rec(await H(h => !(h.S.ap && h.S.ap.id === 'hole')), 'the marker does not fly you in'); await H(h => { h.S.ap = null; }); }
+  { const rr = await page.evaluate(() => { const r = document.querySelector('#radar').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    try { if (mobile) await page.touchscreen.tap(rr[0], rr[1]); else await page.mouse.click(rr[0], rr[1]); } catch (e) {}
+    await wait(500); rec(await H(h => !(h.S.ap && h.S.ap.id === 'hole')), 'the hole on the map does not fly you in'); await H(h => { h.S.ap = null; }); }
+  await H(h => { const P = h.S.probe.p; h.S.yaw = Math.atan2(P.x, P.z); });
+  if (await until(() => document.querySelector('.slab.hole').style.display !== 'none', null, 60000)) {
+    const b = await page.evaluate(() => { const r = document.querySelector('.slab.hole .tx b').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    try { if (mobile) await page.touchscreen.tap(b[0], b[1]); else await page.mouse.click(b[0], b[1]); } catch (e) {}
+    await wait(500); rec(await H(h => !(h.S.ap && h.S.ap.id === 'hole') && getComputedStyle(document.querySelector('.slab.hole .tx')).pointerEvents === 'none'), 'the horizon\'s label takes no click and does not fly you in either');
+    await H(h => { h.S.ap = null; });
+  } else rec(false, 'the horizon has a label when it is in view');
+  // (headless frames are slow, so the next pulse is brought forward rather than waited for)
+  await H(h => { h.__contacts = 0; const c = h.A.contact; h.A.contact = function () { h.__contacts++; return c.apply(this, arguments); }; h.__p0 = h.S.pulses; h.S.pulseT = 0; });
+  rec(await until(() => window.__heloria.S.pulses > window.__heloria.__p0 && window.__heloria.__contacts > 0, null, 90000), 'the hole calls: its pulse plays', JSON.stringify(await H(h => ({ pulses: h.S.pulses, sealK: h.S.sealK, sb: h.SB.t, mode: h.S.mode }))));
+  rec(await H(h => h.__calls === 0), 'and no station rings a bell');
+  // flying: the instruction steps down to a line at the foot and stays
+  if (mobile) { await H(h => { const c = h.renderer.domElement; c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 32, pointerType: 'touch', clientX: 195, clientY: 600, bubbles: true })); window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 32, pointerType: 'touch', clientX: 195, clientY: 560, bubbles: true })); });
+    await until(() => window.__heloria.S.guide === 'small', null, 60000); await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 32, pointerType: 'touch', clientX: 195, clientY: 560, bubbles: true }))); }
+  else { await page.keyboard.down('KeyW'); await until(() => window.__heloria.S.guide === 'small', null, 60000); await page.keyboard.up('KeyW'); }
+  rec(await H(h => h.S.guide === 'small'), 'once you fly, it steps down to one line');
   await wait(1500);
+  await until(() => +getComputedStyle(document.querySelector('#guide .gl')).opacity > .9, null, 20000);
+  { const l = await page.evaluate(() => ({ op: getComputedStyle(document.querySelector('#guide .gl')).opacity, cls: document.querySelector('#guide').className, t: document.querySelector('#guide .gl').textContent, g: window.__heloria.S.guide }));
+    rec(+l.op > .9 && /fly into the black hole/i.test(l.t), 'the line stays: fly into the black hole', JSON.stringify(l)); }
+  await H(h => { const P = h.S.probe; P.v.set(0, 0, 0); });
 
   /* ---- hub ---- */
   await covered('#hub', 'orbit');
   await covered('#chrome', 'chrome');
   rec(await page.evaluate(() => !document.querySelector('#snd')), 'no sound indicator anywhere');
   rec(await page.evaluate(() => !document.querySelector('#rail,.tele,#where')), 'no chapter rail, telemetry or location label');
-  // station labels and edge markers set autopilot
+  // station labels set autopilot (look at one first: while the contact calls, off-screen stations have no marker)
+  await H(h => { const P = h.S.probe.p, s = h.STA.reduce((a, b) => b.pos.distanceTo(P) < a.pos.distanceTo(P) ? b : a); h.S.yaw = Math.atan2(P.x - s.pos.x, P.z - s.pos.z); }); await wait(2500);
   const ids = await H(h => h.STA.map(s => s.id));
   let apOk = 0;
   for (const id of ids) {
@@ -70,7 +141,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     if (await H((h, id) => h.S.ap && h.S.ap.id === id || h.S.mode !== 'hub', id)) apOk++;
     await H(h => { h.S.ap = null; });
   }
-  rec(apOk > 0, 'station labels or edge markers start autopilot', apOk + ' of ' + ids.length + ' visible ones worked');
+  rec(apOk > 0, 'station labels start autopilot', apOk + ' of ' + ids.length + ' visible ones worked');
   // radar click flies somewhere
   await H(h => { h.S.ap = null; });
   const rr = await page.evaluate(() => { const r = document.querySelector('#radar').getBoundingClientRect(); return [r.left, r.top, r.width]; });
@@ -136,6 +207,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await H(h => !h.STA.some(s => s.id === 'cr')), 'Earth is not a station in orbit');
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); });
   rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'cr', null, 180000), 'falling in lands you on Earth');
+  rec(await H(h => h.S.been && !h.S.ap), 'you flew in yourself: no autopilot took you');
   rec(await H(h => h.ST.cr._dbg.cut().on), 'Earth opens with the rocket landing');
   await wait(1500); await shot((mobile ? 'm-' : '') + 'earth-landing'); await covered('.st-cr', 'Earth landing');
   await tap('#crSkip', 'Skip the landing'); rec(await until(() => !window.__heloria.ST.cr._dbg.cut().on, null, 20000), 'Skip ends the landing');
@@ -170,6 +242,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await covered('#station > #back', 'Earth back button');
   await tap('#back', 'Earth Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub' || window.__heloria.S.mode === 'tohub', null, 180000), 'the Orbit button takes you from Earth back to orbit');
   rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'back in orbit and flying');
+  rec(await H(h => h.S.guide === 'off' && !h.S.lead), 'back from Earth, orbit is quiet: no instruction and no lead-in');
 
   /* ---- the last flight: meet all three, Ahroon asks, and it runs all the way to the white page ---- */
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); h.S.ap = null; });
