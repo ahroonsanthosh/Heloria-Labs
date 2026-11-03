@@ -164,7 +164,7 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 /* a soft dark behind the words, so they read over the bright disk wherever the hole happens to be */
 #guide .gb::before{content:"";position:absolute;left:50%;top:50%;width:calc(100% + 80px);height:calc(100% + 120px);transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(5,5,4,.62),rgba(5,5,4,.3) 60%,rgba(5,5,4,0));z-index:-1;pointer-events:none}
 #guide #guideK[hidden]{display:none}
-#guide.lead .gb{top:calc(var(--gt) + 150px);gap:14px}
+#guide.lead .gb{top:calc(var(--gt) + 92px);gap:12px}   /* high, clear of Aetos, which the camera keeps ahead and a little below it */
 #guide.lead h2{font-size:clamp(30px,3.8vw,60px)}
 #guide .gl{position:absolute;left:50%;bottom:calc(var(--gb) + 6px);transform:translate(-50%,6px);margin:0;display:flex;gap:12px;align-items:center;color:var(--hot);white-space:nowrap;opacity:0;
   transition:opacity .6s var(--ease) .2s,transform .8s var(--ease) .2s;text-shadow:0 0 6px rgba(5,5,4,.95),0 0 16px rgba(5,5,4,.7)}
@@ -174,7 +174,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #guide .gl b{margin-left:6px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums;min-width:3.2ch;text-align:right}
 #guide .gl .u{color:var(--mute)}
 #guide .gl sub{font-size:.8em;vertical-align:-.15em}
-#hub.lead .slab .tx{opacity:0}
+#hub.lead .slab .sub,#hub.lead .slab .act{display:none}   /* on the way to Aetos its mark says only its name: you fly there yourself */
+#guide.to-ae .gl b,#guide.to-ae .gl .u{display:none}
 #labels{transition:opacity .5s var(--ease)}
 #hub.guided #labels{opacity:0;pointer-events:none}   /* while the instruction is big, it is the only thing on the screen */   /* on the way in the caption names Aetos; its brackets stay, locked on */
 #peers{color:var(--hot)}
@@ -346,7 +347,7 @@ html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
   #guide .eb{display:block;max-width:26ch;line-height:1.5;text-wrap:balance}
   #guide .eb::before,#guide .eb::after{display:none}
   #guide h2{font-size:clamp(38px,11vw,64px)}
-  #guide.lead .gb{top:calc(var(--gt) + 120px)}
+  #guide.lead .gb{top:calc(var(--gt) + 104px)}
   #guide.lead h2{font-size:clamp(28px,8vw,44px)}
   #guide .gl{bottom:calc(var(--gb) + 150px)}
   .card{left:var(--gl);right:var(--gr);max-width:none;bottom:auto;top:calc(var(--gt) + 92px);gap:12px}

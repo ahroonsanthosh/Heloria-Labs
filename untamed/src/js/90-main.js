@@ -55,14 +55,15 @@ addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); 
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
 addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&['Enter','Space','ArrowDown','PageDown'].includes(e.code)){ e.preventDefault(); enter(); } });
 
-/* ---------- into orbit. Out of the story, Aetos's radar has you: it brings you in, and you dock there ---------- */
+/* ---------- into orbit. Out of the story, Aetos's radar has you, a way off across the system: you fire the thruster and
+   fly in to it yourself, and flying into it docks you ---------- */
 function spawnProbe(r=10.5,a=2.6){ const P=S.probe; P.p.set(Math.cos(a)*r,0,Math.sin(a)*r); const vc=Math.sqrt(GM/r); P.v.set(-Math.sin(a)*vc,0,Math.cos(a)*vc); P.head=Math.atan2(-P.v.x,-P.v.z); S.yaw=Math.atan2(P.p.x,P.p.z);
   for(let i=0;i<TRL;i++){ U.trailPos[i*3]=P.p.x;U.trailPos[i*3+1]=0;U.trailPos[i*3+2]=P.p.z; } U.trailG.attributes.position.needsUpdate=true; U.probe.position.copy(P.p); }
 function toHub(lead){
   if(S.mode!=='story'&&S.mode!=='beyond') return;
   S.mode='tohub'; S.hubT=0; A.whoosh(true,1.8,.2); cine(true);
   const ae=lead&&ST.ae&&STA.find(s=>s.id==='ae');
-  if(ae){ updateStations(S.t); spawnProbe(10.2,ae.a-1.3); S.lead={s:ae,t:0}; S.ap=ae;
+  if(ae){ updateStations(S.t); spawnProbe(16,ae.a-.85); S.lead={s:ae,t:0}; S.ap=null;   // out past the belt, a dozen units short of Aetos
     const dx=ae.pos.x-S.probe.p.x, dz=ae.pos.z-S.probe.p.z, l=Math.hypot(dx,dz)||1; S.yaw=Math.atan2(-dx/l,-dz/l);
     STA.forEach(s=>{ s.wake=s.wakeT=s===ae?1:0; stationWake(s,s.wake); }); }   // only Aetos is awake on the way in
   else spawnProbe();
