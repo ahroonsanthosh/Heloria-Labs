@@ -134,7 +134,6 @@ function frame(now){
       labelsUpdate(); if((radarK++&1)===0) radarDraw(); presenceTick(); }
     universeVisible(1);
   }
-  else if(S.mode==='finale'){ finaleUpdate(rdt,dt,t); }
   else if(S.mode==='credits'){ requestAnimationFrame(frame); return; }   // the white page: nothing left to draw
   else if(S.mode==='docking'){ dockUpdate(rdt); }
   else if(S.mode==='undocking'){ undockUpdate(rdt,dt); wakeUpdate(dt); if(S.mode==='hub'||(TR&&TR.t>1.1)){ labelsUpdate(); radarDraw(); } }
@@ -151,7 +150,7 @@ function frame(now){
   S.shake=Math.max(0,S.shake-rdt*1.8); S.ca=damp(S.ca,0,5,rdt);
   post.uniforms.uTint.value.multiplyScalar(Math.exp(-4*rdt));
   S.flash=Math.max(S.flashMin||0,S.flash-rdt*1.2); post.uniforms.uFlash.value=S.flash;
-  post.uniforms.uCA.value=S.ca+(S.mode==='hub'||S.mode==='finale'?S.probe.thr*.2:0);
+  post.uniforms.uCA.value=S.ca+(S.mode==='hub'?S.probe.thr*.2:0);
   if(S.mode!=='falling'&&S.mode!=='beyond') post.uniforms.uStretch.value=damp(post.uniforms.uStretch.value,0,4,rdt);
   post.uniforms.uGrade.value.lerp(WHITE,1-Math.exp(-6*rdt));
   // station update + its smoothed camera
@@ -182,4 +181,4 @@ function jump(id){
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,SB,FZ,finaleSpace,credits,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={A,SB,finaleWhite,credits,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
