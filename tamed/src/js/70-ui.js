@@ -112,7 +112,7 @@ function peopleUpdate(s,dt){
     if(port&&1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i]))>.5) p.seen=true;
     const auto=S.peopleHold?false:(port?p.seen:UI._teamT>1.2+i*.62);
     const want=((auto||el._tap||S.peopleAll)&&near>.6)?1:0;
-    p.target=want; el.classList.toggle('up',p.reveal>.8); el.classList.toggle('hot',!!(over||el._h));
+    p.target=want; p.hot=!!(over||el._h); el.classList.toggle("up",p.reveal>.8); el.classList.toggle("hot",p.hot);
     if(want&&!p._was){ setTimeout(()=>A.rise(),i*40); } p._was=want;
   });
 }

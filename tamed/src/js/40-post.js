@@ -27,7 +27,7 @@ const POST={};
       float r=length(p)*.62+(n-.45)*.6;
       float front=uK*1.65-.3;
       float m=smoothstep(front,front+.14,r);
-      vec2 g=(vec2(fbm2(p*3.1+4.),fbm2(p*3.1+9.))-.47)*w*.06;
+      vec2 g=(vec2(fbm2(p*3.1+4.),fbm2(p*3.1+9.))-.47)*w*.032;
       vec2 ua=.5+(uv-.5)*(1.-.07*w)+g, ub=.5+(uv-.5)*(1.+.06*(1.-uK)*w)-g;
       vec3 c=mix(texture2D(tB,ub).rgb,texture2D(tA,ua).rgb,m);
       float seam=smoothstep(.16,0.,abs(r-front-.07))*w;
