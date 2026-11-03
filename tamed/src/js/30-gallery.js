@@ -12,20 +12,22 @@ function buildGallery(){
   B.raw(`d=min(d,p.y);`);
   /* side walls, the vestibule and the exit corridor */
   B.box(-7,-6,0,H+.6,wallZ(4)-ROOM.T,wallZ(0)); B.box(6,7,0,H+.6,wallZ(4)-ROOM.T,wallZ(0));
-  B.box(-6,-2.2,0,H+.6,wallZ(0),zA); B.box(2.2,6,0,H+.6,wallZ(0),zA);
-  B.box(-2.2,2.2,5.6,H+.6,wallZ(0),zA);
-  B.box(-6,-2.2,0,H+.6,zB,EXIT_Z); B.box(2.2,6,0,H+.6,zB,EXIT_Z); B.box(-2.2,2.2,5.6,H+.6,zB,EXIT_Z);
+  /* each group only costs a pixel within reach of it: a room never pays for the rooms beyond it */
+  B.group(-6,6,0,H+.6,wallZ(0),zA,()=>{ B.box(-6,-2.2,0,H+.6,wallZ(0),zA); B.box(2.2,6,0,H+.6,wallZ(0),zA); B.box(-2.2,2.2,5.6,H+.6,wallZ(0),zA); });
+  B.group(-6,6,0,H+.6,zB,EXIT_Z,()=>{ B.box(-6,-2.2,0,H+.6,zB,EXIT_Z); B.box(2.2,6,0,H+.6,zB,EXIT_Z); B.box(-2.2,2.2,5.6,H+.6,zB,EXIT_Z); });
   for(let k=0;k<=4;k++) B.wall('x',-7,7,0,H+.6,wallZ(k)-ROOM.T,wallZ(k),[{c:0,w:2.8,hs:3.45}]);
   /* ceilings: plain over Kríos and Pharos, a square opening over Aetos, a round shaft over Ogive */
   const z0=k=>wallZ(k)-ROOM.T, z1=k=>wallZ(k+1);
   B.box(-6,6,H,H+.6,z1(0),z0(0)); B.box(-6,6,H,H+.6,z1(2),z0(2));
   const AP=2.1, ac=roomZ(1);
   B.box(-6,6,H,H+.06,ac+AP,z0(1),{nosdf:1}); B.box(-6,6,H,H+.06,z1(1),ac-AP,{nosdf:1}); B.box(-6,-AP,H,H+.06,ac-AP,ac+AP,{nosdf:1}); B.box(AP,6,H,H+.06,ac-AP,ac+AP,{nosdf:1});
-  B.raw(`d=min(d,max(sdBox(p-vec3(0.,${H+.03},${ac.toFixed(3)}),vec3(6.,.03,8.)),-sdBox(p-vec3(0.,${H},${ac.toFixed(3)}),vec3(${AP},1.,${AP}))));`);
   B.box(-6,6,H+.06,H+.8,ac+AP+.9,z0(1),{nosdf:1}); B.box(-6,6,H+.06,H+.8,z1(1),ac-AP-.9,{nosdf:1}); B.box(-6,-AP-.9,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1}); B.box(AP+.9,6,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1});
-  /* the stone bench around the skyspace */
+  /* the skyspace's ceiling, and the stone bench round the room */
   const bz0=z1(1)+.15, bz1=z0(1)-.15;
-  B.box(-6,-5.45,0,.46,bz0,bz1); B.box(5.45,6,0,.46,bz0,bz1); B.box(-5.45,-1.7,0,.46,bz0,bz0+.55); B.box(1.7,5.45,0,.46,bz0,bz0+.55);
+  B.group(-6,6,0,H+.8,z1(1),z0(1),()=>{
+    B.raw(`d=min(d,max(sdBox(p-vec3(0.,${H+.03},${ac.toFixed(3)}),vec3(6.,.03,8.)),-sdBox(p-vec3(0.,${H},${ac.toFixed(3)}),vec3(${AP},1.,${AP}))));`);
+    B.box(-6,-5.45,0,.46,bz0,bz1); B.box(5.45,6,0,.46,bz0,bz1); B.box(-5.45,-1.7,0,.46,bz0,bz0+.55); B.box(1.7,5.45,0,.46,bz0,bz0+.55);
+  });
   const oc=roomZ(3), OR=1.8;
   {
     const s=new T.Shape(); s.moveTo(-6,-z0(3)); s.lineTo(6,-z0(3)); s.lineTo(6,-z1(3)); s.lineTo(-6,-z1(3)); s.lineTo(-6,-z0(3));
@@ -43,7 +45,7 @@ function buildGallery(){
   const PHM=`${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z)`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'gal', color:'#ECE5DA', rough:.88, joint:.55, warm:'#FFF4E6',
     glsl:`uniform vec3 uPhS,uPhCol; uniform float uPhA,uPhY,uPhK;
-    float mapLines(vec2 q){ float h=fbm2(q*.11+3.)*14.+fbm2(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
+    float mapLines(vec2 q){ float h=(vnoise(q*.11+3.)*.66+vnoise(q*.24+5.3)*.34)*14.+vnoise(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
       float line=1.-smoothstep(0.,.022+fw,dd); float major=1.-smoothstep(0.,.03+fw*.2,abs(fract(h*.2+.5)-.5)*5.);
       vec2 gq=abs(fract(q/1.24+.5)-.5)*1.24; float gw=fwidth(q.x)+fwidth(q.y); float grid=1.-smoothstep(0.,.005+gw,min(gq.x,gq.y));
       vec2 cq=abs(fract(q/4.96+.5)-.5)*4.96; float cross=(1.-smoothstep(.0,.012+gw,min(cq.x,cq.y)))*step(max(cq.x,cq.y),.16);
@@ -208,10 +210,10 @@ function buildAetos(W,zc,AP){
     fragmentShader:`uniform vec3 uCol,uSky,uC; uniform float uTime,uK,uA,uH; varying vec3 vWP; ${GLSL.noise}
     float dens(vec3 p){ float spread=1.+(uH-p.y)*.055; vec2 q=abs(p.xz-uC.xz)/(uA*spread); float e=max(q.x,q.y);
       return (1.-smoothstep(.72,1.02,e))*smoothstep(0.,1.2,p.y)*(.35+.65*smoothstep(0.,uH,p.y))*step(p.y,uH); }
-    void main(){ vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE; float seg=min(tE,9.), t0=tE-seg, dt=seg/12., acc=0.;
-      for(int i=0;i<12;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p); if(d>.001){ float n=vnoise3(p*vec3(.9,.5,.9)+vec3(0.,-uTime*.08,uTime*.03)); acc+=d*(.5+.8*n)*dt; } }
+    void main(){ vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE; float seg=min(tE,9.), t0=tE-seg, dt=seg/6., acc=0.;
+      for(int i=0;i<6;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p); if(d>.001){ float n=vnoise(p.xz*.8+vec2(p.y*.35-uTime*.05,uTime*.03)); acc+=d*(.5+.8*n)*dt; } }
       gl_FragColor=vec4(mix(uSky,uCol,.55)*acc*.075*uK,1.); }`});
-  const pour=new T.Mesh(boxGeo(-AP*1.45,AP*1.45,0,ROOM.H,zc-AP*1.45,zc+AP*1.45),pourM); pour.frustumCulled=false; pour.renderOrder=950; g.add(pour);
+  const pour=new T.Mesh(boxGeo(-AP*1.45,AP*1.45,0,ROOM.H,zc-AP*1.45,zc+AP*1.45),pourM); pour.renderOrder=950; g.add(pour);
   const poolM=new T.ShaderMaterial({uniforms:pourU,transparent:true,depthWrite:false,
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
     vertexShader:`varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
@@ -294,13 +296,13 @@ function buildPharos(W,zc){
       vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE;
       float aE=max(dot(vWP-uS,uD),0.), sn=sqrt(max(1.-pow(dot(rd,uD),2.),0.));
       float seg=min(tE,(aE*uTan*2.6+.35)/max(sn,.06));
-      float t0=tE-seg, dt=seg/14., acc=0.;
-      for(int i=0;i<14;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p);
+      float t0=tE-seg, dt=seg/8., acc=0.;
+      for(int i=0;i<8;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p);
         if(d>.001){ float n=vnoise3(p*vec3(1.5,2.1,1.5)+vec3(uTime*.06,uTime*.025,-uTime*.05)); acc+=d*(.3+1.25*n*n)*dt; } }
       gl_FragColor=vec4(uCol*acc*uK,1.);
     }`});
   const cg=new T.CylinderGeometry(.02,TAN*1.3,1,32,1,false); cg.translate(0,-.5,0); cg.rotateX(-Math.PI/2);
-  const cone=new T.Mesh(cg,volM); cone.position.copy(S0); cone.frustumCulled=false; cone.renderOrder=950; g.add(cone);
+  cg.computeBoundingSphere(); const cone=new T.Mesh(cg,volM); cone.position.copy(S0); cone.renderOrder=950; g.add(cone);
   /* dust that only shows where the beam is */
   const DN=MOBILE?240:520, dg=new T.BufferGeometry(), dr=new Float32Array(DN*4); for(let i=0;i<dr.length;i++) dr[i]=Math.random();
   dg.setAttribute('position',new T.BufferAttribute(new Float32Array(DN*3),3)); dg.setAttribute('aR',new T.BufferAttribute(dr,4)); dg.boundingSphere=new T.Sphere(v3(),1e5);
