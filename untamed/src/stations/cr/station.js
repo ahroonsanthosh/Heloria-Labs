@@ -814,7 +814,7 @@ function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
    the three of us wave, and you climb, quickly now, through the clouds until the sky goes black. ---------- */
 const FIN={on:false,t:0,look:new T.Vector3(),wave:0,mus:0,fov:45,ign:false,shut:false,handed:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,go:false,ask:false,wait:0,held:0,hold:false,
   cp:new T.Vector3(),cl:new T.Vector3(),pos:new T.Vector3(),alt:0};
-const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=.6, F_HOLD=.5, F_IGN=4.75, F_LIFT=5.1, F_SPACE=7;
+const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=.6, F_HOLD=.5, F_IGN=4.75, F_LIFT=5.1, F_SPACE=7;   // three quick ticks, a breath, lit; F_SPACE: seconds of climbing, by when the camera looks back down at Earth
 /* after the ticks the rocket waits on the pad for you: hold (Space, or press anywhere) and the engines spool up under your
    hand until it lights. F_HELD: seconds of holding to light it; nobody holding, it goes by itself after F_AUTO */
 const F_WAIT=F_IGN-F_HOLD-.001, F_HELD=1.3, F_AUTO=9, HP=$('#holdp'), HPT=$('#holdp span');
@@ -822,7 +822,7 @@ const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.
 addEventListener('keyup',e=>{ if(LKEYS.includes(e.code)) launchHold(false); });
 addEventListener('pointerdown',()=>launchHold(true)); addEventListener('pointerup',()=>launchHold(false)); addEventListener('pointercancel',()=>launchHold(false));
 function launchPrompt(on){ document.documentElement.classList.toggle('launching',on); if(on){ HPT.textContent=FINE?'Hold Space to launch':'Hold anywhere to launch'; HP.style.setProperty('--k','0'); }
-  HP.classList.toggle('on',on); HP.classList.remove('go'); }   // three quick ticks, a breath, lit; F_SPACE: seconds of climbing before space takes over
+  HP.classList.toggle('on',on); HP.classList.remove('go'); }
 const FOUND=(()=>{ const cx=CAMC[0], cz=CAMC[1], fx=PAD[0]-cx, fz=PAD[1]-cz, l=Math.hypot(fx,fz), ux=fx/l, uz=fz/l, rx=-uz, rz=ux;   // to the right of the view from the road
   return [0,1,2].map(k=>[cx+ux*(3.5+.55*k)+rx*(1.25+.8*k),cz+uz*(3.5+.55*k)+rz*(1.25+.8*k)]); })();
 const fSide=new T.Vector3(), fA=new T.Vector3(), fB=new T.Vector3(), fC=new T.Vector3(), fUp=new T.Vector3();
@@ -921,7 +921,8 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   // looking straight down, the top of the picture is the way the road was
   fUp.copy(up).multiplyScalar(1-k2).addScaledVector(fA.crossVectors(fSide,up).normalize(),-k2).normalize();
   stUp.copy(fUp); stCam.up.copy(fUp); UPU.value.copy(up); LU.uPly.value.copy(FIN.cp); S.stSnap=true;   // uPly at the camera: nothing gets cut away
-  if(tau>=F_SPACE&&!FIN.handed){ FIN.handed=true; if(typeof finaleSpace==='function') finaleSpace(); } }
+  // looking back down at the town from above the rocket, the light takes over, and then the white page
+  if(tau>F_SPACE-.2){ S.flashMin=sstep(F_SPACE-.2,F_SPACE+1.6,tau); if(S.flashMin>=1&&!FIN.handed){ FIN.handed=true; if(typeof finaleWhite==='function') setTimeout(finaleWhite,0); } } }   /* (after this frame: Earth is still drawing it) */
 /* when space has taken over completely, Earth puts itself back as it was */
 st.finaleEnd=function(){ FIN.on=false; S.fin=false; launchPrompt(false); el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
   people.forEach(p=>{ [p.x,p.z]=p.at; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; }); BIRDS.forEach(b=>{ b.h=Math.min(b.h,10); }); AH.st='home'; };

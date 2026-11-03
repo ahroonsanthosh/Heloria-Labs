@@ -31,7 +31,6 @@ addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 let drag=null;
 canvas.addEventListener('pointerdown',e=>{
-  if(S.mode==='finale'){ finHold(true); return; }
   if(S.mode==='station'&&S.st&&S.st.onPointer) return S.st.onPointer(e);
   if(S.mode!=='hub') return;
   drag={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,touch:e.pointerType!=='mouse',id:e.pointerId};

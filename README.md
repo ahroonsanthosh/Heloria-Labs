@@ -93,10 +93,9 @@ three, the camera goes over to Ahroon and he asks there and then: one click, Let
 to you, and Let's fly stays on the screen. Everyone gathers at the pad, you walk up the ramp, the hatch shuts, and a
 short wait (three quick ticks, a heartbeat, steam). Then the rocket waits on the pad for you: hold to launch (Space, or
 press and hold anywhere) and the engines spool up under your hand, the rocket shaking harder, until it lights:
-the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
-world burns away like paper onto the traced system; you swing once round the hole, and at the bottom of the well the
-engine burns by itself. It throws you out, and the light takes over: a white page with the three of us, and one line,
-3 lads building the impossible.
+the smoke rolls across the town, and you climb through the clouds until the sky goes black, the camera rising above
+the rocket to look back down at the town. Then the light takes over: a white page with the three of us, and one line,
+challenging what's possible.
 
 Each way in has its own prompt on the opening screen (Scroll to begin, Scroll to land, Scroll into orbit), and while
 everything is built behind it one quiet line says what is being made. The untamed plays louder than the walk, and the

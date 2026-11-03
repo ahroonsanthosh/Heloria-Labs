@@ -287,12 +287,11 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await until(() => window.__heloria.ST.cr._dbg.FIN.ign, null, 300000), 'and it lights once you have held long enough');
   if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 51, pointerType: 'touch', clientX: 195, clientY: 500, bubbles: true })));
   else await page.keyboard.up('Space');
-  rec(await until(() => window.__heloria.S.mode === 'finale', null, 600000), 'the rocket climbs out and space takes over');
-  rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
-  rec(await page.evaluate(() => !document.querySelector('#holdp').classList.contains('on')), 'nothing to hold in space: you only watch');
-  rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'at the bottom the engine burns by itself and throws you out into the white');
+  rec(await until(() => window.__heloria.S.flashMin > .05 && window.__heloria.S.stId === 'cr', null, 600000), 'it climbs until the camera looks back down at Earth, and the light comes in');
+  rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'and straight onto the white page: no scene in orbit after it');
+  rec(await H(h => !h.U.probe.visible && h.S.st === null), 'Earth has put itself away behind the page');
   await H(h => { h.S.finX = 1; }); await wait(20000);
-  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /3 lads building the impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
+  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /challenging what's possible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
   await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
 
   const fails = results.filter(r => !r.ok);
