@@ -111,9 +111,18 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return { marks: Object.values(d.MK).every(m => m.st === 'on'), first: d.people[0].lines[0], noPlay: d.people.every(p => p.lines.every(l => !/play|played|flew|up there|through the hole/i.test(l))) }; });
   rec(land.marks, 'in Land every landmark is already built');
   rec(land.noPlay && /Welcome to Earth/.test(land.first), 'in Land we talk about the landmarks as they are, not about playing them', land.first);
-  const cards = await E((e, d) => { const out = {}; for (const id of ['kr', 'ae', 'ph', 'og', 'be']) { const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(3); const c = document.querySelector('#crProj');
-      out[id] = c.classList.contains('on') && c.target && c.href && c.querySelector('.crpj-n').textContent; } return out; });
-  rec(Object.values(cards).every(Boolean), 'walking up to each landmark shows what it is, with its link', JSON.stringify(cards));
+  /* just landed: the screen is yours, the town and the people; no landmark's card yet, not even Aetos's next to the pad */
+  const fresh = await E((e, d) => { d.place(); d.closeTalk(); d.people.forEach(p => { p.greeted = true; }); e.run(45); const on1 = document.querySelector('#crProj').classList.contains('on');
+    d.began(); e.run(45); return { before: on1, after: document.querySelector('#crProj').classList.contains('on'), ae: +Math.hypot(d.player.x - d.INST.ae.x, d.player.z - d.INST.ae.z).toFixed(2), r: d.INST.ae.r }; });
+  rec(!fresh.before && !fresh.after, 'just after landing no landmark card is up, Aetos included', JSON.stringify(fresh));
+  /* on your way over to someone you pass landmarks; none of their cards flashes up */
+  const pass_ = await E((e, d) => { d.place(); d.goTalk(d.people[0]); let seen = false; for (let i = 0; i < 240 && !d.talk().p; i++) { e.run(1); if (document.querySelector('#crProj').classList.contains('on')) seen = true; }
+    return { seen, talking: !!d.talk().p }; });
+  rec(!pass_.seen, 'walking over to Ahroon past Aetos, its card never flashes up', JSON.stringify(pass_));
+  await E((e, d) => { d.closeTalk(); });
+  const cards = await E((e, d) => { const out = {}; d.began(); for (const id of ['kr', 'ae', 'ph', 'og', 'be']) { const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(6); const c = document.querySelector('#crProj'); const early = c.classList.contains('on');
+      e.run(24); out[id] = !early && c.classList.contains('on') && c.target && c.href && c.querySelector('.crpj-n').textContent; } return out; });
+  rec(Object.values(cards).every(Boolean), 'stopping by each landmark shows what it is, with its link, after a moment', JSON.stringify(cards));
   const tgt = await page.evaluate(() => { const c = document.querySelector('#crProj'); return c.target; });
   await E((e, d, h) => { h.ST.cr.land = false; d.marksEnter(); });
 
