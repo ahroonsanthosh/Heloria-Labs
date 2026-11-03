@@ -29,21 +29,21 @@ function Builder(){
 }
 
 const Y0=.32;            // the stone floor, a hand's width above the water
-const POOL={x0:-4.4,x1:4.4,z0:-16.6,z1:-3.4};
-const PEOPLE_AT=[[-2.75,-15.1],[0,-15.35],[2.75,-15.1]];
-const FAR_ARCH={z:-8.6,x:-11.5};
+const POOL={x0:-7.6,x1:8.6,z0:-14,z1:-6.4};
+const PEOPLE_AT=[[7.35,-12.55],[7.35,-10.2],[7.35,-7.85]];   // waist deep at the east end of the pool, facing the sunset
+const FAR_ARCH={z:-10.2,x:-11.5};                            // on the pool's axis: the last light comes straight down it
 
 function buildOutside(){
   const W={name:'out', scene:new T.Scene(), U:sceneU(), t:0};
   const sc=W.scene;
   const B=Builder();
   /* terrace with the pool cut into it */
-  B.box(-14,14,-1.2,Y0,-3.4,11.2,{nosdf:1}); B.box(-14,14,-1.2,Y0,-21.4,-16.6,{nosdf:1});
-  B.box(-14,POOL.x0,-1.2,Y0,-16.6,-3.4,{nosdf:1}); B.box(POOL.x1,14,-1.2,Y0,-16.6,-3.4,{nosdf:1});
-  B.raw(`d=min(d,max(sdBox(p-vec3(0.,-.44,-5.1),vec3(14.,.76,16.3)),-sdBox(p-vec3(0.,0.,-10.),vec3(4.4,1.,6.6))));`);
+  B.box(-14,14,-1.2,Y0,POOL.z1,11.2,{nosdf:1}); B.box(-14,14,-1.2,Y0,-21.4,POOL.z0,{nosdf:1});
+  B.box(-14,POOL.x0,-1.2,Y0,POOL.z0,POOL.z1,{nosdf:1}); B.box(POOL.x1,14,-1.2,Y0,POOL.z0,POOL.z1,{nosdf:1});
+  B.raw(`d=min(d,max(sdBox(p-vec3(0.,-.44,-5.1),vec3(14.,.76,16.3)),-sdBox(p-vec3(${((POOL.x0+POOL.x1)/2).toFixed(2)},0.,${((POOL.z0+POOL.z1)/2).toFixed(2)}),vec3(${((POOL.x1-POOL.x0)/2).toFixed(2)},1.,${((POOL.z1-POOL.z0)/2).toFixed(2)}))));`);
   /* steps down into the water at the front door, and at the far arch */
   B.box(-5.2,5.2,-1.2,.21,11.2,11.8); B.box(-5.2,5.2,-1.2,.1,11.8,12.4); B.box(-5.2,5.2,-1.2,0,12.4,13);
-  B.box(-15.1,-14,-1.2,.2,-10.6,-6.6); B.box(-16.2,-15.1,-1.2,.08,-10.6,-6.6);
+  B.box(-15.1,-14,-1.2,.2,FAR_ARCH.z-2,FAR_ARCH.z+2); B.box(-16.2,-15.1,-1.2,.08,FAR_ARCH.z-2,FAR_ARCH.z+2);
   /* front block: two low arcaded wings either side of a taller portal with a round window */
   const WA=[{c:-5.75,w:2.4,hs:3.45},{c:-9.15,w:2.4,hs:3.45}], WB=[{c:5.75,w:2.4,hs:3.45},{c:9.15,w:2.4,hs:3.45}];
   B.wall('x',-12,-3.6,Y0,8.3,8,9,WA); B.wall('x',3.6,12,Y0,8.3,8,9,WB);
@@ -59,30 +59,35 @@ function buildOutside(){
   B.box(-11,-3.4,Y0,8.3,1.6,4.6); B.box(3.4,11,Y0,8.3,1.6,4.6);
   B.box(-3.4,3.4,6.95,8.3,1.6,4.6); B.box(-3.4,3.4,Y0,6.95,1.6,2.5);
   B.wall('x',-12,12,Y0,8.3,.6,1.6,[{c:0,w:3.4,hs:4.45}]);
-  /* the courtyard: arcades west and east, a closed wall north, benches by the pool */
-  const CA=[{c:-4.4,w:2.6,hs:3.4},{c:FAR_ARCH.z,w:3.4,hs:4.3},{c:-12.8,w:2.6,hs:3.4},{c:-17.0,w:2.6,hs:3.4}];
-  B.wall('z',-21.4,.6,Y0,6.9,-12,-11,CA); B.wall('z',-21.4,.6,Y0,6.9,11,12,CA);
-  B.box(-12.2,-10.8,6.9,7.22,-21.6,.8); B.box(10.8,12.2,6.9,7.22,-21.6,.8);
-  B.wall('x',-11,11,Y0,6.9,-21.4,-20.4); B.box(-11,11,6.9,7.22,-21.6,-20.2);
-  B.box(-7.4,-6.3,Y0,.78,-14.6,-5.4); B.box(6.3,7.4,Y0,.78,-14.6,-5.4);
+  /* the courtyard: an open arcade to the west lets the sunset in; a lower east wall of niches catches it; benches by the pool */
+  const CA=[{c:-2.2,w:2.6,hs:3.4},{c:-6,w:2.6,hs:3.4},{c:FAR_ARCH.z,w:3.4,hs:4.3},{c:-14.4,w:2.6,hs:3.4},{c:-18.2,w:2.6,hs:3.4}];
+  B.wall('z',-21.4,.6,Y0,6.9,-12,-11,CA); B.box(-12.2,-10.8,6.9,7.22,-21.6,.8);
+  const CE=[{c:-2.2,w:2.4,hs:2.3},{c:-6,w:2.4,hs:2.3},{c:FAR_ARCH.z,w:2.8,hs:2.5},{c:-14.4,w:2.4,hs:2.3},{c:-18.2,w:2.4,hs:2.3}];
+  B.wall('z',-21.4,.6,Y0,4.8,11,11.55,CE); B.box(11.55,12,Y0,4.8,-21.4,.6); B.box(10.84,12.2,4.8,5.1,-21.6,.8);
+  B.wall('x',-11,11,Y0,4.8,-21.4,-20.4); B.box(-11,11,4.8,5.1,-21.6,-20.2);
+  B.box(-5.2,5.2,Y0,.76,-15.6,-15); B.box(-5.2,5.2,Y0,.76,-5.4,-4.8);
   W.sdfGLSL=B.glsl();
 
-  const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#EFE5D5', rough:.9, joint:1});
+  const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#F3ECE2', rough:.9, joint:1,
+    albedo:'{ float wet=1.-smoothstep(.02,.55,vWP.y); diffuseColor.rgb*=mix(1.,.74,wet*(1.-step(.9,wN.y))); if(abs(wN.y)<.5){ float u=abs(wN.x)>.5?vWP.z:vWP.x; float st=vnoise(vec2(u*2.3,vWP.y*.16))*vnoise(vec2(u*7.,vWP.y*.5)); diffuseColor.rgb*=1.-.1*smoothstep(.25,.6,st); } }'});
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
 
   /* the dark inside of the doors, with the gallery's first light glowing at the end */
   const glowM=new T.ShaderMaterial({uniforms:{uC:{value:col('#9DB9F4')}},vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uC; varying vec2 vUv; void main(){ vec2 q=vUv-vec2(.5,.16); float g=exp(-dot(q*vec2(2.6,1.5),q*vec2(2.6,1.5))*5.)*.22+exp(-pow(q.x*7.,2.))*smoothstep(.9,.0,vUv.y)*.05; gl_FragColor=vec4(uC*g+vec3(.006,.006,.008),1.); }`});
+    fragmentShader:`uniform vec3 uC; varying vec2 vUv; void main(){ vec2 q=vUv-vec2(.5,.16); float g=exp(-dot(q*vec2(1.7,1.3),q*vec2(1.7,1.3))*4.)*.13+exp(-pow(q.x*3.2,2.))*smoothstep(.95,.0,vUv.y)*.035; gl_FragColor=vec4(uC*g+vec3(.006,.006,.008),1.); }`});
   const glow=new T.Mesh(new T.PlaneGeometry(3.4,6.6),glowM); glow.position.set(0,3.6,2.52); sc.add(glow);
 
   /* stepping stones: across the water to the front door, and out from the far arch toward the sunset */
   const stones=[];
+  const slab=(w,d,top)=>{ const sh=new T.Shape(), r=Math.min(w,d)*.22; sh.moveTo(-w/2+r,-d/2); sh.lineTo(w/2-r,-d/2); sh.quadraticCurveTo(w/2,-d/2,w/2,-d/2+r); sh.lineTo(w/2,d/2-r); sh.quadraticCurveTo(w/2,d/2,w/2-r,d/2);
+    sh.lineTo(-w/2+r,d/2); sh.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r); sh.lineTo(-w/2,-d/2+r); sh.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
+    const g=new T.ExtrudeGeometry(sh,{depth:.5,bevelEnabled:true,bevelThickness:.05,bevelSize:.05,bevelSegments:3,curveSegments:5}); g.rotateX(-Math.PI/2); g.translate(0,top-.6,0); return g; };
   const rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
-  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=13.9+u*84; homePath.push([-4.2*Math.pow(u,1.3)+.9*Math.sin(u*Math.PI*1.6)*(1-u)+(rnd()-.5)*.25,z]); }
-  homePath.forEach(([x,z],i)=>{ const w=.95+rnd()*.25, d=.72+rnd()*.18; const g=boxGeo(-w/2,w/2,-.6,.04+rnd()*.025,-d/2,d/2); g.rotateY((rnd()-.5)*.5); g.translate(x,0,z); stones.push(g); });
-  for(let i=0;i<14;i++){ const x=-17.4-i*3.1-i*i*.06, z=FAR_ARCH.z+Math.sin(i*.7)*.5+i*.12; const w=1.2+rnd()*.3, d=.95+rnd()*.25;
-    const g=boxGeo(-w/2,w/2,-.6,.06+rnd()*.03,-d/2,d/2); g.rotateY((rnd()-.5)*.4); g.translate(x,0,z); stones.push(g); }
-  const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.012;}', key:'stones', color:'#D8CCBB', rough:.96, joint:0});
+  const homePath=[]; for(let i=0;i<22;i++){ const u=i/21, z=13.9+u*64; homePath.push([-4.2*Math.pow(u,1.3)+.9*Math.sin(u*Math.PI*1.6)*(1-u)+(rnd()-.5)*.25,z]); }
+  homePath.forEach(([x,z],i)=>{ const w=.92+rnd()*.25, d=.7+rnd()*.16; const g=slab(w,d,.035+rnd()*.02); g.rotateY((rnd()-.5)*.5); g.translate(x,0,z); stones.push(g); });
+  for(let i=0;i<16;i++){ const x=-17.6-i*3.0-i*i*.07, z=FAR_ARCH.z+Math.sin(i*.6)*.45-i*.08; const w=.95+rnd()*.25, d=.75+rnd()*.2;
+    const g=slab(w,d,.035+rnd()*.02); g.rotateY((rnd()-.5)*.4); g.translate(x,0,z); stones.push(g); }
+  const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.01;}', key:'stones', color:'#BFB3A4', rough:.9, joint:0, albedo:'diffuseColor.rgb*=mix(.55,1.,smoothstep(-.02,.05,vWP.y));'});
   const st=new T.Mesh(mergeGeos(stones),stoneM); st.receiveShadow=true; st.castShadow=true; sc.add(st);
 
   /* far shore: low hills deep in the haze */
@@ -115,9 +120,9 @@ function buildOutside(){
 
   /* tall grass at the edges */
   W.grass=makeGrass(W.U,[
-    {x:-17,z:70,rx:7,rz:7,n:1900,h:1.7},{x:8.5,z:74,rx:6,rz:6,n:1700,h:1.6},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
+    {x:-11.5,z:84,rx:4.2,rz:5,n:1500,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:10.5,z:70,rx:4.5,rz:5.5,n:1100,h:1.45},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
     {x:-35,z:2,rx:6,rz:4.5,n:900},{x:-36,z:-19,rx:6.5,rz:4.5,n:900},{x:-58,z:-2,rx:3.5,rz:2.5,n:300},{x:-62,z:-15,rx:4,rz:2.5,n:320},
-    {x:-10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:-10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},{x:10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},
+    {x:-10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:10.3,z:-19.7,rx:.7,rz:.7,n:60,h:.6},{x:-10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},{x:10.3,z:-.3,rx:.7,rz:.6,n:60,h:.6},
     {x:24,z:-6,rx:4,rz:7,n:500},{x:-25,z:-30,rx:5,rz:4,n:400}]);
   sc.add(W.grass.mesh);
 
@@ -145,19 +150,37 @@ function buildOutside(){
         if(a<.004) discard;
         gl_FragColor=vec4(haze(c,vWP),a);
       }`});
-    const h=1.34, w=h*360/468;
+    const h=1.5, w=h*360/468;
     const g=new T.PlaneGeometry(w,h); g.translate(0,h/2-.02,0);
-    const mesh=new T.Mesh(g,m); mesh.position.set(PEOPLE_AT[i][0],0,PEOPLE_AT[i][1]); mesh.renderOrder=5; sc.add(mesh);
+    const mesh=new T.Mesh(g,m); mesh.position.set(PEOPLE_AT[i][0],0,PEOPLE_AT[i][1]); mesh.rotation.y=-Math.PI/2; mesh.renderOrder=5; sc.add(mesh);
     return {mesh,mat:m,reveal:0,target:0,w,h,i,last:0};
   });
 
-  W.hideInMirror=[W.water,W.seeds.mesh];
+  /* sunbeams: the last light streaming through each arch of the west arcade, dust turning in it */
+  W.beamMat=new T.ShaderMaterial({uniforms:Object.assign({uK:{value:0},uTime:GU.uTime,uCol:{value:new T.Color('#FFC890')}},W.U),transparent:true,depthWrite:false,side:T.DoubleSide,
+    blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
+    vertexShader:`attribute float aL; varying float vL; varying vec3 vWP; varying vec3 vN; void main(){ vL=aL; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform float uK,uTime; uniform vec3 uCol; varying float vL; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}${GLSL.haze.split('vec3 haze')[0]}
+    void main(){ vec3 V=normalize(vWP-cameraPosition); float face=abs(dot(normalize(vN),V)); float look=pow(max(dot(V,uSunDir),0.),3.);
+      float n=.55+.45*vnoise(vec2(vWP.z*1.3+uTime*.12,vWP.y*1.6-uTime*.08)+vWP.x*.07);
+      float a=pow(1.-vL,1.6)*smoothstep(0.,.04,vL)*(.25+.75*face)*(.16+1.6*look)*n;
+      gl_FragColor=vec4(uCol*a*.055*uK,1.); }`});
+  const beams=[];
+  for(const a of CA){ const r=a.w/2-.05, sp=a.hs, sh=new T.Shape(); sh.moveTo(-r,0); sh.lineTo(-r,sp); sh.absarc(0,sp,r,Math.PI,0,true); sh.lineTo(r,0); sh.lineTo(-r,0);
+    const L=24, g=new T.ExtrudeGeometry(sh,{depth:L,bevelEnabled:false,curveSegments:16,steps:1});
+    const pos=g.attributes.position, al=new Float32Array(pos.count); for(let i=0;i<pos.count;i++) al[i]=pos.getZ(i)/L; g.setAttribute('aL',new T.BufferAttribute(al,1));
+    g.rotateY(Math.PI/2); const m=new T.Mesh(g,W.beamMat); m.position.set(-11.6,Y0,a.c); m.frustumCulled=false; m.renderOrder=960; sc.add(m); beams.push(m); }
+  W.beams=beams;
+  W.hideInMirror=[W.water,W.seeds.mesh,...beams];
   W.update=(dt,st)=>{
     W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale;
     for(const p of W.people){ const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?2.6:1.5,dt); p.mat.uniforms.uReveal.value=p.reveal;
-      if((prev<.06&&p.reveal>=.06)||(prev>.9&&p.reveal<=.9)){ W.sim.drop(p.mesh.position.x,p.mesh.position.z+.15,.7,-1.4); } }
+      if((prev<.06&&p.reveal>=.06)||(prev>.9&&p.reveal<=.9)){ W.sim.drop(p.mesh.position.x-.2,p.mesh.position.z,.7,-1.4); } }
   };
-  W.applyLight=(tod,tint)=>applyOutsideLight(W,tod,tint);
+  W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint);
+    const k=sstep(4.45,4.8,S.s)*(1-sstep(5.85,6.1,S.s))*sstep(-.5,1.5,SUN.el); W.beamMat.uniforms.uK.value=k;
+    const yaw=Math.atan2(SUN.dir.z,-SUN.dir.x), pitch=Math.asin(clamp(SUN.dir.y,-1,1));
+    for(const b of W.beams){ b.visible=k>.001; b.rotation.set(0,yaw,-pitch,'YZX'); } };
   W.render=(cam,target)=>{
     W.sky.position.copy(cam.position);
     renderer.shadowMap.needsUpdate=true;
@@ -183,7 +206,7 @@ function applyOutsideLight(W,tod,tint){
   W.shoreMat.uniforms.uShore.value.copy(TODC.haze).lerp(TODC.zen,.35).multiplyScalar(.8);
   const gm=W.grass.mat.uniforms; gm.uSunCol.value.copy(TODC.L).multiplyScalar(tod.Li/3*sstep(-1.5,1.5,SUN.el)); gm.uAmb.value.copy(TODC.sky).multiplyScalar(.36*tod.hi).lerp(TODC.gnd,.25);
   W.seeds.mat.uniforms.uCol.value.copy(TODC.sun).lerp(TODC.glow,.4);
-  for(const p of W.people) p.mat.uniforms.uTintP.value.set(1,1,1).lerp(TODC.L,.16).multiplyScalar(.98+.04*tod.hi);
+  for(const p of W.people) p.mat.uniforms.uTintP.value.set(1,1,1).lerp(TODC.L,.3).multiplyScalar(1.02);
 }
 
 /* ---------- grass: instanced blades bending in a slow travelling wind ---------- */
@@ -213,7 +236,7 @@ function makeGrass(U,clumps){
       vec2 wd=normalize(vec2(.8,.35));
       float gust=vnoise(aOff.xy*.09-wd*uTime*.55)*.9+vnoise(aOff.xy*.3-wd*uTime*1.3)*.4;
       float sway=sin(uTime*1.6+aRnd.x*6.283+aOff.x*.4)*.12+(gust-.55)*.9;
-      float bend=(aRnd.y+.25+sway*uWind)*t*t;
+      float bend=(aRnd.y*1.5+.3+sway*uWind)*pow(t,1.7);
       vec2 bd=normalize(wd+vec2(cos(aRnd.x*9.),sin(aRnd.x*9.))*.5);
       float w=aRnd.z*(1.-t*.94);
       vec3 p=vec3(aOff.x,-.12,aOff.y)+vec3(dir.x*position.x*w,t*H*(1.-.18*bend*bend),dir.y*position.x*w)+vec3(bd.x,0.,bd.y)*bend*H*.55;
@@ -253,10 +276,10 @@ function makeSeeds(U,N){
       vec4 mv=viewMatrix*vec4(p,1.); float d=-mv.z;
       gl_PointSize=clamp(uSize*(.45+aR.w*1.1)*uPx/max(d,.1),1.,38.);
       vec3 dir=normalize(p-c); float fs=pow(max(dot(dir,uSunDir),0.),5.);
-      vA=smoothstep(.8,3.,d)*(1.-smoothstep(21.,27.,length(p.xz-c.xz)))*(.32+2.2*fs+.25*aR.z)*smoothstep(.1,.5,p.y);
+      vA=smoothstep(.6,2.2,d)*(1.-smoothstep(21.,27.,length(p.xz-c.xz)))*(.75+2.4*fs+.5*aR.z)*smoothstep(.1,.5,p.y);
       gl_Position=projectionMatrix*mv;
     }`,
-    fragmentShader:`uniform vec3 uCol; uniform float uK; varying float vA; void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); float a=smoothstep(.5,.0,d); a*=a; gl_FragColor=vec4(uCol*a*vA*uK*.55,1.); }`});
+    fragmentShader:`uniform vec3 uCol; uniform float uK; varying float vA; void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); float a=smoothstep(.5,.0,d); a=a*a*.7+smoothstep(.18,.0,d)*.6; gl_FragColor=vec4(uCol*a*vA*uK*.8,1.); }`});
   const mesh=new T.Points(g,mat); mesh.frustumCulled=false; mesh.renderOrder=950;
   return {mesh,mat};
 }

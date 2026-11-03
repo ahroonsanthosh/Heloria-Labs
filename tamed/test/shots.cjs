@@ -14,12 +14,22 @@ module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, chec
   }
   await T(t => t.enter()); await wait(3200); await settle(4);
   if (want('home')) await still('04-home');
+  if (want('cursor')) {
+    await page.mouse.move(400, 640); await settle(2);
+    for (let i = 0; i <= 8; i++) { await page.mouse.move(400 + i * 60, 640 - i * 14); await settle(1); }
+    await still('04b-home-cursor');
+  }
   const places = [['krios', '05-krios'], ['aetos', '06-aetos'], ['pharos', '07-pharos'], ['ogive', '08-ogive'], ['team', '09-team'], ['contact', '11-contact']];
   for (const [id, n] of places) {
     if (!want(id)) continue;
     await T((t, id) => { const p = t.PLACES.find(p => p.id === id); t.jump(p.s); }, id);
     await still(n);
     if (id === 'team') { await T(t => t.people(true)); await still('10-team-risen'); await T(t => t.people(false)); }
+  }
+  if (want('door')) {
+    for (const [v, n] of [[.22, '17-approach'], [.42, '18-door-near'], [.5, '19-door-in'], [4.5, '20-door-out'], [5.5, '21-far-arch']]) {
+      await T((t, v) => { t.jump(0); t.setV(v); }, v); await still(n);
+    }
   }
   if (want('index')) { await T(t => { t.jump(1); }); await settle(2); await T(t => t.openIndex()); await wait(900); await still('12-index'); await T(t => t.closeIndex()); }
   if (want('case')) {

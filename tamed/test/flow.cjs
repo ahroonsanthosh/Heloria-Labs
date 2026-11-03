@@ -31,6 +31,7 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
   await until(x => x.mode === 'world', 'Tamed enters the walk');
   await until(x => !!x.audio && x.audio.state === 'running', 'the Tamed click unlocks the sound');
   check((await sectionIn()) === 'home', 'Home text is showing');
+  { await wait(2500); const a = (await st()).audio; check(a.water > .45 && a.waterF > 1800 && a.mus > .5, 'sound at Home: score and close water (' + a.mus + ', ' + a.water + ' at ' + a.waterF + 'Hz)'); }
   await shot('flow-home');
 
   /* ---- every place by scrolling ---- */
@@ -39,6 +40,13 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     if (mobile) await swipe(Math.min(vp.height * .5, 380));
     else { for (let k = 0; k < 4; k++) { await page.mouse.wheel(0, 235); await wait(30); } }
     await at(stops[i]);
+    if (!mobile && [1, 2, 3, 4, 6].includes(stops[i])) {
+      await wait(2500); const a = (await st()).audio;
+      const room = { 1: 'kr', 2: 'ae', 3: 'ph', 4: 'og' }[stops[i]];
+      const mt = await T(t => t.A.meter()); check(mt && mt.peak < .9 && mt.rmsDb < -12, 'never loud at s=' + stops[i] + ': peak ' + (mt && mt.peak) + ', rms ' + (mt && mt.rmsDb) + ' dBFS');
+      if (room) check(a[room] > .15 && a.waterF < 700 && a.water < .3, 'sound in ' + room + ': its own layer (' + a[room] + '), water muffled (' + a.water + ' at ' + a.waterF + 'Hz)');
+      else check(a.water > .45 && a.waterF > 3000 && a.kr < .02 && a.og < .02, 'sound at Contact: water fully back (' + a.water + ' at ' + a.waterF + 'Hz), rooms silent');
+    }
   }
   const last = await st(); check(last.place === 'contact', 'scrolling reaches Contact');
   check((await sectionIn()) === 'contact', 'Contact text is showing');

@@ -35,7 +35,7 @@ const POST={};
       gl_FragColor=vec4(c,1.); }`});
   POST.comp=new T.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{value:null},uRes:GU.uRes,uTime:GU.uTime,uAsp:{value:1},
       uExpo:{value:1},uBloom:{value:.12},uGrade:{value:new T.Color(1,1,1)},uLift:{value:new T.Vector3(.034,.028,.026)},uSat:{value:1.05},
-      uVeil:{value:1},uVeilCol:{value:new T.Color('#F6E9D6')},uDark:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
+      uVeil:{value:1},uVeilCol:{value:new T.Color('#F3DDBF')},uDark:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
       uFlood:{value:0},uFloodCol:{value:new T.Color(1,1,1)},uFloodC:{value:new T.Vector2(.5,.5)},
       uMouse:{value:new T.Vector2(-999,-999)},uVel:{value:new T.Vector2()},uDropR:{value:15},uDropK:{value:0},
       uCA:{value:.0035},uVig:{value:1},uGrain:{value:.045},uFade:{value:0},uBlN:{value:1/QL.bloomLv}},
@@ -62,8 +62,14 @@ const POST={};
       vec3 c=vec3(texture2D(tScene,uv+cd*ca).r,texture2D(tScene,uv).g,texture2D(tScene,uv-cd*ca).b);
       vec3 bl=texture2D(tBloom,uv).rgb*uBlN;
       c+=bl*uBloom;
-      /* the gate: the place is there behind a sunlit mist */
-      c=mix(c,bl*.9+uVeilCol*.9,uVeil*.9);
+      /* the gate: the place is there behind a sunlit mist, which burns off from the middle when you go in */
+      if(uVeil>0.){ vec2 vq=(vUv-vec2(.5,.56))*vec2(uAsp,1.); float vr=length(vq);
+        float n=fbm2(vq*2.4+vec2(uTime*.035,uTime*.02));
+        float f=clamp(.62*(1.-vr*.9)+.42*n,0.,1.);
+        float vm=uVeil>=.999?1.:smoothstep(f*.78,f*.78+.26,uVeil);
+        float bl1=dot(bl,vec3(.3,.5,.2));
+        vec3 mist=uVeilCol*(.78+.3*bl1)*(1.12-vr*.32)+vec3(1.,.86,.62)*exp(-vr*vr*3.)*.22;
+        c=mix(c,mist+bl*.08,vm*.94); }
       c*=uExpo;
       c=aces(c*.92);
       float l=dot(c,vec3(.2126,.7152,.0722)); c=mix(vec3(l),c,uSat);
@@ -71,7 +77,7 @@ const POST={};
       c=c*(1.-uLift)+uLift;
       c*=uGrade;
       /* a project open: the room softens and dims under the page */
-      if(uDim>0.){ vec3 b=toS(aces(bl*uExpo*.92)); b=b*(1.-uLift)+uLift; c=mix(c,b*uDimCol*.62,uDim); }
+      if(uDim>0.){ vec3 b=toS(aces(bl*uExpo*.92)); b=b*(1.-uLift)+uLift; float gy=mix(.74,.5,smoothstep(.9,.1,vUv.y)); c=mix(c,b*uDimCol*gy,uDim); }
       /* light flooding out of a room */
       if(uFlood>0.){ vec2 fq=(vUv-uFloodC)*vec2(uAsp,1.); float fr=length(fq); float n=fbm2(fq*3.+uTime*.2);
         float R=uFlood*2.1; float m=smoothstep(R,R-.35,fr+(n-.5)*.35); c=mix(c,uFloodCol,m*clamp(uFlood*1.3,0.,1.)); }

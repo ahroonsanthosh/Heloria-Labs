@@ -4,6 +4,11 @@
 const UNTAMED_URL='https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn';
 const PHOTOS=__PHOTOS__;
 const T=window.THREE;
+/* without three.js there is no place to walk through: keep the words, as a plain page */
+if(!T){ const d=document; d.documentElement.classList.add('nogl'); const g=d.getElementById('gate'), b=d.getElementById('tamed');
+  d.querySelectorAll('[data-untamed]').forEach(a=>{ a.href=UNTAMED_URL; }); g.classList.remove('loading'); g.classList.add('ready'); [...d.querySelectorAll('#word span')].forEach(l=>l.classList.add('in'));
+  b.disabled=false; b.onclick=()=>{ g.style.display='none'; const u=d.getElementById('ui'); u.classList.add('on'); u.removeAttribute('aria-hidden'); d.getElementById('logo').classList.add('on'); };
+  throw new Error('Heloria Tamed: three.js did not load, showing the plain page'); }
 const TEST=!!window.__TEST, HQ=!!window.__HQ;
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)), lerp=(a,b,t)=>a+(b-a)*t;

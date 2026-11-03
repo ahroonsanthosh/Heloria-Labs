@@ -9,11 +9,11 @@ const GL_OK=(()=>{
 
 /* quality: what this device can afford. The frame timer below moves dpr up and down at run time */
 const QL={
-  dprMax:HQ?1:Math.min(devicePixelRatio||1, MOBILE?1.5:1.75),
+  dprMax:HQ?1:Math.min(devicePixelRatio||1, MOBILE?1.5:1.6),
   dpr:1, refl:HQ?.75:(MOBILE?.4:.5), sim:MOBILE?256:512, grass:MOBILE?.5:1, samples:(TEST&&!HQ)||MOBILE?0:4,
   ao:MOBILE?3:5, shadow:HQ?4096:(MOBILE?1024:2048), seeds:MOBILE?500:1100, bloomLv:MOBILE?4:5,
 };
-QL.dpr=TEST?1:QL.dprMax;
+QL.dpr=TEST?1:Math.min(QL.dprMax,MOBILE?1.25:1.3);
 /* functional tests can ask for cheap pixels: the page, the walk and the timing are the same */
 if(window.__LOWQ){ QL.dpr=QL.dprMax=.5; QL.ao=2; QL.refl=.3; QL.grass=.3; QL.sim=256; QL.shadow=512; QL.seeds=300; QL.bloomLv=4; }
 
@@ -88,7 +88,7 @@ vec3 stoneTex(vec3 p,vec3 n){
     float j=smoothstep(.0035,.0035+fw,e);
     float fade=1.-smoothstep(.008,.05,fw);
     k*=mix(1.,mix(.8,1.,j),fade*uJoint);
-    k*=mix(1.,.965+.07*id,uJoint);
+    k*=mix(1.,.945+.11*id,uJoint);
   }
   return vec3(k)*mix(vec3(.985,1.,1.02),uWarm,b);
 }
@@ -96,7 +96,7 @@ vec3 stoneTex(vec3 p,vec3 n){
 
 /* a scene's lighting atmosphere: its own sun, haze and ambient occlusion strength */
 function sceneU(){
-  return {uSunDir:{value:v3(0,1,0)}, uHazeCol:{value:col('#E9DFD2')}, uHazeSun:{value:col('#FFD9A8')}, uFog:{value:new T.Vector4(.0026,.05,7,.92)}, uAOk:{value:1}};
+  return {uSunDir:{value:v3(0,1,0)}, uHazeCol:{value:col('#E9DFD2')}, uHazeSun:{value:col('#FFD9A8')}, uFog:{value:new T.Vector4(.0009,.04,7,.9)}, uAOk:{value:1.35}};
 }
 
 /* stone: MeshStandardMaterial with our grain, signed-distance ambient occlusion and haze stitched in.

@@ -8,19 +8,22 @@ const now=()=>performance.now()/1000;
 function scrollMax(){ return STOPS.length-1; }
 function nudge(dv){
   if(S.mode!=='world') return;
-  SC.glide=null; SC.target=clamp(SC.target+dv,-.12,scrollMax()+.12); SC.lastIn=now(); if(dv) SC.dir=Math.sign(dv);
+  SC.glide=null; SC.pin=false; SC.target=clamp(SC.target+dv,-.12,scrollMax()+.12); SC.lastIn=now(); SC.lastF=S.frame; if(dv) SC.dir=Math.sign(dv);
   UI.firstScroll();
 }
 function scrollTick(dt){
   const t=now();
   if(S.mode==='world'||S.mode==='veil'){
     const quiet=t-SC.lastIn, touching=!!SC.touch;
+    if(SC.glide!==null||touching) SC.pin=false;
     if(SC.inertia&&!touching){ const step=SC.inertia*dt; SC.target=clamp(SC.target+step,-.12,scrollMax()+.12); SC.inertia*=Math.exp(-4.2*dt); if(Math.abs(SC.inertia)<.02) SC.inertia=0; SC.lastIn=t-.05; }
-    if(!touching&&!SC.inertia&&quiet>.22&&SC.glide===null){
+    /* settle once the hand has been still a moment: on the nearest place, or the way you were going when you stopped between two */
+    const QUIET=TEST?1.6:.4, still=!TEST||S.frame-(SC.lastF||0)>6;
+    if(!touching&&!SC.inertia&&quiet>QUIET&&still&&SC.glide===null&&!SC.pin){
       const f=SC.target-Math.floor(SC.target); let goal;
-      if(SC.dir>0) goal=f>.2?Math.ceil(SC.target):Math.floor(SC.target); else goal=f<.8?Math.floor(SC.target):Math.ceil(SC.target);
+      if(f<.3) goal=Math.floor(SC.target); else if(f>.7) goal=Math.ceil(SC.target); else goal=SC.dir>0?Math.ceil(SC.target):Math.floor(SC.target);
       goal=clamp(goal,0,scrollMax());
-      SC.target=damp(SC.target,goal,Math.min(4.5,1.5+quiet*6),dt);
+      SC.target=damp(SC.target,goal,Math.min(3.6,1.2+(quiet-QUIET)*5),dt);
       if(Math.abs(SC.target-goal)<1e-4) SC.target=goal;
     }
     const k=SC.glide!==null?2.2:(touching?9:4.2);
@@ -61,7 +64,7 @@ addEventListener('pointermove',e=>{
   if(HOLD.open) UI.indexHover(e.clientX,e.clientY);
   if(SC.touch&&e.pointerId===SC.touch.id){ const dy=SC.touch.y-e.clientY;
     if(S.mode==='page') CASE.drag(dy-SC.touch.last), SC.touch.last=dy;
-    else if(S.mode==='world'){ SC.target=clamp(SC.touch.v0+dy/PXSTOP(),-.15,scrollMax()+.15); SC.lastIn=t; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
+    else if(S.mode==='world'){ SC.target=clamp(SC.touch.v0+dy/PXSTOP(),-.15,scrollMax()+.15); SC.lastIn=t; SC.lastF=S.frame; if(Math.abs(dy)>4) SC.dir=Math.sign(dy); UI.firstScroll(); }
     const vt=(dy-SC.touch.py)/Math.max(.008,t-SC.touch.pt); SC.touch.vel=lerp(SC.touch.vel,vt,.4); SC.touch.py=dy; SC.touch.pt=t; }
 },{passive:true});
 addEventListener('pointerdown',e=>{
@@ -75,9 +78,9 @@ addEventListener('pointerdown',e=>{
 const endPointer=e=>{
   if(SC.touch&&e.pointerId===SC.touch.id){ const v=SC.touch.vel; const moved=Math.abs(SC.touch.py)>8;
     if(S.mode==='page') CASE.fling(v);
-    else if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-3.2,3.2)*.9; }
+    else if(S.mode==='world'&&moved){ SC.inertia=clamp(v/PXSTOP(),-4,4)*.45; }
     else if(S.mode==='world'&&!moved&&!HOLD.open&&e.type==='pointerup') WORLD.tap(e.clientX,e.clientY);
-    SC.touch=null; SC.lastIn=now(); }
+    SC.touch=null; SC.lastIn=now(); SC.lastF=S.frame; }
   if(HOLD.open){ UI.indexRelease(e.clientX,e.clientY,now()-HOLD.t0); }
   HOLD.down=false; UI.ring(0);
 };
@@ -89,18 +92,18 @@ function holdTick(){
     if(k>=1){ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
 }
 addEventListener('wheel',e=>{
-  if(S.mode==='gate'||S.mode==='entering'){ return; }
+  if(S.mode==='gate'||S.mode==='entering'||S.mode==='plain'){ return; }
   e.preventDefault();
   let d=Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.2?e.deltaX:e.deltaY;
   if(e.deltaMode===1) d*=32; else if(e.deltaMode===2) d*=innerHeight;
-  d=clamp(d,-260,260);
+  d=clamp(d,-260,260); S.wheelLog=(S.wheelLog||[]).slice(-9).concat([[Math.round(e.deltaY),e.deltaMode,Math.round(d),+SC.target.toFixed(3)]]);
   if(HOLD.open) return;
   if(S.mode==='page') CASE.wheel(d); else nudge(d/PXSTOP());
 },{passive:false});
 addEventListener('keydown',e=>{
   if(e.target&&e.target.closest&&e.target.closest('input,textarea')) return;
   if(e.key==='Escape'){ if(HOLD.open){ UI.indexOpen(false); return; } if(S.mode==='page'){ CASE.close(); return; } }
-  if(S.mode==='gate') return;
+  if(S.mode==='gate'||S.mode==='plain') return;
   if(S.mode==='page'){ if(['ArrowDown','PageDown',' '].includes(e.key)){ e.preventDefault(); CASE.wheel(e.key==='ArrowDown'?120:innerHeight*.8); } if(['ArrowUp','PageUp'].includes(e.key)){ e.preventDefault(); CASE.wheel(e.key==='ArrowUp'?-120:-innerHeight*.8); } return; }
   if(S.mode!=='world') return;
   const f=document.activeElement; const onCtl=f&&f!==document.body&&f.matches&&f.matches('a,button');
@@ -110,3 +113,5 @@ addEventListener('keydown',e=>{
   else if(e.key==='End'){ e.preventDefault(); travel('contact'); }
   else if(e.key==='i'||e.key==='I'){ UI.indexOpen(!HOLD.open); }
 });
+/* a long press on a touch screen is ours (the index), not the browser's menu */
+addEventListener('contextmenu',e=>{ if(M.type==='touch'||HOLD.down||HOLD.open) e.preventDefault(); });

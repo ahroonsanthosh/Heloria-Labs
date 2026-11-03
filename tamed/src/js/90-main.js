@@ -48,6 +48,7 @@ const QM={buf:[],cool:0,tick(ms){ if(TEST||HQ||!S.ready) return; this.buf.push(m
 /* ---------- entering ---------- */
 S.enterT=0; S.enterK=0; S.veil=1;
 function enter(){
+  if(S.nogl){ gate.classList.add('go','gone'); ui.classList.add('on'); ui.setAttribute('aria-hidden','false'); $('#logo').classList.add('on'); S.mode='plain'; return; }
   if(S.mode!=='gate'||!S.ready) return;
   S.mode='entering'; S.enterT=0; S.entered=true;
   A.start().then(()=>{ A.swell(); });
@@ -90,18 +91,18 @@ function frame(tn){
   const bt=POST.bloom(src);
   const cu=POST.comp.uniforms, inside=sstep(.42,.6,s)*(1-sstep(4.4,4.58,s)), dusk=sstep(5.3,6,s);
   cu.tScene.value=src.texture; cu.tBloom.value=bt;
-  cu.uExpo.value=lerp(1.0,1.22,inside)*(1+dusk*.16);
-  cu.uBloom.value=lerp(.085,.2,inside);
+  cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
+  cu.uBloom.value=lerp(.055,.18,inside);
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
   cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,S.gateHover==='tamed'?.8:1,2.5,dt):S.veil;
   cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.6:3.5,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
-  cu.uDim.value=Math.max(CASE.dim*.92,damp(S.idim||0,HOLD.open?.7:0,6,dt)); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
+  cu.uDim.value=Math.max(CASE.dim,damp(S.idim||0,HOLD.open?.7:0,6,dt)); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
   cu.uDimCol.value.set(1,1,1).lerp(TINT,.5);
   const fk=Math.max(CASE.floodK||0,VEIL.k); cu.uFlood.value=fk; if(VEIL.k>(CASE.floodK||0)){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
   const d=QL.dpr; cu.uMouse.value.set(M.x*d,(innerHeight-M.y)*d); cu.uVel.value.set(M.vx*d,-M.vy*d); M.vx*=Math.exp(-6*dt); M.vy*=Math.exp(-6*dt);
   cu.uDropR.value=damp(cu.uDropR.value,(UI.isBig()?24:12)*d*(HOLD.open?1.4:1),9,dt);
   cu.uDropK.value=damp(cu.uDropK.value,FINE&&M.on?1:0,8,dt);
-  cu.uGrain.value=S.mode==='gate'&&S.gateHover==='tamed'?.02:.042;
+  cu.uGrain.value=S.mode==='gate'&&S.gateHover==='tamed'?.016:.032;
   POST.pass(POST.comp,null);
   UI.update(s,dt);
   A.update(dt,audioState(s,inside));
@@ -111,13 +112,13 @@ function audioState(s,inside){
   let beam=0; if(GAL&&prox(3)>.01){ const r=GAL.rooms[2]; const b=r.beam, lp=b.position, tp=b.target.position; _hd.subVectors(tp,lp).normalize(); _hp.subVectors(CAM.gal.position,lp).normalize(); beam=Math.pow(Math.max(0,_hd.dot(_hp)),5); }
   const gate=S.mode==='gate';
   return {music:gate?0:1-inside*.3, musF:lerp(9000,2600,inside), water:gate?0:lerp(1,.36,inside)*(1-court*.3), waterF:lerp(2400,320,inside)+contact*1800,
-    wind:gate?0:(1-inside)*(1-court*.7), birds:(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
+    wind:gate?0:(1-inside)*(1-court*.7), birds:gate?0:(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
     warm:gate&&S.gateHover==='tamed'?1:0, dark:gate&&S.gateHover==='untamed'?1:0};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 
 async function boot(){
-  if(!GL_OK){ document.documentElement.classList.add('nogl'); UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='A quiet page, without the place'; return; }
+  if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='A quiet page, without the place'; return; }
   UI.loadStep(.08);
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
   await nextFrame();
@@ -140,15 +141,15 @@ async function boot(){
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
 }
 requestAnimationFrame(frame);
-boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); UI.gateReady(); });
+boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
 window.__tamed={S,SC,A,QL,PLACES,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,
-  jump(s){ S.mode='world'; S.veil=0; S.enterK=1; gate.classList.add('go','gone'); ui.classList.add('on'); $('#logo').classList.add('on'); const i=STOPS.indexOf(s); SC.v=SC.target=i>=0?i:s; SC.glide=null; SC.lastIn=-9; },
-  setV(v){ SC.v=SC.target=v; SC.glide=null; },
+  jump(s){ S.mode='world'; S.veil=0; S.enterK=1; gate.classList.add('go','gone'); ui.classList.add('on'); $('#logo').classList.add('on'); const i=STOPS.indexOf(s); SC.v=SC.target=i>=0?i:s; SC.glide=null; SC.lastIn=-9; SC.pin=false; },
+  setV(v){ SC.v=SC.target=v; SC.glide=null; SC.pin=true; },
   openProject(i){ CASE.open(i,$$('[data-open]')[i]); }, closeProject(){ CASE.close(); }, caseScroll(y){ CASE.ty=CASE.y=y; }, get CASE(){ return CASE; },
   openIndex(){ UI.indexOpen(true); }, closeIndex(){ UI.indexOpen(false); },
   people(on){ S.peopleAll=!!on; if(OUT) OUT.people.forEach(p=>{ p.target=on?1:0; p.reveal=on?1:0; p.mat.uniforms.uReveal.value=p.reveal; }); },

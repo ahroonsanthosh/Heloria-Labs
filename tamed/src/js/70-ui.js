@@ -17,8 +17,11 @@ $('#untamed').addEventListener('pointerenter',()=>setHover('untamed')); $('#unta
 $('#tamed').addEventListener('focus',()=>setHover('tamed')); $('#untamed').addEventListener('focus',()=>setHover('untamed'));
 $('#tamed').addEventListener('blur',()=>setHover(null)); $('#untamed').addEventListener('blur',()=>setHover(null));
 $('#tamed').addEventListener('click',()=>enter());
+/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the two ways can be heard on hover */
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='gate'&&!A.on) A.start(); },{capture:true,passive:true}));
 $('#untamed').addEventListener('click',()=>{ A.click(); });
 
+if(!FINE){ $('#cue span').textContent='Swipe'; }
 /* ---------- menu and anything that names a place ---------- */
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-go]'); if(!a) return;
@@ -36,14 +39,15 @@ let fgKey='';
 UI.update=(s,dt)=>{
   for(const x of SECS){
     const d=Math.abs(s-x.p.s), w=x.p.id==='team'?.24:0;
-    let vis=1-sstep(.09+w,.32+w,d); if(S.mode==='page'||S.mode==='gate'||S.mode==='entering') vis=x.p.id==='home'&&S.mode==='entering'?S.enterK:0;
+    let vis=x.p.id==='home'?1-sstep(.035,.15,d):1-sstep(.09+w,.32+w,d); if(S.mode==='page'||S.mode==='gate'||S.mode==='entering') vis=x.p.id==='home'&&S.mode==='entering'?S.enterK:0;
     if(Math.abs(vis-x.vis)>.002){ x.vis=vis; x.el.style.opacity=vis.toFixed(3); x.el.style.visibility=vis>.002?'visible':'hidden'; }
-    const on=vis>.5; if(on!==x.on){ x.on=on; x.el.classList.toggle('in',on); if(on&&x.el.querySelector('[data-reflect]')) TXT.dirty=true; }
+    const on=vis>.5; if(on!==x.on){ x.on=on; x.el.classList.toggle('in',on); if(on&&x.el.querySelector('[data-reflect]')){ TXT.dirty=true; setTimeout(()=>TXT.dirty=true,1800); } }
   }
   /* the ink of the page changes with the light: dark on the bright evening, pale indoors and after sunset */
-  const k=sstep(.3,.55,s); _fg.copy(INK).lerp(LIGHT,k);
+  const k=sstep(.47,.6,s); _fg.copy(INK).lerp(LIGHT,k);
   const key=_fg.getHexString(); if(key!==fgKey){ fgKey=key; document.documentElement.style.setProperty('--fg','#'+key); document.documentElement.classList.toggle('lite',k>.5); }
   const pl=placeAt(s); if(pl!==UI._pl){ UI._pl=pl; $('#dialT').textContent=pl.name; $$('#menu a').forEach(a=>a.classList.toggle('on',(a.dataset.nav==='projects'&&pl.proj>=0)||a.dataset.nav===pl.id)); document.documentElement.style.setProperty('--accent',pl.tint); }
+  $('#cue').classList.toggle('away',s>.12);
   dialUpdate(s);
   peopleUpdate(s,dt);
 };
@@ -95,8 +99,8 @@ function peopleUpdate(s,dt){
     const m=p.mesh.position; _pp.set(m.x,-p.h*.98-.18,m.z).project(cam);
     const x=(_pp.x*.5+.5)*w, y=(-_pp.y*.5+.5)*h; const el=PEO[i];
     el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-    _pq.set(m.x-p.w/2,p.h,m.z).project(cam); const x0=(_pq.x*.5+.5)*w, y0=(-_pq.y*.5+.5)*h;
-    _pq.set(m.x+p.w/2,-p.h,m.z).project(cam); const x1=(_pq.x*.5+.5)*w, y1=(-_pq.y*.5+.5)*h;
+    _pq.set(m.x,p.h,m.z-p.w/2).project(cam); const xa=(_pq.x*.5+.5)*w, y0=(-_pq.y*.5+.5)*h;
+    _pq.set(m.x,-p.h,m.z+p.w/2).project(cam); const xb=(_pq.x*.5+.5)*w, y1=(-_pq.y*.5+.5)*h; const x0=Math.min(xa,xb), x1=Math.max(xa,xb);
     const over=M.on&&M.x>x0-12&&M.x<x1+12&&M.y>y0-12&&M.y<y1+60;
     /* on a narrow screen you walk past us one at a time, and whoever is in front of you rises */
     const walk=portrait()?1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i])):0;

@@ -3,7 +3,7 @@
    touching the water at Contact with blue hour coming in overhead. The sundial reads the same sun. */
 const SUN={el:14, az:40, dir:v3(0,1,0)};
 /* walk position s to sun elevation and azimuth (degrees; azimuth measured from west toward south) */
-const SUN_KEYS=[[0,14.5,24],[1,12,21],[2,10,18],[3,8.4,15],[4,6.8,12],[5,3.4,6],[5.5,1.6,0],[6,.15,-5]];
+const SUN_KEYS=[[0,14.5,24],[1,12,21],[2,10,18],[3,8.4,15],[4,6.8,10],[5,4.2,1],[5.5,1.8,-1],[6,.15,-4]];
 function sunAt(s){
   const K=SUN_KEYS; if(s<=K[0][0]) return [K[0][1],K[0][2]];
   for(let i=0;i<K.length-1;i++){ const a=K[i],b=K[i+1]; if(s<=b[0]){ const t=(s-a[0])/(b[0]-a[0]), u=t*t*(3-2*t)*.35+t*.65; return [lerp(a[1],b[1],u),lerp(a[2],b[2],u)]; } }
@@ -13,15 +13,15 @@ const sunDir=(el,az,out)=>out.set(-Math.cos(el*DEG)*Math.cos(az*DEG),Math.sin(el
 
 /* the palette of the evening, keyed by sun elevation */
 const TOD_KEYS=[
-  {e:16,  mid:'#BDD3EF', zen:'#6E9AD6', hor:'#F2E1CB', horS:'#FAD2A0', glow:'#FFCB8E', sun:'#FFF0D6', belt:'#F0CDC4', beltK:.22, cl:'#FFF2E2', cs:'#C9BFC4',
-          L:'#FFD49C', Li:3.5, sky:'#A9C3E9', gnd:'#D9AE84', hi:.72, haze:'#EBDAC4', hazeS:'#FFD6A2'},
-  {e:9,   mid:'#BACDEB', zen:'#7298D2', hor:'#F4D8BA', horS:'#FDC68E', glow:'#FFBE7C', sun:'#FFEAC8', belt:'#EECAC2', beltK:.34, cl:'#FFE8D0', cs:'#C6B8BC',
-          L:'#FFC985', Li:3.1, sky:'#A6BCE4', gnd:'#DAA87C', hi:.7, haze:'#EFD5BA', hazeS:'#FFCA8E'},
-  {e:4,   mid:'#C3C4E0', zen:'#6C88C2', hor:'#F3C6A0', horS:'#FFA866', glow:'#FF9E58', sun:'#FFDAA4', belt:'#EBB4B8', beltK:.62, cl:'#FFC49C', cs:'#B3A2B4',
-          L:'#FFB06E', Li:2.6, sky:'#A3B2DE', gnd:'#D39470', hi:.72, haze:'#EBC6AC', hazeS:'#FFA870'},
-  {e:1,   mid:'#BDB5D3', zen:'#5E76B0', hor:'#F0B293', horS:'#FF8E55', glow:'#FF8648', sun:'#FFBE7E', belt:'#E6A6B0', beltK:.78, cl:'#FFA888', cs:'#A390A8',
+  {e:16,  mid:'#A9C5EC', zen:'#5D8BD0', hor:'#F2E1CB', horS:'#FAD2A0', glow:'#FFCB8E', sun:'#FFF0D6', belt:'#F0CDC4', beltK:.22, cl:'#FFF2E2', cs:'#C9BFC4',
+          L:'#FFCB8C', Li:4.3, sky:'#98B6E6', gnd:'#B4AAA2', hi:.55, haze:'#EFDBC0', hazeS:'#FFD098'},
+  {e:9,   mid:'#A8C0E8', zen:'#5F88CC', hor:'#F4D8BA', horS:'#FDC68E', glow:'#FFBE7C', sun:'#FFEAC8', belt:'#EECAC2', beltK:.34, cl:'#FFE8D0', cs:'#C6B8BC',
+          L:'#FFC27E', Li:3.8, sky:'#98B2E2', gnd:'#B9A698', hi:.56, haze:'#F0D4B6', hazeS:'#FFC688'},
+  {e:4,   mid:'#AFBAE2', zen:'#5E7DBF', hor:'#F3C6A0', horS:'#FFA866', glow:'#FF9E58', sun:'#FFDAA4', belt:'#EBB4B8', beltK:.62, cl:'#FFC49C', cs:'#B3A2B4',
+          L:'#FFB06E', Li:2.7, sky:'#9DAADA', gnd:'#BC9A8C', hi:.6, haze:'#EBC6AC', hazeS:'#FFA870'},
+  {e:1,   mid:'#B1B6D8', zen:'#5E76B0', hor:'#F0B293', horS:'#FF8E55', glow:'#FF8648', sun:'#FFBE7E', belt:'#E6A6B0', beltK:.78, cl:'#FFA888', cs:'#A390A8',
           L:'#FF9A5C', Li:1.6, sky:'#9DA9D6', gnd:'#C4846E', hi:.78, haze:'#E0B2A2', hazeS:'#FF9864'},
-  {e:-1.5,mid:'#A6A2C8', zen:'#4C62A0', hor:'#E0A294', horS:'#FA8858', glow:'#F57E4C', sun:'#FFA868', belt:'#D79CB0', beltK:.8, cl:'#F3988C', cs:'#8C80A2',
+  {e:-1.5,mid:'#9DA0C8', zen:'#4C62A0', hor:'#E0A294', horS:'#FA8858', glow:'#F57E4C', sun:'#FFA868', belt:'#D79CB0', beltK:.8, cl:'#F3988C', cs:'#8C80A2',
           L:'#FF9460', Li:.35, sky:'#93A0D0', gnd:'#9A7880', hi:.95, haze:'#C8A5AA', hazeS:'#F2986E'},
   {e:-4,  mid:'#8088BA', zen:'#384C8C', hor:'#B89AB0', horS:'#E88C6C', glow:'#DE785C', sun:'#E08A62', belt:'#B892AE', beltK:.55, cl:'#D28A92', cs:'#6E6A92',
           L:'#E08A62', Li:0, sky:'#8292C6', gnd:'#6C6884', hi:1.05, haze:'#9EA2C4', hazeS:'#DC9884'},
@@ -49,7 +49,7 @@ function skyMat(){
     ${GLSL.noise}
     vec3 skyCol(vec3 d){
       float y=d.y, hy=max(y,0.);
-      vec3 c=mix(uHor,uMid,smoothstep(0.,.17,hy)); c=mix(c,uZen,smoothstep(.05,.66,hy));
+      vec3 c=mix(uHor,uMid,smoothstep(0.,.13,hy)); c=mix(c,uZen,smoothstep(.05,.5,hy));
       vec2 dh=normalize(d.xz+1e-5), sh=normalize(uSunDir.xz+1e-5); float az=dot(dh,sh)*.5+.5;
       c=mix(c,uHorS,pow(az,2.6)*exp(-hy*5.5));
       float anti=pow(1.-az,1.6);

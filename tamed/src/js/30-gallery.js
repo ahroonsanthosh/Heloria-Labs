@@ -43,10 +43,10 @@ function buildGallery(){
       diffuseColor.rgb*=mix(1.,.5,ph);
       if(ph>0.&&abs(wN.y)<.5){ vec2 q=abs(wN.x)>.5?vWP.zy:vWP.xy; float h=fbm2(q*.11+3.)*14.+fbm2(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
         float line=1.-smoothstep(.0,.02+fw,dd); float major=1.-smoothstep(.0,.03+fw*.2,abs(fract(h*.2+.5)-.5)*5.);
-        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.,.92,.84),ph*clamp(line*.5+major*.35,0.,1.)); } }`});
+        diffuseColor.rgb*=1.-ph*clamp(line*.55+major*.4,0.,.75); } }`});
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
   const shaftM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return 1e5;}', key:'shaft', color:'#ECE3D6', rough:.9, joint:.6,
-    emisGLSL:`outgoingLight+=diffuseColor.rgb*vec3(1.,.72,.45)*(smoothstep(7.,40.,vWP.y)*1.9+smoothstep(7.5,12.,vWP.y)*.12);`});
+    emisGLSL:`outgoingLight+=diffuseColor.rgb*vec3(1.,.74,.48)*(pow(smoothstep(7.6,30.,vWP.y),.7)*2.6+smoothstep(7.6,9.5,vWP.y)*.25);`});
   W.shaft=new T.Mesh(mergeGeos([W.shaftGeo]),shaftM); W.shaft.receiveShadow=true; sc.add(W.shaft);
   const capM=new T.MeshBasicMaterial({color:new T.Color('#FFE2BC').multiplyScalar(6)}); const cap=new T.Mesh(new T.CircleGeometry(1.8,48),capM); cap.rotation.x=Math.PI/2; cap.position.set(0,47.5,roomZ(3)); sc.add(cap); W.shaftCap=cap;
   /* the floor: polished stone that holds a soft reflection of the light */
@@ -73,7 +73,7 @@ function buildGallery(){
 
   W.rooms=[buildKrios(W,roomZ(0)),buildAetos(W,roomZ(1),AP),buildPharos(W,roomZ(2)),buildOgive(W,roomZ(3),OR)];
   W.hideInMirror=[floor];
-  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=CAM.gal.position.z<-50; };
+  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<-38; };
   W.applyLight=(tod,tint,s)=>{
     const sk=W.sky.material.uniforms;
     sk.uSunDir.value.copy(SUN.dir); sk.uZen.value.copy(TODC.zen); sk.uHor.value.copy(TODC.hor); sk.uHorS.value.copy(TODC.horS); sk.uGlow.value.copy(TODC.glow);
@@ -98,12 +98,20 @@ function buildGallery(){
 const VOICE={who:0,phase:0,amp:0,env:0};   // shared with the sound: who is speaking, and how loudly
 function buildKrios(W,zc){
   const g=new T.Group(); W.scene.add(g);
-  const wood=new T.MeshStandardMaterial({color:'#D9C6AA',roughness:.62});
-  const chair=(x,face)=>{ const c=new T.Group(); const parts=[];
-    parts.push(boxGeo(-.24,.24,.43,.47,-.23,.23));
-    [[-.2,-.19],[.2,-.19],[-.2,.19],[.2,.19]].forEach(([a,b])=>parts.push(boxGeo(a-.018,a+.018,0,.43,b-.018,b+.018)));
-    const bk=boxGeo(-.025,.025,.47,1.02,-.23,.23); bk.rotateZ(.1); bk.translate(-.235,0,0); parts.push(bk);
-    const bar=boxGeo(-.03,.03,.86,1.0,-.24,.24); bar.rotateZ(.1); bar.translate(-.245,0,0); parts.push(bar);
+  const wood=new T.MeshStandardMaterial({color:'#D6BF9D',roughness:.5});
+  /* a slender bentwood chair: tapered legs, back posts that curve away, a bent top rail, a rounded seat */
+  const tube=(pts,r,n=14)=>new T.TubeGeometry(new T.CatmullRomCurve3(pts.map(p=>v3(...p))),n,r,8,false);
+  const chair=(x,face)=>{ const c=new T.Group(), parts=[];
+    const sh=new T.Shape(), w=.22, rr=.06; sh.moveTo(-w+rr,-w); sh.lineTo(w-rr,-w); sh.quadraticCurveTo(w,-w,w,-w+rr); sh.lineTo(w,w-rr); sh.quadraticCurveTo(w,w,w-rr,w);
+    sh.lineTo(-w+rr,w); sh.quadraticCurveTo(-w,w,-w,w-rr); sh.lineTo(-w,-w+rr); sh.quadraticCurveTo(-w,-w,-w+rr,-w);
+    const seat=new T.ExtrudeGeometry(sh,{depth:.03,bevelEnabled:true,bevelThickness:.008,bevelSize:.008,bevelSegments:2,curveSegments:6}); seat.rotateX(-Math.PI/2); seat.translate(0,.425,0); parts.push(seat);
+    for(const zz of [-.18,.18]){
+      parts.push(tube([[.2,0,zz*1.04],[.19,.22,zz],[.18,.42,zz*.98]],.016,6));
+      parts.push(tube([[-.16,0,zz*1.05],[-.19,.42,zz],[-.225,.68,zz*.98],[-.27,.9,zz*.96]],.017,16));
+      parts.push(tube([[.19,.17,zz],[0,.165,zz],[-.17,.17,zz]],.009,4));
+    }
+    parts.push(tube([[-.27,.86,-.175],[-.305,.875,0],[-.27,.86,.175]],.022,12));
+    parts.push(tube([[-.235,.64,-.17],[-.265,.645,0],[-.235,.64,.17]],.011,10));
     const m=new T.Mesh(mergeGeos(parts),wood); m.castShadow=m.receiveShadow=true; c.add(m);
     c.position.set(x,0,zc); c.rotation.y=face; g.add(c); return c; };
   chair(-1.18,0); chair(1.18,Math.PI);
@@ -178,14 +186,16 @@ function buildAetos(W,zc,AP){
   const ia=new Float32Array(N*4); const R=(()=>{let s=5;return()=>(s=(s*16807)%2147483647)/2147483647;})();
   for(let i=0;i<N;i++){ ia[i*4]=R(); ia[i*4+1]=R(); ia[i*4+2]=R(); ia[i*4+3]=R(); }
   ig.setAttribute('aB',new T.InstancedBufferAttribute(ia,4)); ig.instanceCount=N; ig.boundingSphere=new T.Sphere(v3(),1e5);
-  const bm=new T.ShaderMaterial({uniforms:{uTime:{value:0},uC:{value:v3(0,0,zc)},uCol:{value:col('#3A3836')}},side:T.DoubleSide,
+  const BZ=zc-21; const bm=new T.ShaderMaterial({uniforms:{uTime:{value:0},uC:{value:v3(0,0,BZ)},uCol:{value:col('#34302E')}},side:T.DoubleSide,
     vertexShader:`attribute float aW; attribute vec4 aB; uniform float uTime; uniform vec3 uC; varying float vA;
-    vec3 birdPos(vec4 b,float t){ float ang=b.x*6.283; vec2 d=vec2(cos(ang),sin(ang)); float sp=.032+b.y*.03; float ph=fract(t*sp+b.z);
+    vec3 birdPos(vec4 b,float t){ if(b.w>1.5){ float a=t*.15+b.z*6.283; return vec3(uC.x+cos(a)*5.5,34.+sin(t*.23)*1.5,uC.z+sin(a)*5.5); }
+      float ang=b.x*6.283; vec2 d=vec2(cos(ang),sin(ang)); float sp=.032+b.y*.03; float ph=fract(t*sp+b.z);
       vec2 perp=vec2(-d.y,d.x); vec2 xy=uC.xz+d*(ph-.5)*150.+perp*(b.w-.5)*20.; return vec3(xy.x,26.+b.y*22.,xy.y); }
     void main(){
       vec3 c=birdPos(aB,uTime); float ang=aB.x*6.283; vec2 d=vec2(cos(ang),sin(ang));
-      float flap=sin(uTime*(5.5+aB.w*2.)+aB.z*20.); float glide=smoothstep(-.2,.6,sin(uTime*.6+aB.z*9.));
-      vec3 p=position; float s=.55+aB.y*.35;
+      float flap=sin(uTime*(5.5+fract(aB.w)*2.)+aB.z*20.); float glide=smoothstep(-.2,.6,sin(uTime*.6+aB.z*9.));
+      if(aB.w>1.5){ float a=uTime*.15+aB.z*6.283; d=vec2(-sin(a),cos(a)); glide=max(glide,smoothstep(-.6,.2,sin(uTime*.31))); }
+      vec3 p=position; float s=(.7+aB.y*.45)*(aB.w>1.5?1.25:1.);
       p.z=aW*abs(p.x)*mix(flap*.55,.08,glide);
       vec3 w=vec3(p.x*s,p.z*s,p.y*s);
       vec3 rw=vec3(w.x*d.y+w.z*d.x, w.y, -w.x*d.x+w.z*d.y);
@@ -194,7 +204,7 @@ function buildAetos(W,zc,AP){
     fragmentShader:`uniform vec3 uCol; void main(){ gl_FragColor=vec4(uCol,1.); }`});
   const birds=new T.Mesh(ig,bm); birds.frustumCulled=false; birds.renderOrder=910; g.add(birds);
   /* the outline around the one that matters */
-  const rm=new T.ShaderMaterial({uniforms:{uK:{value:1}},transparent:true,depthWrite:false,depthTest:false,
+  const rm=new T.ShaderMaterial({uniforms:{uK:{value:1}},transparent:true,depthWrite:false,depthTest:true,
     vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform float uK; varying vec2 vUv; void main(){ vec2 q=vUv-.5; float r=length(q)*2.; float fw=fwidth(r)*1.5;
       float ring=smoothstep(.9-fw,.9,r)*smoothstep(.96+fw,.96,r);
@@ -203,9 +213,8 @@ function buildAetos(W,zc,AP){
   const ring=new T.Mesh(new T.PlaneGeometry(1,1),rm); ring.renderOrder=999; g.add(ring);
   const mark=4, mb={x:ia[mark*4],y:ia[mark*4+1],z:ia[mark*4+2],w:ia[mark*4+3]};
   /* the marked bird always crosses the opening: give it a path through the middle */
-  ia[mark*4+3]=.5; mb.w=.5; ia[mark*4+1]=.5; mb.y=.5; ia[mark*4]=.62; mb.x=.62; ia[mark*4+2]=.38; mb.z=.38;
-  const bp=(t)=>{ const ang=mb.x*TAU, dx=Math.cos(ang), dz=Math.sin(ang), sp=.032+mb.y*.03, ph=((t*sp+mb.z)%1+1)%1;
-    return v3(dx*(ph-.5)*150+(-dz)*(mb.w-.5)*20, 26+mb.y*22, zc+dz*(ph-.5)*150+dx*(mb.w-.5)*20); };
+  ia[mark*4+3]=2; mb.w=2; ia[mark*4+2]=.38; mb.z=.38;
+  const bp=(t)=>{ const a=t*.15+mb.z*TAU; return v3(Math.cos(a)*5.5,34+Math.sin(t*.23)*1.5,BZ+Math.sin(a)*5.5); };
   let tb=0;
   return {g, update(dt,t,st){ tb+=dt; bm.uniforms.uTime.value=tb;
     const p=bp(tb); ring.position.copy(p); ring.quaternion.copy(CAM.gal.quaternion); const dist=p.distanceTo(CAM.gal.position); ring.scale.setScalar(dist*.052);
@@ -261,7 +270,7 @@ function buildOgive(W,zc,OR){
       float n=.55+.45*vnoise(vec2(atan(vWP.x,vWP.z-(${zc.toFixed(2)}))*3.,vWP.y*.6-uTime*.5));
       float a=pow(e,2.)*n*(.55+.45*smoothstep(0.,6.,vWP.y))*smoothstep(0.,.4,vWP.y);
       gl_FragColor=vec4(uCol*a*.1*uK,1.); }`});
-  const column=new T.Mesh(new T.CylinderGeometry(OR*.97,OR*.97,44,64,1,true),colM); column.position.set(0,22,zc); g.add(column);
+  const column=new T.Mesh(new T.CylinderGeometry(OR*.97,OR*.97,44,64,1,true),colM); column.position.set(0,22,zc); g.add(column); W.ogColumn=column;
   /* the rocket: a tangent ogive nose, a slim body, a boat tail and four fins */
   const prof=[]; const Rr=.12, Ln=.78, Lb=2.05;
   prof.push(new T.Vector2(.0,0)); prof.push(new T.Vector2(.07,0)); prof.push(new T.Vector2(.085,.07)); prof.push(new T.Vector2(.1,.14)); prof.push(new T.Vector2(Rr,.26));

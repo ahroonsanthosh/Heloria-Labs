@@ -2,7 +2,8 @@
    The four case studies are one long column. Reading past the end of one brings the next one's title up
    while the camera walks into its room behind the page; past the last, the first comes round again. */
 const CASE={floodK:0,y:0,ty:0,vel:0,k:0,s:1,tops:[],wrapAt:0,el:$('#case'),roll:$('#caseRoll'),arts:$$('#case .case'),flood:0,floodT:-1,dim:0,on:false,fromK:0};
-(()=>{ /* the loop: after the last project, the first one's head comes up again */
+(()=>{ /* each case ends by naming the one that follows; after the last, the first comes round again */
+  CASE.arts.forEach((a,i)=>{ const n=PROJ[(i+1)%4], p=document.createElement('p'); p.className='case-on'; p.innerHTML='<i></i><span>Keep scrolling</span><b class="disp">'+n.name+'</b>'; a.appendChild(p); });
   const nx=$('.case-next'), h=CASE.arts[0].querySelector('.case-head');
   nx.innerHTML=''; const c=h.cloneNode(true); c.classList.add('ghost'); nx.appendChild(c);
 })();

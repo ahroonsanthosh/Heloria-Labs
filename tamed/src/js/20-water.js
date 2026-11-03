@@ -47,10 +47,12 @@ function drawReflectText(){
   $$('[data-reflect]').forEach(el=>{
     const ch=+el.dataset.reflect; x.fillStyle=ch?'#00ff00':'#ff0000'; x.globalCompositeOperation='lighter';
     const cs=getComputedStyle(el); x.font=`${cs.fontStyle} ${cs.fontWeight} ${parseFloat(cs.fontSize)*k}px ${cs.fontFamily}`; x.textBaseline='alphabetic';
-    const words=$$('.w',el); const list=words.length?words:[el];
-    for(const wd of list){ const r=wd.getBoundingClientRect(); if(!r.width) continue; const tx=wd.textContent;
-      /* the glyph baseline sits about 0.8 of the line box down */
-      x.fillText(tx,(r.left)*k,(r.top+r.height*.78)*k); }
+    /* measure the words where the layout puts them, ignoring the reveal animation's transforms */
+    const sec=el.closest('.sec')||el, sr=sec.getBoundingClientRect(), words=$$('.w',el), list=words.length?words:[el];
+    const m=x.measureText('Hg'), asc=m.fontBoundingBoxAscent||parseFloat(cs.fontSize)*k*.8, des=m.fontBoundingBoxDescent||parseFloat(cs.fontSize)*k*.22;
+    for(const wd of list){ let L=0,Tp=0,n=wd; while(n&&n!==sec){ L+=n.offsetLeft; Tp+=n.offsetTop; n=n.offsetParent; } const h=wd.offsetHeight*k; if(!wd.offsetWidth) continue;
+      const base=(sr.top+Tp)*k+(h-(asc+des))/2+asc;
+      x.fillText(wd.textContent,(sr.left+L)*k,base); }
   });
   x.globalCompositeOperation='source-over';
   if(!TXT.tex){ TXT.tex=new T.CanvasTexture(c); TXT.tex.minFilter=T.LinearFilter; TXT.tex.generateMipmaps=false; }
@@ -60,7 +62,7 @@ function drawReflectText(){
 function waterMat(U,mirror,sim,o={}){
   const u=Object.assign({tRefl:{value:mirror.rt.texture}, uTexMat:{value:mirror.texMat}, tSim:{value:null}, uSim:{value:SIM.rect}, uSimTx:{value:1/QL.sim},
     tText:{value:null}, uTextK:{value:new T.Vector2(0,0)}, uTextCol:{value:new T.Color('#2A2520')}, uHorizon:{value:.5},
-    uDeep:{value:col(o.deep||'#1E2A2A')}, uSunCol:{value:new T.Color()}, uSky:{value:new T.Color()}, uRippleK:{value:1}, uWaveK:{value:1}, uSpec:{value:1}},GU,U);
+    uDeep:{value:col(o.deep||'#122022')}, uSunCol:{value:new T.Color()}, uSky:{value:new T.Color()}, uRippleK:{value:1}, uWaveK:{value:1}, uSpec:{value:1}},GU,U);
   return new T.ShaderMaterial({uniforms:u,
     vertexShader:`uniform mat4 uTexMat; varying vec3 vWP; varying vec4 vMC; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vMC=uTexMat*w; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform sampler2D tRefl,tSim,tText; uniform vec4 uSim; uniform float uSimTx,uTime,uHorizon,uRippleK,uWaveK,uSpec; uniform vec2 uRes,uTextK;

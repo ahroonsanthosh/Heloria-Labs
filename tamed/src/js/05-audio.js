@@ -19,6 +19,7 @@ const A=(()=>{
     n.master=ctx.createGain(); n.master.gain.value=0;
     n.comp=ctx.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=14; n.comp.ratio.value=3; n.comp.attack.value=.02; n.comp.release.value=.5;
     n.comp.connect(n.master); n.master.connect(ctx.destination);
+    n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; n.master.connect(n.meter);
     n.rev=ctx.createConvolver(); n.rev.buffer=ir(5.2,2.6); n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
     n.revIn=ctx.createGain(); n.revIn.connect(n.rev);
     const nb=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;
@@ -114,6 +115,8 @@ const A=(()=>{
     get on(){ return on; }, get ctx(){ return ctx; },
     async start(){ try{ init(); on=true; await ctx.resume(); set(n.master.gain,.9,1.2); }catch(e){ on=false; } },
     suspend(v){ if(!ctx) return; if(v){ set(n.master.gain,0,.15); setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); } else { ctx.resume().then(()=>set(n.master.gain,.9,.6)).catch(()=>{}); } },
+    meter(){ if(!ctx) return null; const b=new Float32Array(n.meter.fftSize); n.meter.getFloatTimeDomainData(b); let pk=0,sq=0; for(const v of b){ pk=Math.max(pk,Math.abs(v)); sq+=v*v; }
+      const rms=Math.sqrt(sq/b.length); return {peak:+pk.toFixed(3),rmsDb:+(20*Math.log10(rms+1e-9)).toFixed(1)}; },
     levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+n.kr.g.gain.value.toFixed(3),ae:+n.ae.g.gain.value.toFixed(3),ph:+n.ph.g.gain.value.toFixed(3),og:+n.og.g.gain.value.toFixed(3),state:ctx.state}:null; },
     /* every frame: where you are decides what you hear */
     update(dt,st){
