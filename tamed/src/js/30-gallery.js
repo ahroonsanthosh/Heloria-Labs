@@ -38,12 +38,23 @@ function buildGallery(){
     W.shaftGeo=sh;
   }
   W.sdfGLSL=B.glsl();
+  /* Pharos: the room is dark stone; a map is drawn on its walls in light, only where the beam has just been */
+  Object.assign(W.U,{uPhS:{value:v3(0,1.48,roomZ(2))}, uPhA:{value:0}, uPhY:{value:1.5}, uPhCol:{value:col('#FFD5B3')}, uPhK:{value:1}});
+  const PHM=`${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z)`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'gal', color:'#ECE5DA', rough:.88, joint:.55, warm:'#FFF4E6',
-    albedo:`{ float ph=smoothstep(${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z);
-      diffuseColor.rgb*=mix(1.,.5,ph);
-      if(ph>0.&&abs(wN.y)<.5){ vec2 q=abs(wN.x)>.5?vWP.zy:vWP.xy; float h=fbm2(q*.11+3.)*14.+fbm2(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
-        float line=1.-smoothstep(.0,.02+fw,dd); float major=1.-smoothstep(.0,.03+fw*.2,abs(fract(h*.2+.5)-.5)*5.);
-        diffuseColor.rgb*=1.-ph*clamp(line*.55+major*.4,0.,.75); } }`});
+    glsl:`uniform vec3 uPhS,uPhCol; uniform float uPhA,uPhY,uPhK;
+    float mapLines(vec2 q){ float h=fbm2(q*.11+3.)*14.+fbm2(q*.4+7.)*1.2; float dd=abs(fract(h+.5)-.5); float fw=fwidth(h)*1.2+.002;
+      float line=1.-smoothstep(0.,.022+fw,dd); float major=1.-smoothstep(0.,.03+fw*.2,abs(fract(h*.2+.5)-.5)*5.);
+      vec2 gq=abs(fract(q/1.24+.5)-.5)*1.24; float gw=fwidth(q.x)+fwidth(q.y); float grid=1.-smoothstep(0.,.005+gw,min(gq.x,gq.y));
+      vec2 cq=abs(fract(q/4.96+.5)-.5)*4.96; float cross=(1.-smoothstep(.0,.012+gw,min(cq.x,cq.y)))*step(max(cq.x,cq.y),.16);
+      return clamp(line*.42+major*.6+grid*.2+cross*.9,0.,1.); }`,
+    albedo:`{ float ph=smoothstep(${PHM}; diffuseColor.rgb*=mix(1.,.27,ph); }`,
+    emisGLSL:`{ float ph=smoothstep(${PHM};
+      if(ph>.01&&abs(wN.y)<.5&&uPhK>0.){ vec3 q=vWP-uPhS; float th=atan(q.x,-q.z); float dl=mod(uPhA-th,6.2831853);
+        float rev=exp(-dl*1.35)*smoothstep(0.,.03,dl)+exp(-pow((6.2831853-dl)*9.,2.))*.6;
+        float vb=exp(-pow((vWP.y-uPhY-length(q.xz)*.03)/1.9,2.));
+        vec2 mq=abs(wN.x)>.5?vWP.zy:vWP.xy;
+        outgoingLight+=uPhCol*mapLines(mq)*rev*vb*ph*uPhK*.55; } }`});
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
   const shaftM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return 1e5;}', key:'shaft', color:'#ECE3D6', rough:.9, joint:.6,
     emisGLSL:`outgoingLight+=diffuseColor.rgb*vec3(1.,.74,.48)*(pow(smoothstep(7.6,30.,vWP.y),.7)*2.6+smoothstep(7.6,9.5,vWP.y)*.25);`});
@@ -52,7 +63,7 @@ function buildGallery(){
   /* the floor: polished stone that holds a soft reflection of the light */
   W.mirror=new Mirror(MOBILE?.25:.35,{mips:true,bias:.001});
   const floorM=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'galfloor', color:'#DCD3C6', rough:.55, joint:1, mirror:true, mirrorK:.55,
-    albedo:`{ float ph=smoothstep(${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z); diffuseColor.rgb*=mix(1.,.45,ph); }`});
+    albedo:`{ float ph=smoothstep(${PHM}; diffuseColor.rgb*=mix(1.,.32,ph); }`});
   floorM.userData.u.uMirror.value=W.mirror.rt.texture; floorM.userData.u.uTexMat.value=W.mirror.texMat;
   const floor=new T.Mesh(boxGeo(-6,6,-.5,0,zB,zA),floorM); floor.receiveShadow=true; sc.add(floor);
   W.floor=floor;
@@ -67,7 +78,7 @@ function buildGallery(){
 
   /* soft room light: a low warm ambient, and a glow of each room's own colour */
   W.hemi=new T.HemisphereLight('#FFF4E8','#BFAF9C',.045); sc.add(W.hemi);
-  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,[5,7,.35,5][k],20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
+  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,[5,7,.12,5][k],20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
   const exitL=new T.PointLight('#FFB980',40,16,1.6); exitL.position.set(0,3.5,zB+2); sc.add(exitL);
   const inL=new T.PointLight('#FFE3BC',26,12,1.6); inL.position.set(0,3.2,zA-1.5); sc.add(inL);
 
@@ -224,36 +235,72 @@ function buildAetos(W,zc,AP){
 /* ---------- Pharos: a dark room and one slow beam, searching the walls with no map ---------- */
 function buildPharos(W,zc){
   const g=new T.Group(); W.scene.add(g);
-  const dark=new T.MeshStandardMaterial({color:'#6E665E',roughness:.8});
-  const ped=new T.Mesh(boxGeo(-.32,.32,0,1.18,-.32,.32),dark); ped.position.set(0,0,zc); ped.castShadow=ped.receiveShadow=true; g.add(ped);
-  const lensM=new T.MeshStandardMaterial({color:'#2A2622',roughness:.25,metalness:.2,emissive:new T.Color('#FFD5B3'),emissiveIntensity:2});
-  const drum=new T.Mesh(new T.CylinderGeometry(.24,.26,.46,40,1),lensM); drum.position.set(0,1.42,zc); g.add(drum);
-  const capM=new T.MeshStandardMaterial({color:'#3B3530',roughness:.5});
-  const cap=new T.Mesh(new T.CylinderGeometry(.2,.3,.1,40),capM); cap.position.set(0,1.7,zc); g.add(cap);
-  const beam=new T.SpotLight('#FFD5B3',900,0,.1,.5,2); beam.position.set(0,1.42,zc); beam.castShadow=true; beam.shadow.mapSize.set(512,512); beam.shadow.camera.near=.3; beam.shadow.camera.far=30; beam.shadow.bias=-.001;
+  const SY=1.48, S0=v3(0,SY,zc), C=col('#FFD5B3'), TAN=Math.tan(.13);
+  const zN=wallZ(2)-ROOM.T, zF=wallZ(3);
+  /* the lamp: a slender pale column, a small bronze gimbal, and one lens of light */
+  const prof=[[0,0],[.16,0],[.16,.045],[.11,.07],[.07,.12],[.052,.62],[.044,1.22],[.062,1.27],[.062,1.31],[.032,1.34],[0,1.34]].map(p=>new T.Vector2(p[0],p[1]));
+  const column=new T.Mesh(new T.LatheGeometry(prof,40),new T.MeshStandardMaterial({color:'#D8CFC1',roughness:.5}));
+  column.position.set(0,0,zc); column.castShadow=column.receiveShadow=true; g.add(column);
+  const ring=new T.Mesh(new T.TorusGeometry(.1,.007,8,48),new T.MeshStandardMaterial({color:'#9C7A55',roughness:.35,metalness:.85}));
+  ring.position.copy(S0); g.add(ring);
+  const lens=new T.Mesh(new T.SphereGeometry(.05,24,16),new T.MeshBasicMaterial({color:C.clone().multiplyScalar(9)})); lens.position.copy(S0); g.add(lens);
+  const haloM=new T.ShaderMaterial({uniforms:{uCol:{value:C},uK:{value:1}},transparent:true,depthWrite:false,blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
+    vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uK; varying vec2 vUv; void main(){ float r=length(vUv-.5)*2.; float a=exp(-r*r*9.)*.9+exp(-r*3.2)*.18; gl_FragColor=vec4(uCol*a*uK*(1.-smoothstep(.85,1.,r)),1.); }`});
+  const halo=new T.Mesh(new T.PlaneGeometry(1.4,1.4),haloM); halo.position.copy(S0); halo.renderOrder=960; g.add(halo);
+  const beam=new T.SpotLight(C,1500,0,.13,.55,2); beam.position.copy(S0); beam.castShadow=true; beam.shadow.mapSize.set(512,512); beam.shadow.camera.near=.2; beam.shadow.camera.far=30; beam.shadow.bias=-.001;
   g.add(beam); g.add(beam.target);
-  /* the visible beam in the dust */
-  const bmM=new T.ShaderMaterial({uniforms:{uCol:{value:col('#FFD5B3')},uTime:GU.uTime,uK:{value:1}},transparent:true,depthWrite:false,side:T.DoubleSide,
+  /* the shaft: marched through drifting haze inside a cone that reaches exactly as far as the wall it finds */
+  const VU={uS:{value:S0}, uD:{value:v3(0,0,-1)}, uCol:{value:C}, uTan:{value:TAN}, uL:{value:6}, uTime:GU.uTime, uK:{value:.55}, uPx:{value:600}};
+  const DENS=`uniform vec3 uS,uD,uCol; uniform float uTan,uL,uTime,uK;
+    float dens(vec3 p){ vec3 q=p-uS; float a=dot(q,uD); float r=length(q-uD*a); float R=max(a,0.)*uTan+.015;
+      return smoothstep(R,R*.25,r)*smoothstep(-.02,.15,a)*smoothstep(uL+.02,uL-.35,a)/(1.+a*.16); }`;
+  const volM=new T.ShaderMaterial({uniforms:VU,transparent:true,depthWrite:false,side:T.BackSide,
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
-    vertexShader:`varying vec3 vP; varying vec3 vWP; varying vec3 vN; void main(){ vP=position; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform vec3 uCol; uniform float uTime,uK; varying vec3 vP; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}
-    void main(){ float h=clamp(-vP.y/9.,0.,1.); vec3 V=normalize(cameraPosition-vWP); float e=abs(dot(normalize(vN),V));
-      float n=.6+.4*vnoise(vec2(vWP.x*2.+uTime*.15,vWP.z*2.+vWP.y*3.-uTime*.2));
-      float a=pow(e,1.4)*(1.-h)*smoothstep(0.,.03,h)*n; gl_FragColor=vec4(uCol*a*.16*uK,1.); }`});
-  const cg=new T.CylinderGeometry(.06,1.15,9,40,1,true); cg.translate(0,-4.5,0); cg.rotateX(-Math.PI/2);
-  const cone=new T.Mesh(cg,bmM); cone.position.set(0,1.42,zc); g.add(cone);
-  const fill=new T.PointLight('#FFD5B3',3,9,1.6); fill.position.set(0,1.5,zc); g.add(fill);
-  let a=-.6, last=0;
+    vertexShader:`varying vec3 vWP; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`varying vec3 vWP; ${GLSL.noise}${DENS}
+    void main(){
+      vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE;
+      float aE=max(dot(vWP-uS,uD),0.), sn=sqrt(max(1.-pow(dot(rd,uD),2.),0.));
+      float seg=min(tE,(aE*uTan*2.6+.35)/max(sn,.06));
+      float t0=tE-seg, dt=seg/14., acc=0.;
+      for(int i=0;i<14;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p);
+        if(d>.001){ float n=vnoise3(p*vec3(1.5,2.1,1.5)+vec3(uTime*.06,uTime*.025,-uTime*.05)); acc+=d*(.3+1.25*n*n)*dt; } }
+      gl_FragColor=vec4(uCol*acc*uK,1.);
+    }`});
+  const cg=new T.CylinderGeometry(.02,TAN*1.3,1,32,1,false); cg.translate(0,-.5,0); cg.rotateX(-Math.PI/2);
+  const cone=new T.Mesh(cg,volM); cone.position.copy(S0); cone.frustumCulled=false; cone.renderOrder=950; g.add(cone);
+  /* dust that only shows where the beam is */
+  const DN=MOBILE?240:520, dg=new T.BufferGeometry(), dr=new Float32Array(DN*4); for(let i=0;i<dr.length;i++) dr[i]=Math.random();
+  dg.setAttribute('position',new T.BufferAttribute(new Float32Array(DN*3),3)); dg.setAttribute('aR',new T.BufferAttribute(dr,4)); dg.boundingSphere=new T.Sphere(v3(),1e5);
+  const dustM=new T.ShaderMaterial({uniforms:VU,transparent:true,depthWrite:false,blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
+    vertexShader:`attribute vec4 aR; uniform float uPx; varying float vA; ${DENS}
+    void main(){ vec3 p=vec3((aR.x-.5)*11.4,.12+aR.y*5.8,${zc.toFixed(2)}+(aR.z-.5)*15.4);
+      p+=vec3(sin(uTime*.071+aR.w*31.),sin(uTime*.049+aR.x*23.)*.6,cos(uTime*.063+aR.y*27.))*.7;
+      vA=dens(p)*(.35+.65*aR.w); vec4 mv=viewMatrix*vec4(p,1.); gl_PointSize=clamp(.03*uPx/max(-mv.z,.2),1.,7.); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`uniform vec3 uCol; varying float vA; void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,0.,d); gl_FragColor=vec4(uCol*a*a*vA*2.2,1.); }`});
+  const dust=new T.Points(dg,dustM); dust.frustumCulled=false; dust.renderOrder=955; g.add(dust);
+  const fill=new T.PointLight(C,1.4,6,1.6); fill.position.set(0,SY+.1,zc); g.add(fill);
+  const D=v3(), _v=v3();
+  let a=-.95;
   return {g, beam, get angle(){return a;}, update(dt,t,st){
-    /* sweep, slow where something answers, and once in a while look back the way it came */
-    const slow=.3+.7*sstep(.15,.65,Math.abs(Math.sin(a*1.5+.7)));
-    const back=Math.sin(t*.13)>.93?-.55:1;
-    a+=dt*.36*slow*back;
-    const dx=Math.sin(a), dz=-Math.cos(a), tilt=.03*Math.sin(t*.4);
-    beam.target.position.set(dx*10,1.42+tilt*10,zc+dz*10);
-    cone.lookAt(beam.target.position.x,beam.target.position.y,beam.target.position.z);
-    drum.rotation.y=-a;
-    last=t; }};
+    /* one slow sweep round the room, lingering where something seems to answer, never going back */
+    const slow=.3+.7*sstep(.12,.62,Math.abs(Math.sin(a*1.3+.7)));
+    a+=dt*.34*slow;
+    const tilt=-.03+.028*Math.sin(t*.37);
+    D.set(Math.sin(a)*Math.cos(tilt),Math.sin(tilt),-Math.cos(a)*Math.cos(tilt));
+    beam.target.position.copy(S0).addScaledVector(D,10);
+    /* the distance to the wall the beam lands on */
+    const tx=D.x>0?(6-S0.x)/D.x:(-6-S0.x)/Math.min(D.x,-1e-6), tz=D.z>0?(zN-S0.z)/D.z:(zF-S0.z)/Math.min(D.z,-1e-6), ty=D.y>0?(ROOM.H-SY)/D.y:-SY/Math.min(D.y,-1e-6);
+    const L=Math.max(.5,Math.min(tx,tz,ty));
+    cone.lookAt(beam.target.position); cone.scale.setScalar(L);
+    VU.uD.value.copy(D); VU.uL.value=L; VU.uPx.value=G.px;
+    ring.lookAt(beam.target.position); ring.rotateY(Math.PI/2);
+    halo.quaternion.copy(CAM.gal.quaternion);
+    const face=Math.max(0,D.dot(_v.subVectors(CAM.gal.position,S0).normalize()));
+    haloM.uniforms.uK.value=.55+2.4*Math.pow(face,12);
+    W.U.uPhA.value=((a%TAU)+TAU)%TAU; W.U.uPhY.value=SY;
+  }};
 }
 
 /* ---------- Ogive: a tall shaft of light, and a slender rocket rising through it ---------- */
@@ -306,6 +353,8 @@ function buildOgive(W,zc,OR){
   W.ogiveDust=dm;
   return {g, rocket, update(dt,t,st){
     const s=S.s;
+    /* the next room brightens as you come to it, so Pharos keeps its dark */
+    const lk=lerp(.45,1,sstep(3.3,3.85,s)); shaftL.intensity=9000*lk; glowL.intensity=20*lk; W.roomLights[3].intensity=5*lk;
     const y=.02+3.0*E.io2(inv(3.3,4,s))+.35*sstep(4,4.5,s)*0+Math.pow(Math.max(0,s-4)/.5,2.2)*30;
     rocket.position.y=damp(rocket.position.y,y+Math.sin(t*.8)*.04*sstep(3.6,4,s),4,dt);
     rocket.rotation.y+=dt*.05;
