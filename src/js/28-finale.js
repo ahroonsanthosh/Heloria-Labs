@@ -38,7 +38,7 @@ function finCam(rdt,snap){ const P=FZ.P, Tn=FZ.Tn, th=FZ.th;
   cA.lerp(cW,wW); lA.lerp(lW,wW);
   // on the way out you pull ahead of the camera, a little more every second, until you are only a light going into the stars
   if(wE>0){ cW.copy(P).addScaledVector(Tn,-2.8-9*wL*wL).addScaledVector(FUP,.55+.6*wL).addScaledVector(side,.3); lW.copy(P).addScaledVector(Tn,9); cA.lerp(cW,wE); lA.lerp(lW,wE); }
-  const fov=lerp(lerp(42,58,wW),70+8*wL,wE);
+  const fov=lerp(lerp(42,58,wW),70+8*wL,wE)*(innerHeight>innerWidth?1.32:1);   // a phone held upright sees less across, so it sees more up and down
   cA.sub(P); lA.sub(P);   // the camera rides with you; only where it sits around you is smoothed
   if(snap){ FZ.cam.copy(cA); FZ.look.copy(lA); FZ.fov=fov; }
   else { const k=1-Math.exp(-4.5*rdt); FZ.cam.lerp(cA,k); FZ.look.lerp(lA,1-Math.exp(-6*rdt)); FZ.fov=damp(FZ.fov,fov,2.5,rdt); }

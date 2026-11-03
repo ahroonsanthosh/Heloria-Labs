@@ -185,7 +185,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
   rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'it burns by itself if you do not, and throws you out into the white');
   await H(h => { h.S.finX = 1; }); await wait(20000);
-  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /Just three young lads who dare to chase the impossible/.test(f.innerText) && !/Kríos|Aetos|Pharos|Ogive/.test(f.innerText); }), 'the last page is white and ends on the three of us');
+  rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /Just three young lads who dare to chase the impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
   await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
 
   const fails = results.filter(r => !r.ok);

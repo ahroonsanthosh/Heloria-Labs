@@ -86,6 +86,8 @@ kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 
 .lb{position:fixed;left:0;right:0;height:0;background:#000;z-index:13;pointer-events:none;transition:height 1s var(--io)}
 .lb.t{top:0}.lb.b{bottom:0}
 body.cine .lb{height:7vh}
+body.cine.tense .lb{height:13vh;transition:height 9s cubic-bezier(.3,0,.25,1)}   /* the wait before the last flight: the picture closes in */
+body.cine.loose .lb{transition:height .5s cubic-bezier(.2,.8,.2,1)}
 
 #cur{position:fixed;left:0;top:0;z-index:60;pointer-events:none;width:26px;height:26px;margin:-13px 0 0 -13px;border:1px solid rgba(238,233,223,.5);border-radius:50%;display:grid;place-items:center;transition:width .4s var(--ease),height .4s var(--ease),margin .4s var(--ease),background .3s,border-color .3s,border-radius .3s}
 #cur span{font:900 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;color:#0a0806;opacity:0;transition:opacity .2s;white-space:nowrap}
@@ -199,6 +201,9 @@ html.fin #back,html.fin #chrome,html.fin #hint{opacity:0!important;pointer-event
 @keyframes finc{0%{opacity:0}25%,72%{opacity:1}100%{opacity:0}}
 @keyframes fins{0%,80%{opacity:1}100%{opacity:0}}
 @keyframes finup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#gl{-webkit-touch-callout:none}   /* holding a finger down (to burn) never brings up a callout */
+html.fin #cur,html.fin #curd{opacity:0;transition:opacity .6s}   /* nothing over the picture in the last flight */
+html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
 #fin.on~#cur{border-color:rgba(17,17,17,.45)}
 #fin.on~#curd{background:#111}
 .edge{position:absolute;left:0;top:0;display:flex;align-items:center;gap:8px;transform:translate(-50%,-50%);font:900 9px/1 var(--ui);letter-spacing:.03em;text-transform:uppercase;color:var(--acc);white-space:nowrap;pointer-events:auto;text-shadow:0 0 6px rgba(5,5,4,.95),0 0 16px rgba(5,5,4,.7)}
