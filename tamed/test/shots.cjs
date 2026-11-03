@@ -13,7 +13,7 @@ module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, chec
     await T(t => t.hover(null));
   }
   await T(t => t.enter()); await wait(3200); await settle(4);
-  if (want('home')) await still('04-home');
+  if (want('home')) { await T(t => t.jump(0)); await still('04-home'); }
   if (want('cursor')) {
     await page.mouse.move(400, 640); await settle(2);
     for (let i = 0; i <= 8; i++) { await page.mouse.move(400 + i * 60, 640 - i * 14); await settle(1); }

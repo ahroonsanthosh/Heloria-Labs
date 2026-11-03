@@ -9,6 +9,8 @@ const A=(()=>{
   const CH=[[50,57,61,64,66],[47,54,57,61,62],[43,50,54,59,61],[45,52,59,61,66],[50,57,61,64,69],[52,55,59,62,66],[43,50,54,57,61],[45,52,57,59,64]];
   const ROOT=[38,35,31,33,38,40,31,33];
   const PENTA=[62,64,66,69,71,74,76,78,81,83];
+  /* the phrase that keeps coming back: up a sixth, a turn, a fall to rest; and three ways of answering it */
+  const MOTIF=[[[74,0],[78,.62],[81,1.24],[79,1.9],[76,2.5]],[[74,0],[76,.6],[78,1.2],[74,2.1]],[[81,0],[78,.55],[76,1.15],[71,1.9],[74,2.7]],[[69,0],[74,.7],[76,1.3],[78,2.2]]];
   function ir(sec,decay){
     const L=Math.floor(ctx.sampleRate*sec), b=ctx.createBuffer(2,L,ctx.sampleRate);
     for(let c=0;c<2;c++){ const d=b.getChannelData(c); let lp=0; for(let i=0;i<L;i++){ const t=i/L; const k=.35+.6*(1-t); lp=lp+(Math.random()*2-1-lp)*k; d[i]=lp*Math.pow(1-t,decay)*(i<ctx.sampleRate*.012?.3:1); } }
@@ -122,13 +124,14 @@ const A=(()=>{
     update(dt,st){
       if(!ctx||!on) return;
       const t=ctx.currentTime;
-      if(t>n.nextChord){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci];
+      if(t>n.nextChord){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
+        if(n.cc%2===0&&st.music>.3){ const M=MOTIF[n.cc%8===0?0:Math.floor(Math.random()*MOTIF.length)], g=.034*st.music, t0=t+1.2; M.forEach(([m,dt],i)=>glass(m,t0+dt+(Math.random()-.5)*.06,g*(1-i*.08),(i%2?.18:-.18))); n.nextNote=Math.max(n.nextNote,t0+4.5); }
         n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,1.6))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,1.2); }
       if(t>n.nextNote){ const C=CH[n.ci]; const pick=()=>{ let m=PENTA[Math.floor(Math.random()*PENTA.length)]; return m; };
         const g=.03+Math.random()*.025*st.music, m=pick(); glass(m,t+.02,g,Math.random()*.8-.4);
         if(Math.random()<.35) glass(pick(),t+.32+Math.random()*.3,g*.7,Math.random()*.8-.4);
         if(Math.random()<.15) glass(C[3]+12,t+.05,g*.5,0);
-        n.nextNote=t+2.2+Math.random()*4.2; }
+        n.nextNote=t+3.4+Math.random()*5; }
       set(n.mus.gain,st.music*.9,.9); set(n.musLP.frequency,st.musF,.6);
       set(n.water.gain,st.water*.62,.7); set(n.waterLP.frequency,st.waterF,.5);
       set(n.wind.gain,st.wind*.06,.8);

@@ -10,7 +10,7 @@ const GL_OK=(()=>{
 /* quality: what this device can afford. The frame timer below moves dpr up and down at run time */
 const QL={
   dprMax:HQ?1:Math.min(devicePixelRatio||1, MOBILE?1.5:1.6),
-  dpr:1, refl:HQ?.75:(MOBILE?.4:.5), sim:MOBILE?256:512, grass:MOBILE?.5:1, samples:(TEST&&!HQ)||MOBILE?0:4,
+  dpr:1, refl:HQ?.75:(MOBILE?.4:.5), sim:MOBILE?256:512, grass:MOBILE?.5:1, samples:HQ?4:((TEST||MOBILE)?0:2),
   ao:MOBILE?3:5, shadow:HQ?4096:(MOBILE?1024:2048), seeds:MOBILE?500:1100, bloomLv:MOBILE?4:5,
 };
 QL.dpr=TEST?1:Math.min(QL.dprMax,MOBILE?1.25:1.3);

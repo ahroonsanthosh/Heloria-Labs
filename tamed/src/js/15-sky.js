@@ -3,7 +3,7 @@
    touching the water at Contact with blue hour coming in overhead. The sundial reads the same sun. */
 const SUN={el:14, az:40, dir:v3(0,1,0)};
 /* walk position s to sun elevation and azimuth (degrees; azimuth measured from west toward south) */
-const SUN_KEYS=[[0,14.5,24],[1,12,21],[2,10,18],[3,8.4,15],[4,6.8,10],[5,4.2,1],[5.5,1.8,-1],[6,.15,-4]];
+const SUN_KEYS=[[0,14.5,34],[1,12,26],[2,10,18],[3,8.4,15],[4,6.8,10],[5,4.2,1],[5.5,1.8,-1],[6,.15,-4]];
 function sunAt(s){
   const K=SUN_KEYS; if(s<=K[0][0]) return [K[0][1],K[0][2]];
   for(let i=0;i<K.length-1;i++){ const a=K[i],b=K[i+1]; if(s<=b[0]){ const t=(s-a[0])/(b[0]-a[0]), u=t*t*(3-2*t)*.35+t*.65; return [lerp(a[1],b[1],u),lerp(a[2],b[2],u)]; } }
@@ -49,7 +49,7 @@ function skyMat(){
     ${GLSL.noise}
     vec3 skyCol(vec3 d){
       float y=d.y, hy=max(y,0.);
-      vec3 c=mix(uHor,uMid,smoothstep(0.,.13,hy)); c=mix(c,uZen,smoothstep(.05,.5,hy));
+      vec3 c=mix(uHor,uMid,smoothstep(0.,.13,hy)); c=mix(c,uZen,smoothstep(.02,.34,hy));
       vec2 dh=normalize(d.xz+1e-5), sh=normalize(uSunDir.xz+1e-5); float az=dot(dh,sh)*.5+.5;
       c=mix(c,uHorS,pow(az,2.6)*exp(-hy*5.5));
       float anti=pow(1.-az,1.6);

@@ -52,6 +52,8 @@ function buildOutside(){
   B.box(-12.45,-3.6,8.3,8.62,.45,9.38); B.box(3.6,12.45,8.3,8.62,.45,9.38);
   B.box(-12.25,-3.6,8.62,8.95,.65,9.18); B.box(3.6,12.25,8.62,8.95,.65,9.18);
   B.box(-3.98,3.98,10.5,10.86,7.6,9.82); B.box(-3.8,3.8,10.86,11.16,7.8,9.6);
+  B.box(-12.12,-3.6,5.92,6.08,8.98,9.12); B.box(3.6,12.12,5.92,6.08,8.98,9.12); B.box(-3.74,3.74,6.86,7.0,9.43,9.58);
+  B.box(-12.2,-11.45,Y0,8.3,8.98,9.12); B.box(11.45,12.2,Y0,8.3,8.98,9.12); B.box(-3.74,-3.6,Y0,10.5,9.0,9.58); B.box(3.6,3.74,Y0,10.5,9.0,9.58);
   B.box(-3.6,3.6,8.3,10.5,4.6,8);
   B.wall('x',-11,11,Y0,8.3,4.6,5.6,[{c:0,w:3.4,hs:4.45}]);
   B.box(-11,11,6.55,8.3,5.6,8);
@@ -69,7 +71,7 @@ function buildOutside(){
   W.sdfGLSL=B.glsl();
 
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#F3ECE2', rough:.9, joint:1,
-    albedo:'{ float wet=1.-smoothstep(.02,.55,vWP.y); diffuseColor.rgb*=mix(1.,.74,wet*(1.-step(.9,wN.y))); if(abs(wN.y)<.5){ float u=abs(wN.x)>.5?vWP.z:vWP.x; float st=vnoise(vec2(u*2.3,vWP.y*.16))*vnoise(vec2(u*7.,vWP.y*.5)); diffuseColor.rgb*=1.-.1*smoothstep(.25,.6,st); } }'});
+    albedo:'{ float lg=step(4.6,vWP.z)*step(vWP.z,8.01)*step(abs(vWP.x),11.01)*step(vWP.y,6.56); diffuseColor.rgb*=mix(1.,.58,lg); float wet=1.-smoothstep(.02,.55,vWP.y); diffuseColor.rgb*=mix(1.,.74,wet*(1.-step(.9,wN.y))); if(abs(wN.y)<.5){ float u=abs(wN.x)>.5?vWP.z:vWP.x; float st=vnoise(vec2(u*2.3,vWP.y*.16))*vnoise(vec2(u*7.,vWP.y*.5)); diffuseColor.rgb*=1.-.1*smoothstep(.25,.6,st); } }'});
   const arch=new T.Mesh(mergeGeos(B.geos),stone); arch.castShadow=arch.receiveShadow=true; sc.add(arch);
 
   /* the dark inside of the doors, with the gallery's first light glowing at the end */
@@ -120,7 +122,7 @@ function buildOutside(){
 
   /* tall grass at the edges */
   W.grass=makeGrass(W.U,[
-    {x:-11.5,z:84,rx:4.2,rz:5,n:1500,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:10.5,z:70,rx:4.5,rz:5.5,n:1100,h:1.45},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
+    {x:-11.5,z:84,rx:4.6,rz:5.4,n:1050,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:10.5,z:70,rx:4.5,rz:5.5,n:1100,h:1.45},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
     {x:-35,z:2,rx:6,rz:4.5,n:900},{x:-36,z:-19,rx:6.5,rz:4.5,n:900},{x:-58,z:-2,rx:3.5,rz:2.5,n:300},{x:-62,z:-15,rx:4,rz:2.5,n:320},
     {x:-10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:10.3,z:-19.7,rx:.7,rz:.7,n:60,h:.6},{x:-10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},{x:10.3,z:-.3,rx:.7,rz:.6,n:60,h:.6},
     {x:24,z:-6,rx:4,rz:7,n:500},{x:-25,z:-30,rx:5,rz:4,n:400}]);
@@ -173,6 +175,7 @@ function buildOutside(){
   W.beams=beams;
   W.hideInMirror=[W.water,W.seeds.mesh,...beams];
   W.update=(dt,st)=>{
+    { const gu=W.grass.mat.uniforms; gu.uMouseK.value=damp(gu.uMouseK.value,M.on&&S.mode==='world'?1:0,4,dt); gu.uMouseN.value.set(M.x/innerWidth*2-1,-(M.y/innerHeight*2-1)); gu.uAsp.value=innerWidth/innerHeight; const c=CAM.out; c.updateMatrixWorld(); gu.uVP.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse); gu.uRight.value.setFromMatrixColumn(c.matrixWorld,0); }
     W.grass.mat.uniforms.uTime.value+=dt*S.timeScale; W.seeds.mat.uniforms.uTime.value+=dt*S.timeScale;
     for(const p of W.people){ const prev=p.reveal; p.reveal=damp(p.reveal,p.target,p.target>p.reveal?2.6:1.5,dt); p.mat.uniforms.uReveal.value=p.reveal;
       if((prev<.06&&p.reveal>=.06)||(prev>.9&&p.reveal<=.9)){ W.sim.drop(p.mesh.position.x-.2,p.mesh.position.z,.7,-1.4); } }
@@ -226,9 +229,9 @@ function makeGrass(U,clumps){
   g.setAttribute('aOff',new T.InstancedBufferAttribute(off,4)); g.setAttribute('aRnd',new T.InstancedBufferAttribute(rnd,4)); g.instanceCount=n;
   g.boundingSphere=new T.Sphere(v3(0,0,0),1e4);
   const mat=new T.ShaderMaterial({uniforms:Object.assign({uTime:{value:0},uWind:{value:1},uSunCol:{value:new T.Color('#FFE0B0')},uAmb:{value:new T.Color('#8090A0')},
-      uBase:{value:col('#2F3420')},uMid:{value:col('#7D7646')},uTip:{value:col('#E8D3A0')}},U),
+      uBase:{value:col('#35321F')},uMid:{value:col('#8C7A48')},uTip:{value:col('#EFD9A8')},uMouseN:{value:new T.Vector2(9,9)},uMouseK:{value:0},uAsp:{value:1},uVP:{value:new T.Matrix4()},uRight:{value:v3(1,0,0)}},U),
     side:T.DoubleSide,
-    vertexShader:`attribute vec4 aOff; attribute vec4 aRnd; uniform float uTime,uWind; varying float vT; varying vec3 vWP; varying float vH; varying vec3 vN;
+    vertexShader:`attribute vec4 aOff; attribute vec4 aRnd; uniform float uTime,uWind,uMouseK,uAsp; uniform vec2 uMouseN; uniform mat4 uVP; uniform vec3 uRight; varying float vT; varying vec3 vWP; varying float vH; varying vec3 vN;
     ${GLSL.noise}
     void main(){
       float t=position.y; float H=aOff.z; float ang=aOff.w;
@@ -236,10 +239,14 @@ function makeGrass(U,clumps){
       vec2 wd=normalize(vec2(.8,.35));
       float gust=vnoise(aOff.xy*.09-wd*uTime*.55)*.9+vnoise(aOff.xy*.3-wd*uTime*1.3)*.4;
       float sway=sin(uTime*1.6+aRnd.x*6.283+aOff.x*.4)*.12+(gust-.55)*.9;
-      float bend=(aRnd.y*1.5+.3+sway*uWind)*pow(t,1.7);
+      float bend=(aRnd.y*2.1+.32+sway*uWind)*pow(t,1.6);
       vec2 bd=normalize(wd+vec2(cos(aRnd.x*9.),sin(aRnd.x*9.))*.5);
       float w=aRnd.z*(1.-t*.94);
       vec3 p=vec3(aOff.x,-.12,aOff.y)+vec3(dir.x*position.x*w,t*H*(1.-.18*bend*bend),dir.y*position.x*w)+vec3(bd.x,0.,bd.y)*bend*H*.55;
+      /* the hand brushes the reeds: blades near the cursor lean away from it */
+      if(uMouseK>0.){ vec4 cl=uVP*vec4(p,1.); vec2 nd=cl.xy/cl.w-uMouseN; nd.x*=uAsp; float r=length(nd);
+        float f=smoothstep(.2,0.,r)*t*t*uMouseK*step(0.,cl.w);
+        p+=uRight*(nd.x/max(r,1e-3))*f*H*.45; p.y-=f*H*.12; }
       vT=t; vH=aRnd.w; vWP=p; vN=normalize(vec3(-dir.y,.35,dir.x));
       gl_Position=projectionMatrix*viewMatrix*vec4(p,1.);
     }`,

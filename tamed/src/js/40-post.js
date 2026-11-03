@@ -69,7 +69,7 @@ const POST={};
         float vm=uVeil>=.999?1.:smoothstep(f*.78,f*.78+.26,uVeil);
         float bl1=dot(bl,vec3(.3,.5,.2));
         vec3 mist=uVeilCol*(.78+.3*bl1)*(1.12-vr*.32)+vec3(1.,.86,.62)*exp(-vr*vr*3.)*.22;
-        c=mix(c,mist+bl*.08,vm*.94); }
+        c=mix(c,mist*.92+bl*.1,vm*.84); }
       c*=uExpo;
       c=aces(c*.92);
       float l=dot(c,vec3(.2126,.7152,.0722)); c=mix(vec3(l),c,uSat);
@@ -83,7 +83,7 @@ const POST={};
         float R=uFlood*2.1; float m=smoothstep(R,R-.35,fr+(n-.5)*.35); c=mix(c,uFloodCol,m*clamp(uFlood*1.3,0.,1.)); }
       /* the dark: what waits on the other side */
       if(uDark>0.){ vec2 dq=(vUv-.5)*vec2(uAsp,1.); float dr=length(dq); float n=fbm2(dq*2.6+vec2(uTime*.18,-uTime*.11));
-        float R=uDark*1.45; float edge=(1.-smoothstep(R-.42,R+.02,dr+(n-.5)*.5))*smoothstep(0.,.12,uDark);
+        float R=uDark*1.3; float edge=(1.-smoothstep(R-.42,R+.02,dr+(n-.5)*.5))*smoothstep(0.,.12,uDark);
         vec3 ink=vec3(.012,.012,.02); float stars=step(.9965,hash12(floor(fc/2.)))*hash12(floor(fc/2.)+3.)*edge;
         c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18; }
       c=c*(1.-lens*.03)+spec*.85-shade+rim*.06;

@@ -92,10 +92,10 @@ function frame(tn){
   const cu=POST.comp.uniforms, inside=sstep(.42,.6,s)*(1-sstep(4.4,4.58,s)), dusk=sstep(5.3,6,s);
   cu.tScene.value=src.texture; cu.tBloom.value=bt;
   cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
-  cu.uBloom.value=lerp(.055,.18,inside);
+  cu.uBloom.value=lerp(.038,.18,inside);
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
   cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,S.gateHover==='tamed'?.8:1,2.5,dt):S.veil;
-  cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.6:3.5,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  cu.uDark.value=damp(cu.uDark.value,S.mode==='gate'&&S.gateHover==='untamed'?1:0,S.gateHover==='untamed'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
   cu.uDim.value=Math.max(CASE.dim,damp(S.idim||0,HOLD.open?.7:0,6,dt)); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
   cu.uDimCol.value.set(1,1,1).lerp(TINT,.5);
   const fk=Math.max(CASE.floodK||0,VEIL.k); cu.uFlood.value=fk; if(VEIL.k>(CASE.floodK||0)){ cu.uFloodCol.value.copy(VEIL.col).lerp(LIGHT,.3); cu.uFloodC.value.set(.5,.5); }
