@@ -21,6 +21,10 @@ PHOTO_DIR = os.path.join(ROOT, 'untamed', 'src', 'assets', 'img')
 PEOPLE = ['ahroon', 'michael', 'abraham']   # in this order, everywhere
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 UNTAMED_ARTIFACT = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn'   # where the wild site lives when this is an artifact
+LAND_ARTIFACT = UNTAMED_ARTIFACT + '#land'      # Land: straight down to Earth (until it has a preview of its own)
+ROCKET_ARTIFACT = UNTAMED_ARTIFACT + '#aetos'   # the rocket at the end of the walk: into orbit, at Aetos
+ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT}
+SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos'}
 LIMIT = 16 * 1024 * 1024
 EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
@@ -54,22 +58,24 @@ def check_dashes(files):
         sys.exit('em dash found (use a comma, colon or full stop):\n  ' + '\n  '.join(bad))
 
 
-def parts(untamed_url, photo_list):
-    """the css, the markup and the script, with the photos and the way to the untamed site filled in"""
+def parts(links, photo_list):
+    """the css, the markup and the script, with the photos and the ways out of the walk filled in"""
     css_files, js_files = sources()
     check_dashes(css_files + js_files + [os.path.join(SRC, 'head.html'), os.path.join(SRC, 'body.html')])
     css = '\n'.join(open(f, encoding='utf-8').read() for f in css_files)
     js = '\n'.join('/* ---- %s ---- */\n' % os.path.basename(f) + open(f, encoding='utf-8').read() for f in js_files)
-    for key in ('__PHOTOS__', '__UNTAMED__'):
+    for key in ('__PHOTOS__',) + tuple(links):
         if key not in js:
             sys.exit('the app script lost its %s placeholder' % key)
-    js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__UNTAMED__', untamed_url)
+    js = js.replace('__PHOTOS__', json.dumps(photo_list))
+    for key, url in links.items():
+        js = js.replace(key, url)
     app = "(()=>{\n'use strict';\n" + js + "\n})();\n"
     return css, read('body.html').strip(), app
 
 
 def body():
-    css, html, app = parts(UNTAMED_ARTIFACT, photos())
+    css, html, app = parts(ART_LINKS, photos())
     return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + html + '\n'
             + '<script src="%s"></script>\n' % THREE_CDN + '<script>\n' + app + '</script>\n')
 
@@ -92,9 +98,9 @@ def write(path, text):
 
 
 def write_site(out):
-    """Tamed's part of the deployed site: out/index.html (the front door, with both ways in), and its css and js in
+    """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
     out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
-    css, html, app = parts('untamed/', ['assets/img/%s.webp' % n for n in PEOPLE])
+    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp' % n for n in PEOPLE])
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
     og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'

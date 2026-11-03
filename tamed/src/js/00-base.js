@@ -1,14 +1,18 @@
 /* ================= HELORIA TAMED =================
    A pavilion of pale stone standing in still water at golden hour. One evening, one walk:
    scroll moves you through the place and moves the sun down the sky with you. */
-const UNTAMED_URL='__UNTAMED__';   // set by the build: untamed/ on the site, the untamed artifact's link as an artifact
-/* the way to the wild site: the same tab when it is part of this site, a new one when it lives somewhere else */
-const untamedLinks=d=>d.querySelectorAll('[data-untamed]').forEach(a=>{ a.href=UNTAMED_URL; if(!/^https?:/.test(UNTAMED_URL)){ a.removeAttribute('target'); a.removeAttribute('rel'); } });
+/* the ways out of the walk, set by the build: on the site untamed/ (Fly), untamed/#land (Land) and untamed/#aetos (the
+   rocket at the end of the walk, into orbit at Aetos); as an artifact, the other artifacts' links */
+const UNTAMED_URL='__UNTAMED__', LAND_URL='__LAND__', ROCKET_URL='__ROCKET__';
+const sameSite=u=>!/^https?:/.test(u);
+/* the same tab when it is part of this site, a new one when it lives somewhere else */
+const outLinks=d=>[['[data-untamed]',UNTAMED_URL],['[data-land]',LAND_URL],['[data-rocket]',ROCKET_URL]].forEach(([q,u])=>
+  d.querySelectorAll(q).forEach(a=>{ a.href=u; if(sameSite(u)){ a.removeAttribute('target'); a.removeAttribute('rel'); } }));
 const PHOTOS=__PHOTOS__;
 const T=window.THREE;
 /* without three.js there is no place to walk through: keep the words, as a plain page */
 if(!T){ const d=document; d.documentElement.classList.add('nogl'); const g=d.getElementById('gate'), b=d.getElementById('tamed');
-  untamedLinks(d); g.classList.remove('loading'); g.classList.add('ready'); [...d.querySelectorAll('#word span')].forEach(l=>l.classList.add('in'));
+  outLinks(d); g.classList.remove('loading'); g.classList.add('ready'); [...d.querySelectorAll('#word span')].forEach(l=>l.classList.add('in'));
   b.disabled=false; b.onclick=()=>{ g.style.display='none'; const u=d.getElementById('ui'); u.classList.add('on'); u.removeAttribute('aria-hidden'); d.getElementById('logo').classList.add('on'); };
   throw new Error('Heloria Tamed: three.js did not load, showing the plain page'); }
 const TEST=!!window.__TEST, HQ=!!window.__HQ;

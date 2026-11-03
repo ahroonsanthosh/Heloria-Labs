@@ -88,6 +88,8 @@ const endPointer=e=>{
 addEventListener('pointerup',endPointer,{passive:true});
 addEventListener('pointercancel',endPointer,{passive:true});
 document.addEventListener('mouseleave',()=>{ M.on=false; });
+/* (a press only counts as held once a few frames have gone by as well: on a slow frame the finger's first move can be
+   waiting behind it, and a swipe must never open the index) */
 function holdTick(){
   if(HOLD.down&&!HOLD.open&&!HOLD.moved){ const k=(now()-HOLD.t0-.12)/.48; UI.ring(clamp(k,0,1),HOLD.x,HOLD.y);
     if(k>=1&&S.frame-HOLD.f0>=6){ /* a held finger, not one slow frame: the start of a swipe never opens it */ HOLD.open=true; HOLD.down=false; UI.ring(0); UI.indexOpen(true); if(SC.touch){ SC.touch=null; } } }
