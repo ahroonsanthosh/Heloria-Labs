@@ -1,0 +1,203 @@
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<!-- the gate: the letters settle, then two ways in -->
+<div id="gate" class="loading" role="dialog" aria-modal="true" aria-label="Heloria Labs">
+  <div class="gate-glow" aria-hidden="true"></div>
+  <div class="gate-in">
+    <h1 id="word" class="mark" aria-label="Heloria"><span>H</span><span>E</span><span>L</span><span>O</span><span>R</span><span>I</span><span>A</span></h1>
+    <p class="gate-line">A small software lab in Ireland</p>
+    <div class="ways">
+      <button id="tamed" class="way" type="button" disabled>
+        <span class="w disp">Tamed</span>
+        <span class="d">A calm walk through our work</span>
+      </button>
+      <span class="ways-rule" aria-hidden="true"></span>
+      <a id="untamed" class="way" href="#" data-untamed target="_blank" rel="noopener">
+        <span class="w disp">Untamed</span>
+        <span class="d">The whole thing, wild and playable</span>
+      </a>
+    </div>
+  </div>
+  <p class="gate-foot" aria-hidden="true"><span class="dot"></span><span id="gateState">Settling the light</span></p>
+</div>
+
+<!-- the place: text that belongs to each stop on the walk -->
+<div id="ui" aria-hidden="true">
+  <header id="top">
+    <a id="logo" class="mark" href="#home" data-go="home" aria-label="Heloria Labs, home">HELORIA</a>
+    <nav id="menu" aria-label="Main">
+      <a href="#projects" data-go="krios" data-nav="projects"><span>Projects</span></a>
+      <a href="#team" data-go="team" data-nav="team"><span>Team</span></a>
+      <a href="#contact" data-go="contact" data-nav="contact"><span>Contact</span></a>
+    </nav>
+  </header>
+
+  <main id="places">
+    <section class="sec home" id="home" data-place="home">
+      <h1 class="disp tag split">We dare to build where others hesitate.</h1>
+      <p class="sub">We believe in jumping in first, and working things out from there.</p>
+    </section>
+
+    <section class="sec room" id="krios" data-place="krios" style="--c:#A5C3FF">
+      <p class="no"><span>01</span><i></i><span>Room 01 of 04</span></p>
+      <h2 class="disp split">Kríos</h2>
+      <p class="kind">Voice practice for sales teams</p>
+      <p class="medium">Rehearse the call out loud, and a buyer answers back.</p>
+      <button class="view" type="button" data-open="0"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec room" id="aetos" data-place="aetos" style="--c:#F2EEE6">
+      <p class="no"><span>02</span><i></i><span>Room 02 of 04</span></p>
+      <h2 class="disp split">Aetos</h2>
+      <p class="kind">Counter-drone command software</p>
+      <p class="medium">It reads a sky full of drones and marks the one that matters.</p>
+      <button class="view" type="button" data-open="1"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec room" id="pharos" data-place="pharos" style="--c:#FFD5B3">
+      <p class="no"><span>03</span><i></i><span>Room 03 of 04</span></p>
+      <h2 class="disp split">Pharos</h2>
+      <p class="kind">GPS-free drone navigation</p>
+      <p class="medium">No GPS, so the drone finds itself by matching what it sees to the map.</p>
+      <button class="view" type="button" data-open="2"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec room" id="ogive" data-place="ogive" style="--c:#FFB475">
+      <p class="no"><span>04</span><i></i><span>Room 04 of 04</span></p>
+      <h2 class="disp split">Ogive</h2>
+      <p class="kind">AI tools for OpenRocket</p>
+      <p class="medium">Name the height, and it reworks the rocket until it gets there.</p>
+      <button class="view" type="button" data-open="3"><span>View project</span><i aria-hidden="true"></i></button>
+    </section>
+
+    <section class="sec team" id="team" data-place="team">
+      <p class="kick">Team</p>
+      <h2 class="disp split">Three of us, in Ireland.</h2>
+      <p class="sub" id="teamHint">Look into the water.</p>
+    </section>
+
+    <section class="sec contact" id="contact" data-place="contact">
+      <h2 class="disp split" data-reflect="1">Talk to us.</h2>
+      <a class="mail" href="mailto:contact@helorialabs.com"><span>contact@helorialabs.com</span></a>
+      <a class="quiet" href="#" data-untamed target="_blank" rel="noopener"><span>Or see Heloria untamed</span><i aria-hidden="true"></i></a>
+    </section>
+  </main>
+
+  <div id="people" aria-label="Team">
+    <div class="person" data-i="0">
+      <span class="nm disp">Ahroon Santhosh</span>
+      <span class="ld">Leads Aetos and Pharos</span>
+      <a class="li" href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+    <div class="person" data-i="1">
+      <span class="nm disp">Michael Sweeney Heffernan</span>
+      <span class="ld">Built Kríos, leads Ogive</span>
+      <a class="li" href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+    <div class="person" data-i="2">
+      <span class="nm disp">Abraham Sabu Kurian</span>
+      <span class="ld">Works on Kríos, our group project</span>
+      <a class="li" href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+  </div>
+
+  <button id="dial" type="button" aria-label="Every place (or press and hold anywhere)">
+    <svg viewBox="-50 -50 100 100" aria-hidden="true">
+      <defs><filter id="dialBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+      <circle class="plate" r="45"/>
+      <circle class="rim" r="45"/>
+      <g class="ticks"></g>
+      <g class="marks"></g>
+      <path class="shadow" filter="url(#dialBlur)" d="M0 0"/>
+      <path class="gnomon" d="M0 0"/>
+      <circle class="pin" r="2.4"/>
+    </svg>
+    <span class="dial-t" id="dialT">Home</span>
+  </button>
+  <p id="holdHint">Press and hold anywhere to see every place</p>
+  <p id="cue"><i aria-hidden="true"></i><span>Scroll</span></p>
+</div>
+
+<!-- press and hold: every place -->
+<div id="index" aria-hidden="true" role="dialog" aria-label="Every place">
+  <ol>
+    <li data-go="home"><span class="n">00</span><span class="t disp">Home</span></li>
+    <li data-go="krios"><span class="n">01</span><span class="t disp">Kríos</span></li>
+    <li data-go="aetos"><span class="n">02</span><span class="t disp">Aetos</span></li>
+    <li data-go="pharos"><span class="n">03</span><span class="t disp">Pharos</span></li>
+    <li data-go="ogive"><span class="n">04</span><span class="t disp">Ogive</span></li>
+    <li data-go="team"><span class="n">05</span><span class="t disp">Team</span></li>
+    <li data-go="contact"><span class="n">06</span><span class="t disp">Contact</span></li>
+  </ol>
+  <p class="index-cap">Release on a place to go there</p>
+</div>
+
+<!-- a project, read calmly over the room -->
+<div id="case" aria-hidden="true">
+  <div id="caseRoll">
+    <article class="case" data-p="0" style="--c:#A5C3FF">
+      <header class="case-head">
+        <p class="case-no"><span>01</span><i></i><span>Voice practice for sales teams</span></p>
+        <h2 class="case-title disp">Kríos</h2>
+        <p class="case-lead disp">Reps rehearse the calls that matter against a buyer who answers back, before a real one hears them.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>The calls that matter are the hardest ones to practise. Too often, the first time a rep hears the hard question, a real buyer is asking it.</p></div>
+        <div class="row"><h3>What it does</h3><p>Kríos is voice practice for sales teams. A rep talks the call through out loud, and the buyer on the other end answers back. The call gets rehearsed before a real buyer ever hears it.</p></div>
+        <div class="row"><h3>Who built it</h3><p>Michael Sweeney Heffernan built it. Kríos is our group project: all three of us are behind it.</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://krios.ie" target="_blank" rel="noopener">krios.ie</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="1" style="--c:#F2EEE6">
+      <header class="case-head">
+        <p class="case-no"><span>02</span><i></i><span>Counter-drone command software</span></p>
+        <h2 class="case-title disp">Aetos</h2>
+        <p class="case-lead disp">When the sky fills with drones, the hard part is not shooting. It is knowing which one to shoot.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>A crowded sky is a hard thing to read. Friend and threat look alike on a screen, and the decision has to be right.</p></div>
+        <div class="row"><h3>What it does</h3><p>Aetos is counter-drone command software. It reads the radar, tells friend from threat, and puts the intercept on the one that matters.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Ahroon Santhosh</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">github.com/ahroonsanthosh/Aetos</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="2" style="--c:#FFD5B3">
+      <header class="case-head">
+        <p class="case-no"><span>03</span><i></i><span>GPS-free drone navigation</span></p>
+        <h2 class="case-title disp">Pharos</h2>
+        <p class="case-lead disp">When GPS is jammed, spoofed or gone, it keeps going. And it knows when it doesn't know.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>A drone that leans on GPS is lost the moment the signal is jammed, spoofed or gone.</p></div>
+        <div class="row"><h3>What it does</h3><p>Pharos is GPS-free navigation for drones. It finds where the drone is by matching its camera view to the map, and it is honest about the moments it cannot be sure.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Ahroon Santhosh</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">github.com/ahroonsanthosh/pharos</a></p></div>
+      </div>
+    </article>
+    <article class="case" data-p="3" style="--c:#FFB475">
+      <header class="case-head">
+        <p class="case-no"><span>04</span><i></i><span>AI tools for OpenRocket</span></p>
+        <h2 class="case-title disp">Ogive</h2>
+        <p class="case-lead disp">Say what you want the rocket to do, and let it work the design until it does.</p>
+      </header>
+      <div class="case-rows">
+        <div class="row"><h3>The problem</h3><p>Getting a rocket design to do what you want usually means changing it by hand, again and again.</p></div>
+        <div class="row"><h3>What it does</h3><p>Ogive is a set of AI tools for OpenRocket. You say what you want the rocket to do, and it works the design until it does.</p></div>
+        <div class="row"><h3>Who leads it</h3><p>Michael Sweeney Heffernan</p></div>
+        <div class="row"><h3>Where it lives</h3><p><a class="ext" href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener">github.com/michaelsheffernan/ogive</a></p></div>
+      </div>
+    </article>
+    <div class="case-next" aria-hidden="true">
+      <p class="case-no"><span>Next</span><i></i><span class="nx-kind"></span></p>
+      <p class="case-title disp nx-title"></p>
+    </div>
+  </div>
+  <button id="back" type="button"><i aria-hidden="true"></i><span>Back to the gallery</span></button>
+  <div id="caseBar" aria-hidden="true"><i></i></div>
+</div>
+
+<div id="ring" aria-hidden="true"><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="26"/></svg></div>
+<div id="cur" aria-hidden="true"><i></i><span id="curT"></span></div>
+
+<!-- without WebGL: the same words, read as a plain page -->
+<noscript><style>#gate,#ui{display:none}</style><div class="plain"><h1>Heloria Labs</h1><p>We dare to build where others hesitate.</p><p><a href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></p></div></noscript>
