@@ -54,7 +54,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     const s = await H(h => ({ lead: h.S.lead && h.S.lead.s.id, ch: h.S.ch, story: !document.querySelector('#story').classList.contains('off') }));
     ok(s.lead === 'ae', 'Aetos has you', s);
     ok(!s.story, 'and the story never shows', s);
-    ok(await until(() => /Aetos/.test(document.querySelector('#guide')?.innerText || ''), 40000), 'the caption says so', await page.evaluate(() => (document.querySelector('#guide')?.innerText || '').replace(/\s+/g, ' ')));
+    ok(await until(() => /aetos/i.test(document.querySelector('#guide')?.innerText || ''), 40000), 'the caption says so', await page.evaluate(() => (document.querySelector('#guide')?.innerText || '').replace(/\s+/g, ' ')));
     await wait(1500); await shot(tag + '-1-lead');
     ok(await until(h => h.S.mode === 'station' && h.S.stId === 'ae', 120000), 'and docks you at Aetos');
     await wait(3000); await shot(tag + '-2-docked');

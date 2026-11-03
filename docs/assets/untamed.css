@@ -889,6 +889,8 @@ html.firstdock #station>#back{display:none}
 html.earth{--ink:#2a241d;--ink2:#4a4037;--mute:#6f6355;--dim:#8b7f70;--hair:rgba(42,36,29,.16);--hair2:rgba(42,36,29,.3)}
 html.earth .grain{opacity:.03}
 html.earth #back{z-index:3;background:rgba(251,246,236,.94)}   /* printed on paper, like the name tags, so it reads over a dark roof or lantern */
+html.crcut #back{opacity:0;pointer-events:none}   /* the landing is nothing but the picture and Skip; the way back up comes once you are down */
+html.earth #back{transition:opacity .6s var(--ease)}
 .st-cr::before{display:none}
 .st-cr .card{bottom:auto;top:calc(var(--gt) + 96px);transition:opacity 1.2s var(--ease),transform .8s var(--ease)}
 .st-cr .card h2{font-size:clamp(36px,4vw,68px);color:var(--ink)}

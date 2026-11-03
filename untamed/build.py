@@ -57,6 +57,7 @@ def single(only, inline_three=False, entry=''):
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
     js = js.replace('__PHOTOS__', json.dumps(photos))
     head = read('head.html')
+    if entry: head = head.replace('<title>Heloria Labs Orbit</title>', '<title>Heloria Labs %s</title>' % {'land': 'Earth', 'aetos': 'Aetos'}[entry])   # a preview of its own, named for its way in
     three = ('<script>\n' + read('assets/vendor/three.min.js') + '\n</script>') if inline_three else '<script src="%s"></script>' % THREE_CDN
     return head + '\n<style>\n' + css + '\n</style>\n' + html + '\n' + three + '\n<script>\n' + wrap_js(js) + '</script>\n'
 
