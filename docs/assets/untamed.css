@@ -190,6 +190,8 @@ html.fin #back,html.fin #chrome,html.fin #hint{opacity:0!important;pointer-event
 #fin .fa{display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center;margin-top:28px;opacity:0}
 #fin .fa .btn{color:#111;border-color:rgba(17,17,17,.35)}
 #fin .fa .btn:hover{background:#111;color:#fff}
+#fin .fa .walk{background:#111;color:#fff;border-color:#111}   /* the way on: the calm walk through our work */
+#fin .fa .walk:hover{background:#2c2a27;border-color:#2c2a27}
 #fin .fa a{color:#5f5a52}
 #fin.on .f1{animation:finc 4.2s ease 1s both}
 #fin.on .f2{animation:fins 7s ease 5.4s both}
@@ -834,7 +836,7 @@ html.nogl,html.nogl *{cursor:auto!important}
 /* earth: a bright little town. While you are here the interface turns dark so it reads against the sky */
 html.earth{--ink:#2a241d;--ink2:#4a4037;--mute:#6f6355;--dim:#8b7f70;--hair:rgba(42,36,29,.16);--hair2:rgba(42,36,29,.3)}
 html.earth .grain{opacity:.03}
-html.earth #back{z-index:3}
+html.earth #back{z-index:3;background:rgba(251,246,236,.94)}   /* printed on paper, like the name tags, so it reads over a dark roof or lantern */
 .st-cr::before{display:none}
 .st-cr .card{bottom:auto;top:calc(var(--gt) + 96px);transition:opacity 1.2s var(--ease),transform .8s var(--ease)}
 .st-cr .card h2{font-size:clamp(36px,4vw,68px);color:var(--ink)}
@@ -843,6 +845,9 @@ html.earth #back{z-index:3}
 #crLabels{position:absolute;inset:0;pointer-events:none}
 .st-cr .crl{position:absolute;left:0;top:0;padding:5px 9px 4px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;white-space:nowrap;opacity:0;transition:opacity .4s;will-change:transform}
 .st-cr .crl.on{opacity:1}
+/* right by someone: their tag says how to start talking */
+.st-cr .crl.can::after{content:'E';display:inline-block;margin-left:8px;padding:1px 5px 0;background:#2a241d;color:#fbf6ec}
+@media (pointer:coarse){.st-cr .crl.can::after{content:'Tap'}}
 /* talking: a printed paper box with a name tab, words typed out as they are said; the last page shows the photograph and LinkedIn */
 .st-cr .crtalk{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);width:min(760px,calc(100vw - 32px));opacity:0;transform:translate(-50%,18px);pointer-events:none;transition:opacity .35s var(--ease),transform .5s var(--ease)}
 .st-cr .crtalk.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
@@ -883,6 +888,15 @@ html.earth #back{z-index:3}
 .st-cr .crl.ask::after{content:"";display:inline-block;width:6px;height:6px;margin-left:8px;vertical-align:1px;background:#2a241d;border-radius:50%;animation:crask 1.1s ease-in-out infinite}
 @keyframes crask{50%{transform:scale(.4);opacity:.4}}
 /* the last flight: nothing on screen but the picture */
+/* a landmark says what it is when you walk up to it: a small printed card over it, with where to find the project */
+.st-cr .crpj{position:absolute;right:24px;top:calc(var(--gt) + 84px);display:grid;gap:3px;width:max-content;max-width:min(272px,calc(100vw - 32px));padding:12px 15px 13px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;opacity:0;transform:translateX(10px);pointer-events:none;transition:opacity .35s var(--ease),transform .5s var(--ease);text-decoration:none}
+.st-cr .crpj.on{opacity:1;transform:none;pointer-events:auto}
+.st-cr .crpj-n{font-size:22px;line-height:1}
+.st-cr .crpj-k{font-size:9.5px;opacity:.66}
+.st-cr .crpj-t{font-size:13px;line-height:1.45;margin-top:3px;max-width:30ch}
+.st-cr .crpj-l{justify-self:start;margin-top:5px;font-size:10px;padding-bottom:1px;border-bottom:2px solid #ef8a3c}
+.st-cr .crpj:hover .crpj-l,.st-cr .crpj:focus-visible .crpj-l{border-color:#2a241d}
+.st-cr.fin .crpj{opacity:0!important;pointer-events:none!important}
 .st-cr.fin .card,.st-cr.fin #crLabels,.st-cr.fin .crhint,.st-cr.fin .crtalk,.st-cr.fin .crskip,.st-cr.fin .crgo{opacity:0!important;pointer-events:none!important;transition:none!important}
 .st-cr .crtk-go{position:absolute;right:14px;bottom:14px;width:36px;height:36px;display:grid;place-items:center;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;padding:0;cursor:pointer;animation:crbob 1.1s ease-in-out infinite}
 .st-cr .crtk-go svg{width:12px;height:12px}
@@ -905,6 +919,8 @@ html.earth #back{z-index:3}
   .st-cr .crtalk.last .crtk-b{gap:14px;align-items:start}
   .st-cr .crtk-ph{width:96px}
   .st-cr .crhint{white-space:normal;width:calc(100vw - 48px);text-align:center}
+  .st-cr .crpj{left:16px;right:16px;top:calc(var(--gt) + 104px);width:auto;max-width:none;transform:translateY(-8px)}
+  .st-cr .crpj-t{max-width:none}
 }
 
 /* ===== station be ===== */
