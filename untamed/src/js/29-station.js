@@ -17,7 +17,7 @@ function mkStation(id,impl){
       const gEl=$('#'+id+'G'); gEl.removeAttribute('data-sp'); gEl.classList.add('pw'); gEl.textContent=o.grade; $('#'+id+'Final').textContent=fmt(o.score);
       const nw=$('#'+id+'New'); if(nw) nw.textContent=o.assisted?'Assisted':isNew?'New best':'Best '+fmt(best);
       $('#'+id+'Stats').innerHTML=statsHTML(o.stats); $('#'+id+'P').textContent=o.text||'';
-      prepPW(gEl); this.setState('res'); reveal($('.res',el)); S.games++;
+      prepPW(gEl); this.setState('res'); reveal($('.res',el)); S.games++; S.played.add(id);
       // a finger still tapping the game must not land on the panel that just appeared under it
       el.classList.add('rguard'); clearTimeout(this._rg); this._rg=setTimeout(()=>el.classList.remove('rguard'),750);
     },

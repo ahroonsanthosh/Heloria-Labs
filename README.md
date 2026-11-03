@@ -60,10 +60,14 @@ rooms.
 
 ## Untamed
 
-A small playable universe. You fall towards a ray-traced black hole through a four-chapter story, escape into orbit,
-fly a probe around the system and dock at five stations: the four projects, each with a game built from the project's
-real idea, and Beacon (join us, contact). The nearest station you have not played calls you with a bell you can place
-by ear. The black hole is sealed until you have played one station; the first time you come back, the seal cracks.
+A small playable universe. You fall towards a ray-traced black hole through a four-chapter story and fire the engine
+to escape it. Aetos's radar picks you up as an unidentified contact and brings you in on autopilot, the rest of the
+system dark, and you dock there: play Hold the Sky (about two minutes), or skip it and fly on. Leaving Aetos breaks the
+seal round the horizon. Its wave wakes the other stations (the four projects, each with a game built from the
+project's real idea, and Beacon: join us, contact), all of them yours to visit, and the screen says what to do: fly
+into the black hole, where Aetos has an unidentified contact. You fly in by hand. The stations make no sound; the one
+thing that calls is the contact, a low pulse with a radar's thin return from the side where the hole is, quicker and
+louder as you close in.
 
 Fall in and you come out over Earth, a small drawn town where the rocket you flew lands on a pad and you step out.
 Every station you have played is built there, springing up the first time you see it. Ahroon is by Aetos, Abraham by

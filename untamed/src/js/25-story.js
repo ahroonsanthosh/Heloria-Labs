@@ -2,7 +2,7 @@
 const CH=[ // camera shots of the hole: position, look-at, field of view, drift
   {p:[4.95,1.0,14.3],l:[-2.5,-.55,0],f:30,dr:.5,sys:0,narP:[0,2.2,22],narL:[0,-2.2,0]},
   {p:[3.4,2.6,6.9],l:[-2.4,-.9,0],f:38,dr:.35,sys:0,narP:[0,3.4,12.5],narL:[0,-2,0]},
-  {p:[12,64,62],l:[-12,-6,6],f:34,dr:.15,sys:1,narP:[0,96,52],narL:[0,-3,-2]},
+  {p:[10.1,54,52],l:[-10.1,-5,5],f:34,dr:.15,sys:1,narP:[0,81,44],narL:[0,-2.5,-1.7]},   // the whole system, now a little smaller
   {p:[1.05,.24,1.95],l:[-.25,.08,0],f:64,dr:.12,sys:0,narP:[.3,.42,3.3],narL:[-.05,.3,0]}
 ];
 const story={busy:0,acc:0,from:mkPose(),to:mkPose(),k:1,blocks:$$('#story .ch'),rail:[],creep:0,px:0,py:0};
@@ -25,7 +25,7 @@ function goChapter(i){
 }
 function escape(){
   if(S.mode!=='story') return; unreveal(story.blocks[S.ch]); $('#prox').classList.remove('on'); $('#cue').style.opacity=0;
-  A.boom(); A.launch(); S.flash=.9; feedback(1.2,1.6); setTimeout(()=>{ show('#story',false); },300); toHub();
+  A.boom(); A.launch(); S.flash=.9; feedback(1.2,1.6); setTimeout(()=>{ show('#story',false); },300); toHub(!S.docked.has('ae'));
 }
 /* One chapter per gesture. Trackpads keep sending decaying "momentum" wheel events after the fingers lift, so a new
    gesture is either a quiet gap or a clear rise in strength; everything else after a chapter change is ignored. */
@@ -57,5 +57,4 @@ function storyUpdate(rdt,t){
 }
 
 /* touch screens swipe rather than scroll */
-if(!FINE){ $('#cue').innerHTML='<i></i>Swipe up to fall in'; $$('#story .tease').forEach(el=>{ el.textContent=el.textContent.replace(/^Scroll/,'Swipe up'); });
-  $('#hint').innerHTML='<span>Drag anywhere to fly</span><span>Tap a station to autopilot</span>'; }
+if(!FINE){ $('#cue').innerHTML='<i></i>Swipe up to fall in'; $$('#story .tease').forEach(el=>{ el.textContent=el.textContent.replace(/^Scroll/,'Swipe up'); }); }
