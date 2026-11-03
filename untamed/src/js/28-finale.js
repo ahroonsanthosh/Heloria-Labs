@@ -14,7 +14,7 @@ function fPath(th,o){ const r=FP.p/(1+FP.e*Math.cos(th)); return o.copy(fE1).mul
 const fR=th=>FP.p/(1+FP.e*Math.cos(th));
 const holdEl=$('#holdp'), finEl=$('#fin');
 
-/* Earth hands over here, while the rocket is still climbing */
+/* Earth hands over here, while the rocket is still climbing. From here on you only watch: the hold was on the pad */
 function finaleSpace(){ if(FZ.on) return;
   Object.assign(FZ,{on:true,t:0,ph:'burn',th:FP.th0,hold:false,held:0,auto:0,esc:0,boost:0,said:false,white:0,beatT:0,sw:false,fov:42});
   S.mode='finale'; S.iris=1; post.uniforms.uBurn.value=0; post.uniforms.uIrisCol.value.set('#FFB066');
@@ -48,7 +48,7 @@ function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=F
   // how fast you move along the curve: brisk far out, slowing as you sink, nearly still at the bottom, then thrown
   let w;
   if(FZ.ph==='burn'||FZ.ph==='dive') w=.1+.15*sstep(-.45,-2,FZ.th);
-  else if(FZ.ph==='well') w=FZ.hold?.045:.06;
+  else if(FZ.ph==='well') w=.05;
   else w=.22+2.2*sstep(0,3.2,FZ.esc)*(1+.35*FZ.boost);
   FZ.th=Math.min(FP.thE,FZ.th+w*d);
   fPath(FZ.th,FZ.P); FZ.vel.copy(FZ.P).sub(FZ.prev).divideScalar(Math.max(d,1e-3)); FZ.prev.copy(FZ.P);
@@ -59,18 +59,17 @@ function finaleUpdate(rdt,dt,t){ const x=S.finX||1, d=dt*x; FZ.t+=d; const th0=F
     if(k>=1){ post.uniforms.uBurn.value=0; S.iris=0; const st=ST.cr; if(st){ st.finaleEnd&&st.finaleEnd(); st.abort(); st.hideUI(); show('#station',false); st.el.classList.remove('on'); st.exit(); }
       S.st=null; S.stId=null; FZ.ph='dive'; A.update(t,{sub:.3,pad:.6,bright:.3}); } }
   // falling in
-  if(FZ.ph==='dive'){ if(FZ.th>-.6&&!FZ.said){ FZ.said=true; holdEl.classList.add('on'); }
-    if(FZ.th>=-.38){ FZ.ph='well'; FZ.auto=0; A.stretch(); } }
-  // the bottom of the well: hold to burn (or it burns for you)
+  if(FZ.ph==='dive'){ if(FZ.th>=-.38){ FZ.ph='well'; FZ.auto=0; A.stretch(); } }
+  // the bottom of the well: a breath of stillness, then the engine burns by itself and throws you out (you lit it on Earth)
   if(FZ.ph==='well'){ FZ.auto+=d; FZ.beatT-=d; if(FZ.beatT<=0){ FZ.beatT=1.05; A.beat(.8); }
-    const want=FZ.hold||(FZ.auto>4.2&&FZ.held<1.4);
-    if(want){ if(!FZ.sw){ FZ.sw=true; A.swell(); holdEl.classList.add('go'); } FZ.held+=d; }
-    if((FZ.held>.6&&!want)||FZ.held>2.8){ FZ.ph='esc'; FZ.esc=0; FZ.boost=clamp(FZ.held/2.8,.3,1); holdEl.classList.remove('on','go');
+    const want=FZ.auto>1.4;
+    if(want){ if(!FZ.sw){ FZ.sw=true; A.swell(); } FZ.held+=d; }
+    if(FZ.held>2.4){ FZ.ph='esc'; FZ.esc=0; FZ.boost=1;
       A.boom(); A.launch(); A.whoosh(true,2.6,.34); setTimeout(()=>A.chord(),380); S.shake=Math.max(S.shake,1); S.flash=Math.max(S.flash,.12); } }
   if(FZ.ph==='esc') FZ.esc+=d;
   // the probe, and its flame
   U.probe.position.copy(FZ.P); fT[7].copy(FZ.P).sub(FZ.Tn); U.probe.lookAt(fT[7]);
-  const burning=FZ.ph==='well'&&FZ.held>0&&(FZ.hold||FZ.auto>4.2), thr=FZ.ph==='esc'?1.5*(1-sstep(2.5,5,FZ.esc)):burning?1.5:FZ.ph==='well'?.05:.35;
+  const burning=FZ.ph==='well'&&FZ.held>0, thr=FZ.ph==='esc'?1.5*(1-sstep(2.5,5,FZ.esc)):burning?1.5:FZ.ph==='well'?.05:.35;
   S.probe.thr=damp(S.probe.thr,thr,8,rdt); U.engU.uThr.value=S.probe.thr;
   if(S.probe.thr>.2){ fT[7].copy(FZ.Tn).multiplyScalar(-.3-S.probe.thr*.3).add(FZ.P); for(let k=0;k<Math.ceil(S.probe.thr*3*Q);k++) U.exhaust.emit(fT[7],1,.35,null,0,.5+Math.random()*.3); }
   U.exhaust.update(rdt,0,2.2);

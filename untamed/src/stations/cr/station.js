@@ -734,7 +734,7 @@ $('#crFly',el).addEventListener('click',e=>{ e.stopPropagation(); if(TALK.ask) s
 $('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
 goBtn.addEventListener('click',e=>{ e.stopPropagation(); if(allMet()&&!FIN.on) startFinale(); });
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
-  if(FIN.on){ e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(FIN.on){ if(LKEYS.includes(e.code)) launchHold(true); e.preventDefault(); e.stopImmediatePropagation(); return; }   // the last flight takes no keys but the launch
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
@@ -812,9 +812,17 @@ function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
    Then a short wait: the music has gone, a clock ticks three times, a heartbeat quickens, steam hisses out of the base, the engines
    spool up and the rocket starts to shiver. One second of nothing at all. Then it lights, the smoke rolls out across the town,
    the three of us wave, and you climb, quickly now, through the clouds until the sky goes black. ---------- */
-const FIN={on:false,t:0,look:new T.Vector3(),wave:0,mus:0,fov:45,ign:false,shut:false,handed:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,
+const FIN={on:false,t:0,look:new T.Vector3(),wave:0,mus:0,fov:45,ign:false,shut:false,handed:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,go:false,ask:false,wait:0,held:0,hold:false,
   cp:new T.Vector3(),cl:new T.Vector3(),pos:new T.Vector3(),alt:0};
-const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=.6, F_HOLD=.5, F_IGN=4.75, F_LIFT=5.1, F_SPACE=7;   // three quick ticks, a breath, lit; F_SPACE: seconds of climbing before space takes over
+const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=.6, F_HOLD=.5, F_IGN=4.75, F_LIFT=5.1, F_SPACE=7;
+/* after the ticks the rocket waits on the pad for you: hold (Space, or press anywhere) and the engines spool up under your
+   hand until it lights. F_HELD: seconds of holding to light it; nobody holding, it goes by itself after F_AUTO */
+const F_WAIT=F_IGN-F_HOLD-.001, F_HELD=1.3, F_AUTO=9, HP=$('#holdp'), HPT=$('#holdp span');
+const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.ask&&!FIN.go) FIN.hold=on; else if(!on) FIN.hold=false; };
+addEventListener('keyup',e=>{ if(LKEYS.includes(e.code)) launchHold(false); });
+addEventListener('pointerdown',()=>launchHold(true)); addEventListener('pointerup',()=>launchHold(false)); addEventListener('pointercancel',()=>launchHold(false));
+function launchPrompt(on){ document.documentElement.classList.toggle('launching',on); if(on){ HPT.textContent=FINE?'Hold Space to launch':'Hold anywhere to launch'; HP.style.setProperty('--k','0'); }
+  HP.classList.toggle('on',on); HP.classList.remove('go'); }   // three quick ticks, a breath, lit; F_SPACE: seconds of climbing before space takes over
 const FOUND=(()=>{ const cx=CAMC[0], cz=CAMC[1], fx=PAD[0]-cx, fz=PAD[1]-cz, l=Math.hypot(fx,fz), ux=fx/l, uz=fz/l, rx=-uz, rz=ux;   // to the right of the view from the road
   return [0,1,2].map(k=>[cx+ux*(3.5+.55*k)+rx*(1.25+.8*k),cz+uz*(3.5+.55*k)+rz*(1.25+.8*k)]); })();
 const fSide=new T.Vector3(), fA=new T.Vector3(), fB=new T.Vector3(), fC=new T.Vector3(), fUp=new T.Vector3();
@@ -841,12 +849,19 @@ function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).tr
         vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
         gl_FragColor=vec4(c,1.); }`});
   LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
-function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0});
+function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
   S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
   people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
   AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
   camAt(CAMC[0],CAMC[1],1.45,FIN.cp); FIN.cl.copy(padTop).addScaledVector(PADU,1.4); A.whoosh(false,1.4,.1); }
-function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
+function finUpdate(dt,t){ const up=PADU, P=player;
+  // the clock stops on the pad until you have held long enough to light it
+  FIN.t=FIN.go?FIN.t+dt*(S.finX||1):Math.min(F_WAIT,FIN.t+dt*(S.finX||1)); let c=FIN.t;
+  if(!FIN.go&&c>=F_WAIT){ if(!FIN.ask){ FIN.ask=true; FIN.wait=0; launchPrompt(true); }
+    FIN.wait+=dt; const want=FIN.hold||FIN.wait>F_AUTO; FIN.held=want?FIN.held+dt:Math.max(0,FIN.held-dt*1.6);
+    HP.style.setProperty('--k',clamp(FIN.held/F_HELD,0,1).toFixed(3)); HP.classList.toggle('held',want);
+    if(FIN.held>=F_HELD){ FIN.go=true; FIN.hold=false; HP.classList.add('go'); setTimeout(()=>launchPrompt(false),500); FIN.t=c=F_IGN; } }
+  const hk=FIN.go?1:clamp(FIN.held/F_HELD,0,1);   // how far the engines have spooled up under your hand
   // up the ramp and in
   if(c<F_WALK1){ const wk=clamp((c-F_WALK0)/(F_WALK1-F_WALK0),0,1), z=OUT_Z-(OUT_Z-.15)*wk*wk*(3-2*wk), wv=6*wk*(1-wk);
     const x0=PAD[0]+DOOR[0]*z, z0=PAD[1]+DOOR[1]*z; at(x0,z0,V2); tang(V2,at(PAD[0]-DOOR[0],PAD[1]-DOOR[1]),cF); standOn(me,V2,cF,.1+rampY(z));
@@ -858,7 +873,7 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
   // the wait, short: three quick ticks of a clock, a heartbeat that quickens, steam from the base, a low drone, the engines spooling up; then one second of nothing
   const hold=c>=F_IGN-F_HOLD&&c<F_IGN;
   if(c>=F_TICK0&&c<F_IGN-F_HOLD){ const k=Math.floor((c-F_TICK0)/F_TICKI); if(k!==FIN.clk){ FIN.clk=k; A.tock(k); } }
-  FIN.beat-=dt*(S.finX||1); if(c>F_DOOR1&&c<F_IGN-F_HOLD&&FIN.beat<=0){ const k=sstep(F_DOOR1,F_IGN,c); FIN.beat=.7-.25*k; A.beat(.55+.45*k); }
+  FIN.beat-=dt*(S.finX||1); if(c>F_DOOR1&&c<F_IGN-F_HOLD&&FIN.beat<=0){ const k=sstep(F_DOOR1,F_IGN,c); FIN.beat=(.7-.25*k)*(1-.4*hk); A.beat(.55+.45*k); }
   if(c>F_DOOR1+.4&&c<F_IGN){ FIN.vent-=dt; if(FIN.vent<=0){ FIN.vent=.22+Math.random()*.3; const sg=Math.random()<.5?-1:1; fA.crossVectors(up,RKN).normalize();
       fB.copy(padTop).addScaledVector(fA,sg*1.05).addScaledVector(up,.45); fC.copy(fA).multiplyScalar(sg*(1.1+Math.random()*.6)).addScaledVector(up,.25); puff(fB,fC,.2+Math.random()*.12,1.7); A.vent(sg*.45); } }
   // ignition
@@ -867,7 +882,8 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
       tang(up,at(PAD[0]+Math.cos(a)*4,PAD[1]+Math.sin(a)*4),V3).multiplyScalar(3+Math.random()*2.6).addScaledVector(up,.35+Math.random()*.5); puff(V2,V3,.42+Math.random()*.38,3+Math.random()*1.4); } }
   const fk=c<F_IGN?0:sstep(F_IGN,F_IGN+.4,c), tau=Math.max(0,c-F_LIFT), alt=.5*tau*tau+.12*tau*tau*tau; FIN.alt=alt; FIN.wave=c>F_IGN+.35?1:0;   // it gets going at once
   RK.flame.visible=false; LFLAME.visible=fk>.01; LFU.uR.value=.62*(.4+.6*fk)*(1+.25*sstep(0,3,tau)); LFU.uLen.value=fk*(3.8+2.6*sstep(0,2.5,tau))*(.94+.06*Math.sin(t*37));
-  const wob=c>F_IGN-1.8&&tau<1.2?(Math.random()-.5)*.014*sstep(F_IGN-1.8,F_IGN,c)*(c>F_IGN?1.6:1):0;
+  const wob=c>F_IGN-1.8&&tau<1.2?(Math.random()-.5)*.014*sstep(F_IGN-1.8,F_IGN,c)*(c>F_IGN?1.6:.35+1.1*hk):0;
+  if(FIN.ask&&!FIN.go) S.shake=Math.max(S.shake,.32*hk);
   FIN.pos.copy(padTop).addScaledVector(up,alt); rocketPose(FIN.pos,up,wob);
   if(FIN.ign){ FIN.trail-=dt; let n=0; while(FIN.trail<=0&&n++<4){ FIN.trail+=tau>0?.022:.05; fB.copy(FIN.pos).addScaledVector(up,-.25-Math.random()*.6);
       fC.set(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1.2).addScaledVector(up,tau>0?-2.5:-.2);
@@ -875,7 +891,7 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
       puff(fB,fC,(tau>0?.35:.45)+Math.random()*.3,tau>0?2.6:2.2); } }
   // sound, matched to every beat: the drone and the engines spooling up while it shivers, silence, the hit of ignition, the roar
   // and its crackle on the pad, a long push as it leaves, then the roar dulling and thinning to nothing as the air goes
-  const air=1-sstep(22,72,alt), spool=c<F_IGN-F_HOLD?sstep(F_IGN-1.9,F_IGN-F_HOLD,c):0;
+  const air=1-sstep(22,72,alt), spool=c<F_IGN-F_HOLD?sstep(F_IGN-1.9,F_IGN-F_HOLD,c)*(.3+.7*hk):0;
   if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-F_HOLD,c)+.1*spool); A.thrust(.18*spool); A.whine(hold?0:.34*spool); A.roarTone(380); }
   else { A.whine(0); A.roar(.8*air); A.thrust(1.1*air); A.roarTone(lerp(240,950,fk)*(1-.65*sstep(8,55,alt)));
     S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt)));
@@ -907,7 +923,7 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
   stUp.copy(fUp); stCam.up.copy(fUp); UPU.value.copy(up); LU.uPly.value.copy(FIN.cp); S.stSnap=true;   // uPly at the camera: nothing gets cut away
   if(tau>=F_SPACE&&!FIN.handed){ FIN.handed=true; if(typeof finaleSpace==='function') finaleSpace(); } }
 /* when space has taken over completely, Earth puts itself back as it was */
-st.finaleEnd=function(){ FIN.on=false; S.fin=false; el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
+st.finaleEnd=function(){ FIN.on=false; S.fin=false; launchPrompt(false); el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
   people.forEach(p=>{ [p.x,p.z]=p.at; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; }); BIRDS.forEach(b=>{ b.h=Math.min(b.h,10); }); AH.st='home'; };
 
 /* ---------- lifecycle ---------- */

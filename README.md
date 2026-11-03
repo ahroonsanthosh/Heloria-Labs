@@ -30,8 +30,9 @@ The front door is a gate with three ways in, each with one line and a rough time
 work, about 2 minutes), **Land** (straight down to Earth to meet the three of us, about 4) and **Fly** (the whole
 universe, about 10). Pointing at one, or focusing it, shows its world behind the letters before you choose it, with its
 own sound: for Walk the mist thins over the pavilion in the water; for Land a bright drawn sky over a small town, with a
-rocket coming down onto its pad; for Fly the dark comes in and bends round a black hole. A phone, with nothing to point
-with, shows the three in turn. Land and Fly go over to their world's light before the page changes: on the site they
+rocket coming down onto its pad; for Fly the dark comes in and bends round a black hole. Scrolling moves between them
+too, one way per gesture, and so do a swipe on a phone and the arrow keys; a click, a tap or Enter goes. A phone, until
+you swipe, shows the three in turn. Land and Fly go over to their world's light before the page changes: on the site they
 are `untamed/#land` and `untamed/`, in the same tab.
 
 Walk is Heloria in daylight. A pavilion of pale stone stands in still water at golden hour; scroll walks you through it as the
@@ -50,13 +51,14 @@ project, each showing what the product does:
   at a time, and a bead of light shows how high each would go: short, over, closer, there. Then it flies to the hoop
   and no higher, and comes back down on its chute.
 
-Each room's View project goes straight to the project. Every scene answers the pointer a little (on a touch screen,
+Each room has a printed wall label, as in a gallery: the name in the mark's dot type, what it is, a few plain lines on
+what it does, who leads it, and its address, which goes straight to the project. Every scene answers the pointer a little (on a touch screen,
 a tap): the water ripples wherever you can see it, the Kríos field leans away from your hand and lights up as it does
 for your voice, pointing at a drone in Aetos marks it, your hand is a small torch over the Pharos map, and pointing up
 the Ogive shaft names the height, so the next designs are worked to it.
 
 Then a courtyard where the three of us rise out of the pool as framed portraits, our names cut into the plinths; point
-at one of us for what we do and a link to LinkedIn. A sunset over the water to finish, and the last thing on the walk:
+at one of us (on a phone, stand in front of us) and the same printed label gives our name, what we lead, and LinkedIn. A sunset over the water to finish, and the last thing on the walk:
 now and then a rocket goes up from behind the far hills into the evening, its rumble arriving a couple of seconds after
 its light. Catch it and the camera follows it up into the night, into orbit at Aetos (`untamed/#aetos`); the quiet
 link under the address, "Or fly the whole thing", is the way in from the start. Press and hold anywhere, or click the
@@ -89,10 +91,11 @@ Anyone you have not met yet has a light over them and, when they are off the scr
 arrow; a conversation keeps its place if you walk off, and carries on when you come back. Once you have met all
 three, the camera goes over to Ahroon and he asks there and then: one click, Let's fly. Say not yet and he walks over
 to you, and Let's fly stays on the screen. Everyone gathers at the pad, you walk up the ramp, the hatch shuts, and a
-short wait (three quick ticks, a heartbeat, steam, the engines spooling up). The
-rocket lights, the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
-world burns away like paper onto the traced system; you swing once round the hole, and at the bottom of the well you
-hold to burn. It throws you out, and the light takes over: a white page with the three of us, and one line,
+short wait (three quick ticks, a heartbeat, steam). Then the rocket waits on the pad for you: hold to launch (Space, or
+press and hold anywhere) and the engines spool up under your hand, the rocket shaking harder, until it lights:
+the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
+world burns away like paper onto the traced system; you swing once round the hole, and at the bottom of the well the
+engine burns by itself. It throws you out, and the light takes over: a white page with the three of us, and one line,
 3 lads building the impossible.
 
 Each way in has its own prompt on the opening screen (Scroll to begin, Scroll to land, Scroll into orbit), and while
