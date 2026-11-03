@@ -99,7 +99,7 @@ function peopleUpdate(s,dt){
   const cam=CAM.out, w=innerWidth, h=innerHeight, FP=OUT.FP, port=portrait();
   OUT.people.forEach((p,i)=>{
     const el=PEO[i], fx=p.x-FP.pd/2-.02;
-    _pp.set(fx,p.lift+FP.phh*.5,p.z).project(cam);
+    _pp.set(fx,p.lift+FP.phh*.56,p.z).project(cam);
     const x=(_pp.x*.5+.5)*w, y=(-_pp.y*.5+.5)*h;
     _pq.set(fx,p.lift+FP.phh*.5,p.z-FP.pw/2).project(cam); const xa=(_pq.x*.5+.5)*w;
     _pq.set(fx,p.lift+FP.phh*.5,p.z+FP.pw/2).project(cam); const xb=(_pq.x*.5+.5)*w;
