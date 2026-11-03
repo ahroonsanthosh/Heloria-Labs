@@ -29,7 +29,8 @@ document.addEventListener('click',e=>{
   e.preventDefault(); if(S.mode==='gate') return; travel(a.dataset.go); A.click();
 });
 document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.closest('a,button,#index li'); if(!t||t._h) return; t._h=1; setTimeout(()=>t._h=0,160); if(S.mode!=='gate') A.hover(); });
-$$('[data-open]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); A.click(); CASE.open(+b.dataset.open,b); }));
+/* a project's link goes straight to the project */
+$$('.view').forEach(a=>a.addEventListener('click',e=>{ e.stopPropagation(); A.click(); }));
 
 /* ---------- sections follow the walk ---------- */
 const SECS=$$('.sec').map(el=>({el,p:placeById(el.dataset.place),on:false,vis:-1}));
@@ -38,8 +39,9 @@ UI.jumped=()=>{ TXT.dirty=true; };
 let fgKey='';
 UI.update=(s,dt)=>{
   for(const x of SECS){
-    const d=Math.abs(s-x.p.s), w=x.p.id==='team'?.24:0;
-    let vis=x.p.id==='home'?1-sstep(.035,.15,d):1-sstep(.09+w,.32+w,d); if(S.mode==='page'||S.mode==='gate'||S.mode==='entering') vis=x.p.id==='home'&&S.mode==='entering'?S.enterK:0;
+    /* the team's words come early as you walk into the courtyard and go as you turn away from us */
+    const d=Math.abs(s-x.p.s), w=x.p.id==='team'?(s<x.p.s?.24:.1):0;
+    let vis=x.p.id==='home'?1-sstep(.035,.15,d):1-sstep(.09+w,.32+w,d); if(S.mode==='gate'||S.mode==='entering') vis=x.p.id==='home'&&S.mode==='entering'?S.enterK:0;
     if(Math.abs(vis-x.vis)>.002){ x.vis=vis; x.el.style.opacity=vis.toFixed(3); x.el.style.visibility=vis>.002?'visible':'hidden'; }
     const on=vis>.5; if(on!==x.on){ x.on=on; x.el.classList.toggle('in',on); if(on&&x.el.querySelector('[data-reflect]')){ TXT.dirty=true; setTimeout(()=>TXT.dirty=true,1800); } }
   }
@@ -74,7 +76,7 @@ $('#dial').addEventListener('click',()=>{ A.click(); UI.indexOpen(true); });
 const IDX=$('#index'), ILI=$$('#index li'); let hot=-1;
 UI.ring=(k,x,y)=>{ const r=$('#ring'); if(k<=0){ r.classList.remove('on'); return; } r.classList.add('on'); r.style.transform=`translate(${x}px,${y}px)`; r.style.setProperty('--k',k.toFixed(3)); };
 UI.indexOpen=(on)=>{
-  if(on&&!(S.mode==='world'||S.mode==='page')) return;
+  if(on&&S.mode!=='world') return;
   HOLD.open=on; IDX.classList.toggle('on',on); IDX.setAttribute('aria-hidden',on?'false':'true'); document.documentElement.classList.toggle('indexed',on);
   if(on){ A.index(); const cur=PLACES.indexOf(placeAt(S.s)); ILI.forEach((l,i)=>l.classList.toggle('cur',i===cur)); hot=-1; ILI.forEach(l=>l.classList.remove('hot')); }
 };
@@ -85,41 +87,50 @@ ILI.forEach((l,i)=>{ l.addEventListener('click',e=>{ e.stopPropagation(); if(!HO
   l.addEventListener('pointerenter',()=>{ if(HOLD.open&&M.type!=='touch'){ hot=i; ILI.forEach((q,j)=>q.classList.toggle('hot',j===i)); IDX.classList.add('has'); A.tick(i); } }); });
 IDX.addEventListener('click',e=>{ if(!e.target.closest('li')&&HOLD.open&&now()-HOLD.t0>.9) UI.indexOpen(false); });
 
-/* ---------- the three of us: names under the reflections; hover (or walk up to) one and they rise ---------- */
+/* ---------- the three of us: we rise as you walk up; point at one of us and the portrait lifts, and opens LinkedIn ---------- */
 const PEO=$$('#people .person'); const _pp=v3(), _pq=v3();
-PEO.forEach((el,i)=>{ el.addEventListener('pointerenter',()=>{ el._h=1; }); el.addEventListener('pointerleave',()=>{ el._h=0; });
-  el.querySelector('a').addEventListener('focus',()=>{ el._h=1; }); el.querySelector('a').addEventListener('blur',()=>{ el._h=0; });
-  el.addEventListener('click',e=>{ if(e.target.closest('a')) return; el._tap=!el._tap; }); });
+PEO.forEach((el,i)=>{ const a=el.querySelector('a');
+  a.addEventListener('pointerenter',()=>{ el._h=1; }); a.addEventListener('pointerleave',()=>{ el._h=0; });
+  a.addEventListener('focus',()=>{ el._h=1; }); a.addEventListener('blur',()=>{ el._h=0; });
+  a.addEventListener('click',e=>{ e.stopPropagation(); A.click(); }); });
+/* where a point of the portrait falls on the screen, in pixels */
+const scr=(x,y,z,cam)=>{ _pq.set(x,y,z).project(cam); return [(_pq.x*.5+.5)*innerWidth,(-_pq.y*.5+.5)*innerHeight,_pq.z]; };
 function peopleUpdate(s,dt){
-  const near=1-sstep(.22,.42,Math.abs(s-5)); const box=$('#people');
+  /* we are there from the moment you come into the courtyard until you have turned away from us at the arch */
+  const near=s<5?1-sstep(.22,.42,5-s):1-sstep(.46,.6,s-5); const box=$('#people');
   box.style.opacity=near.toFixed(3); box.style.visibility=near>.01?'visible':'hidden';
   if(!OUT||near<=.01){ if(OUT) OUT.people.forEach(p=>{ p.target=0; p.seen=false; }); UI._teamT=0; return; }
   /* how long you have stood here: a breath with only the reflections, then we rise one after another */
   UI._teamT=near>.85&&S.mode==='world'?(UI._teamT||0)+dt:Math.max(0,(UI._teamT||0)-dt*2);
-  const cam=CAM.out, w=innerWidth, h=innerHeight, FP=OUT.FP, port=portrait();
+  const cam=CAM.out, FP=OUT.FP, port=portrait();
   OUT.people.forEach((p,i)=>{
-    const el=PEO[i], fx=p.x-FP.pd/2-.02;
-    _pp.set(fx,p.lift+FP.phh*.56,p.z).project(cam);
-    const x=(_pp.x*.5+.5)*w, y=(-_pp.y*.5+.5)*h;
-    _pq.set(fx,p.lift+FP.phh*.5,p.z-FP.pw/2).project(cam); const xa=(_pq.x*.5+.5)*w;
-    _pq.set(fx,p.lift+FP.phh*.5,p.z+FP.pw/2).project(cam); const xb=(_pq.x*.5+.5)*w;
-    _pq.set(fx,p.lift+FP.top,p.z).project(cam); const yt=(-_pq.y*.5+.5)*h;
-    const pw=Math.abs(xb-xa);
-    el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
-    el.style.setProperty("--pw",Math.max(120,pw).toFixed(0)+"px"); el.style.setProperty("--k",clamp(pw/235,.8,1.2).toFixed(3));
-    const over=M.on&&Math.abs(M.x-x)<pw*.5&&M.y>yt-10&&M.y<y+pw*.2;
-    /* on a narrow screen you walk past us one at a time, and whoever you reach rises and stays */
-    if(port&&1-sstep(.035,.075,Math.abs(s-[4.86,5,5.14][i]))>.5) p.seen=true;
-    const auto=S.peopleHold?false:(port?p.seen:UI._teamT>1.2+i*.62);
-    const want=((auto||el._tap||S.peopleAll)&&near>.6)?1:0;
-    p.target=want; p.hot=!!(over||el._h); el.classList.toggle("up",p.reveal>.8); el.classList.toggle("hot",p.hot);
+    const el=PEO[i], fx=p.x-FP.pd/2-.01;
+    /* the portrait and its plinth as the screen sees them; on a touch screen the box is only where the caption hangs, under
+       the plinth */
+    const a=scr(fx,p.lift+FP.top,p.z-FP.pw/2,cam), b=scr(fx,p.lift,p.z+FP.pw/2,cam), pw=Math.abs(b[0]-a[0]);
+    let L=Math.min(a[0],b[0]), Tp=Math.min(a[1],b[1]), Wd=pw, Hd=Math.abs(b[1]-a[1]);
+    if(!FINE){ Tp=Math.max(a[1],b[1])+14; Hd=0; }
+    el.style.transform=`translate(${L.toFixed(1)}px,${Tp.toFixed(1)}px)`;
+    el.style.setProperty('--pw',Wd.toFixed(0)+'px'); el.style.setProperty('--ph',Hd.toFixed(0)+'px');
+    /* only a portrait that stands in front of you, big enough to point at, takes a click */
+    const cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2;
+    el.classList.toggle('off',!(a[2]<1&&b[2]<1&&cx>-pw*.3&&cx<innerWidth+pw*.3&&cy>0&&cy<innerHeight&&pw>70));
+    /* we rise as you come, one after another, so you never have to wait for us; on a narrow screen you walk past us one
+       at a time, and whoever you are coming up to rises and stays */
+    if(port&&s>[4.86,5,5.14][i]-.06) p.seen=true;
+    const auto=S.peopleHold?false:(port?p.seen:(s>4.7+i*.07||UI._teamT>.5+i*.45));
+    const want=((auto||S.peopleAll)&&near>.6)?1:0;
+    p.target=want; p.hot=!!el._h&&!el.classList.contains('off'); el.classList.toggle('up',p.reveal>.8); el.classList.toggle('hot',p.hot);
+    /* on a touch screen the caption shows under whoever you are standing in front of, once they have risen */
+    const front=!FINE&&p.reveal>.9&&!el.classList.contains('off')&&(port?Math.abs(s-[4.86,5,5.14][i])<.07:pw>150&&Math.abs(s-5)<.06);
+    el.classList.toggle('front',front);
     if(want&&!p._was){ setTimeout(()=>A.rise(),i*40); } p._was=want;
   });
 }
 
 /* ---------- cursor: a drop of water ---------- */
 const cur=$('#cur'), curT=$('#curT'); let cx=M.x, cy=M.y, curBig=0;
-if(FINE) document.documentElement.classList.add('fine');
+document.documentElement.classList.add(FINE?'fine':'coarse');
 document.addEventListener('pointerover',e=>{ const t=e.target.closest&&e.target.closest('a,button,#index li,.person'); curBig=t?1:0; curT.textContent=t?(t.dataset.cur||''):''; cur.classList.toggle('big',!!t); });
 UI.cursor=(dt)=>{ if(!FINE) return; cx=damp(cx,M.x,22,dt); cy=damp(cy,M.y,22,dt); cur.style.transform=`translate(${cx.toFixed(1)}px,${cy.toFixed(1)}px)`; cur.classList.toggle('off',!M.on); };
 UI.isBig=()=>curBig;

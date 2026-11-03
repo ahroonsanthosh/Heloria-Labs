@@ -37,9 +37,15 @@ project, each showing what the product does:
   at a time, and a bead of light shows how high each would go: short, over, closer, there. Then it flies to the hoop
   and no higher, and comes back down on its chute.
 
-Each room has a calm project page. Then a courtyard where the three of us rise out of the pool as framed portraits,
-and a sunset over the water to finish. Press and hold anywhere for every place. Sound is part of it, and the water is
-used sparingly: close by the lake, muffled inside the rooms.
+Each room's View project goes straight to the project. Every scene answers the pointer a little (on a touch screen,
+a tap): the water ripples wherever you can see it, the Kríos field leans away from your hand and lights up as it does
+for your voice, pointing at a drone in Aetos marks it, your hand is a small torch over the Pharos map, and pointing up
+the Ogive shaft names the height, so the next designs are worked to it.
+
+Then a courtyard where the three of us rise out of the pool as framed portraits, our names cut into the plinths; point
+at one of us for what we do and a link to LinkedIn. A sunset over the water to finish. Press and hold anywhere, or click
+the sundial, for every place. Sound is part of it, and the water is used sparingly: close by the lake, muffled inside
+the rooms.
 
 ## Untamed
 
@@ -53,9 +59,11 @@ Every station you have played is built there, springing up the first time you se
 Kríos and Michael by Ogive, and each talks about what you have built. Click one of them (or their name tag) and you
 walk over by yourself; walk up to someone you have not met and they start talking.
 
-Once you have met all three, the camera goes over to Ahroon for a moment while he waves, and as it comes back he sets
-off across town to find you: he has one more thing, the last flight. Everyone gathers at the pad, you walk up the
-ramp, the hatch shuts, and the wait begins (six ticks of a clock, a heartbeat, steam, the engines spooling up). The
+Anyone you have not met yet has a light over them and, when they are off the screen, their name at its edge with an
+arrow; a conversation keeps its place if you walk off, and carries on when you come back. Once you have met all
+three, the camera goes over to Ahroon and he asks there and then: one click, Let's fly. Say not yet and he walks over
+to you, and Let's fly stays on the screen. Everyone gathers at the pad, you walk up the ramp, the hatch shuts, and a
+short wait (three quick ticks, a heartbeat, steam, the engines spooling up). The
 rocket lights, the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
 world burns away like paper onto the traced system; you swing once round the hole, and at the bottom of the well you
 hold to burn. It throws you out, and the light takes over: a white page with the three of us, and one line,
@@ -69,7 +77,7 @@ tools/
   site-smoke.cjs        serves docs/ under a sub-path, as GitHub Pages does, and checks both ways in
 tamed/
   src/                  head.html, body.html, css/, js/ (base, sound, renderer, sky, water, outside, the gallery,
-                        post, the walk, input, page, project pages, main loop), assets/og.jpg (the social image)
+                        post, the walk, input, page, main loop), assets/og.jpg (the social image)
   build.py              the tamed build on its own: dist/tamed.html, or an artifact
   test/                 run.cjs (headless harness), flow.cjs (the whole walk), shots.cjs (stills of every place)
 untamed/

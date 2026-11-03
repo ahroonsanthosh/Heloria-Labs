@@ -175,16 +175,22 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await H(h => { const P = h.S.probe; P.p.set(1.2, 0, 0); P.v.set(0, 0, 0); h.S.ap = null; });
   rec(await until(() => window.__heloria.S.stId === 'cr', null, 180000), 'falling in again lands you on Earth');
   await H(h => h.ST.cr._dbg.skipCut()); await wait(800);
-  // meet all three, the last of them far across town from Ahroon: the camera goes over to him for a moment, comes back,
-  // and he walks across town to you and asks
-  await H(h => { const d = h.ST.cr._dbg, P = d.player, m = d.people[1]; d.place(); [P.x, P.z] = [m.x - 1.8, m.z - 1.8]; P.u.copy(d.at(P.x, P.z)); [1, 2, 0].forEach(i => { d.openTalk(d.people[i], 0); d.closeTalk(true); }); });
-  rec(await H(h => { const st = h.ST.cr, d = st._dbg, head = d.head(0), a = d.people[0], x0 = a.x, z0 = a.z; let near = 99, seen = false;
-    for (let i = 0; i < 220; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); if (d.GLN.t >= 0) { seen = true; near = Math.min(near, st.camP.distanceTo(head)); } }
-    return seen && near < 6 && d.GLN.t < 0 && d.AH.st === 'come' && Math.hypot(a.x - x0, a.z - z0) > 1; }), 'once you have met all three, the camera goes to Ahroon for a moment, comes back, and he sets off towards you');
-  rec(await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 1400 && !(d.talk().p && d.talk().ask); i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } return !!d.talk().ask && d.talk().p === d.people[0]; }), 'he walks all the way over to you, and asks');
-  await H(h => { const d = h.ST.cr._dbg; for (let i = 0; i < 8; i++) d.nextTalk(); });
+  // meet all three (heard out to the end), the last of them far across town from Ahroon: the camera goes over to him and he
+  // asks from there; Not yet brings the camera back and leaves Let's fly on the screen, one click from the last flight
+  await H(h => { const d = h.ST.cr._dbg, P = d.player, m = d.people[1]; d.place(); [P.x, P.z] = [m.x - 1.8, m.z - 1.8]; P.u.copy(d.at(P.x, P.z)); [1, 2, 0].forEach(i => { d.openTalk(d.people[i], d.people[i].lines.length - 1); d.closeTalk(true); }); });
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg, head = d.head(0); let near = 99;
+    for (let i = 0; i < 240 && !(d.talk().p && d.talk().ask); i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); if (d.GLN.t >= 0) near = Math.min(near, st.camP.distanceTo(head)); }
+    return !!d.talk().ask && d.talk().p === d.people[0] && d.GLN.t >= 0 && near < 6; }), 'once you have met all three, the camera goes to Ahroon and he asks there and then');
   await wait(600); await covered('#crTalk', 'the invitation');
-  await tap('#crFly', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
+  await tap('#crNot', 'Not yet');
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 200 && d.GLN.t >= 0; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } h.S.t += 1 / 30; st.update(1 / 30, h.S.t); return d.GLN.t < 0 && !d.talk().p && !document.querySelector('#crGo').hidden; }), "Not yet brings the camera back and leaves Let's fly on the screen");
+  // he walks over and waits by you: he does not ask again, and Let's fly is still there
+  rec(await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 900 && d.AH.st === 'come'; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } for (let i = 0; i < 30; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); }
+    return d.AH.st === 'here' && !d.talk().p && !document.querySelector('#crGo').hidden; }), "Ahroon walks over after Not yet and waits, with Let's fly still on the screen");
+  // the conversation box fades out; its buttons stop taking clicks at once, so wait for the fade before looking
+  await until(() => getComputedStyle(document.querySelector('#crTalk')).opacity === '0', null, 8000); await wait(1200);
+  await covered('.st-cr', "Earth with the Let's fly button");
+  await tap('#crGo', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
   await H(h => { h.S.finX = 6; });
   rec(await until(() => window.__heloria.S.mode === 'finale', null, 600000), 'the rocket climbs out and space takes over');
   rec(await until(() => window.__heloria.FZ.ph === 'well', null, 600000), 'one curve round the hole, down to the bottom of the well');
