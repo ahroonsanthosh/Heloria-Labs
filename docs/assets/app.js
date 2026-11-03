@@ -166,6 +166,18 @@ const A=(()=>{
     beat(v=1){ tone(54,.2,.2*v,'sine',38); tone(50,.22,.14*v,'sine',36,.17); },
     /* ignition: a deep hit, a tearing roar, crackle */
     ignite(){ tone(46,4.2,.55,'sine',24); noise(3.6,.5,2600,60,'lowpass',.7,0,.35); noise(1.4,.22,7000,1800,'highpass',.6,.05,.3); tone(92,2.4,.16,'sawtooth',40,0,.2); },
+    /* steam venting from the base before launch: a soft hiss, from the side it comes out of */
+    vent(p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='highpass'; b.frequency.setValueAtTime(5200,t0); b.frequency.exponentialRampToValueAtTime(2600,t0+.6);
+      const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.032,t0+.06); a.gain.exponentialRampToValueAtTime(.0001,t0+.7);
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.8); },
+    /* the engine's crackle: one short rough burst; called many times a second while it burns in thick air */
+    crackle(g=.04){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=900+Math.random()*2400; b.Q.value=1.6;
+      const a=ctx.createGain(), d=.02+Math.random()*.05; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=Math.random()*.8-.4; a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+d+.02); },
+    /* the roar's colour: open and rough at full thrust in thick air, dull and far as the air thins */
+    roarTone(f=380){ if(!ctx) return; set(n.roar.b.frequency,f,.25); },
+    /* leaving the pad: a long low push under everything */
+    liftoff(){ tone(36,3,.38,'sine',24); noise(2.4,.26,1100,140,'lowpass',.8,0,.3); },
     /* the bottom of the well: a long falling tone, as if time were slowing */
     stretch(){ tone(220,7,.05,'sine',55,0,.8,.8); tone(330,7,.025,'sine',82,.2,.8,.8); },
     /* paper burning away: a soft long crackle */
@@ -4347,7 +4359,7 @@ function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.a
   if(FIN.on) return;
   const left=people.filter(q=>!MET.has(q.i));
   if(left.length&&done){ const P=player; C.guide={p:left.reduce((a,b)=>Math.hypot(P.x-a.x,P.z-a.z)<Math.hypot(P.x-b.x,P.z-b.z)?a:b),t:1.8}; }
-  if(!left.length&&AH.st==='home') { AH.st='wait'; AH.t=was.i===0?.9:1.6; } }
+  if(!left.length&&AH.st==='home') { AH.st='wait'; AH.t=was.i===0?.6:.9; } }
 /* say hello: from far away you walk over by yourself; close up the conversation opens. Someone you have met shows you their page */
 function talkTo(p){ TALK.goal=null; if(p.i===0&&allMet()) return openInvite(); openTalk(p,MET.has(p.i)?p.lines.length-1:0); }
 function goTalk(p){ if(FIN.on||CUT.on||TALK.p) return; const P=player, d=Math.hypot(P.x-p.x,P.z-p.z);
@@ -4365,23 +4377,38 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     if(TALK.ask&&TALK.i>=TALK.L.length-1&&TALK.shown>=TALK.txt.length&&e.code!=='KeyE'){ startFinale(); } else nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 
-/* ---------- Ahroon comes to find you: once you have met all three of us, he has one more thing to show you ---------- */
+/* ---------- once you have met all three of us, Ahroon has one more thing. The camera goes over to him for a moment (he waves),
+   then comes back to you; he waits where he is, his name calling, until you go and talk to him ---------- */
 const INVITE=['That\'s all three of us. You\'ve met the whole lab.','One more thing. She\'s fuelled, and she\'s got one flight left in her.','Want to see what she can really do?'];
-const AH={st:'home',t:0,heard:false,ph:0,turn:0,chk:0,lx:0,lz:0};
+const AH={st:'home',t:0,heard:false};
+const GLN={t:-1,d:0,P:new T.Vector3(),L:new T.Vector3(),U:new T.Vector3(),q:new T.Vector3()};
+const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the flight back
 function openInvite(){ openTalk(people[0],AH.heard?INVITE.length-1:0,INVITE); }
-function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; AH.st=allMet()?'wait':'home'; AH.t=allMet()?2.5:0; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a||FIN.on||CUT.on) { if(a) a.walk=0; return; }
-  if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t<=0){ AH.st='come'; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } return; }
-  if(AH.st!=='come'){ a.walk=damp(a.walk||0,0,6,dt); return; }
-  if(TALK.p){ a.walk=0; return; }
-  let dx=P.x-a.x, dz=P.z-a.z; const d=Math.hypot(dx,dz);
-  if(d<2.1){ a.walk=0; AH.st='here'; openInvite(); return; }
-  dx/=d; dz/=d; if(AH.turn>0){ AH.turn-=dt; const c=Math.cos(1.1), sn=Math.sin(1.1); [dx,dz]=[dx*c-dz*sn,dx*sn+dz*c]; }
-  const sp=Math.min(3.3,.9+d*.5); let nx=a.x+dx*sp*dt, nz=a.z+dz*sp*dt;
-  for(const o of OBS){ if(o===a.ob) continue; const ex=nx-o.x, ez=nz-o.z, dd=Math.hypot(ex,ez), m=o.r+.3; if(dd<m&&dd>1e-4){ nx=o.x+ex/dd*m; nz=o.z+ez/dd*m; } }
-  if(!walkable(nx,nz)){ AH.turn=.7; a.walk=0; return; }
-  a.x=nx; a.z=nz; a.dir=at(nx,nz); if(a.ob){ a.ob.x=nx; a.ob.z=nz; } a.walk=sp; a.ph=(a.ph||0)+dt*sp*4.6;
-  AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.turn=.8; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
+function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; a.walk=0; if(FIN.on||CUT.on) return;
+  if(AH.st!=='wait'||TALK.p) return;
+  AH.t-=dt; if(AH.t>0) return;
+  const d=Math.hypot(P.x-a.x,P.z-a.z);
+  if(d<2.6){ AH.st='here'; openInvite(); return; }              // he is right here: he just asks
+  if(d<7){ AH.st='here'; a.wave=2.4; A.chime(7,0,.04); return; } // close enough to see: he waves you over
+  AH.st='here'; glanceStart(d); }
+/* the shot of him: in front of him and a little to one side, at eye height, looking at him as he waves */
+function glanceStart(d){ const a=people[0]; GLN.t=0; GLN.d=d; a.wave=G_IN+G_HOLD+.4; A.chime(7,.05,.045); A.chime(9,.34,.035); A.whoosh(true,1.1,.05);
+  let fx=a.face[0]-a.x, fz=a.face[1]-a.z; const l=Math.hypot(fx,fz)||1; fx/=l; fz/=l; const rx=-fz, rz=fx;
+  const cx=a.x+fx*3.4+rx*.9, cz=a.z+fz*3.4+rz*.9; camAt(cx,cz,1.62,GLN.P);
+  GLN.L.copy(a.dir).multiplyScalar(R+standH(a.x,a.z)+1.2); GLN.U.copy(at(cx,cz)); }
+const gA=new T.Vector3(), gB=new T.Vector3();
+function sphLerp(a,b,w,lift,o){ const ra=a.length(), rb=b.length(); o.copy(gA.copy(a).normalize().lerp(gB.copy(b).normalize(),w).normalize()); return o.multiplyScalar(lerp(ra,rb,w)+lift*Math.sin(Math.PI*w)); }
+/* the camera during the glance: over the rooftops and back, on the planet's curve, never through it */
+function glanceApply(dt){ if(GLN.t<0) return false; GLN.t+=dt; const t=GLN.t, end=G_IN+G_HOLD+G_OUT;
+  const w=t<G_IN?E.io(t/G_IN):t<G_IN+G_HOLD?1:1-E.io((t-G_IN-G_HOLD)/G_OUT);
+  if(t>=end){ GLN.t=-1; return false; }
+  const lift=Math.min(8,1.5+GLN.d*.22)*(t<G_IN+G_HOLD?1:.8);
+  sphLerp(st.camP,GLN.P,w,lift,GLN.q); st.camP.copy(GLN.q);
+  sphLerp(st.camL,GLN.L,w,0,GLN.q); st.camL.copy(GLN.q);
+  stCam.up.copy(stUp).lerp(GLN.U,w).normalize(); UPU.value.copy(stCam.up);
+  LU.uPly.value.copy(GLN.L);   // whatever stands between the camera and him fades away, so he is always seen
+  return true; }
 
 /* ---------- landmarks: shown if you have played the station; one you have just played springs up the first time you see it ---------- */
 const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
@@ -4404,12 +4431,12 @@ function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
     if(u>=1){ m.st='on'; seen.add(id); markScale(m,1); baked=false; } } } }   // the sun's shadows are drawn again with it in
 
 /* ---------- the last flight, on the ground. Everyone is at the pad when you get there; you walk up the ramp and the hatch shuts.
-   Then the wait: the music has gone, a clock ticks ten times, a heartbeat quickens, steam breathes out of the base and the
-   rocket starts to shiver. One second of nothing at all. Then it lights, the smoke rolls out across the town, the three of us
-   wave, and you climb, slowly and then not slowly, through the clouds until the sky goes black. ---------- */
+   Then the wait: the music has gone, a clock ticks six times, a heartbeat quickens, steam hisses out of the base, the engines
+   spool up and the rocket starts to shiver. One second of nothing at all. Then it lights, the smoke rolls out across the town,
+   the three of us wave, and you climb, quickly now, through the clouds until the sky goes black. ---------- */
 const FIN={on:false,t:0,look:new T.Vector3(),wave:0,mus:0,fov:45,ign:false,shut:false,handed:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,
   cp:new T.Vector3(),cl:new T.Vector3(),pos:new T.Vector3(),alt:0};
-const F_WALK0=.6, F_WALK1=3.2, F_DOOR0=3.35, F_DOOR1=4.2, F_TICK0=5.3, F_IGN=15.3, F_LIFT=16.6, F_SPACE=9.6;   // F_SPACE: seconds of climbing before space takes over
+const F_WALK0=.5, F_WALK1=2.9, F_DOOR0=3.0, F_DOOR1=3.75, F_TICK0=4.4, F_IGN=11.35, F_LIFT=12.2, F_SPACE=8.2;   // six ticks, then lit; F_SPACE: seconds of climbing before space takes over
 const FOUND=(()=>{ const cx=CAMC[0], cz=CAMC[1], fx=PAD[0]-cx, fz=PAD[1]-cz, l=Math.hypot(fx,fz), ux=fx/l, uz=fz/l, rx=-uz, rz=ux;   // to the right of the view from the road
   return [0,1,2].map(k=>[cx+ux*(3.5+.55*k)+rx*(1.25+.8*k),cz+uz*(3.5+.55*k)+rz*(1.25+.8*k)]); })();
 const fSide=new T.Vector3(), fA=new T.Vector3(), fB=new T.Vector3(), fC=new T.Vector3(), fUp=new T.Vector3();
@@ -4419,21 +4446,24 @@ const LFU={uTime:G.uTime,uLen:{value:6},uR:{value:.6}};
 let LFLAME=null;
 function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).translate(0,-.5,0);
   const m=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:0}},LFU,{uPly:LU.uPly}),side:T.DoubleSide,
-    vertexShader:`uniform float uTime,uLen,uR; varying vec3 vN; varying vec3 vW; varying float vU;
+    vertexShader:`uniform float uTime,uLen,uR; varying vec3 vN,vW,vA; varying float vU;
       float h(float n){ return fract(sin(n)*43758.5453); } float nz(float x){ float i=floor(x), f=fract(x); f=f*f*(3.-2.*f); return mix(h(i),h(i+1.),f); }
       void main(){ vec3 p=position; float u=clamp(-p.y,0.,1.), a=atan(p.z,p.x);
         float prof=pow(max(1.-u,0.),.55)*(1.+.9*u)*(.62+.38*smoothstep(0.,.08,u));   // a full belly, then a quick lick to the point
         float lick=1.+.34*(nz(uTime*9.+u*7.+a*1.6)-.5)*u+.12*(nz(uTime*23.+a*3.)-.5);
         vec2 dir=p.xz/max(length(p.xz),1e-4); p.xz=dir*uR*prof*lick; p.y=-u*uLen*(1.+.12*(nz(uTime*11.)-.5));
         p.x+=sin(uTime*14.+u*5.)*.08*u*u; p.z+=cos(uTime*12.+u*4.)*.07*u*u;
-        vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*vec3(dir.x,.25,dir.y)); vU=u; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform float uTime; varying vec3 vN; varying vec3 vW; varying float vU; ${NEAR}
-      void main(){ nearFade(vW); vec3 V=normalize(cameraPosition-vW); float f=abs(dot(normalize(vN),V));
+        vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*vec3(dir.x,0.,dir.y)); vA=normalize(mat3(modelMatrix)*vec3(0.,1.,0.)); vU=u; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform float uTime; varying vec3 vN,vW,vA; varying float vU; ${NEAR}
+      void main(){ nearFade(vW); vec3 V=normalize(cameraPosition-vW), A=normalize(vA), Vp=V-A*dot(V,A); float lp=length(Vp);
+        // how far in from the edge of the flame as you see it: measured across the flame, so it is pale down the middle
+        // and hot at the nozzle from any angle, from below as much as from the side
+        float f=mix(1.,abs(dot(normalize(vN),Vp))/max(lp,1e-3),smoothstep(.06,.28,lp));
         float b=f*.85+.2-vU*.55+.025*sin(uTime*23.+vU*7.);   // hot and pale near the nozzle, cooling out to the edges and the tip
         vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
         gl_FragColor=vec4(c,1.); }`});
   LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
-function startFinale(){ if(FIN.on) return; closeTalk(); Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0});
+function startFinale(){ if(FIN.on) return; closeTalk(); Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0});
   S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
   people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
   AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
@@ -4447,17 +4477,17 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
   // the hatch comes up and shuts
   const dk=clamp((c-F_DOOR0)/(F_DOOR1-F_DOOR0),0,1); RK.door.rotation.x=lerp(DOOR_OPEN,DOOR_SHUT,dk*dk*(3-2*dk));
   if(dk>=1&&!FIN.shut){ FIN.shut=true; A.clunk(); S.shake=Math.max(S.shake,.14); document.body.classList.add('tense'); }
-  // the wait: ten ticks of a clock, a heartbeat that quickens, steam from the base, a low drone; then one second of nothing
+  // the wait: six ticks of a clock, a heartbeat that quickens, steam from the base, a low drone, the engines spooling up; then one second of nothing
   const hold=c>=F_IGN-.95&&c<F_IGN;
   if(c>=F_TICK0&&c<F_IGN-.95){ const k=Math.floor(c-F_TICK0); if(k!==FIN.clk){ FIN.clk=k; A.tock(k); } }
   FIN.beat-=dt*(S.finX||1); if(c>F_DOOR1&&c<F_IGN-.95&&FIN.beat<=0){ const k=sstep(F_DOOR1,F_IGN,c); FIN.beat=1.2-.5*k; A.beat(.45+.55*k); }
   if(c>F_DOOR1+.4&&c<F_IGN){ FIN.vent-=dt; if(FIN.vent<=0){ FIN.vent=.22+Math.random()*.3; const sg=Math.random()<.5?-1:1; fA.crossVectors(up,RKN).normalize();
-      fB.copy(padTop).addScaledVector(fA,sg*1.05).addScaledVector(up,.45); fC.copy(fA).multiplyScalar(sg*(1.1+Math.random()*.6)).addScaledVector(up,.25); puff(fB,fC,.2+Math.random()*.12,1.7); } }
+      fB.copy(padTop).addScaledVector(fA,sg*1.05).addScaledVector(up,.45); fC.copy(fA).multiplyScalar(sg*(1.1+Math.random()*.6)).addScaledVector(up,.25); puff(fB,fC,.2+Math.random()*.12,1.7); A.vent(sg*.45); } }
   // ignition
   if(c>=F_IGN&&!FIN.ign){ FIN.ign=true; A.ignite(); S.shake=1.2; S.flash=Math.max(S.flash,.22); document.body.classList.remove('tense'); document.body.classList.add('loose');
     for(let k=0;k<44;k++){ const a=k/44*TAU+Math.random()*.15, r=1.1+Math.random()*.4; at(PAD[0]+Math.cos(a)*r,PAD[1]+Math.sin(a)*r,V2).multiplyScalar(R+.3);
       tang(up,at(PAD[0]+Math.cos(a)*4,PAD[1]+Math.sin(a)*4),V3).multiplyScalar(3+Math.random()*2.6).addScaledVector(up,.35+Math.random()*.5); puff(V2,V3,.42+Math.random()*.38,3+Math.random()*1.4); } }
-  const fk=c<F_IGN?0:sstep(F_IGN,F_IGN+.4,c), tau=Math.max(0,c-F_LIFT), alt=.075*tau*tau*tau; FIN.alt=alt; FIN.wave=c>F_IGN+.35?1:0;
+  const fk=c<F_IGN?0:sstep(F_IGN,F_IGN+.4,c), tau=Math.max(0,c-F_LIFT), alt=.3*tau*tau+.07*tau*tau*tau; FIN.alt=alt; FIN.wave=c>F_IGN+.35?1:0;   // it gets going at once
   RK.flame.visible=false; LFLAME.visible=fk>.01; LFU.uR.value=.62*(.4+.6*fk)*(1+.25*sstep(0,3,tau)); LFU.uLen.value=fk*(3.8+2.6*sstep(0,2.5,tau))*(.94+.06*Math.sin(t*37));
   const wob=c>F_IGN-2.8&&tau<1.2?(Math.random()-.5)*.014*sstep(F_IGN-2.8,F_IGN,c)*(c>F_IGN?1.6:1):0;
   FIN.pos.copy(padTop).addScaledVector(up,alt); rocketPose(FIN.pos,up,wob);
@@ -4465,9 +4495,15 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
       fC.set(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(1.2).addScaledVector(up,tau>0?-2.5:-.2);
       if(tau<2.5&&alt<3){ fA.set(Math.random()-.5,0,Math.random()-.5); tang(up,fA.add(padTop),fC).multiplyScalar(3.5+Math.random()*2).addScaledVector(up,.3); }
       puff(fB,fC,(tau>0?.35:.45)+Math.random()*.3,tau>0?2.6:2.2); } }
-  // sound: the wait, then the roar thinning out to silence as the air goes
-  const air=1-sstep(22,72,alt);
-  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-1,c)); A.thrust(0); } else { A.roar(.78*air); A.thrust(1.1*air); S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt))); }
+  // sound, matched to every beat: the drone and the engines spooling up while it shivers, silence, the hit of ignition, the roar
+  // and its crackle on the pad, a long push as it leaves, then the roar dulling and thinning to nothing as the air goes
+  const air=1-sstep(22,72,alt), spool=c<F_IGN-.95?sstep(F_IGN-2.8,F_IGN-.95,c):0;
+  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-1,c)+.1*spool); A.thrust(.18*spool); A.whine(hold?0:.34*spool); A.roarTone(380); }
+  else { A.whine(0); A.roar(.8*air); A.thrust(1.1*air); A.roarTone(lerp(240,950,fk)*(1-.65*sstep(8,55,alt)));
+    S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt)));
+    FIN.ck-=dt; if(air>.04&&FIN.ck<=0){ FIN.ck=.035+Math.random()*.08; A.crackle(.06*air*air*(.4+Math.random()*.8)*(1-.5*sstep(6,30,alt))); } }
+  if(c>=F_LIFT&&!FIN.lift){ FIN.lift=true; A.liftoff(); A.swell(); }
+  if(alt>44&&!FIN.top){ FIN.top=true; A.chord(); }   // the black, and the orbit's music
   FIN.mus=.55*(1-sstep(0,F_DOOR1-.4,c));
   A.update(t,{sub:.18*sstep(45,70,alt),pad:.42*sstep(34,66,alt),bright:.2});   // as the air goes, the orbit's own music comes in to meet you
   if(FIN.ign) BIRDS.forEach(b=>{ b.h=Math.min(b.h+dt*2.4,45); b.r+=dt*1.1; });
@@ -4481,7 +4517,7 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
   const wP=E.io(clamp((c-F_DOOR1)/(F_IGN-F_DOOR1),0,1)), cp=V3.copy(road).lerp(push,wP*.85), cl=V4.copy(padTop).addScaledVector(up,lerp(1.5,2.2,wP));
   if(c<F_WALK1) cl.lerp(V.copy(me.position).addScaledVector(up,1.1),.45*(1-sstep(F_WALK1-.8,F_WALK1,c)));
   let k2=0;
-  if(tau>0){ const k1=E.io(clamp((tau-2.4)/4,0,1)); k2=E.io(clamp((tau-6.2)/3,0,1));
+  if(tau>0){ const k1=E.io(clamp((tau-1.5)/3.2,0,1)); k2=E.io(clamp((tau-4.6)/2.8,0,1));
     fC.copy(FIN.pos).addScaledVector(up,-3.6).addScaledVector(fSide,7.5); cp.lerp(fC,k1);
     fC.copy(FIN.pos).addScaledVector(up,13).addScaledVector(fSide,3.8); cp.lerp(fC,k2);
     cl.copy(FIN.pos).addScaledVector(up,1.2*(1-k2)-5*k2); }
@@ -4493,7 +4529,7 @@ function finUpdate(dt,t){ const c=(FIN.t+=dt*(S.finX||1)), up=PADU, P=player;
   stUp.copy(fUp); stCam.up.copy(fUp); UPU.value.copy(up); LU.uPly.value.copy(FIN.cp); S.stSnap=true;   // uPly at the camera: nothing gets cut away
   if(tau>=F_SPACE&&!FIN.handed){ FIN.handed=true; if(typeof finaleSpace==='function') finaleSpace(); } }
 /* when space has taken over completely, Earth puts itself back as it was */
-st.finaleEnd=function(){ FIN.on=false; S.fin=false; el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
+st.finaleEnd=function(){ FIN.on=false; S.fin=false; el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
   people.forEach(p=>{ [p.x,p.z]=p.at; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; }); BIRDS.forEach(b=>{ b.h=Math.min(b.h,10); }); AH.st='home'; };
 
 /* ---------- lifecycle ---------- */
@@ -4521,6 +4557,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   // input, the same as flying: keys move you relative to the camera; on a touch screen, the stick
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
+  if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   if(ix||iz){ P.tgt=null; TALK.goal=null; C.guide=null; began(); if(TALK.p) closeTalk(); }
   let want=0;
@@ -4565,6 +4602,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
   rigPose(C.tgt,stUp,C.f,C.pEff,C.dist,st.camP,st.camL);
   LU.uPly.value.copy(P.u).multiplyScalar(R+P.h+1);   // what the camera must always see: you
+  glanceApply(dt);
   S.stSnap=true; // the camera does its own smoothing
   }
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
@@ -4595,7 +4633,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   const hush=FIN.on&&FIN.t>F_IGN-.95&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={LU,MK,seen,linesFor,MET,AH,FIN,startFinale,goTalk,talkTo,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
 /* ===== station be ===== */

@@ -21,9 +21,10 @@ Aetos, Abraham by Kríos and Michael by Ogive, and each talks about what you hav
 tag) and you walk over by yourself; walk up to someone you have not met and they start talking. You walk the way you
 fly: WASD or the arrows, or the stick on a touch screen. The Orbit button takes you back.
 
-Once you have met all three, Ahroon comes to find you with one more thing: the last flight. Everyone gathers at the
-pad, you walk up the ramp, the hatch shuts, and the wait begins (ten ticks of a clock, a heartbeat, steam). Then the
-rocket lights, the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
+Once you have met all three, the camera goes over to Ahroon for a moment (he waves), then comes back to you: he has
+one more thing, the last flight. Go and talk to him. Everyone gathers at the pad, you walk up the ramp, the hatch
+shuts, and the wait begins (six ticks of a clock, a heartbeat, steam hissing from the base, the engines spooling up).
+Then the rocket lights, the smoke rolls across the town, and you climb through the clouds until the sky goes black. The drawn
 world burns away like paper onto the real, traced system; you swing once round the hole, closer than ever, and at the
 bottom of the well you hold to burn. It throws you out, the system falls away to a point, and the light takes over: a
 white page with the three of us, and why.

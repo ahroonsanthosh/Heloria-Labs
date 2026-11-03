@@ -163,6 +163,18 @@ const A=(()=>{
     beat(v=1){ tone(54,.2,.2*v,'sine',38); tone(50,.22,.14*v,'sine',36,.17); },
     /* ignition: a deep hit, a tearing roar, crackle */
     ignite(){ tone(46,4.2,.55,'sine',24); noise(3.6,.5,2600,60,'lowpass',.7,0,.35); noise(1.4,.22,7000,1800,'highpass',.6,.05,.3); tone(92,2.4,.16,'sawtooth',40,0,.2); },
+    /* steam venting from the base before launch: a soft hiss, from the side it comes out of */
+    vent(p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='highpass'; b.frequency.setValueAtTime(5200,t0); b.frequency.exponentialRampToValueAtTime(2600,t0+.6);
+      const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.032,t0+.06); a.gain.exponentialRampToValueAtTime(.0001,t0+.7);
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.8); },
+    /* the engine's crackle: one short rough burst; called many times a second while it burns in thick air */
+    crackle(g=.04){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=900+Math.random()*2400; b.Q.value=1.6;
+      const a=ctx.createGain(), d=.02+Math.random()*.05; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=Math.random()*.8-.4; a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+d+.02); },
+    /* the roar's colour: open and rough at full thrust in thick air, dull and far as the air thins */
+    roarTone(f=380){ if(!ctx) return; set(n.roar.b.frequency,f,.25); },
+    /* leaving the pad: a long low push under everything */
+    liftoff(){ tone(36,3,.38,'sine',24); noise(2.4,.26,1100,140,'lowpass',.8,0,.3); },
     /* the bottom of the well: a long falling tone, as if time were slowing */
     stretch(){ tone(220,7,.05,'sine',55,0,.8,.8); tone(330,7,.025,'sine',82,.2,.8,.8); },
     /* paper burning away: a soft long crackle */
