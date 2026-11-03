@@ -3,7 +3,7 @@
      node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/entry --scenario untamed/test/entry.cjs --hash land
      node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/entry --scenario untamed/test/entry.cjs --hash aetos
    Fly opens on the black hole and its story; Land opens in daylight and comes straight down onto Earth; Aetos, where the
-   rocket at the end of the walk goes, skips the story and the radar at Aetos brings you in. */
+   rocket at the end of the walk goes, skips the story: Aetos's radar has you, and you fly in to it on the thruster. */
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const pre = (mobile ? 'm-' : '');
   let fails = 0; const ok = (c, m, x) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (x !== undefined ? '  (' + (typeof x === 'string' ? x : JSON.stringify(x)) + ')' : '')); if (!c) fails++; };
@@ -51,12 +51,16 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     ok(load.begin === verb + ' into orbit', 'its prompt', load.begin);
     await page.click('#load');
     ok(await until(h => h.S.mode === 'tohub' || h.S.mode === 'hub', 40000), 'straight into orbit');
-    const s = await H(h => ({ lead: h.S.lead && h.S.lead.s.id, ch: h.S.ch, story: !document.querySelector('#story').classList.contains('off') }));
-    ok(s.lead === 'ae', 'Aetos has you', s);
+    const s = await H(h => ({ lead: h.S.lead && h.S.lead.s.id, ap: !!h.S.ap, far: +h.S.probe.p.distanceTo(h.S.lead.s.pos).toFixed(1), ch: h.S.ch, story: !document.querySelector('#story').classList.contains('off') }));
+    ok(s.lead === 'ae' && !s.ap && s.far > 8, 'Aetos has you on its radar, a way off, and nothing flies you there', s);
     ok(!s.story, 'and the story never shows', s);
     ok(await until(() => /aetos/i.test(document.querySelector('#guide')?.innerText || ''), 40000), 'the caption says so', await page.evaluate(() => (document.querySelector('#guide')?.innerText || '').replace(/\s+/g, ' ')));
-    await wait(1500); await shot(tag + '-1-lead');
-    ok(await until(h => h.S.mode === 'station' && h.S.stId === 'ae', 120000), 'and docks you at Aetos');
+    await until(() => +getComputedStyle(document.querySelector('#guide .gb')).opacity > .98, 20000); await wait(2500); await shot(tag + '-1-lead');
+    if (mobile) await H(h => { const c = h.renderer.domElement; c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 41, pointerType: 'touch', clientX: 195, clientY: 640, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 41, pointerType: 'touch', clientX: 195, clientY: 590, bubbles: true })); });
+    else await page.keyboard.down('KeyW');
+    ok(await until(h => h.S.mode === 'station' && h.S.stId === 'ae', 240000), 'you fly in on the thruster, and Aetos docks you');
+    if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 41, pointerType: 'touch', clientX: 195, clientY: 590, bubbles: true }))); else await page.keyboard.up('KeyW');
     await wait(3000); await shot(tag + '-2-docked');
   }
   console.log(fails ? fails + ' FAILED' : 'ENTRY OK');

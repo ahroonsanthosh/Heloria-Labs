@@ -14,7 +14,7 @@ function chasePose(out){
   const P=S.probe, L=S.lead?1.12:1, D=12.5*S.zoom*L, H=5.4*S.zoom*L;
   out.p.set(P.p.x+Math.sin(S.yaw)*D,H,P.p.z+Math.cos(S.yaw)*D);
   tv[0].copy(P.p).addScaledVector(P.v,.25); tv[0].y=-.9;
-  if(S.lead){ const a=S.lead.s.pos; tv[0].x=lerp(tv[0].x,a.x,.34); tv[0].z=lerp(tv[0].z,a.z,.34); }   // on the way in, Aetos is ahead in the frame
+  if(S.lead){ const a=S.lead.s.pos; tv[0].x=lerp(tv[0].x,a.x,.46); tv[0].z=lerp(tv[0].z,a.z,.46); }   // on the way in, Aetos is ahead in the frame, below the words
   if(SB.look>0) tv[0].multiplyScalar(1-SB.look*.5);   // while the seal breaks, the camera turns a little toward the hole
   lookQ(out.p,tv[0],out.q); out.fov=36; return out;
 }
@@ -33,13 +33,13 @@ let drag=null;
 canvas.addEventListener('pointerdown',e=>{
   if(S.mode==='finale'){ finHold(true); return; }
   if(S.mode==='station'&&S.st&&S.st.onPointer) return S.st.onPointer(e);
-  if(S.mode!=='hub'||S.lead) return;
+  if(S.mode!=='hub') return;
   drag={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,touch:e.pointerType!=='mouse',id:e.pointerId};
   if(drag.touch){ const s=$('#stick'); s.hidden=false; s.style.left=e.clientX+'px'; s.style.top=e.clientY+'px'; S.ap=null; }
 });
 addEventListener('pointermove',e=>{
   if(!drag||e.pointerId!==drag.id) return;
-  if(!drag.touch){ S.yaw-=(e.clientX-drag.x)*.005; drag.x=e.clientX; }
+  if(!drag.touch){ S.yaw-=(e.clientX-drag.x)*.005; drag.x=e.clientX; S.lookT=S.t; }
   else { drag.x=e.clientX; drag.y=e.clientY; const dx=clamp(drag.x-drag.ox,-50,50),dy=clamp(drag.y-drag.oy,-50,50); $('#stick i').style.transform=`translate(${dx}px,${dy}px)`; }
 });
 const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick').hidden=true; $('#stick i').style.transform=''; } };
@@ -50,7 +50,9 @@ addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e
    Nothing flies you into it: the stations take autopilot, the horizon you fly into by hand */
 const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
 const holeOpen=()=>S.docked.size>=1, SEALTINT=new T.Color(.06,.015,0);
-function autopilot(s){ if(S.mode!=='hub'||S.lead||!s||s===HOLE) return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
+/* on the way to Aetos nothing flies you: a click on it says how to fly */
+function leadNudge(){ toast(FINE?'Hold W to fire the thruster':'Drag up to fire the thruster'); A.beep(660); }
+function autopilot(s){ if(S.lead){ if(S.mode==='hub') leadNudge(); return; } if(S.mode!=='hub'||!s||s===HOLE) return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
@@ -61,13 +63,15 @@ function hubPhysics(dt){
   if(keys.has('KeyW')||keys.has('ArrowUp')) iz+=1; if(keys.has('KeyS')||keys.has('ArrowDown')) iz-=1;
   if(keys.has('KeyD')||keys.has('ArrowRight')) ix+=1; if(keys.has('KeyA')||keys.has('ArrowLeft')) ix-=1;
   if(drag&&drag.touch){ ix=clamp((drag.x-drag.ox)/50,-1,1); iz=clamp(-(drag.y-drag.oy)/50,-1,1); }
-  if(S.lead){ ix=iz=0; S.lead.t+=dt;
-    // the camera comes round behind the probe, looking along the way in
-    const a=S.lead.s.pos, dx=a.x-P.p.x, dz=a.z-P.p.z, l=Math.hypot(dx,dz)||1; S.yaw+=angDiff(Math.atan2(-dx/l,-dz/l),S.yaw)*Math.min(1,dt*1.5);
-    if(S.lead.t>16&&S.mode==='hub'){ const s=S.lead.s; S.ap=null; dock(s); return; } }   // (never left circling)
+  if(S.lead){ S.lead.t+=dt;
+    // you fly in yourself. The camera keeps Aetos ahead, so the thruster (W, or the stick pushed up) takes you to it,
+    // except for a while after you have dragged to look round. Flying into it docks you
+    const a=S.lead.s.pos, dx=a.x-P.p.x, dz=a.z-P.p.z, l=Math.hypot(dx,dz)||1;
+    if(!(drag&&!drag.touch)&&S.t-(S.lookT??-9)>2.5) S.yaw+=angDiff(Math.atan2(-dx/l,-dz/l),S.yaw)*Math.min(1,dt*(iz>0?2.2:1.2));
+    if(l<2.4&&S.mode==='hub'){ dock(S.lead.s); return; } }
   const thrust=tv[3].copy(fwd).multiplyScalar(iz).addScaledVector(rgt,ix);
-  if(thrust.lengthSq()>.01){ S.firstThrust=true; if(S.guide==='big') S.guideGo=true; }
-  if(S.guide==='big'&&S.guideGo&&S.t-S.guideT>1.4) guide('small');   // once you are moving, and it has been read
+  if(thrust.lengthSq()>.01){ S.firstThrust=true; if(S.guide==='big'||S.guide==='lead') S.guideGo=true; }
+  if((S.guide==='big'||S.guide==='lead')&&S.guideGo&&S.t-S.guideT>1.4) guide('small');   // once you are moving, and it has been read
   const r=Math.max(.5,Math.hypot(P.p.x,P.p.z));
   if(S.ap){ const s=S.ap; const to=tv[4].copy(s.pos).sub(P.p); to.y=0; const dist=to.length();
     const dl=tv[5].copy(to).normalize(); const along=clamp(-P.p.dot(dl),0,dist); const cl=tv[6].copy(P.p).addScaledVector(dl,along); cl.y=0;
@@ -297,16 +301,18 @@ function holeCall(dt){
 }
 
 /* ---------- the one thing to do, on the screen: big in the middle when it is new, one line at the foot once you are on
-   your way, gone once you are through. On the way in it is a caption: Aetos has you on its radar ---------- */
+   your way, gone once you are through. Out of the story it is Aetos: its radar has you, fly to it ---------- */
 const GD=$('#guide'), GDe=$('#guideE'), GDh=$('#guideH'), GDk=$('#guideK');
-const CTRL=FINE?'W A S D to fly · drag to look':'Drag anywhere to fly';
+const CTRL=FINE?'W A S D to fly · drag to look':'Drag anywhere to fly', LEADK=FINE?'Hold W to fire the thruster · drag to look':'Drag up to fire the thruster';
 function setGuide(e,h,k){ GDe.textContent=e; GDh.removeAttribute('data-sp'); GDh.textContent=h; prepPW(GDh); GDk.textContent=k; GDk.hidden=!k; }
 function guide(st){ if(S.guide===st) return; const was=S.guide; S.guide=st; S.guideT=S.t; S.guideGo=false; S.guideRv=''; $('#hub').classList.toggle('guided',st==='big'); A.muffle(st==='big');
   if(st==='off'){ GD.classList.remove('on','small'); unreveal(GD); return; }
-  if(st==='lead') setGuide('Aetos · radar','Unidentified contact','Bringing you in');
+  GD.classList.toggle('to-ae',!!S.lead); $('#guideL').textContent=S.lead?'Fly to Aetos':'Fly into the black hole';
+  if(st==='lead') setGuide('Aetos · radar · unidentified contact','Fly to Aetos',LEADK);
   else if(st==='big') setGuide('Unidentified contact · inside the horizon','Fly into the black hole',S.been||S.flown?'':CTRL);
   GD.classList.remove('lead','big','small'); GD.classList.add(st,'on');
-  if(st==='small'){ S.flown=true; GD.classList.remove('off'); } else { reveal(GD); if(was==='small') GD.classList.remove('small'); }
+  if(st==='small'){ if(!S.lead) S.flown=true; GD.classList.remove('off'); }   /* flying to Aetos does not count: the hole still shows its controls once */
+  else { reveal(GD); if(was==='small') GD.classList.remove('small'); }
 }
 
 /* ---------- the seal breaking: the first time you come back from a station, the ring round the horizon strains, cracks and lets go.
