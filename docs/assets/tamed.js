@@ -166,7 +166,7 @@ const A=(()=>{
     const crk=ctx.createOscillator(); crk.type='sawtooth'; crk.frequency.value=7.3; const crkG=ctx.createGain(); crkG.gain.value=.28; crk.connect(crkG); crkG.connect(rkA.gain); crk.start();
   }
   const RATES=[.83,1.17,.94,1.29,.71,1.06,.88,1.23,.77,1.12,.97,1.34]; let srcK=0;
-  const LEVEL=.75;   /* the whole walk's level: a little under full, so phones and laptops have room */
+  const LEVEL=.5;   /* the whole walk's level: a little under full, so phones and laptops have room */
   function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=RATES[srcK++%RATES.length]; s.start(0,Math.random()*8); return s; }
   const last=new WeakMap();
   const set=(p,v,tc=.15)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };

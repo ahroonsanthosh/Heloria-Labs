@@ -91,7 +91,7 @@ const A=(()=>{
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
     // each station's own air, under its screen: a bed of filtered noise and a low hum, shaped per station by A.bed
     { const s=nsrc(5); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
-      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn);
+      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn); n.bedS=bs;
       n.hum=ctx.createOscillator(); n.hum.type='triangle'; n.hum.frequency.value=55; const hf=ctx.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=420;
       n.humG=ctx.createGain(); n.humG.gain.value=0; n.hum.connect(hf); hf.connect(n.humG); n.humG.connect(comp); n.hum.start(); n.bedT=0; }
   }
@@ -114,13 +114,14 @@ const A=(()=>{
      soft return every so many seconds at pf */
   const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
     og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
-    cr:{f:850,q:.45,g:.085,hz:55,h:0}};   // Earth: a steady breeze through the grass under the town's music, so the gaps between its notes are never empty
+    cr:{f:560,q:.6,g:.06,hz:55,h:0,type:'lowpass',send:0}};   /* Earth: a soft, low breeze under the town's music, so the gaps between its notes are never
+       empty; no hiss on top and no echo of it (noise mixed with its own echo is what sounds phasey) */
   /* the town's key on Earth: C major pentatonic. inKey snaps a pitch to its nearest note there */
   const PENT_C=[0,2,4,7,9], inKey=f=>{ const m=69+12*Math.log2(f/440), o=Math.floor(m/12)*12; let best=m, bd=99;
     for(const k of [-12,0,12]) for(const pc of PENT_C){ const c=o+k+pc; if(Math.abs(c-m)<bd){ bd=Math.abs(c-m); best=c; } } return 440*Math.pow(2,(best-69)/12); };
   const PEN=[0,2,3,7,9]; // D dorian-ish pentatonic
-  /* the untamed plays louder than the walk, and a sound you hear again and again is never quite the same twice */
-  const LOUD=.75, vr=(k=.04)=>1+(Math.random()*2-1)*k;
+  /* the untamed plays at the walk's level, and a sound you hear again and again is never quite the same twice */
+  const LOUD=.5, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
@@ -149,7 +150,8 @@ const A=(()=>{
        room, Aetos the hum of its radar and a slow sweep, Pharos the sea against the rocks, Ogive a hangar's hum and the hiss
        of a vent, Beacon the static and the carrier of a radio mast. id null: the air goes */
     bed(id,t){ if(!ctx) return; const B=BEDS[id];
-      if(B){ set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
+      if(B){ const ty=B.type||'bandpass'; if(n.bedF.type!==ty) n.bedF.type=ty; set(n.bedS.gain,B.send??.35,.6);
+        set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
       const sw=B&&B.sea?.55+.45*Math.sin(t*.42)*Math.sin(t*.13+1):1;
       set(n.bedG.gain,B?B.g*sw:0,B?.9:.5); set(n.humG.gain,B?B.h:0,B?.9:.5);
       if(B&&B.ping&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
@@ -4950,7 +4952,8 @@ st.finaleEnd=function(){ post.uniforms.uLight.value.z=0; FIN.on=false; S.fin=fal
 /* ---------- lifecycle ---------- */
 let bloom0=1, birdT=2;
 const stUp=new T.Vector3(0,1,0);
-st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
+st.enter=function(){ post.uniforms.uFlat.value=1;   /* Earth's daylight from the first frame: no dark edges left over from space, fading as you watch */
+  const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone');
   $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
@@ -5110,7 +5113,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   // sound: the music, birds now and then, the sea near the shore, a light wind
   A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)) A.chirp((Math.random()-.5)*1.6); }
   const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
-  const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
+  const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.015+P.speed*.004)*hush);
 };
 st._dbg={began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();

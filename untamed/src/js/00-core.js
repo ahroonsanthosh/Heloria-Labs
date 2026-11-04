@@ -88,7 +88,7 @@ const A=(()=>{
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
     // each station's own air, under its screen: a bed of filtered noise and a low hum, shaped per station by A.bed
     { const s=nsrc(5); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
-      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn);
+      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn); n.bedS=bs;
       n.hum=ctx.createOscillator(); n.hum.type='triangle'; n.hum.frequency.value=55; const hf=ctx.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=420;
       n.humG=ctx.createGain(); n.humG.gain.value=0; n.hum.connect(hf); hf.connect(n.humG); n.humG.connect(comp); n.hum.start(); n.bedT=0; }
   }
@@ -111,13 +111,14 @@ const A=(()=>{
      soft return every so many seconds at pf */
   const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
     og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
-    cr:{f:850,q:.45,g:.085,hz:55,h:0}};   // Earth: a steady breeze through the grass under the town's music, so the gaps between its notes are never empty
+    cr:{f:560,q:.6,g:.06,hz:55,h:0,type:'lowpass',send:0}};   /* Earth: a soft, low breeze under the town's music, so the gaps between its notes are never
+       empty; no hiss on top and no echo of it (noise mixed with its own echo is what sounds phasey) */
   /* the town's key on Earth: C major pentatonic. inKey snaps a pitch to its nearest note there */
   const PENT_C=[0,2,4,7,9], inKey=f=>{ const m=69+12*Math.log2(f/440), o=Math.floor(m/12)*12; let best=m, bd=99;
     for(const k of [-12,0,12]) for(const pc of PENT_C){ const c=o+k+pc; if(Math.abs(c-m)<bd){ bd=Math.abs(c-m); best=c; } } return 440*Math.pow(2,(best-69)/12); };
   const PEN=[0,2,3,7,9]; // D dorian-ish pentatonic
-  /* the untamed plays louder than the walk, and a sound you hear again and again is never quite the same twice */
-  const LOUD=.75, vr=(k=.04)=>1+(Math.random()*2-1)*k;
+  /* the untamed plays at the walk's level, and a sound you hear again and again is never quite the same twice */
+  const LOUD=.5, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
@@ -146,7 +147,8 @@ const A=(()=>{
        room, Aetos the hum of its radar and a slow sweep, Pharos the sea against the rocks, Ogive a hangar's hum and the hiss
        of a vent, Beacon the static and the carrier of a radio mast. id null: the air goes */
     bed(id,t){ if(!ctx) return; const B=BEDS[id];
-      if(B){ set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
+      if(B){ const ty=B.type||'bandpass'; if(n.bedF.type!==ty) n.bedF.type=ty; set(n.bedS.gain,B.send??.35,.6);
+        set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
       const sw=B&&B.sea?.55+.45*Math.sin(t*.42)*Math.sin(t*.13+1):1;
       set(n.bedG.gain,B?B.g*sw:0,B?.9:.5); set(n.humG.gain,B?B.h:0,B?.9:.5);
       if(B&&B.ping&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
