@@ -129,7 +129,7 @@ const A=(()=>{
     update(t,p){ // p: {sub, wind, pad}
       if(!ctx) return;
       if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
-      if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.32,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.06,.8); if(p.bright!=null) set(n.padF.frequency,(380+p.bright*900)*(n.muf?.42:1),n.muf?.08:.6); }
+      if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.26,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.045,.8);   /* (orbit was the loudest steady part: a little under it now) */ if(p.bright!=null) set(n.padF.frequency,(380+p.bright*900)*(n.muf?.42:1),n.muf?.08:.6); }
     },
     tick(){ tone(2600*vr(),.02,.01,'square'); },
     click(){ const v=vr(); tone(1200*v,.06,.03,'triangle',600*v); },
@@ -192,7 +192,7 @@ const A=(()=>{
     music(v){ if(!ctx) return;
       if(!n.mus){ n.mus=ctx.createGain(); n.mus.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3400; lp.Q.value=.5; n.mus.connect(lp); lp.connect(comp);
         const sg=ctx.createGain(); sg.gain.value=.4; lp.connect(sg); sg.connect(revIn); n.mt=ctx.currentTime+.15; n.ms=0; n.mel=7; }
-      set(n.mus.gain,v*.62,.9); n.musV=v;
+      set(n.mus.gain,v*1.2,.9); n.musV=v;   /* Earth's music carries the town now the hiss is gone: level with the stations */
       if(!n.musClock) n.musClock=setInterval(()=>{ if(n.musV>.001&&n.musGo) n.musGo(); },200);   // its own clock: notes keep coming when a frame runs long
       if(v<=.001) return; if(n.musGo){ n.musGo(); return; }
       n.musGo=()=>{ if(n.mt<ctx.currentTime) n.mt=ctx.currentTime+.05;
