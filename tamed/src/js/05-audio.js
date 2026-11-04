@@ -20,30 +20,40 @@ const A=(()=>{
     ctx=new (window.AudioContext||window.webkitAudioContext)();
     n.master=ctx.createGain(); n.master.gain.value=0;
     n.comp=ctx.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=14; n.comp.ratio.value=3; n.comp.attack.value=.02; n.comp.release.value=.5;
-    n.comp.connect(n.master); n.master.connect(ctx.destination);
-    n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; n.master.connect(n.meter);
+    /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
+       hard clip, so sounds piling up never reach the point where small speakers distort */
+    const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=40; hp.Q.value=.6;
+    /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
+         smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
+      const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='2x';
+    n.comp.connect(n.master); n.master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
+    n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; lim.connect(n.meter);
     n.rev=ctx.createConvolver(); n.rev.buffer=ir(5.2,2.6); n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
     n.revIn=ctx.createGain(); n.revIn.connect(n.rev);
-    const nb=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;
-    const bb=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate), bd=bb.getChannelData(0); let br=0; for(let i=0;i<bd.length;i++){ br=(br+.02*(Math.random()*2-1))/1.02; bd[i]=br*3.5; } n.brown=bb;
+    /* nine seconds of each noise, read by every layer at its own speed (src): no two layers line up, so nothing phases */
+    const nb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;
+    const bb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), bd=bb.getChannelData(0); let br=0; for(let i=0;i<bd.length;i++){ br=(br+.02*(Math.random()*2-1))/1.02; bd[i]=br*3.5; } n.brown=bb;
     /* music bus: everything musical passes one low-pass that closes when you are inside */
     n.mus=ctx.createGain(); n.mus.gain.value=0; n.musLP=ctx.createBiquadFilter(); n.musLP.type='lowpass'; n.musLP.frequency.value=9000; n.musLP.Q.value=.5;
     n.mus.connect(n.musLP); n.musLP.connect(n.comp); const ms=ctx.createGain(); ms.gain.value=.55; n.musLP.connect(ms); ms.connect(n.revIn);
-    /* pad: two detuned saws and a sine an octave down for each of five voices, through a slowly breathing filter */
+    /* pad: two detuned saws and a sine an octave down for each of five voices, through a slowly breathing filter. The low
+       end is kept light: the root sits under the lowest voice already, and a phone or laptop speaker only strains at more */
     n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=700; n.padF.Q.value=.6;
     n.padG=ctx.createGain(); n.padG.gain.value=.085; n.padF.connect(n.padG); n.padG.connect(n.mus);
     const lfo=ctx.createOscillator(); lfo.frequency.value=.045; const lg=ctx.createGain(); lg.gain.value=260; lfo.connect(lg); lg.connect(n.padF.frequency); lfo.start();
     n.voices=CH[0].map((m,i)=>{ const f=mtof(m); const vg=ctx.createGain(); vg.gain.value=i===0?.5:.32/(1+i*.15); vg.connect(n.padF);
       const os=[-7,6].map(dt=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.detune.value=dt; const g=ctx.createGain(); g.gain.value=.16; o.connect(g); g.connect(vg); o.start(); return o; });
-      const s=ctx.createOscillator(); s.type='sine'; s.frequency.value=f/2; const sg=ctx.createGain(); sg.gain.value=i<2?.45:.18; s.connect(sg); sg.connect(vg); s.start(); os.push(s);
+      const s=ctx.createOscillator(); s.type='sine'; s.frequency.value=f/2; const sg=ctx.createGain(); sg.gain.value=i<2?.22:.14; s.connect(sg); sg.connect(vg); s.start(); os.push(s);
       const am=ctx.createOscillator(); am.frequency.value=.07+i*.031; const ag=ctx.createGain(); ag.gain.value=.12; am.connect(ag); ag.connect(vg.gain); am.start();
       return {os,ratio:[1,1,.5]}; });
-    n.bass=ctx.createOscillator(); n.bass.type='sine'; n.bass.frequency.value=mtof(ROOT[0]); n.bassG=ctx.createGain(); n.bassG.gain.value=.07; n.bass.connect(n.bassG); n.bassG.connect(n.mus); n.bass.start();
+    n.bass=ctx.createOscillator(); n.bass.type='sine'; n.bass.frequency.value=mtof(ROOT[0]); n.bassG=ctx.createGain(); n.bassG.gain.value=.022; n.bass.connect(n.bassG); n.bassG.connect(n.mus); n.bass.start();
     n.ci=0; n.nextChord=ctx.currentTime+9; n.nextNote=ctx.currentTime+2.5;
     /* water: lapping close by, a trickle above it, small plips */
     n.water=ctx.createGain(); n.water.gain.value=0; n.waterLP=ctx.createBiquadFilter(); n.waterLP.type='lowpass'; n.waterLP.frequency.value=2400; n.waterLP.Q.value=.4;
     n.water.connect(n.waterLP); n.waterLP.connect(n.comp); const ws=ctx.createGain(); ws.gain.value=.25; n.waterLP.connect(ws); ws.connect(n.revIn);
-    const lap=src(n.brown), lapF=ctx.createBiquadFilter(); lapF.type='lowpass'; lapF.frequency.value=420; const lapG=ctx.createGain(); lapG.gain.value=.5; lap.connect(lapF); lapF.connect(lapG); lapG.connect(n.water);
+    const lap=src(n.brown), lapF=ctx.createBiquadFilter(); lapF.type='lowpass'; lapF.frequency.value=420; const lapH=ctx.createBiquadFilter(); lapH.type='highpass'; lapH.frequency.value=120; lapH.Q.value=.6;   // the lapping, without the rumble under it no small speaker can play
+    const lapG=ctx.createGain(); lapG.gain.value=.62; lap.connect(lapH); lapH.connect(lapF); lapF.connect(lapG); lapG.connect(n.water);
     [[.11,.22],[.27,.14],[.53,.07]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.frequency.value=f; const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(lapG.gain); o.start(); });
     const tr=src(n.noise), trF=ctx.createBiquadFilter(); trF.type='bandpass'; trF.frequency.value=1300; trF.Q.value=.9; const trG=ctx.createGain(); trG.gain.value=.035; tr.connect(trF); trF.connect(trG); trG.connect(n.water);
     const to=ctx.createOscillator(); to.frequency.value=.37; const tg=ctx.createGain(); tg.gain.value=.025; to.connect(tg); tg.connect(trG.gain); to.start();
@@ -69,7 +79,9 @@ const A=(()=>{
     const rkr=ctx.createGain(); rkr.gain.value=.8; n.rk.connect(rkr); rkr.connect(n.revIn);
     const crk=ctx.createOscillator(); crk.type='sawtooth'; crk.frequency.value=7.3; const crkG=ctx.createGain(); crkG.gain.value=.28; crk.connect(crkG); crkG.connect(rkA.gain); crk.start();
   }
-  function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.start(0,Math.random()*2); return s; }
+  const RATES=[.83,1.17,.94,1.29,.71,1.06,.88,1.23,.77,1.12,.97,1.34]; let srcK=0;
+  const LEVEL=.75;   /* the whole walk's level: a little under full, so phones and laptops have room */
+  function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=RATES[srcK++%RATES.length]; s.start(0,Math.random()*8); return s; }
   const last=new WeakMap();
   const set=(p,v,tc=.15)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
   function pan(p,dest){ if(ctx.createStereoPanner){ const s=ctx.createStereoPanner(); s.pan.value=clamp(p,-1,1); s.connect(dest); return s; } return dest; }
@@ -81,7 +93,7 @@ const A=(()=>{
     o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.8);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(dest||n.comp);
     if(send){ const s=ctx.createGain(); s.gain.value=send; a.connect(s); s.connect(n.revIn); } o.start(t0); o.stop(t0+dur+.05); }
-  function noise(dur,g,f0,f1,type='bandpass',q=.8,delay=0,send=.3,dest){ if(!on) return; const t0=ctx.currentTime+delay, s=ctx.createBufferSource(); s.buffer=n.noise;
+  function noise(dur,g,f0,f1,type='bandpass',q=.8,delay=0,send=.3,dest){ if(!on) return; const t0=ctx.currentTime+delay, s=ctx.createBufferSource(); s.buffer=n.noise; s.loop=true; s.playbackRate.value=.86+Math.random()*.3;
     const b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t0+dur);
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+Math.min(.25,dur*.35)); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
     s.connect(b); b.connect(a); a.connect(dest||n.comp); if(send){ const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(n.revIn); } s.start(t0,Math.random()*2); s.stop(t0+dur+.1); }
@@ -123,7 +135,7 @@ const A=(()=>{
   /* Pharos: a deep slow tone that swells as the beam comes round */
   function roomPharos(){ const R=n.ph={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp); const s=ctx.createGain(); s.gain.value=.5; R.g.connect(s); s.connect(n.revIn);
     R.sw=ctx.createGain(); R.sw.gain.value=.6; R.sw.connect(R.g);
-    [[38,.46,'sine'],[45,.3,'sine'],[50,.13,'triangle'],[26,.18,'sine']].forEach(([m,k,t])=>{ const o=ctx.createOscillator(); o.type=t; o.frequency.value=mtof(m); const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(R.sw); o.start(); });
+    [[38,.32,'sine'],[45,.3,'sine'],[50,.15,'triangle'],[57,.07,'sine']].forEach(([m,k,t])=>{ const o=ctx.createOscillator(); o.type=t; o.frequency.value=mtof(m); const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(R.sw); o.start(); });
     const w=src(n.noise), f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=400; f.Q.value=1.2; R.air=ctx.createGain(); R.air.gain.value=0; w.connect(f); f.connect(R.air); R.air.connect(R.g); R.airF=f; }
   /* Ogive: a shimmer that keeps rising and never arrives */
   function roomOgive(){ const R=n.og={}; R.g=ctx.createGain(); R.g.gain.value=0; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=300; R.g.connect(hp); hp.connect(n.comp);
@@ -154,8 +166,8 @@ const A=(()=>{
   const L={music:0,water:0,waterF:2400,mus:9000,kr:0,ae:0,ph:0,og:0,wind:0};
   return {
     get on(){ return on; }, get ctx(){ return ctx; },
-    async start(){ try{ init(); on=true; await ctx.resume(); set(n.master.gain,.9,1.2); }catch(e){ on=false; } },
-    suspend(v){ if(!ctx) return; if(v){ set(n.master.gain,0,.15); setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); } else { ctx.resume().then(()=>set(n.master.gain,.9,.6)).catch(()=>{}); } },
+    async start(){ try{ init(); on=true; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
+    suspend(v){ if(!ctx) return; if(v){ set(n.master.gain,0,.15); setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); } else { ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); } },
     meter(){ if(!ctx) return null; const b=new Float32Array(n.meter.fftSize); n.meter.getFloatTimeDomainData(b); let pk=0,sq=0; for(const v of b){ pk=Math.max(pk,Math.abs(v)); sq+=v*v; }
       const rms=Math.sqrt(sq/b.length); return {peak:+pk.toFixed(3),rmsDb:+(20*Math.log10(rms+1e-9)).toFixed(1)}; },
     levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+n.kr.g.gain.value.toFixed(3),ae:+n.ae.g.gain.value.toFixed(3),ph:+n.ph.g.gain.value.toFixed(3),og:+n.og.g.gain.value.toFixed(3),state:ctx.state}:null; },

@@ -54,7 +54,7 @@ S.enterT=0; S.enterK=0; S.veil=1;
 function enter(){
   if(S.nogl){ gate.classList.add('go','gone'); ui.classList.add('on'); ui.setAttribute('aria-hidden','false'); $('#logo').classList.add('on'); S.mode='plain'; return; }
   if(S.mode!=='gate'||!S.ready) return;
-  S.mode='entering'; S.enterT=0; S.entered=true;
+  S.mode='entering'; S.enterT=0; S.entered=true; walkAddress();
   A.start().then(()=>{ A.swell(); });
   const word=$('#word'), logo=$('#logo'), a=word.getBoundingClientRect(), b=logo.getBoundingClientRect();
   const k=b.height/a.height*1.02;

@@ -18,5 +18,6 @@ function credits(){ if(S.mode==='credits') return; S.mode='credits'; S.flashMin=
    Land or Aetos has the whole thing somewhere else, so it opens that */
 const FLY_URL='__FLY__';
 $('#finAgain').addEventListener('click',()=>{ if(FLY_URL){ window.open(FLY_URL,'_blank','noopener'); return; }
+  if(PRETTY){ location.assign(PAGE_URL); return; }   /* on the site, back to the page's own address: /fly would go home */
   if(location.hash) history.replaceState(null,'',location.pathname+location.search); location.reload(); });
 $('#finWalk').addEventListener('click',()=>{ A.hush&&A.hush(); });

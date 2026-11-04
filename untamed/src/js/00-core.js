@@ -35,7 +35,15 @@ const A=(()=>{
   function init(){
     if(ctx) return;
     ctx=new (window.AudioContext||window.webkitAudioContext)();
-    out=ctx.createGain(); out.gain.value=0; out.connect(ctx.destination);
+    /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
+       hard clip, so sounds piling up never reach the point where small speakers distort */
+    out=ctx.createGain(); out.gain.value=0;
+    { const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=40; hp.Q.value=.6;
+      /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
+         smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
+      const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='2x';
+      out.connect(hp); hp.connect(lim); lim.connect(ctx.destination); }
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3; comp.connect(out);
     rev=ctx.createConvolver(); const L=ctx.sampleRate*3.2, ir=ctx.createBuffer(2,L,ctx.sampleRate);
     for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,2.6);}
@@ -48,14 +56,16 @@ const A=(()=>{
     n.chord=0; n.nextChord=ctx.currentTime+9;
     // sub: the hole itself
     n.sub=ctx.createOscillator(); n.sub.type='sine'; n.sub.frequency.value=34; n.subG=ctx.createGain(); n.subG.gain.value=0; n.sub.connect(n.subG); n.subG.connect(comp); n.sub.start();
-    const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; n.buf=buf;
-    const ns=ctx.createBufferSource(); ns.buffer=buf; ns.loop=true; ns.start();
-    const mk=(type,f,q)=>{const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q||.7; const g=ctx.createGain(); g.gain.value=0; ns.connect(b); b.connect(g); g.connect(comp); return {b,g};};
+    /* the noise everything is made of: one long stretch, nine seconds. Every layer reads it at its own speed and from its own
+       place, so no two layers are ever copies of each other (copies a moment apart cancel and reinforce: that is phasing)
+       and none of them comes round again on a loop short enough to hear */
+    const buf=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; n.buf=buf;
+    const RATES=[.83,1.17,.94,1.29,.71,1.06], nsrc=k=>{ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=RATES[k]; s.start(0,Math.random()*8); return s; };
+    let nk=0; const mk=(type,f,q)=>{const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q||.7; const g=ctx.createGain(); g.gain.value=0; nsrc(nk++).connect(b); b.connect(g); g.connect(comp); return {b,g};};
     n.wind=mk('bandpass',700,.8); n.thrust=mk('bandpass',240,1.1); n.roar=mk('lowpass',380,.9); n.hiss=mk('highpass',3000,.5);
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
     // each station's own air, under its screen: a bed of filtered noise and a low hum, shaped per station by A.bed
-    { const bb=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate), bd=bb.getChannelData(0); for(let i=0;i<bd.length;i++) bd[i]=Math.random()*2-1;   // its own noise, so it never phases against the wind and the surf
-      const s=ctx.createBufferSource(); s.buffer=bb; s.loop=true; s.start(0,Math.random()*2); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
+    { const s=nsrc(5); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
       n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn);
       n.hum=ctx.createOscillator(); n.hum.type='triangle'; n.hum.frequency.value=55; const hf=ctx.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=420;
       n.humG=ctx.createGain(); n.humG.gain.value=0; n.hum.connect(hf); hf.connect(n.humG); n.humG.connect(comp); n.hum.start(); n.bedT=0; }
@@ -67,23 +77,25 @@ const A=(()=>{
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(comp);
     if(send){const s=ctx.createGain(); s.gain.value=send; a.connect(s); s.connect(revIn);} o.start(t0); o.stop(t0+dur+.05);
   }
+  /* a one-off sound's noise: the same long stretch, read at a speed of its own, so it never lines up with the layers under it */
+  function shot(){ const s=ctx.createBufferSource(); s.buffer=n.buf; s.loop=true; s.playbackRate.value=.86+Math.random()*.3; return s; }
   function noise(dur,g,f0,f1,type='lowpass',q=.8,delay=0,send=0){
-    if(!on) return; const t0=ctx.currentTime+delay, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q;
+    if(!on) return; const t0=ctx.currentTime+delay, s=shot(); const b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q;
     b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+Math.min(.05,dur*.3)); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
-    s.connect(b); b.connect(a); a.connect(comp); if(send){const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(revIn);} s.start(t0,Math.random()); s.stop(t0+dur+.05);
+    s.connect(b); b.connect(a); a.connect(comp); if(send){const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(revIn);} s.start(t0,Math.random()*8); s.stop(t0+dur+.05);
   }
   /* each station's air: f/q the noise band, g its level, hz/h the hum, wob a slow drift of the band, sea a slow swell, ping a
      soft return every so many seconds at pf */
   const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
     og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
-    cr:{f:850,q:.45,g:.085,hz:55,h:0,wob:.12}};   // Earth: a steady breeze through the grass under the town's music, so the gaps between its notes are never empty
+    cr:{f:850,q:.45,g:.085,hz:55,h:0}};   // Earth: a steady breeze through the grass under the town's music, so the gaps between its notes are never empty
   /* the town's key on Earth: C major pentatonic. inKey snaps a pitch to its nearest note there */
   const PENT_C=[0,2,4,7,9], inKey=f=>{ const m=69+12*Math.log2(f/440), o=Math.floor(m/12)*12; let best=m, bd=99;
     for(const k of [-12,0,12]) for(const pc of PENT_C){ const c=o+k+pc; if(Math.abs(c-m)<bd){ bd=Math.abs(c-m); best=c; } } return 440*Math.pow(2,(best-69)/12); };
   const PEN=[0,2,3,7,9]; // D dorian-ish pentatonic
   /* the untamed plays louder than the walk, and a sound you hear again and again is never quite the same twice */
-  const LOUD=.9, vr=(k=.04)=>1+(Math.random()*2-1)*k;
+  const LOUD=.75, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
     get on(){return on&&!muted}, get ctx(){return ctx},
@@ -129,9 +141,9 @@ const A=(()=>{
         o.start(); o2.start(); lfo.start(); return {lvl,pan}; }); },
     beacon(i,g,p){ if(!ctx||!n.beacons||!n.beacons[i]) return; const b=n.beacons[i]; set(b.lvl.gain,g,.3); if(b.pan) set(b.pan.pan,p,.12); },
     /* a grain of rock against the hull: a short bright click, placed left or right */
-    pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
+    pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
-      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.12); },
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+.12); },
     /* a small bird: two or three quick rising notes, placed left or right */
     chirp(p){ if(!on||muted||!ctx) return; const n0=2+Math.floor(Math.random()*2), base=2200+Math.random()*1600; let pn=null;
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.5; pn.connect(sg); sg.connect(revIn); }
@@ -140,11 +152,11 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.022,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09);
         o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.12); } },
     /* a footstep: 0 a soft brush on grass, 1 a tap on the pavement, 2 a hollow knock on wooden boards */
-    step(kind=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter();
+    step(kind=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter();
       if(kind===1){ b.type='bandpass'; b.frequency.value=1500+Math.random()*700; b.Q.value=1.3; } else if(kind===2){ b.type='bandpass'; b.frequency.value=420+Math.random()*120; b.Q.value=2.2; tone(150+Math.random()*30,.09,.03,'sine',90); }
       else { b.type='lowpass'; b.frequency.value=520+Math.random()*380; b.Q.value=.6; }
       const a=ctx.createGain(), g=kind===1?.045:kind===2?.07:.07; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g+Math.random()*.03,t0+(kind?.004:.012)); a.gain.exponentialRampToValueAtTime(.0001,t0+(kind===1?.07:.16));
-      s.connect(b); b.connect(a); a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.2); },
+      s.connect(b); b.connect(a); a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+.2); },
     /* a voice while someone talks: a soft blip a little above or below their own pitch */
     voice(f){ if(!on||muted||!ctx) return; tone(inKey(f*(.94+Math.random()*.14)),.06,.016,'triangle',0,0,.15,.004); },
     /* Kríos on Earth, the two sides of a call: a short rising phrase for the rep, a falling one for the buyer, on the town's
@@ -163,8 +175,8 @@ const A=(()=>{
       const mf=m=>440*Math.pow(2,(m-69)/12), beat=60/72, bus=n.mus;
       const play=(f,t0,dur,g,type,atk,f2)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.6);
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+dur+.05); };
-      const hit=(t0,dur,g,f,type,q)=>{ const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q; const a=ctx.createGain();
-        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*1.5); s.stop(t0+dur+.05); };
+      const hit=(t0,dur,g,f,type,q)=>{ const s=shot(); const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q; const a=ctx.createGain();
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); };
       const PROG=[[53,57,60,64,67],[52,55,59,62,66],[50,53,57,60,64],[48,52,55,59,62]], BASS=[41,40,38,36], SCALE=[60,62,64,67,69,72,74,76,79];
       while(n.mt<ctx.currentTime+1.2){ const k=n.ms, t0=n.mt, pos=k%8, bar=Math.floor(k/8), ch=PROG[bar%4];
         if(pos===0){ ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*3.6,.018,'sine',.03); play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
@@ -178,9 +190,9 @@ const A=(()=>{
         n.ms++; n.mt+=beat*(k%2?.44:.56); } };
       n.musGo(); },
     /* a station going past at speed, on the side it passes */
-    passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
+    passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
-      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.setValueAtTime(clamp(p,-1,1),t0); pn.pan.linearRampToValueAtTime(clamp(-p*.6,-1,1),t0+1.); a.connect(pn); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.4; pn.connect(sg); sg.connect(revIn); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+1.2); },
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.setValueAtTime(clamp(p,-1,1),t0); pn.pan.linearRampToValueAtTime(clamp(-p*.6,-1,1),t0+1.); a.connect(pn); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.4; pn.connect(sg); sg.connect(revIn); } else a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+1.2); },
     /* a station calling you: a bell at its own beacon note, placed on the side where it is */
     call(i,p,g=.05){ if(!on||muted||!ctx) return; const f=note(i), t0=ctx.currentTime; let pn=null;
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.9; pn.connect(sg); sg.connect(revIn); }
@@ -200,8 +212,8 @@ const A=(()=>{
       const dst=pn||comp;
       { const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(note(0)/2*pf,t0); o.frequency.exponentialRampToValueAtTime(note(-3)/2*pf,t0+.55);
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*1.9,t0+.035); a.gain.exponentialRampToValueAtTime(.0001,t0+.8); o.connect(a); a.connect(dst); o.start(t0); o.stop(t0+.85); }
-      { const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='lowpass'; b.frequency.setValueAtTime(420,t0); b.frequency.exponentialRampToValueAtTime(90,t0+.5);
-        const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.7,t0+.02); a.gain.exponentialRampToValueAtTime(.0001,t0+.5); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()); s.stop(t0+.55); }
+      { const s=shot(); const b=ctx.createBiquadFilter(); b.type='lowpass'; b.frequency.setValueAtTime(420,t0); b.frequency.exponentialRampToValueAtTime(90,t0+.5);
+        const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.7,t0+.02); a.gain.exponentialRampToValueAtTime(.0001,t0+.5); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(t0+.55); }
       const t1=t0+.16, f=note(15)*pf;
       [[1,1,1.3],[2.003,.22,.6]].forEach(([m,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f*m,t1); o.frequency.exponentialRampToValueAtTime(f*m*.985,t1+d);
         a.gain.setValueAtTime(0,t1); a.gain.linearRampToValueAtTime(g*.3*k,t1+.006); a.gain.exponentialRampToValueAtTime(.0001,t1+d); o.connect(a); a.connect(dst); o.start(t1); o.stop(t1+d+.05); }); },
@@ -210,7 +222,7 @@ const A=(()=>{
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.7; pn.connect(sg); sg.connect(revIn); }
       [0,.15].forEach((dl,j)=>{ const o=ctx.createOscillator(), a=ctx.createGain(), t=t0+dl, f=note(16+j*2)*pf; o.type='sine'; o.frequency.setValueAtTime(f,t);
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*(j?.8:1),t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.5); o.connect(a); a.connect(pn||comp); o.start(t); o.stop(t+.55); });
-      const s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=6; b.frequency.setValueAtTime(3600,t0+.3); b.frequency.exponentialRampToValueAtTime(700,t0+1.1);
+      const s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=6; b.frequency.setValueAtTime(3600,t0+.3); b.frequency.exponentialRampToValueAtTime(700,t0+1.1);
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0+.3); a.gain.linearRampToValueAtTime(g*.5,t0+.36); a.gain.exponentialRampToValueAtTime(.0001,t0+1.15); s.connect(b); b.connect(a); a.connect(pn||comp); s.start(t0+.3,Math.random()); s.stop(t0+1.2); },
     /* the orbit's bed running down like a tape stopping, while it fades: the way out of one world into the next */
     tapeStop(d=2){ if(!ctx) return; const t0=ctx.currentTime;
@@ -227,13 +239,13 @@ const A=(()=>{
     /* ignition: a deep hit, a tearing roar, crackle */
     ignite(){ tone(46,4.2,.55,'sine',24); noise(3.6,.5,2600,60,'lowpass',.7,0,.35); noise(1.4,.22,7000,1800,'highpass',.6,.05,.3); tone(92,2.4,.16,'sawtooth',40,0,.2); },
     /* steam venting from the base before launch: a soft hiss, from the side it comes out of */
-    vent(p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='highpass'; b.frequency.setValueAtTime(5200,t0); b.frequency.exponentialRampToValueAtTime(2600,t0+.6);
+    vent(p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='highpass'; b.frequency.setValueAtTime(5200,t0); b.frequency.exponentialRampToValueAtTime(2600,t0+.6);
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.032,t0+.06); a.gain.exponentialRampToValueAtTime(.0001,t0+.7);
-      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+.8); },
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+.8); },
     /* the engine's crackle: one short rough burst; called many times a second while it burns in thick air */
-    crackle(g=.04){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=ctx.createBufferSource(); s.buffer=n.buf; const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=900+Math.random()*2400; b.Q.value=1.6;
+    crackle(g=.04){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=900+Math.random()*2400; b.Q.value=1.6;
       const a=ctx.createGain(), d=.02+Math.random()*.05; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
-      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=Math.random()*.8-.4; a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()); s.stop(t0+d+.02); },
+      s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=Math.random()*.8-.4; a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+d+.02); },
     /* the roar's colour: open and rough at full thrust in thick air, dull and far as the air thins */
     roarTone(f=380){ if(!ctx) return; set(n.roar.b.frequency,f,.25); },
     /* leaving the pad: a long low push under everything */

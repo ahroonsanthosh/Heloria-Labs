@@ -29,9 +29,10 @@ def calm_link(html, url):
     attrs = 'href="%s"' % url + ('' if url.startswith('.') or url.startswith('/') else ' target="_blank" rel="noopener"')
     return html.replace('href="__TAMED__"', attrs)
 
-def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly=''):
+def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly='', pretty=False):
     """entry: a way in built into the page ('land' or 'aetos'), for a preview of its own where an address cannot carry
-    #land or #aetos; fly: where Fly the whole thing goes from such a preview (on the site both are left empty)"""
+    #land or #aetos; fly: where Fly the whole thing goes from such a preview (on the site both are left empty); pretty: on the
+    site, the address shows /land or /fly while you are there"""
     ids = [i for i in ORDER if os.path.isdir(os.path.join(SRC, 'stations', i)) and (not only or i in only)]
     css = read('css/core.css') + '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.css' % i) for i in ids)
     html = calm_link(read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids)), tamed_url)
@@ -46,7 +47,7 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly=''):
         for f in sorted(glob.glob(os.path.join(SRC, 'stations', i, '*.json'))):
             data['%s/%s' % (i, os.path.splitext(os.path.basename(f))[0])] = json.load(open(f))
     js = 'const DATA=%s;\n' % json.dumps(data, separators=(',', ':')) + js
-    js = js.replace("'__ENTRY__'", json.dumps(entry)).replace("'__FLY__'", json.dumps(fly))
+    js = js.replace("'__ENTRY__'", json.dumps(entry)).replace("'__FLY__'", json.dumps(fly)).replace("'__PRETTY__'", json.dumps(pretty))
     return ids, css, html, js
 
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
@@ -90,7 +91,7 @@ DOC_HEAD = '''<!doctype html>
 def write_site(out, only=None):
     """Untamed's part of the deployed site: out/untamed/index.html, its css and js in out/assets/, and the shared
     files both sites use (the portraits, the social image, the icon, three.js) in out/assets/img and out/assets/vendor"""
-    ids, css, html, js = parts(only, tamed_url='../')
+    ids, css, html, js = parts(only, tamed_url='../', pretty=True)
     A = '../assets/'
     os.makedirs(os.path.join(out, 'untamed'), exist_ok=True); os.makedirs(os.path.join(out, 'assets', 'vendor'), exist_ok=True)
     shutil.copytree(os.path.join(SRC, 'assets', 'img'), os.path.join(out, 'assets', 'img'), dirs_exist_ok=True)

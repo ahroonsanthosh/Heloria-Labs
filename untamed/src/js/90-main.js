@@ -28,6 +28,10 @@ async function boot(){
    front door left you in ---------- */
 S.entry=({'#land':'land','#aetos':'aetos'})[location.hash]||'__ENTRY__'||'fly';   // the build fills in a preview's own way in
 if(S.entry==='land') document.documentElement.classList.add('landing');
+/* on the site the address says where you are: /land, or /fly (the rocket from the walk goes to /fly too). The page itself
+   lives at untamed/, so its own address is kept to come back to; reloading /land or /fly goes to the front door */
+const PAGE_URL=location.pathname, PRETTY='__PRETTY__'&&/^\/untamed\/(index\.html)?$/.test(PAGE_URL);   // only where the site is the whole domain
+if(PRETTY){ try{ history.replaceState(null,'','/'+(S.entry==='land'?'land':'fly')); }catch(e){} }
 
 /* ---------- enter: the word falls into the hole ---------- */
 const entry={t:-1,from:mkPose()};

@@ -83,11 +83,6 @@ kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 
 .layer{position:fixed;inset:0;z-index:5;pointer-events:none;transition:opacity .9s var(--ease),visibility .9s}
 .layer.off{opacity:0;visibility:hidden}
 .hit{pointer-events:auto}
-.lb{position:fixed;left:0;right:0;height:0;background:#000;z-index:13;pointer-events:none;transition:height 1s var(--io)}
-.lb.t{top:0}.lb.b{bottom:0}
-body.cine .lb{height:7vh}
-body.cine.tense .lb{height:13vh;transition:height 9s cubic-bezier(.3,0,.25,1)}   /* the wait before the last flight: the picture closes in */
-body.cine.loose .lb{transition:height .5s cubic-bezier(.2,.8,.2,1)}
 
 #cur{position:fixed;left:0;top:0;z-index:60;pointer-events:none;width:26px;height:26px;margin:-13px 0 0 -13px;border:1px solid rgba(238,233,223,.5);border-radius:50%;display:grid;place-items:center;transition:width .4s var(--ease),height .4s var(--ease),margin .4s var(--ease),background .3s,border-color .3s,border-radius .3s}
 #cur span{font:900 9px/1 var(--ui);letter-spacing:.04em;text-transform:uppercase;color:#0a0806;opacity:0;transition:opacity .2s;white-space:nowrap}

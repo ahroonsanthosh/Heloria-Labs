@@ -24,10 +24,10 @@ THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 # lives as one artifact (tools/build.py --bundle). The separate previews these used to point at are gone
 ONE_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
 UNTAMED_ARTIFACT = LAND_ARTIFACT = ROCKET_ARTIFACT = ONE_ARTIFACT
-ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT}
-SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos'}
+ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT, '__PRETTY__': ''}
+SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos', '__PRETTY__': '1'}   # __PRETTY__: the address follows you
 # the one artifact that holds everything: this page at its front, the untamed as a page of its own beside it, the same tab
-BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos'}
+BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos', '__PRETTY__': ''}
 LIMIT = 16 * 1024 * 1024
 EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 

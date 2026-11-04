@@ -12,6 +12,7 @@ docs/
   assets/             tamed.css, tamed.js, untamed.css, untamed.js, img/ (portraits, social images, icon), vendor/ (three.js)
   404.html            for any address that is not here
   _headers            for Cloudflare: security headers, and how long each kind of file may be cached
+  _redirects          for Cloudflare: /walk, /land and /fly (the addresses shown while you are there) back to the front door
 """
 import argparse, importlib.util, os, shutil, sys
 
@@ -45,6 +46,16 @@ HEADERS = """/*
 """
 
 
+# /walk, /land and /fly are where the address bar says you are, not pages: reloading one goes back to the front door
+REDIRECTS = """/walk / 302
+/walk/ / 302
+/land / 302
+/land/ / 302
+/fly / 302
+/fly/ / 302
+"""
+
+
 def main():
     ap = argparse.ArgumentParser(description='Build the Heloria Labs site')
     ap.add_argument('--docs', default='docs', help='where to write the site (default docs/)')
@@ -69,6 +80,7 @@ def main():
     tamed.write_site(out)
     open(os.path.join(out, '.nojekyll'), 'w').write('')
     open(os.path.join(out, '_headers'), 'w').write(HEADERS)
+    open(os.path.join(out, '_redirects'), 'w').write(REDIRECTS)
     print('site     ->', out)
     for root, _, files in sorted(os.walk(out)):
         for f in sorted(files):

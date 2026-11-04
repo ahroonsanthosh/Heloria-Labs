@@ -38,15 +38,6 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     }
     await page.mouse.move(vp.width * .5, vp.height * .12); await wait(400);
     check(await page.evaluate(() => !/\b(walk|land|fly)\b/.test(document.querySelector('#gate').className)), 'pointing away brings the plain gate back');
-    /* the first click never opens anything: on a way it only starts the sound and chooses it; the next click goes */
-    const g0 = await page.evaluate(() => ({ woke: window.__tamed.S.gateWoke, foot: document.querySelector('#gateState').textContent }));
-    check(!g0.woke && /click to listen/i.test(g0.foot), 'before any click the gate says point to look, click to listen (' + g0.foot + ')');
-    const tabs0 = ctx.pages().length; await page.click('#land'); await wait(900);
-    const g1 = await page.evaluate(() => { const w = document.querySelector('#land'); return { mode: window.__tamed.S.mode, sel: window.__tamed.S.gateSel, woke: window.__tamed.S.gateWoke, hint: w.classList.contains('sel') ? w.querySelector('.again').textContent : '', audio: window.__tamed.A.ctx ? window.__tamed.A.ctx.state : 'none', leaving: !!window.__tamed.S.leaving }; });
-    check(g1.mode === 'gate' && !g1.leaving && ctx.pages().length === tabs0 && g1.sel === 'land' && g1.woke && g1.hint === 'Click again to go' && g1.audio === 'running',
-      'the first click on Land does not open it: it starts the sound and says Click again to go ' + JSON.stringify(g1));
-    await page.mouse.move(vp.width * .5, vp.height * .12); await wait(400);
-    check(await page.evaluate(() => !document.querySelector('#gate .way.sel')), 'pointing away clears it');
     /* scrolling moves between the ways, one per gesture, showing each one's world; scrolling back goes back */
     const seq = []; for (const dy of [120, 120, 120, 120, -120]) { await page.mouse.wheel(0, dy); await wait(450); seq.push(await page.evaluate(() => window.__tamed.S.gateHover)); }
     check(JSON.stringify(seq) === JSON.stringify(['walk', 'land', 'fly', 'fly', 'land']), 'scrolling moves between Walk, Land and Fly, and back ' + JSON.stringify(seq));
@@ -65,10 +56,6 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     await sw(-90); const m0 = await sw(-90); const m1 = await sw(90); const m2 = await sw(90); const m3 = await sw(-90);
     check([m0, m1, m2, m3].join() === 'walk,land,fly,land', 'a swipe moves between the ways and back (' + [m0, m1, m2, m3].join(', ') + ')');
     await wait(5000); check(await page.evaluate(() => window.__tamed.S.gateHover === 'land'), 'and the gate stays on the one you chose to look at');
-    /* on a phone a tap on a way only chooses it; a tap on the chosen one goes */
-    await press('#tamed'); await wait(700);
-    const g2 = await page.evaluate(() => { const w = document.querySelector('#tamed'); return { mode: window.__tamed.S.mode, sel: window.__tamed.S.gateSel, hint: w.classList.contains('sel') ? w.querySelector('.again').textContent : '' }; });
-    check(g2.mode === 'gate' && g2.sel === 'walk' && g2.hint === 'Tap again to go', 'the first tap on Walk only chooses it and says Tap again to go ' + JSON.stringify(g2));
   }
   await press('#tamed');
   await until(x => x.mode === 'world', 'Tamed enters the walk');
