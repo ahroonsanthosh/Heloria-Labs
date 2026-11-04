@@ -3778,7 +3778,7 @@ st.dbg={ get phase(){return phase}, get F(){return F}, get NAT(){return NAT}, ge
    of things from depth and normals and inks them with a line that wanders a little, like a pen. */
 (()=>{
 const st=mkStation('cr',{arrive:new T.Vector3(0,12,-10)});
-st.land=false;   // Land: straight down to Earth without the flight; every landmark is already built and we talk about them as they are
+st.land=false;   // Land: straight down to Earth without the flight, so we say hello without mentioning it
 const sc=st.scene, el=st.el, hint=$('#crHint',el), labels=$$('#crLabels .crl',el);
 sc.children.filter(o=>o.isPoints).forEach(o=>sc.remove(o)); // no night stars by day
 const R=24, LO=Q<1, UPY=new T.Vector3(0,1,0), V=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3();
@@ -3956,7 +3956,7 @@ function wires(){ for(let i=0;i<POLES.length-1;i++){ const A=POLES[i], B=POLES[i
 
 /* ---------- the town ---------- */
 function coastR(bx,bz,margin){ const L=Math.hypot(bx,bz), ux=bx/L, uz=bz/L; for(let r=6;r<24;r+=.1){ if(isle(at(ux*r,uz*r))<.03) return [ux*(r-margin),uz*(r-margin)]; } return [ux*14,uz*14]; }
-/* ---------- the landmarks: each station you have played in orbit stands here; the rest are empty plots, a plinth or a bare pad ---------- */
+/* ---------- the landmarks: every project stands here, however you came; never an empty plot to wonder about ---------- */
 const MK={}, seen=new Set();
 function mark(id,x,z,y=0){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); const base=at(x,z).multiplyScalar(R+y); return MK[id]={id,g,base,obs:[],k:1,st:'off',t:0}; }
 function markObs(id,h0){ const o=OBS[OBS.length-1]; MK[id].obs.push({o,h:o.h,h0}); }   // the obstacle just added: full height when built, h0 when not
@@ -4186,34 +4186,23 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   if(o.pack){ body.add(mesh(BOXG,o.pack,0,.8,-.17,.24,.3,.12)); body.add(mesh(BOXG,'#3f4b58',0,.93,-.235,.2,.05,.03)); }
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
   g.userData={legs,arms,head,body,eyes,drone:o.prop==='drone'?prop:null}; return g; }
-/* what each of us says depends on what you have played up there: your landmark stands, or we tell you it is still to come */
+/* what each of us says: every landmark stands, so we talk about them as they are, and mention it if you came by way of
+   the flight and stopped at one of them up there */
 const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
-const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-function linesFor(i){ const land=!!st.land, has=id=>land||S.docked.has(id), left=Object.keys(NAME).filter(id=>!has(id)).map(id=>NAME[id]), back=MET.has(i);
+function linesFor(i){ const land=!!st.land, been=id=>!land&&S.docked.has(id), back=MET.has(i);
   if(i===0){ const last='And this is me. Come and say hello properly.';
-    if(back&&land) return ['Good to see you again.','Michael is up by his rocket and Abraham is in the square, if you haven\'t caught them yet.',last];
-    if(back){ const fr=FRESH.map(id=>NAME[id]);
-      return ['You\'re back!',fr.length?`You stopped at ${andList(fr)} up there, so ${fr.length>1?'they\'re':'it\'s'} built now. Go and have a look.`:'Nothing new has gone up since last time. Every station you stop at up there gets built down here.',
-        left.length?`There's still ${andList(left)} up there. Each one goes up here too.`:'That\'s every station, so the whole town is built. Thank you for coming all this way.',last]; }
-    if(land) return ['Oh, hello! Welcome to Earth.','I\'m Ahroon. Michael, Abraham and I build Heloria Labs together, and everything round here is something we\'ve made.',
-      'That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.',
-      'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.',
-      'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last];
-    return ['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth. I\'m Ahroon. Michael, Abraham and I build Heloria Labs together.',
-      'Here\'s the thing: every station you stop at up there gets built down here.',
-      has('ae')?'That radar on the rocks is Aetos, mine: it\'s what picked you up. When the sky fills with drones, it works out which one actually matters.'
-               :'See the bare rocks by the sea? That\'s where Aetos goes, mine. When the sky fills with drones, it works out which one actually matters.',
-      has('ph')?'The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.'
-               :'The cliff out east is waiting for Pharos, mine too. When GPS is jammed, spoofed or gone, it keeps going. Stop at it up there and the lighthouse goes up.',
-      `Abraham is in the square${has('kr')?' by Kríos':''}, and Michael is up by ${has('og')?'his rocket':'the launch pad'}. Go and say hi.`,last]; }
+    if(back) return ['Good to see you again.','Michael is up by his rocket and Abraham is in the square, if you haven\'t caught them yet.',last];
+    return [...(land?['Oh, hello! Welcome to Earth.']:['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth.']),
+      'I\'m Ahroon. Michael, Abraham and I build Heloria Labs together, and everything round here is something we\'ve made.',
+      `That radar on the rocks is Aetos, mine.${land?'':' It\'s what picked you up.'} When the sky fills with drones, it works out which one actually matters.`,
+      `The lighthouse out on the cliff is mine too: Pharos.${been('ph')?' You\'ve flown it already.':''} When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.`,
+      'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last]; }
   if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
-    has('og')?`This rocket is Ogive, my project: AI tools for OpenRocket.${land?'':' You\'ve been up there, so here it stands.'} Name the height, and it reworks the design until the rocket gets there.`
-             :'This empty pad is for Ogive, my project: AI tools for OpenRocket. Name the height, and it reworks the design until the rocket gets there. Stop at it up there and the rocket stands here.',
+    `This rocket is Ogive, my project: AI tools for OpenRocket.${been('og')?' You\'ve launched it up there already.':''} Name the height, and it reworks the design until the rocket gets there.`,
     'I built Kríos too, down in the square. That one belongs to all three of us: it\'s our group project.',
     'That\'s me. Come and find me.'];
   return [back?'Hi again!':'Hi, I\'m Abraham.',
-    has('kr')?`The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.${land?'':' You\'ve been up there, so here it is.'}`
-             :'This empty plinth is for Kríos, our group project: Michael built it, and all three of us are behind it. Stop at it up there and it stands here.',
+    `The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.${been('kr')?' You\'ve made a call on it up there already.':''}`,
     'Reps rehearse the calls that matter against a buyer who answers back, before a real one ever hears them.',
     'That\'s me. Say hi any time.']; }
 const CREW=[
@@ -4593,11 +4582,10 @@ function glanceApply(dt){ if(GLN.t<0) return false; GLN.t+=dt; if(TALK.ask&&GLN.
   LU.uPly.value.copy(GLN.L);   // whatever stands between the camera and him fades away, so he is always seen
   return true; }
 
-/* ---------- landmarks: shown if you have played the station; one you have just played springs up the first time you see it ---------- */
+/* ---------- landmarks: all of them stand, however you came ---------- */
 const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
-function marksEnter(){ const all=!S.ready; FRESH=[];   // all: the loader, which builds everything once so it is compiled
-  for(const id in MK){ const m=MK[id], has=all||st.land||S.docked.has(id);
-    m.st=!has?'off':(all||st.land||seen.has(id))?'on':'wait'; if(m.st==='wait') FRESH.push(id);
+function marksEnter(){ FRESH=[];
+  for(const id in MK){ const m=MK[id]; m.st='on';
     m.g.visible=m.st==='on'; markScale(m,1); m.obs.forEach(q=>q.o.h=m.st==='on'?q.h:q.h0); }
   people.forEach(p=>{ p.lines=linesFor(p.i); }); baked=false; }
 const mkU=new T.Vector3(), mkE=new T.Vector3(), mkF=new T.Vector3(), mkP=new T.Vector3(), mkV=new T.Vector3();
