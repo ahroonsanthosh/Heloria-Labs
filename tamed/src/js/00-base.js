@@ -37,19 +37,22 @@ const v3=(x,y,z)=>new T.Vector3(x,y,z);
 /* every place on the walk, in order. s is the place's position on the one continuous path */
 const PLACES=[
   {id:'home',   name:'Home',    s:0, tint:'#FFF1DE', proj:-1},
-  {id:'krios',  name:'Kríos',   s:1, tint:'#A5C3FF', proj:0},
-  {id:'aetos',  name:'Aetos',   s:2, tint:'#F2EEE6', proj:1},
-  {id:'pharos', name:'Pharos',  s:3, tint:'#FFD5B3', proj:2},
-  {id:'ogive',  name:'Ogive',   s:4, tint:'#FFB475', proj:3},
+  {id:'aetos',  name:'Aetos',   s:1, tint:'#F2EEE6', proj:0},
+  {id:'pharos', name:'Pharos',  s:2, tint:'#FFD5B3', proj:1},
+  {id:'ogive',  name:'Ogive',   s:3, tint:'#FFB475', proj:2},
+  {id:'krios',  name:'Kríos',   s:4, tint:'#A5C3FF', proj:3},
   {id:'team',   name:'Team',    s:5, tint:'#FFC9A0', proj:-1},
   {id:'contact',name:'Contact', s:6, tint:'#C7CCEA', proj:-1},
 ];
+/* the four rooms, in the order you walk through them: each room's place in the line (its slot) is read from here, so its
+   architecture, light, camera and sound all follow it */
 const PROJ=[
-  {id:'krios', name:'Kríos', col:'#A5C3FF', kind:'Voice practice for sales teams'},
   {id:'aetos', name:'Aetos', col:'#F2EEE6', kind:'Counter-drone command software'},
   {id:'pharos',name:'Pharos',col:'#FFD5B3', kind:'GPS-free drone navigation'},
   {id:'ogive', name:'Ogive', col:'#FFB475', kind:'AI tools for OpenRocket'},
+  {id:'krios', name:'Kríos', col:'#A5C3FF', kind:'Voice practice for sales teams'},
 ];
+const SLOT={}; PROJ.forEach((p,k)=>{ SLOT[p.id]=k; });
 const placeById=id=>PLACES.find(p=>p.id===id);
 /* the walk changes scene twice: through the front door into the gallery, and out of it into the courtyard */
 const DOOR_IN=.5, DOOR_OUT=4.5, BLEND=.085;

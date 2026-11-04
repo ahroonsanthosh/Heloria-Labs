@@ -27,35 +27,35 @@ const TRACK={
     K(5.84,[-20.4,1.48,-9.95],[-110,6.2,-11],43),
     K(6,   [-24.5,1.42,-9.7],[-200,9.2,-11.5],42),
     K(6.5, [-30,1.42,-9.7],[-200,10,-11.5],42)],
-  gal:[ /* every doorway is taken through its middle; the camera turns to a room only once it is inside it */
-    K(.4,  [0,1.72,3.6],[0,1.8,-8],48),
-    K(.5,  [0,1.72,.8],[0,1.76,-10],46),
-    K(.72, [0,1.7,-5],[.3,1.5,-14],42),
-    K(.86, [.35,1.66,-6.6],[.1,1.25,-14.8],40),
-    K(1,   [1.75,1.58,-8.6],[-.15,.95,-15.2],38),
-    K(1.3, [.6,1.7,-17.4],[0,2.7,-28],42),
-    K(1.55,[0,1.68,-23.9],[0,3.8,-31],46),
-    K(2,   [0,1.38,-27.9],[0,7.5,-33.1],56),
-    K(2.45,[0,1.68,-40.9],[0,2,-48],46),
-    K(2.64,[-.4,1.65,-42.3],[.15,1.6,-49.3],45),
-    K(3,   [-1.75,1.62,-43.2],[.25,1.55,-49.6],44),
-    K(3.45,[0,1.68,-58.2],[0,2.7,-64],46),
-    K(3.64,[.35,1.6,-59.5],[0,3,-66.8],48),
-    K(4,   [1.25,1.5,-60.1],[0,3.1,-66.8],50),
-    K(4.3, [.2,1.7,-72.2],[0,2.2,-82],46),
-    K(4.5, [0,1.72,-76.6],[0,1.9,-84],46),
-    K(4.6, [0,1.72,-78.8],[0,1.9,-86],48)],
 };
 /* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one */
 const TRACK_P={
   out:{0:K(0,[3.4,1.5,80],[.6,4.1,2],52), .12:K(.12,[2.8,1.55,61],[.5,3.6,1],52), .26:K(.26,[2.2,1.6,43],[.3,3.1,2],52)},
   out2:{5:K(5,[1.2,1.45,-10.2],[7.6,1.2,-10.2],46), 5.18:K(5.18,[-3,1.55,-9.1],[7.6,1.3,-8.4],50), 6:K(6,[-24.5,1.42,-9.7],[-200,12,-11.5],56), 6.5:K(6.5,[-30,1.42,-9.7],[-200,12,-11.5],56)},
   outAdd:[K(4.86,[1.2,1.45,-14.4],[7.6,1.2,-14.4],46), K(5.14,[1.2,1.45,-6],[7.6,1.2,-6],46)],
-  gal:{.86:K(.86,[.12,1.66,-7.05],[.1,1.25,-14.8],48), 1:K(1,[2.05,1.62,-8.3],[-.2,.95,-15.2],58), 2:K(2,[0,1.36,-27.4],[0,7.5,-33.2],70), 3:K(3,[-1.65,1.62,-43.1],[.25,1.55,-49.6],62), 4:K(4,[1.1,1.5,-60.1],[0,3.25,-66.8],64)},
 };
+/* the gallery's track is made from the rooms, in the order you walk through them: in through the middle of each doorway,
+   up to the room, then to where it is best seen. Each room's two poses are given from its own centre (x, y, z from zc;
+   the target likewise; the lens), and a phone held upright stands further back with a wider lens */
+const VIEW={
+  aetos: {a:[[0,1.68,8.5],[0,3.8,1.4],46], v:[[0,1.38,4.5],[0,7.5,-.7],56], vp:[[0,1.36,5],[0,7.5,-.8],70], d:3.8},
+  pharos:{a:[[-.4,1.65,7.3],[.15,1.6,.3],45], v:[[-1.75,1.62,6.4],[.25,1.55,0],44], vp:[[-1.65,1.62,6.5],[.25,1.55,0],62], d:2},
+  ogive: {a:[[.35,1.6,7.3],[0,3,0],48], v:[[1.25,1.5,6.7],[0,3.1,0],50], vp:[[1.1,1.5,6.7],[0,3.25,0],64], d:2.7},
+  krios: {a:[[-.3,1.66,7.8],[1.6,1.95,-.5],48], v:[[-1.2,1.62,5.4],[.9,2.05,-.6],46], vp:[[-.8,1.62,6.8],[1.78,.85,-.6],62], d:1.9},
+};
+function galTrack(port){
+  const L=[K(.4,[0,1.72,3.6],[0,1.8,-8],48), K(.5,[0,1.72,.8],[0,1.76,-10],46), K(.72,[0,1.7,-5],[0,1.9,-14],42)];
+  PROJ.forEach((p,k)=>{ const zc=roomZ(k), V=VIEW[p.id], at=(o,z)=>[o[0],o[1],z+o[2]], vw=port?V.vp:V.v;
+    if(k>0) L.push(K(k+.45,[0,1.68,wallZ(k)-.6],[0,V.d,zc+1.5],46));   // through the middle of the doorway
+    L.push(K(k===0?.86:k+.64,at(V.a[0],zc),at(V.a[1],zc),V.a[2]));
+    L.push(K(k+1,at(vw[0],zc),at(vw[1],zc),vw[2])); });
+  /* and out: past the last room to the far arch, and into the courtyard's light */
+  L.push(K(4.3,[.2,1.7,-72.2],[0,2.2,-82],46), K(4.5,[0,1.72,-76.6],[0,1.9,-84],46), K(4.6,[0,1.72,-78.8],[0,1.9,-86],48));
+  return L;
+}
 function tracksFor(port){
-  const out={};
-  for(const k of ['out','out2','gal']){
+  const out={gal:galTrack(port)};
+  for(const k of ['out','out2']){
     let L=TRACK[k].map(x=>({...x}));
     if(port){ const o=TRACK_P[k]; L=L.map(x=>o[x.s]?{...o[x.s]}:x); if(k==='out2') L=L.concat(TRACK_P.outAdd.map(x=>({...x}))).sort((a,b)=>a.s-b.s); }
     out[k]=L;
@@ -81,10 +81,15 @@ function trackEval(keys,s,outP,outT){
   return lerp(a.f,b.f,u*u*(3-2*u));
 }
 /* virtual scroll position v (in stops) to path position s: linger at each stop, move between them */
+/* between two stops the walk eases in and out. Where a doorway lies between them it eases through that too, so you cross
+   a threshold at a walk and see the room open up, never in a blur: the stop's ease, mixed with one that comes almost to a
+   stand in the doorway (five times slower there than it was) */
 function warp(v){
-  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i;
-  const e=f-.5*Math.sin(TAU*f)/TAU;
-  return lerp(STOPS[i],STOPS[i+1],e);
+  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, a=STOPS[i], b=STOPS[i+1];
+  let e=f-.5*Math.sin(TAU*f)/TAU;
+  const d=[DOOR_IN,DOOR_OUT].find(x=>x>a+.05&&x<b-.05);
+  if(d!==undefined){ const fd=(d-a)/(b-a), E=x=>x-Math.sin(TAU*x)/TAU, held=f<fd?fd*E(f/fd):fd+(1-fd)*E((f-fd)/(1-fd)); e=lerp(e,held,.8); }
+  return lerp(a,b,e);
 }
 function stopOf(s){ let best=0,d=1e9; STOPS.forEach((x,i)=>{ const dd=Math.abs(x-s); if(dd<d){ d=dd; best=i; } }); return best; }
 /* which scene is on screen, and how far through a doorway blend */

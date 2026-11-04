@@ -286,24 +286,28 @@ function buildOutside(){
   const frameGeo=(()=>{ const s=new T.Shape(), w=FP.ow/2, h=FP.oh; s.moveTo(-w,0); s.lineTo(w,0); s.lineTo(w,h); s.lineTo(-w,h); s.lineTo(-w,0);
     const p=new T.Path(), iw=FP.iw/2; p.moveTo(-iw,FP.fr); p.lineTo(-iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr); p.lineTo(-iw,FP.fr); s.holes.push(p);
     const g=new T.ExtrudeGeometry(s,{depth:FP.fd-.02,bevelEnabled:true,bevelThickness:.01,bevelSize:.012,bevelSegments:2}); g.translate(0,FP.phh,-FP.fd/2+.01); return g; })();
-  /* each plinth has the name cut into it, as large as its face allows. Red is the cut letters, blue the lit lower lip
-     of each cut. Pointing at the portrait deepens the letters */
-  const PLQ={w:1024,h:Math.round(1024*FP.phh/FP.pw)};
+  /* each plinth has the name cut into it like an inscription: upright roman capitals, spaced, the first name large and the
+     rest on a line beneath, so even a long name is cut big enough to read across the pool. Red is the cut letters, blue the
+     lit lower lip of each cut. Pointing at the portrait deepens the letters */
+  const PLQ={w:2048,h:Math.round(2048*FP.phh/FP.pw)};
   const plaque=(el)=>{
     const cv=document.createElement('canvas'); cv.width=PLQ.w; cv.height=PLQ.h; const x=cv.getContext('2d');
-    const tex=new T.CanvasTexture(cv); tex.anisotropy=8; tex.colorSpace=T.NoColorSpace;
-    const nm=el.querySelector('.nm').textContent.trim(), face='italic 400 #px "Instrument Serif", Georgia, serif';
+    const tex=new T.CanvasTexture(cv); tex.anisotropy=16; tex.colorSpace=T.NoColorSpace;
+    const nm=el.querySelector('.nm').textContent.trim(), parts=nm.split(' '), L1=parts[0].toUpperCase(), L2=parts.slice(1).join(' ').toUpperCase();
+    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Instrument Serif", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
+    const fit=(t,max,z,ls)=>{ for(;z>18;z--){ font(z,ls); if(x.measureText(t).width<=max) break; } return z; };
+    const cut=(t,cx,y,z,ls)=>{ font(z,ls); x.lineJoin='round'; x.lineWidth=Math.max(2,z*.03);
+      x.fillStyle=x.strokeStyle='#00f'; x.fillText(t,cx,y+z*.05); x.strokeText(t,cx,y+z*.05);
+      x.fillStyle=x.strokeStyle='#f00'; x.fillText(t,cx,y); x.strokeText(t,cx,y); };
     const draw=()=>{
-      const W2=cv.width, H2=cv.height; x.clearRect(0,0,W2,H2); x.textAlign='center'; x.textBaseline='alphabetic';
-      let z=124; for(;z>20;z--){ x.font=face.replace('#',z); if(x.measureText(nm).width<=W2*.82) break; }
-      const y=H2*.5+z*.3; x.lineJoin='round'; x.lineWidth=Math.max(1.5,z*.022);
-      x.globalCompositeOperation='lighter';
-      x.fillStyle=x.strokeStyle='#00f'; x.fillText(nm,W2/2,y+z*.045); x.strokeText(nm,W2/2,y+z*.045);
-      x.fillStyle=x.strokeStyle='#f00'; x.fillText(nm,W2/2,y); x.strokeText(nm,W2/2,y);
-      x.globalCompositeOperation='source-over'; tex.needsUpdate=true; };
+      const W2=cv.width, H2=cv.height; x.clearRect(0,0,W2,H2); x.textAlign='center'; x.textBaseline='alphabetic'; x.globalCompositeOperation='lighter';
+      const z1=fit(L1,W2*.78,Math.round(H2*.44)), z2=L2?fit(L2,W2*.88,Math.round(z1*.62),.1):0;
+      const gap=z2?z2*.55:0, top=(H2-(z1*.72+gap+z2*.72))/2;   // capitals are about .72 of the size; centre the block
+      cut(L1,W2/2,top+z1*.72,z1); if(L2) cut(L2,W2/2,top+z1*.72+gap+z2*.72,z2,.1);
+      x.globalCompositeOperation='source-over'; if('letterSpacing' in x) x.letterSpacing='0px'; tex.needsUpdate=true; };
     draw();
     /* the inscription waits for its font */
-    if(document.fonts&&document.fonts.load) document.fonts.load('italic 124px "Instrument Serif"').then(draw,()=>{});
+    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Instrument Serif"').then(draw,()=>{});
     return tex;
   };
   const PEO_EL=$$('#people .person');
@@ -316,7 +320,7 @@ function buildOutside(){
       albedo:`diffuseColor.rgb*=1.-.3*uWetP;
         vec2 pq=vec2((vWP.z-uPlq.y)/${FP.pw.toFixed(3)}+.5,(vWP.y-uPlq.z)/${FP.phh.toFixed(3)});
         vec4 plq=texture2D(tPlq,clamp(pq,0.,1.))*step(0.,pq.x)*step(pq.x,1.)*step(0.,pq.y)*step(pq.y,1.)*step(wN.x,-.5);
-        diffuseColor.rgb*=mix(vec3(1.),vec3(.22,.16,.12)*(1.-.35*uPlqHot),plq.r)*(1.+.2*plq.b*(1.-plq.r));`,
+        diffuseColor.rgb*=mix(vec3(1.),vec3(.12,.09,.07)*(1.-.35*uPlqHot),plq.r)*(1.+.42*plq.b*(1.-plq.r));`,
       emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
     plinthM.userData.u.uWetP={value:0}; plinthM.userData.u.uPlqHot={value:0};
     plinthM.userData.u.tPlq={value:plaque(PEO_EL[i])}; plinthM.userData.u.uPlq={value:new T.Vector4(PEOPLE_AT[i][0]-FP.pd/2,PEOPLE_AT[i][1],0,0)};

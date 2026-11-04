@@ -40,19 +40,22 @@ const v3=(x,y,z)=>new T.Vector3(x,y,z);
 /* every place on the walk, in order. s is the place's position on the one continuous path */
 const PLACES=[
   {id:'home',   name:'Home',    s:0, tint:'#FFF1DE', proj:-1},
-  {id:'krios',  name:'Kríos',   s:1, tint:'#A5C3FF', proj:0},
-  {id:'aetos',  name:'Aetos',   s:2, tint:'#F2EEE6', proj:1},
-  {id:'pharos', name:'Pharos',  s:3, tint:'#FFD5B3', proj:2},
-  {id:'ogive',  name:'Ogive',   s:4, tint:'#FFB475', proj:3},
+  {id:'aetos',  name:'Aetos',   s:1, tint:'#F2EEE6', proj:0},
+  {id:'pharos', name:'Pharos',  s:2, tint:'#FFD5B3', proj:1},
+  {id:'ogive',  name:'Ogive',   s:3, tint:'#FFB475', proj:2},
+  {id:'krios',  name:'Kríos',   s:4, tint:'#A5C3FF', proj:3},
   {id:'team',   name:'Team',    s:5, tint:'#FFC9A0', proj:-1},
   {id:'contact',name:'Contact', s:6, tint:'#C7CCEA', proj:-1},
 ];
+/* the four rooms, in the order you walk through them: each room's place in the line (its slot) is read from here, so its
+   architecture, light, camera and sound all follow it */
 const PROJ=[
-  {id:'krios', name:'Kríos', col:'#A5C3FF', kind:'Voice practice for sales teams'},
   {id:'aetos', name:'Aetos', col:'#F2EEE6', kind:'Counter-drone command software'},
   {id:'pharos',name:'Pharos',col:'#FFD5B3', kind:'GPS-free drone navigation'},
   {id:'ogive', name:'Ogive', col:'#FFB475', kind:'AI tools for OpenRocket'},
+  {id:'krios', name:'Kríos', col:'#A5C3FF', kind:'Voice practice for sales teams'},
 ];
+const SLOT={}; PROJ.forEach((p,k)=>{ SLOT[p.id]=k; });
 const placeById=id=>PLACES.find(p=>p.id===id);
 /* the walk changes scene twice: through the front door into the gallery, and out of it into the courtyard */
 const DOOR_IN=.5, DOOR_OUT=4.5, BLEND=.085;
@@ -156,14 +159,24 @@ const A=(()=>{
   function plip(g,delay=0){ const t0=ctx.currentTime+delay, f=1100+Math.random()*1400, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
     o.frequency.setValueAtTime(f,t0); o.frequency.exponentialRampToValueAtTime(f*1.9,t0+.035);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.07); o.connect(a); a.connect(pan(Math.random()*1.4-.7,n.water)); o.start(t0); o.stop(t0+.1); }
-  /* Kríos: two soft voices, humming a conversation through the wall */
-  function roomKrios(){ const R=n.kr={}; R.g=ctx.createGain(); R.g.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1700; R.g.connect(lp); lp.connect(n.comp);
-    const s=ctx.createGain(); s.gain.value=.8; lp.connect(s); s.connect(n.revIn);
-    R.v=[0,1].map(w=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=w?118:158; const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=w?118:158;
-      const pre=ctx.createGain(); pre.gain.value=.5; o.connect(pre); const p2=ctx.createGain(); p2.gain.value=.8; o2.connect(p2);
-      const env=ctx.createGain(); env.gain.value=0;
-      const fs=[0,1,2].map(k=>{ const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=[5,8,10][k]; b.frequency.value=[600,1100,2500][k]; pre.connect(b); const bg=ctx.createGain(); bg.gain.value=[1,.55,.2][k]; b.connect(bg); bg.connect(env); return b; });
-      p2.connect(env); env.connect(pan(w?.35:-.35,R.g)); o.start(); o2.start(); return {o,o2,env,fs}; }); }
+  /* Kríos: no voices. A quiet room with a lamp on: a little air, and a low D under the conversation */
+  function roomKrios(){ const R=n.kr={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp);
+    const a=src(n.noise), f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=520; f.Q.value=.5; const ag=ctx.createGain(); ag.gain.value=.05; a.connect(f); f.connect(ag); ag.connect(R.g);
+    const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=mtof(38); const og=ctx.createGain(); og.gain.value=.045; o.connect(og); og.connect(R.g); o.start();
+    const l=ctx.createOscillator(); l.frequency.value=.07; const lg=ctx.createGain(); lg.gain.value=.015; l.connect(lg); lg.connect(og.gain); l.start(); }
+  /* a soft mallet, for the rep's side of the call: a round note and a short bright partial */
+  function mallet(m,t0,g,p){ const f=mtof(m), out=pan(p,n.comp);
+    const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t0);
+    a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.95); o.connect(a); a.connect(out);
+    const o2=ctx.createOscillator(), a2=ctx.createGain(); o2.type='sine'; o2.frequency.setValueAtTime(f*3.98,t0);
+    a2.gain.setValueAtTime(0,t0); a2.gain.linearRampToValueAtTime(g*.2,t0+.003); a2.gain.exponentialRampToValueAtTime(.0001,t0+.16); o2.connect(a2); a2.connect(out);
+    const sd=ctx.createGain(); sd.gain.value=.32; a.connect(sd); sd.connect(n.revIn); o.start(t0); o.stop(t0+1); o2.start(t0); o2.stop(t0+.2); }
+  /* the call, as two instruments in the walk's key: the rep in low mallet phrases, the buyer answering in glass. The early
+     answers end up in the air; as the exchanges go on they settle, and the last one comes home to D */
+  const KR_YOU=[[[62,0],[66,.18],[69,.36],[71,.64]],[[69,0],[66,.2],[64,.4],[66,.62]],[[62,0],[64,.16],[66,.32],[69,.5],[66,.76]],
+    [[71,0],[69,.22],[66,.42],[69,.66]],[[64,0],[66,.18],[69,.4],[74,.68]],[[69,0],[71,.2],[74,.42],[69,.68]]];
+  const KR_THEM=[[[83,0],[81,.24],[76,.52]],[[76,0],[78,.22],[83,.5]],[[78,0],[76,.24],[78,.52]],
+    [[81,0],[78,.22],[76,.46],[78,.72]],[[83,0],[81,.2],[78,.44],[81,.7]],[[81,0],[78,.22],[76,.44],[74,.74]]];
   /* Aetos: wind high up, and the hum of rotors far above */
   function roomAetos(){ const R=n.ae={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp);
     const hm=src(n.noise), hmf=ctx.createBiquadFilter(); hmf.type='bandpass'; hmf.frequency.value=190; hmf.Q.value=2.4; const hmg=ctx.createGain(); hmg.gain.value=.05; hm.connect(hmf); hmf.connect(hmg); hmg.connect(R.g);
@@ -187,7 +200,10 @@ const A=(()=>{
   /* what just happened in a room: the radar coming round, a threat picked out, locked and taken; the drone finding itself;
      each design the rocket tries, the one that gets there, the flight, the chute and the landing */
   function roomSound(nm,p,v,st,t){
-    const ae=st.ae, ph=st.ph, og=st.og;
+    const ae=st.ae, ph=st.ph, og=st.og, kr=st.kr;
+    if(nm==='kr-you'){ if(kr>.05) KR_YOU[v%6].forEach(([m,d])=>mallet(m,t+.02+d,.034*kr,p+(Math.random()-.5)*.1)); return; }
+    if(nm==='kr-them'){ if(kr>.05) KR_THEM[v%6].forEach(([m,d])=>glass(m,t+.02+d,.026*kr,p,n.comp)); return; }
+    if(nm==='kr-deal'){ if(kr>.05) [74,78,81,86].forEach((m,i)=>glass(m,t+1.25+i*.1,.02*kr,(i-1.5)*.18,n.comp)); return; }
     if(nm==='ae-sweep'){ if(ae>.05) tone(1320,.09,.006*ae,'sine',1180,0,.5,.002); }
     else if(nm==='ae-hov'){ if(ae>.05) tone(1760,.07,.0045*ae,'sine',1640,0,.45,.002); }
     else if(nm==='ae-id'){ if(ae>.05){ glass(76,t+.02,.03*ae,p,n.comp); glass(81,t+.2,.022*ae,p,n.comp); } }
@@ -228,10 +244,6 @@ const A=(()=>{
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
       /* rooms */
       set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.46,.5); set(n.og.g.gain,st.og*.45,.5);
-      if(st.kr>.01){ const w=VOICE.who; n.kr.v.forEach((v,i)=>{ const act=i===w?VOICE.env:0; set(v.env.gain,act*.32,.05);
-          const base=i?118:158, ip=base*(1+.05*Math.sin(t*1.7+i)+.03*Math.sin(t*4.3+i*2)); v.o.frequency.setTargetAtTime(ip,t,.08); v.o2.frequency.setTargetAtTime(ip,t,.08);
-          const vw=(Math.sin(t*2.3+i*1.7)*.5+.5), F=[[700,1150,2600],[400,1900,2550],[550,850,2400]]; const a=F[Math.floor(vw*2.99)];
-          v.fs.forEach((b,k)=>b.frequency.setTargetAtTime(a[k]*(i?.9:1.05),t,.12)); }); }
       for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air */
       if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
@@ -947,24 +959,28 @@ function buildOutside(){
   const frameGeo=(()=>{ const s=new T.Shape(), w=FP.ow/2, h=FP.oh; s.moveTo(-w,0); s.lineTo(w,0); s.lineTo(w,h); s.lineTo(-w,h); s.lineTo(-w,0);
     const p=new T.Path(), iw=FP.iw/2; p.moveTo(-iw,FP.fr); p.lineTo(-iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr); p.lineTo(-iw,FP.fr); s.holes.push(p);
     const g=new T.ExtrudeGeometry(s,{depth:FP.fd-.02,bevelEnabled:true,bevelThickness:.01,bevelSize:.012,bevelSegments:2}); g.translate(0,FP.phh,-FP.fd/2+.01); return g; })();
-  /* each plinth has the name cut into it, as large as its face allows. Red is the cut letters, blue the lit lower lip
-     of each cut. Pointing at the portrait deepens the letters */
-  const PLQ={w:1024,h:Math.round(1024*FP.phh/FP.pw)};
+  /* each plinth has the name cut into it like an inscription: upright roman capitals, spaced, the first name large and the
+     rest on a line beneath, so even a long name is cut big enough to read across the pool. Red is the cut letters, blue the
+     lit lower lip of each cut. Pointing at the portrait deepens the letters */
+  const PLQ={w:2048,h:Math.round(2048*FP.phh/FP.pw)};
   const plaque=(el)=>{
     const cv=document.createElement('canvas'); cv.width=PLQ.w; cv.height=PLQ.h; const x=cv.getContext('2d');
-    const tex=new T.CanvasTexture(cv); tex.anisotropy=8; tex.colorSpace=T.NoColorSpace;
-    const nm=el.querySelector('.nm').textContent.trim(), face='italic 400 #px "Instrument Serif", Georgia, serif';
+    const tex=new T.CanvasTexture(cv); tex.anisotropy=16; tex.colorSpace=T.NoColorSpace;
+    const nm=el.querySelector('.nm').textContent.trim(), parts=nm.split(' '), L1=parts[0].toUpperCase(), L2=parts.slice(1).join(' ').toUpperCase();
+    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Instrument Serif", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
+    const fit=(t,max,z,ls)=>{ for(;z>18;z--){ font(z,ls); if(x.measureText(t).width<=max) break; } return z; };
+    const cut=(t,cx,y,z,ls)=>{ font(z,ls); x.lineJoin='round'; x.lineWidth=Math.max(2,z*.03);
+      x.fillStyle=x.strokeStyle='#00f'; x.fillText(t,cx,y+z*.05); x.strokeText(t,cx,y+z*.05);
+      x.fillStyle=x.strokeStyle='#f00'; x.fillText(t,cx,y); x.strokeText(t,cx,y); };
     const draw=()=>{
-      const W2=cv.width, H2=cv.height; x.clearRect(0,0,W2,H2); x.textAlign='center'; x.textBaseline='alphabetic';
-      let z=124; for(;z>20;z--){ x.font=face.replace('#',z); if(x.measureText(nm).width<=W2*.82) break; }
-      const y=H2*.5+z*.3; x.lineJoin='round'; x.lineWidth=Math.max(1.5,z*.022);
-      x.globalCompositeOperation='lighter';
-      x.fillStyle=x.strokeStyle='#00f'; x.fillText(nm,W2/2,y+z*.045); x.strokeText(nm,W2/2,y+z*.045);
-      x.fillStyle=x.strokeStyle='#f00'; x.fillText(nm,W2/2,y); x.strokeText(nm,W2/2,y);
-      x.globalCompositeOperation='source-over'; tex.needsUpdate=true; };
+      const W2=cv.width, H2=cv.height; x.clearRect(0,0,W2,H2); x.textAlign='center'; x.textBaseline='alphabetic'; x.globalCompositeOperation='lighter';
+      const z1=fit(L1,W2*.78,Math.round(H2*.44)), z2=L2?fit(L2,W2*.88,Math.round(z1*.62),.1):0;
+      const gap=z2?z2*.55:0, top=(H2-(z1*.72+gap+z2*.72))/2;   // capitals are about .72 of the size; centre the block
+      cut(L1,W2/2,top+z1*.72,z1); if(L2) cut(L2,W2/2,top+z1*.72+gap+z2*.72,z2,.1);
+      x.globalCompositeOperation='source-over'; if('letterSpacing' in x) x.letterSpacing='0px'; tex.needsUpdate=true; };
     draw();
     /* the inscription waits for its font */
-    if(document.fonts&&document.fonts.load) document.fonts.load('italic 124px "Instrument Serif"').then(draw,()=>{});
+    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Instrument Serif"').then(draw,()=>{});
     return tex;
   };
   const PEO_EL=$$('#people .person');
@@ -977,7 +993,7 @@ function buildOutside(){
       albedo:`diffuseColor.rgb*=1.-.3*uWetP;
         vec2 pq=vec2((vWP.z-uPlq.y)/${FP.pw.toFixed(3)}+.5,(vWP.y-uPlq.z)/${FP.phh.toFixed(3)});
         vec4 plq=texture2D(tPlq,clamp(pq,0.,1.))*step(0.,pq.x)*step(pq.x,1.)*step(0.,pq.y)*step(pq.y,1.)*step(wN.x,-.5);
-        diffuseColor.rgb*=mix(vec3(1.),vec3(.22,.16,.12)*(1.-.35*uPlqHot),plq.r)*(1.+.2*plq.b*(1.-plq.r));`,
+        diffuseColor.rgb*=mix(vec3(1.),vec3(.12,.09,.07)*(1.-.35*uPlqHot),plq.r)*(1.+.42*plq.b*(1.-plq.r));`,
       emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
     plinthM.userData.u.uWetP={value:0}; plinthM.userData.u.uPlqHot={value:0};
     plinthM.userData.u.tPlq={value:plaque(PEO_EL[i])}; plinthM.userData.u.uPlq={value:new T.Vector4(PEOPLE_AT[i][0]-FP.pd/2,PEOPLE_AT[i][1],0,0)};
@@ -1291,21 +1307,21 @@ function buildGallery(){
   B.group(-6,6,0,H+.6,wallZ(0),zA,()=>{ B.box(-6,-2.2,0,H+.6,wallZ(0),zA); B.box(2.2,6,0,H+.6,wallZ(0),zA); B.box(-2.2,2.2,5.6,H+.6,wallZ(0),zA); });
   B.group(-6,6,0,H+.6,zB,EXIT_Z,()=>{ B.box(-6,-2.2,0,H+.6,zB,EXIT_Z); B.box(2.2,6,0,H+.6,zB,EXIT_Z); B.box(-2.2,2.2,5.6,H+.6,zB,EXIT_Z); });
   for(let k=0;k<=4;k++) B.wall('x',-7,7,0,H+.6,wallZ(k)-ROOM.T,wallZ(k),[{c:0,w:2.8,hs:3.45}]);
-  /* ceilings: plain over Kríos and Pharos, a square opening over Aetos, a round shaft over Ogive */
-  const z0=k=>wallZ(k)-ROOM.T, z1=k=>wallZ(k+1);
-  B.box(-6,6,H,H+.6,z1(0),z0(0)); B.box(-6,6,H,H+.6,z1(2),z0(2));
-  const AP=2.1, ac=roomZ(1);
-  B.box(-6,6,H,H+.06,ac+AP,z0(1),{nosdf:1}); B.box(-6,6,H,H+.06,z1(1),ac-AP,{nosdf:1}); B.box(-6,-AP,H,H+.06,ac-AP,ac+AP,{nosdf:1}); B.box(AP,6,H,H+.06,ac-AP,ac+AP,{nosdf:1});
-  B.box(-6,6,H+.06,H+.8,ac+AP+.9,z0(1),{nosdf:1}); B.box(-6,6,H+.06,H+.8,z1(1),ac-AP-.9,{nosdf:1}); B.box(-6,-AP-.9,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1}); B.box(AP+.9,6,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1});
+  /* ceilings: plain over Kríos and Pharos, a square opening over Aetos, a round shaft over Ogive, wherever each room is */
+  const z0=k=>wallZ(k)-ROOM.T, z1=k=>wallZ(k+1), sA=SLOT.aetos, sP=SLOT.pharos, sO=SLOT.ogive, sK=SLOT.krios;
+  B.box(-6,6,H,H+.6,z1(sK),z0(sK)); B.box(-6,6,H,H+.6,z1(sP),z0(sP));
+  const AP=2.1, ac=roomZ(sA);
+  B.box(-6,6,H,H+.06,ac+AP,z0(sA),{nosdf:1}); B.box(-6,6,H,H+.06,z1(sA),ac-AP,{nosdf:1}); B.box(-6,-AP,H,H+.06,ac-AP,ac+AP,{nosdf:1}); B.box(AP,6,H,H+.06,ac-AP,ac+AP,{nosdf:1});
+  B.box(-6,6,H+.06,H+.8,ac+AP+.9,z0(sA),{nosdf:1}); B.box(-6,6,H+.06,H+.8,z1(sA),ac-AP-.9,{nosdf:1}); B.box(-6,-AP-.9,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1}); B.box(AP+.9,6,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1});
   /* the skyspace's ceiling, and the stone bench round the room */
-  const bz0=z1(1)+.15, bz1=z0(1)-.15;
-  B.group(-6,6,0,H+.8,z1(1),z0(1),()=>{
+  const bz0=z1(sA)+.15, bz1=z0(sA)-.15;
+  B.group(-6,6,0,H+.8,z1(sA),z0(sA),()=>{
     B.raw(`d=min(d,max(sdBox(p-vec3(0.,${H+.03},${ac.toFixed(3)}),vec3(6.,.03,8.)),-sdBox(p-vec3(0.,${H},${ac.toFixed(3)}),vec3(${AP},1.,${AP}))));`);
     B.box(-6,-5.45,0,.46,bz0,bz1); B.box(5.45,6,0,.46,bz0,bz1); B.box(-5.45,-1.7,0,.46,bz0,bz0+.55); B.box(1.7,5.45,0,.46,bz0,bz0+.55);
   });
-  const oc=roomZ(3), OR=1.8;
+  const oc=roomZ(sO), OR=1.8;
   {
-    const s=new T.Shape(); s.moveTo(-6,-z0(3)); s.lineTo(6,-z0(3)); s.lineTo(6,-z1(3)); s.lineTo(-6,-z1(3)); s.lineTo(-6,-z0(3));
+    const s=new T.Shape(); s.moveTo(-6,-z0(sO)); s.lineTo(6,-z0(sO)); s.lineTo(6,-z1(sO)); s.lineTo(-6,-z1(sO)); s.lineTo(-6,-z0(sO));
     const hp=new T.Path(); hp.absarc(0,-oc,OR,0,TAU,false); s.holes.push(hp);
     const g=new T.ExtrudeGeometry(s,{depth:.6,bevelEnabled:false,curveSegments:48}); g.rotateX(-Math.PI/2); g.translate(0,H,0); B.geos.push(g);
     B.raw(`d=min(d,max(sdBox(p-vec3(0.,${H+.3},${oc.toFixed(3)}),vec3(6.,.3,8.)),-(length(p.xz-vec2(0.,${oc.toFixed(3)}))-${OR})));`);
@@ -1317,8 +1333,8 @@ function buildGallery(){
   W.sdfGLSL=B.glsl();
   /* Pharos: the room is dark stone. The floor is a map, drawn in light only where the drone's camera is looking,
      with the square it thinks it is in and its circle of doubt */
-  Object.assign(W.U,{uPhD:{value:new T.Vector4(0,roomZ(2),0,1.2)}, uPhM:{value:new T.Vector4(0,roomZ(2),.6,0)}, uPhC:{value:new T.Vector4(0,roomZ(2),0,.95)}, uPhCol:{value:col('#FFD5B3')}, uPhK:{value:1}});
-  const PHM=`${(z0(2)+.3).toFixed(2)},${(z0(2)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(2)-.3).toFixed(2)},${(z1(2)+.4).toFixed(2)},vWP.z)`;
+  Object.assign(W.U,{uPhD:{value:new T.Vector4(0,roomZ(sP),0,1.2)}, uPhM:{value:new T.Vector4(0,roomZ(sP),.6,0)}, uPhC:{value:new T.Vector4(0,roomZ(sP),0,.95)}, uPhCol:{value:col('#FFD5B3')}, uPhK:{value:1}});
+  const PHM=`${(z0(sP)+.3).toFixed(2)},${(z0(sP)-.4).toFixed(2)},vWP.z)*smoothstep(${(z1(sP)-.3).toFixed(2)},${(z1(sP)+.4).toFixed(2)},vWP.z)`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'gal', color:'#ECE5DA', rough:.88, joint:.55, warm:'#FFF4E6',
     albedo:`{ float ph=smoothstep(${PHM}; diffuseColor.rgb*=mix(1.,.27,ph); }`});
   const PHG=`uniform vec4 uPhD,uPhM,uPhC; uniform vec3 uPhCol; uniform float uPhK,uTime;
@@ -1348,7 +1364,7 @@ function buildGallery(){
   const shaftM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return 1e5;}', key:'shaft', color:'#ECE3D6', rough:.9, joint:.6,
     emisGLSL:`outgoingLight+=diffuseColor.rgb*vec3(1.,.74,.48)*(pow(smoothstep(7.6,30.,vWP.y),.7)*2.6+smoothstep(7.6,9.5,vWP.y)*.25);`});
   W.shaft=new T.Mesh(mergeGeos([W.shaftGeo]),shaftM); W.shaft.receiveShadow=true; sc.add(W.shaft);
-  const capM=new T.MeshBasicMaterial({color:new T.Color('#FFE2BC').multiplyScalar(6)}); const cap=new T.Mesh(new T.CircleGeometry(1.8,48),capM); cap.rotation.x=Math.PI/2; cap.position.set(0,47.5,roomZ(3)); sc.add(cap); W.shaftCap=cap;
+  const capM=new T.MeshBasicMaterial({color:new T.Color('#FFE2BC').multiplyScalar(6)}); const cap=new T.Mesh(new T.CircleGeometry(1.8,48),capM); cap.rotation.x=Math.PI/2; cap.position.set(0,47.5,roomZ(sO)); sc.add(cap); W.shaftCap=cap;
   /* the floor: polished stone that holds a soft reflection of the light */
   W.mirror=new Mirror(MOBILE?.25:.35,{mips:true,bias:.001});
   const floorM=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'galfloor', color:'#DCD3C6', rough:.55, joint:1, mirror:true, mirrorK:.55, glsl:PHG, emisGLSL:PHE,
@@ -1367,13 +1383,15 @@ function buildGallery(){
 
   /* soft room light: a low warm ambient, and a glow of each room's own colour */
   W.hemi=new T.HemisphereLight('#FFF4E8','#BFAF9C',.045); sc.add(W.hemi);
-  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,[5,7,.12,5][k],20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
+  const RL={aetos:7,pharos:.12,ogive:5,krios:2.2};   // Pharos keeps its dark; Kríos is lit by its own lamp
+  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,RL[p.id],20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
   const exitL=new T.PointLight('#FFB980',40,16,1.6); exitL.position.set(0,3.5,zB+2); sc.add(exitL);
   const inL=new T.PointLight('#FFE3BC',26,12,1.6); inL.position.set(0,3.2,zA-1.5); sc.add(inL);
 
-  W.rooms=[buildKrios(W,roomZ(0)),buildAetos(W,roomZ(1),AP),buildPharos(W,roomZ(2)),buildOgive(W,roomZ(3),OR)];
+  const BUILD={aetos:k=>buildAetos(W,roomZ(k),AP,k), pharos:k=>buildPharos(W,roomZ(k),k), ogive:k=>buildOgive(W,roomZ(k),OR,k), krios:k=>buildKrios(W,roomZ(k),k)};
+  W.rooms=PROJ.map((p,k)=>BUILD[p.id](k)); W.room=id=>W.rooms[SLOT[id]];
   W.hideInMirror=[floor];
-  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; handUpdate(dt); for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<-38; };
+  W.update=(dt,st)=>{ W.t+=dt*S.timeScale; handUpdate(dt); for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<wallZ(Math.max(0,sO-1))+2.4; };   // only once the shaft can be seen
   W.applyLight=(tod,tint,s)=>{
     const sk=W.sky.material.uniforms;
     sk.uSunDir.value.copy(SUN.dir); sk.uZen.value.copy(TODC.zen); sk.uHor.value.copy(TODC.hor); sk.uHorS.value.copy(TODC.horS); sk.uGlow.value.copy(TODC.glow);
@@ -1438,114 +1456,97 @@ function glowSprite(c,size){
   const mesh=new T.Mesh(g,m); mesh.frustumCulled=false; return {mesh,U};
 }
 
-/* ---------- Kríos: you speak, and the room answers back. A microphone stands in a pool of light, turned to you; across the
-   floor is a field of slender stems, each tipped with a bead of light. What you say runs out through the field from the
-   microphone in rings. Then the buyer, a soft light at the far end of the room, answers back, and the field carries that
-   back to you. The rings move with the syllables you hear ---------- */
-const VOICE={who:0,phase:0,amp:0,env:0};   // shared with the sound: who is speaking (0 you, 1 the buyer), and how loudly
-const VOICE_GLSL=`
-float vTalk(float tt,out float who){ float k=mod(max(tt,0.),6.8); who=k<3.4?0.:1.; float u=mod(k,3.4)/3.4; return smoothstep(0.,.08,u)*(1.-smoothstep(.78,.95,u)); }
-float vSyl(float tt,float who){ return pow(abs(sin(tt*6.2+who*2.)),2.2)*(.62+.38*sin(tt*2.1+who)); }
-float vWave(vec2 p,vec2 src,float want,float vt){ float d=length(p-src); float te=vt-d/5.2; float w; float k=vTalk(te,w);
-  return (abs(w-want)<.5?1.:0.)*k*vSyl(te,w)*exp(-d*.05)*step(0.,te); }`;
-function buildKrios(W,zc){
+/* ---------- Kríos: a rehearsal. Two chairs face each other across a small stone table under one lamp: the rep's, and the
+   buyer's. The call plays out in light. Every turn leaves a line rising over the table, warm from the rep's side and blue
+   from the buyer's, like a conversation stacking up into the air, and a thread of light runs across the table to whoever
+   is listening. Six exchanges and it comes together; then the lines drift up and go, and the next call begins ---------- */
+const KR={turn:-1,who:0,ex:0,type:0};   // shared with the sound and the tests: the turn, who is talking, the exchange, how far typed
+const KR_LEN=[[1.04,1.3,.82,1.15,.74,.99],[1.22,.69,1.09,.9,1.18,.64]];   // each line's length in metres: the rep's, the buyer's
+function buildKrios(W,zc,k){
   const g=new T.Group(); W.scene.add(g);
-  const MIC=v3(-.45,0,zc+1.2), ORB=v3(-2.75,1.5,zc-5.6), CAMP=v3(1.75,1.58,-8.5);
-  /* the pool of light, over the microphone */
-  const spot=new T.SpotLight('#CADBFF',270,0,.27,.72,2); spot.position.set(MIC.x,ROOM.H-.15,MIC.z); spot.target.position.copy(MIC);
-  spot.castShadow=true; spot.shadow.mapSize.set(1024,1024); spot.shadow.bias=-.0006; spot.shadow.radius=4; spot.shadow.camera.near=1; spot.shadow.camera.far=10;
+  const TX=1.9, TZ=zc-.6, SEAT=1.12, TOPY=.74, LAMP=2.46;
+  const REP=col('#FFCE96'), BUY=col('#A5C3FF');
+  /* the furniture: a round stone table on one column, and two oak chairs turned to it */
+  const stone=new T.MeshStandardMaterial({color:'#E8E0D3',roughness:.48,metalness:0});
+  const oak=new T.MeshStandardMaterial({color:'#B38658',roughness:.6,metalness:0});
+  const metal=new T.MeshStandardMaterial({color:'#3E3A36',roughness:.42,metalness:.6});
+  const add=(m,x,y,z)=>{ m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; g.add(m); return m; };
+  add(new T.Mesh(new T.CylinderGeometry(.56,.56,.045,56),stone),TX,TOPY,TZ);
+  add(new T.Mesh(new T.CylinderGeometry(.055,.075,TOPY-.04,20),stone),TX,(TOPY-.04)/2+.02,TZ);
+  add(new T.Mesh(new T.CylinderGeometry(.27,.3,.035,40),stone),TX,.018,TZ);
+  const chair=(x,face)=>{ const c=new T.Group(); c.position.set(x,0,TZ); c.rotation.y=face; g.add(c);
+    const part=(geo,px,py,pz,rx=0)=>{ const m=new T.Mesh(geo,oak); m.position.set(px,py,pz); m.rotation.x=rx; m.castShadow=m.receiveShadow=true; c.add(m); };
+    part(new T.BoxGeometry(.46,.045,.44),0,.45,0);
+    part(new T.BoxGeometry(.44,.36,.035),0,.73,.205,-.09);
+    for(const sx of [-1,1]) for(const sz of [-1,1]) part(new T.BoxGeometry(.035,.45,.035),sx*.2,.225,sz*.19);
+    for(const sx of [-1,1]) part(new T.BoxGeometry(.035,.34,.035),sx*.2,.62,.2,-.09);   // the back's two uprights
+    return c; };
+  chair(TX-SEAT,-Math.PI/2); chair(TX+SEAT,Math.PI/2);   // the rep on the left, facing right; the buyer on the right, facing left
+  /* the lamp: a cord from the ceiling, a dark shade, a warm bulb, and a pool of light on the table */
+  add(new T.Mesh(new T.CylinderGeometry(.006,.006,ROOM.H-LAMP-.1,6),metal),TX,(ROOM.H+LAMP+.1)/2,TZ);
+  const shade=new T.Mesh(new T.CylinderGeometry(.055,.23,.2,40,1,true),new T.MeshStandardMaterial({color:'#2F2B28',roughness:.5,metalness:.55,side:T.DoubleSide}));
+  add(shade,TX,LAMP+.1,TZ);
+  const bulb=glowSprite('#FFE2B8',.5); bulb.mesh.position.set(TX,LAMP,TZ); bulb.mesh.renderOrder=958; g.add(bulb.mesh);
+  const lampL=new T.PointLight('#FFD8AA',3.2,6.5,1.6); lampL.position.set(TX,LAMP-.05,TZ); g.add(lampL);
+  const spot=new T.SpotLight('#FFE0B8',150,0,.62,.6,2); spot.position.set(TX,LAMP,TZ); spot.target.position.set(TX,0,TZ);
+  spot.castShadow=true; spot.shadow.mapSize.set(1024,1024); spot.shadow.bias=-.0006; spot.shadow.radius=4; spot.shadow.camera.near=.5; spot.shadow.camera.far=4;
   g.add(spot); g.add(spot.target);
-  const coneM=new T.ShaderMaterial({uniforms:{uCol:{value:col('#A5C3FF')},uK:{value:1},uTime:GU.uTime},...ADD,side:T.DoubleSide,
-    vertexShader:`varying vec3 vP; varying vec3 vN; varying vec3 vWP; void main(){ vP=position; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform vec3 uCol; uniform float uK,uTime; varying vec3 vP; varying vec3 vN; varying vec3 vWP; ${GLSL.noise}
-      void main(){ float h=vP.y/7.+.5; vec3 V=normalize(cameraPosition-vWP); float e=pow(1.-abs(dot(normalize(vN),V)),1.6);
-        float n=.75+.25*vnoise(vec2(vWP.x*3.+uTime*.2,vWP.y*2.-uTime*.3));
-        float a=(1.-e)*smoothstep(1.,.25,h)*smoothstep(0.,.08,h)*n; gl_FragColor=vec4(uCol*a*.045*uK,1.); }`});
-  const cone=new T.Mesh(new T.CylinderGeometry(.28,2.2,7,48,1,true),coneM); cone.position.set(MIC.x,3.5,MIC.z); g.add(cone);
-  /* the microphone: a heavy round foot, a slim stand, a capsule with a ball grille, tipped up towards you */
-  const metal=new T.MeshStandardMaterial({color:'#E7E0D5',roughness:.3,metalness:.55});
-  const grill=new T.MeshStandardMaterial({color:'#5E5A55',roughness:.72,metalness:.35,emissive:new T.Color('#BFD2FF'),emissiveIntensity:.02});
-  const mic=new T.Group(); mic.position.copy(MIC); mic.rotation.y=Math.atan2(CAMP.x-MIC.x,CAMP.z-MIC.z)+.95; mic.scale.setScalar(1.25); g.add(mic);   // turned a little, so you see it in profile
-  const foot=new T.Mesh(new T.CylinderGeometry(.15,.17,.03,48),metal); foot.position.y=.015;
-  const pole=new T.Mesh(new T.CylinderGeometry(.009,.011,1.33,14),metal); pole.position.y=.03+.665;
-  const collar=new T.Mesh(new T.CylinderGeometry(.016,.016,.05,16),metal); collar.position.y=1.36;
-  const head=new T.Group(); head.position.y=1.4; head.rotation.x=-.5;
-  const caps=new T.Mesh(new T.CylinderGeometry(.032,.022,.19,24),metal); caps.rotation.x=Math.PI/2; caps.position.z=-.035;
-  const ring=new T.Mesh(new T.TorusGeometry(.031,.004,8,32),metal); ring.position.z=.054;
-  const ball=new T.Mesh(new T.SphereGeometry(.044,28,18),grill); ball.position.z=.09;
-  const clip=new T.Mesh(new T.BoxGeometry(.022,.05,.032),metal); clip.position.set(0,-.03,-.02);
-  head.add(caps,ring,ball,clip); mic.add(foot,pole,collar,head);
-  [foot,pole,collar,caps,ring,ball,clip].forEach(m=>{ m.castShadow=true; m.receiveShadow=true; });
-  /* the buyer: a soft light at the far end that brightens as it speaks */
-  const ORBC=col('#FFE3C4');
-  const orbM=new T.MeshBasicMaterial({color:ORBC.clone()});
-  const orb=new T.Mesh(new T.SphereGeometry(.11,32,20),orbM); orb.position.copy(ORB); g.add(orb);
-  const halo=glowSprite('#FFD9B0',1.05); halo.mesh.position.copy(ORB); halo.mesh.renderOrder=958; g.add(halo.mesh);
-  const orbL=new T.PointLight('#FFD9B4',.6,7,1.6); orbL.position.copy(ORB); g.add(orbL);
-  const thread=lightLine('#FFD9B0',1.2); thread.U.uA.value.set(ORB.x,0,ORB.z); thread.U.uB.value.copy(ORB).y-=.14; thread.U.uK.value=.16; thread.U.uDash.value=.09; thread.mesh.renderOrder=957; g.add(thread.mesh);
-  /* the field: stems on a loose grid, kept clear of the way through the room, of the microphone and of the light at the far end */
-  const F=[]; const rnd=(()=>{let s=11;return()=>(s=(s*16807)%2147483647)/2147483647;})();
-  for(let z=zc+5; z>=zc-7.4; z-=.44) for(let x=-5.4; x<=5.4; x+=.44){
-    const px=x+(rnd()-.5)*.26, pz=z+(rnd()-.5)*.26, ax=lerp(1.55,0,inv(zc+6.5,zc-6,pz)), h=.4+rnd()*.44, r=rnd();
-    if(Math.abs(px-ax)<1.05||Math.hypot(px-MIC.x,pz-MIC.z)<.95||Math.hypot(px-ORB.x,pz-ORB.z)<.8||Math.abs(px)>5.55) continue;
-    F.push(px,pz,h,r); }
-  const NF=F.length/4, fA=new T.InstancedBufferAttribute(new Float32Array(F),4);
-  const inst=a=>{ const ig=new T.InstancedBufferGeometry(); ig.setAttribute('position',new T.Float32BufferAttribute(a,3)); ig.setAttribute('aF',fA); ig.instanceCount=NF; ig.boundingSphere=new T.Sphere(v3(0,0,zc),24); return ig; };
-  const FU={uVT:{value:0},uTime:GU.uTime,uMic:{value:new T.Vector2(MIC.x,MIC.z)},uOrb:{value:new T.Vector2(ORB.x,ORB.z)},uPx:{value:600},uHand:{value:v3(0,zc,0)},
-    uYou:{value:col('#B9CDFF')},uThem:{value:col('#FFDDB8')},uBase:{value:col('#86A0DE')},uK:{value:1}};
-  /* your hand in the field: the stems near it lean away and light up, as they do for your voice */
-  const FIELD=`attribute vec4 aF; uniform float uVT,uTime,uPx; uniform vec2 uMic,uOrb; uniform vec3 uHand; ${VOICE_GLSL}
-    void field(out float h,out float a,out float b,out vec2 ln){ vec2 p=aF.xy; a=vWave(p,uMic,0.,uVT); b=vWave(p,uOrb,1.,uVT);
-      vec2 dh=p-uHand.xy; float hd=dot(dh,dh), hk=uHand.z*exp(-hd*1.3);
-      float idle=.028*sin(uTime*.6+aF.w*6.2832+p.x*.5)+.016*sin(uTime*1.1+p.y*.8+aF.w*3.);
-      h=aF.z*(1.+.7*(a+b)+.24*hk)+idle; a+=hk*.2; ln=dh*inversesqrt(hd+.05)*hk*.18; }`;
-  const stemM=new T.ShaderMaterial({uniforms:FU,...ADD,side:T.DoubleSide,
-    vertexShader:`${FIELD} varying float vV,vA,vB;
-      void main(){ float h,a,b; vec2 ln; field(h,a,b,ln); vec3 base=vec3(aF.x,0.,aF.y); vec3 toC=cameraPosition-base; vec3 r=normalize(vec3(toC.z,0.,-toC.x));
-        float px=length(toC)/uPx; vec3 p=base+vec3(ln.x*position.y,position.y*h,ln.y*position.y)+r*position.x*max(.006,px*1.1);
-        vV=position.y; vA=a; vB=b; gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
-    fragmentShader:`uniform vec3 uYou,uThem,uBase; uniform float uK; varying float vV,vA,vB;
-      void main(){ vec3 c=uBase*.05*(.3+.7*vV)+(uYou*vA+uThem*vB)*.45*vV*vV; gl_FragColor=vec4(c*uK,1.); }`});
-  const stems=new T.Mesh(inst([0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0].map((v,i)=>i%3===0?v-.5:v)),stemM); stems.frustumCulled=false; stems.renderOrder=956; g.add(stems);
-  const tipM=new T.ShaderMaterial({uniforms:FU,...ADD,
-    vertexShader:`${FIELD} varying vec2 vQ; varying float vA,vB,vR;
-      void main(){ float h,a,b; vec2 ln; field(h,a,b,ln); vec4 mv=viewMatrix*vec4(aF.x+ln.x,h,aF.y+ln.y,1.); float s=max(.026+.03*(a+b),-mv.z*2.2/uPx); mv.xy+=position.xy*s;
-        vQ=position.xy; vA=a; vB=b; vR=aF.w; gl_Position=projectionMatrix*mv; }`,
-    fragmentShader:`uniform vec3 uYou,uThem,uBase; uniform float uK; varying vec2 vQ; varying float vA,vB,vR;
-      void main(){ float r=length(vQ); float k=(exp(-r*r*14.)+exp(-r*r*3.)*.3)*(1.-smoothstep(.8,1.,r));
-        vec3 c=uBase*(.085+.05*vR)+uYou*vA*2.6+uThem*vB*2.6; gl_FragColor=vec4(c*k*uK,1.); }`});
-  const tips=new T.Mesh(inst(QUAD),tipM); tips.frustumCulled=false; tips.renderOrder=957; g.add(tips);
-  /* and the same rings drawn faintly on the floor, so you see each one go out across the room, through the gaps too */
-  const ringM=new T.ShaderMaterial({uniforms:FU,...ADD,
-    vertexShader:`varying vec2 vP; void main(){ vec4 w=modelMatrix*vec4(position,1.); vP=w.xz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform float uVT,uK; uniform vec2 uMic,uOrb; uniform vec3 uYou,uThem; varying vec2 vP; ${VOICE_GLSL}
-      void main(){ float a=vWave(vP,uMic,0.,uVT), b=vWave(vP,uOrb,1.,uVT);
-        float la=smoothstep(.42,.9,a)*a, lb=smoothstep(.42,.9,b)*b;
-        vec2 e=min(vP-vec2(-5.9,${(zc-7.9).toFixed(2)}),vec2(5.9,${(zc+7.9).toFixed(2)})-vP); float edge=smoothstep(0.,.8,min(e.x,e.y));
-        gl_FragColor=vec4((uYou*la+uThem*lb)*.62*edge*uK,1.); }`});
-  const rings=new T.Mesh(new T.PlaneGeometry(11.8,15.8),ringM); rings.rotation.x=-Math.PI/2; rings.position.set(0,.007,zc); rings.renderOrder=8; g.add(rings);
-  let t0=0, orbK=.4, hx=0, hz=zc, hK=0;
-  return {g, spot, dbg:()=>({who:VOICE.who,u:+VOICE.phase.toFixed(2),hand:+hK.toFixed(2)}), update(dt,t,st){
-    const hk=handIn(zc,0); if(hk>0){ const f=hK<.02; hx=f?HAND.floor.x:damp(hx,HAND.floor.x,9,dt); hz=f?HAND.floor.z:damp(hz,HAND.floor.z,9,dt); }
-    hK=damp(hK,hk,hk>hK?6:2.5,dt); FU.uHand.value.set(hx,hz,hK);
-    /* the call: you speak for a few seconds, a breath, then the buyer answers */
-    t0+=dt; const turn=3.4, k=t0%(turn*2), who=k<turn?0:1, u=(k%turn)/turn;
-    VOICE.who=who; VOICE.phase=u;
-    const talk=sstep(0,.08,u)*(1-sstep(.78,.95,u));
-    const syl=.55+.45*Math.abs(Math.sin(t0*6.2+who*2))*(.6+.4*Math.sin(t0*2.1+who));
-    VOICE.env=talk*syl; VOICE.amp=damp(VOICE.amp,talk,8,dt);
-    FU.uVT.value=t0; FU.uPx.value=G.px;
-    const you=who===0?VOICE.env:0, them=who===1?VOICE.env:0;
-    grill.emissiveIntensity=damp(grill.emissiveIntensity,.02+.55*you,14,dt);
-    orbK=damp(orbK,.4+2.2*them,10,dt); orbM.color.copy(ORBC).multiplyScalar(1.2+orbK*1.6); halo.U.uK.value=.5+orbK; orbL.intensity=.5+3.2*orbK;
-    thread.U.uPx.value=G.px;
-    spot.intensity=270*(.93+.07*you);
+  /* a soft pool of colour on the floor under each chair, brighter while that one speaks */
+  const poolM=c=>new T.ShaderMaterial({uniforms:{uCol:{value:c.clone()},uK:{value:.3}},...ADD,
+    vertexShader:`varying vec2 vQ; void main(){ vQ=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uK; varying vec2 vQ; void main(){ float r=length(vQ)/.9; gl_FragColor=vec4(uCol*exp(-r*r*3.)*(1.-smoothstep(.85,1.,r))*.32*uK,1.); }`});
+  const pool=(x,c)=>{ const m=new T.Mesh(new T.PlaneGeometry(1.8,1.8),poolM(c)); m.rotation.x=-Math.PI/2; m.position.set(x,.008,TZ); m.renderOrder=8; g.add(m); return m.material.uniforms; };
+  const POOL=[pool(TX-SEAT,REP),pool(TX+SEAT,BUY)];
+  /* the conversation: a column of lines over the table, turned to the room's best view. The rep's lines start at the left,
+     the buyer's at the right; each is typed out as it is said, with small gaps between its words, and the column moves up
+     a step for every new line */
+  const col_=new T.Group(); col_.position.set(TX,0,TZ); col_.rotation.y=Math.atan2(-1.2-TX,5.4+.6); g.add(col_);
+  const CW=3.3, STEP=.27, Y0=1.32;   // wide enough that the lamp hangs in the gap between the two sides
+  /* the lines are drawn solid with a glow round them (premultiplied: the body covers what is behind it, the glow adds), so
+     they still read against the bright doorway beyond */
+  const PRE={transparent:true,depthWrite:false,blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneMinusSrcAlphaFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor};
+  const lineM=(c,side,len,seed)=>new T.ShaderMaterial({uniforms:{uCol:{value:c.clone()},uK:{value:0},uType:{value:0},uLen:{value:len},uSide:{value:side},uSeed:{value:seed}},...PRE,side:T.DoubleSide,
+    vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uK,uType,uLen,uSide,uSeed; varying vec2 vUv;
+      void main(){ float x=uSide>0.?1.-vUv.x:vUv.x; float px=x*uLen, py=(vUv.y-.5)*.24, r=.05;
+        float dx=max(r-px,0.)+max(px-(uLen-r),0.); float d=length(vec2(dx,py))-r;
+        float body=1.-smoothstep(-.01,.004,d), halo=exp(-max(d,0.)*36.)*.3;
+        float w=fract(px/.27+uSeed), gap=smoothstep(.8,.86,w)*(1.-smoothstep(.97,1.,w));
+        float on=step(x,uType), caret=exp(-pow((x-uType)*uLen*30.,2.))*(1.-step(.999,uType))*1.4;
+        float a=body*(1.-gap*.8)*on; gl_FragColor=vec4(uCol*(a*.85+halo*on+caret*body)*uK,a*clamp(uK*1.1,0.,1.)*.92); }`});
+  const LINES=[];
+  for(let i=0;i<12;i++){ const who=i%2, ex=i>>1, len=KR_LEN[who][ex], side=who?1:-1;
+    const geo=new T.PlaneGeometry(len,.24); geo.translate(side*(CW/2-len/2),0,0);
+    const m=new T.Mesh(geo,lineM(who?BUY:REP,side,len,(i*.37)%1)); m.renderOrder=959; m.frustumCulled=false; col_.add(m);
+    LINES.push({m,U:m.material.uniforms,who,y:Y0}); }
+  /* the thread across the table, from whoever is speaking to whoever is listening */
+  const thread=lightLine('#FFE2BE',1.4); thread.mesh.renderOrder=957; g.add(thread.mesh);
+  const SPK=[v3(TX-SEAT+.12,1.08,TZ),v3(TX+SEAT-.12,1.08,TZ)];
+  const TURN=3.2, TYPE=2.3, END=6, LOOP=12*TURN+END;
+  let t0=0, hK=0, last=-1;
+  return {g, spot, dbg:()=>({turn:KR.turn,who:KR.who,ex:KR.ex,type:+KR.type.toFixed(2),hand:+hK.toFixed(2)}), update(dt,t,st){
+    const hk=handIn(zc,k); hK=damp(hK,hk,hk>hK?6:2.5,dt);
+    t0=(t0+dt)%LOOP; const turn=Math.min(11,Math.floor(t0/TURN)), u=t0-turn*TURN, ending=t0>=12*TURN, ek=ending?(t0-12*TURN)/END:0;
+    const who=turn%2, ex=turn>>1, type=ending?1:clamp(u/TYPE,0,1);
+    if(!ending&&turn!==last){ last=turn; rsnd(who?'kr-them':'kr-you',who?.3:-.3,ex); if(turn===11) rsnd('kr-deal',.1,0); }
+    if(ending&&last!==12){ last=12; }
+    KR.turn=ending?-1:turn; KR.who=who; KR.ex=ex; KR.type=type;
+    const speaking=ending?0:(1-sstep(.85,1,type))*(type>0?1:0);
+    /* the column: every line already said sits a step above the next; at the end they all drift up and fade */
+    LINES.forEach((L,i)=>{ const said=ending?12:turn; const shown=i<=said;
+      const yT=Y0+(said-i)*STEP+ek*ek*2.2; L.y=shown?(L.y<Y0-.01?Y0:damp(L.y,yT,4,dt)):Y0; L.m.position.y=L.y; L.m.visible=shown;
+      L.U.uType.value=i<said||ending?1:type; L.U.uK.value=shown?(i===said&&!ending?1.25:.42+.5*(1-(said-i)/12))*(1-ek)*(1+.25*hK):0; });
+    /* the thread runs across with the words; the speaker's pool brightens */
+    const a=SPK[who], b=SPK[1-who]; thread.U.uA.value.copy(a); thread.U.uB.value.copy(b); thread.U.uDraw.value=type;
+    thread.U.uK.value=.55*speaking; thread.U.uCol.value.copy(who?BUY:REP); thread.U.uPx.value=G.px;
+    POOL[0].uK.value=damp(POOL[0].uK.value,.3+(who===0?1.4*speaking:0)+.8*hK,6,dt); POOL[1].uK.value=damp(POOL[1].uK.value,.3+(who===1?1.4*speaking:0),6,dt);
+    lampL.intensity=3.2*(1+.25*hK); bulb.U.uK.value=1+.4*hK;
   }};
 }
 
 /* ---------- Aetos: a skyspace full of drones. A radar sweeps the square of sky: friends are marked as it passes them, and
    one drone is picked out as the threat, locked, and taken out by the intercept. Then the sky is quiet for a while ---------- */
-function buildAetos(W,zc,AP){
+function buildAetos(W,zc,AP,k){
   const g=new T.Group(); W.scene.add(g);
   /* light hidden along the top of the walls washes the ceiling, so the sky reads as a flat colour (the Turrell trick) */
   [[-5.3,zc],[5.3,zc],[0,zc-7.2],[0,zc+7.2]].forEach(([x,z])=>{ const l=new T.PointLight('#FFF3E4',26,9,1.5); l.position.set(x,ROOM.H-.5,z); g.add(l); });
@@ -1638,7 +1639,7 @@ function buildAetos(W,zc,AP){
   return {g, dbg:()=>({st:TH.st,t:+TH.t.toFixed(2),hov:hovI}), update(dt,t,st){
     tb+=dt; const px=G.px; LUu.uPx.value=MU.uPx.value=shot.U.uPx.value=px;
     /* the drone nearest your hand, if it is close to it on the screen */
-    let hv=-1, hd=HAND.k>.5&&roomNear(1)>.5?Math.max(46,innerWidth*.045):0;
+    let hv=-1, hd=HAND.k>.5&&roomNear(k)>.5?Math.max(46,innerWidth*.045):0;
     const cp=CAM.gal.position;
     if(hd) for(let i=0;i<N;i++){ const d=D[i]; if(d.fade<.6||d.role==='down'||(d.role==='threat'&&TH.st!=='search')) continue;
       /* only one you can see: the line from you to it has to pass through the opening */
@@ -1682,7 +1683,7 @@ function buildAetos(W,zc,AP){
 /* ---------- Pharos: a drone in a dark room with nothing to go by. Its camera lights a square of the floor, and the floor is a
    map; a second square, where it thinks it is, slides over to match what it sees and locks on. Over open water there is
    nothing to match, and it says so: the square loosens and its circle of doubt opens up ---------- */
-const PH_LAKE=[1.35,roomZ(2)-2.15,1.05,.95];   // the open water on the map: x, z and its two radii (the floor's shader draws it too)
+const PH_LAKE=[1.35,roomZ(SLOT.pharos)-2.15,1.05,.95];   // the open water on the map: x, z and its two radii (the floor's shader draws it too)
 function droneModel(){
   const g=new T.Group(), parts=[];
   const shell=new T.MeshStandardMaterial({color:'#ECE6DC',roughness:.38,metalness:.04});
@@ -1711,7 +1712,7 @@ function droneModel(){
   g.rotation.order='YXZ';
   return {g,lensM};
 }
-function buildPharos(W,zc){
+function buildPharos(W,zc,k){
   const g=new T.Group(); W.scene.add(g);
   const C=col('#FFD5B3'), CAMY=2.55, TANF=.46, HF=CAMY*TANF;   // the drone camera's height over the floor, and the half-width of the square it sees
   const dr=droneModel(); dr.g.scale.setScalar(1.05); g.add(dr.g);
@@ -1754,7 +1755,7 @@ function buildPharos(W,zc){
   let wetK=0, tK=0;
   return {g, get lock(){ return lock; }, dbg:()=>({lock:+lock.toFixed(2),wet:+wetK.toFixed(2),doubt:+doubt.toFixed(2),torch:+tK.toFixed(2)}), update(dt,t,st){
     tp+=dt; pos(tp,p); pos(tp+.4,pv);
-    { const hk=handIn(zc,2), C4=U.uPhC.value; if(hk>0){ const f=tK<.02; C4.x=f?HAND.floor.x:damp(C4.x,HAND.floor.x,10,dt); C4.y=f?HAND.floor.z:damp(C4.y,HAND.floor.z,10,dt); }
+    { const hk=handIn(zc,k), C4=U.uPhC.value; if(hk>0){ const f=tK<.02; C4.x=f?HAND.floor.x:damp(C4.x,HAND.floor.x,10,dt); C4.y=f?HAND.floor.z:damp(C4.y,HAND.floor.z,10,dt); }
       tK=damp(tK,hk,hk>tK?5:2.2,dt); C4.z=tK; }
     const vx=(pv.x-p.x)/.4, vz=(pv.z-p.z)/.4, sp=Math.hypot(vx,vz), want=Math.atan2(vx,vz);
     let dy=((want-yaw+Math.PI)%TAU+TAU)%TAU-Math.PI; yaw+=first?dy:dy*(1-Math.exp(-dt*.9)); first=false;
@@ -1782,7 +1783,7 @@ function buildPharos(W,zc){
 /* ---------- Ogive: say how high, and the design is worked until the rocket gets there. A hoop of light hangs in the shaft at
    the height asked for. The rocket on the pad changes shape, one design at a time, and a bead of light shows how high each
    would go: short, over, closer, there. Then it flies: up to the hoop and no higher, and back down on its chute ---------- */
-function buildOgive(W,zc,OR){
+function buildOgive(W,zc,OR,k){
   const g=new T.Group(); W.scene.add(g);
   const shaftL=new T.SpotLight('#FFB475',9000,0,.052,.55,2); shaftL.position.set(0,44,zc); shaftL.target.position.set(0,0,zc); g.add(shaftL); g.add(shaftL.target);
   shaftL.castShadow=true; shaftL.shadow.mapSize.set(512,512); shaftL.shadow.camera.near=30; shaftL.shadow.camera.far=48; shaftL.shadow.bias=-.0008;
@@ -1864,7 +1865,7 @@ function buildOgive(W,zc,OR){
     const s=S.s;
     /* your hand on the shaft: where the pointer meets the upright plane through its middle, facing you */
     let over=false;
-    if(HAND.k>.5&&roomNear(3)>.5){ const r=HAND.ray.ray, cp=CAM.gal.position; _n.set(cp.x,0,cp.z-zc); const L=_n.length();
+    if(HAND.k>.5&&roomNear(k)>.5){ const r=HAND.ray.ray, cp=CAM.gal.position; _n.set(cp.x,0,cp.z-zc); const L=_n.length();
       if(L>.1){ _n.divideScalar(L); const den=r.direction.dot(_n);
         if(Math.abs(den)>1e-3){ const tt=(-r.origin.x*_n.x+(zc-r.origin.z)*_n.z)/den; _h.copy(r.origin).addScaledVector(r.direction,tt);
           if(tt>0&&Math.hypot(_h.x,_h.z-zc)<1.5&&_h.y>top+.4&&_h.y<9){ over=true; hyT=clamp(_h.y,4.7,6); } } } }
@@ -1873,7 +1874,7 @@ function buildOgive(W,zc,OR){
     if(lt<T_FLY-.7) hy=damp(hy,hyT,4.5,dt);
     hoop.position.y=hoopG.mesh.position.y=hy;
     /* the next room brightens as you come to it, so Pharos keeps its dark */
-    const lk=lerp(.45,1,sstep(3.3,3.85,s)); shaftL.intensity=9000*lk; glowL.intensity=20*lk; W.roomLights[3].intensity=5*lk;
+    const lk=lerp(.45,1,sstep(k+.3,k+.85,s)); shaftL.intensity=9000*lk; glowL.intensity=20*lk; W.roomLights[k].intensity=5*lk;
     dm.uniforms.uPx.value=G.px; trace.U.uPx.value=G.px;
     lt+=dt; if(lt>=LOOP){ lt-=LOOP; beat=-1; said=-1; setFrom(); }
     let flameK=0, chuteK=0, beadK=0, beadY=0, hoopK=.42;
@@ -2069,35 +2070,35 @@ const TRACK={
     K(5.84,[-20.4,1.48,-9.95],[-110,6.2,-11],43),
     K(6,   [-24.5,1.42,-9.7],[-200,9.2,-11.5],42),
     K(6.5, [-30,1.42,-9.7],[-200,10,-11.5],42)],
-  gal:[ /* every doorway is taken through its middle; the camera turns to a room only once it is inside it */
-    K(.4,  [0,1.72,3.6],[0,1.8,-8],48),
-    K(.5,  [0,1.72,.8],[0,1.76,-10],46),
-    K(.72, [0,1.7,-5],[.3,1.5,-14],42),
-    K(.86, [.35,1.66,-6.6],[.1,1.25,-14.8],40),
-    K(1,   [1.75,1.58,-8.6],[-.15,.95,-15.2],38),
-    K(1.3, [.6,1.7,-17.4],[0,2.7,-28],42),
-    K(1.55,[0,1.68,-23.9],[0,3.8,-31],46),
-    K(2,   [0,1.38,-27.9],[0,7.5,-33.1],56),
-    K(2.45,[0,1.68,-40.9],[0,2,-48],46),
-    K(2.64,[-.4,1.65,-42.3],[.15,1.6,-49.3],45),
-    K(3,   [-1.75,1.62,-43.2],[.25,1.55,-49.6],44),
-    K(3.45,[0,1.68,-58.2],[0,2.7,-64],46),
-    K(3.64,[.35,1.6,-59.5],[0,3,-66.8],48),
-    K(4,   [1.25,1.5,-60.1],[0,3.1,-66.8],50),
-    K(4.3, [.2,1.7,-72.2],[0,2.2,-82],46),
-    K(4.5, [0,1.72,-76.6],[0,1.9,-84],46),
-    K(4.6, [0,1.72,-78.8],[0,1.9,-86],48)],
 };
 /* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one */
 const TRACK_P={
   out:{0:K(0,[3.4,1.5,80],[.6,4.1,2],52), .12:K(.12,[2.8,1.55,61],[.5,3.6,1],52), .26:K(.26,[2.2,1.6,43],[.3,3.1,2],52)},
   out2:{5:K(5,[1.2,1.45,-10.2],[7.6,1.2,-10.2],46), 5.18:K(5.18,[-3,1.55,-9.1],[7.6,1.3,-8.4],50), 6:K(6,[-24.5,1.42,-9.7],[-200,12,-11.5],56), 6.5:K(6.5,[-30,1.42,-9.7],[-200,12,-11.5],56)},
   outAdd:[K(4.86,[1.2,1.45,-14.4],[7.6,1.2,-14.4],46), K(5.14,[1.2,1.45,-6],[7.6,1.2,-6],46)],
-  gal:{.86:K(.86,[.12,1.66,-7.05],[.1,1.25,-14.8],48), 1:K(1,[2.05,1.62,-8.3],[-.2,.95,-15.2],58), 2:K(2,[0,1.36,-27.4],[0,7.5,-33.2],70), 3:K(3,[-1.65,1.62,-43.1],[.25,1.55,-49.6],62), 4:K(4,[1.1,1.5,-60.1],[0,3.25,-66.8],64)},
 };
+/* the gallery's track is made from the rooms, in the order you walk through them: in through the middle of each doorway,
+   up to the room, then to where it is best seen. Each room's two poses are given from its own centre (x, y, z from zc;
+   the target likewise; the lens), and a phone held upright stands further back with a wider lens */
+const VIEW={
+  aetos: {a:[[0,1.68,8.5],[0,3.8,1.4],46], v:[[0,1.38,4.5],[0,7.5,-.7],56], vp:[[0,1.36,5],[0,7.5,-.8],70], d:3.8},
+  pharos:{a:[[-.4,1.65,7.3],[.15,1.6,.3],45], v:[[-1.75,1.62,6.4],[.25,1.55,0],44], vp:[[-1.65,1.62,6.5],[.25,1.55,0],62], d:2},
+  ogive: {a:[[.35,1.6,7.3],[0,3,0],48], v:[[1.25,1.5,6.7],[0,3.1,0],50], vp:[[1.1,1.5,6.7],[0,3.25,0],64], d:2.7},
+  krios: {a:[[-.3,1.66,7.8],[1.6,1.95,-.5],48], v:[[-1.2,1.62,5.4],[.9,2.05,-.6],46], vp:[[-.8,1.62,6.8],[1.78,.85,-.6],62], d:1.9},
+};
+function galTrack(port){
+  const L=[K(.4,[0,1.72,3.6],[0,1.8,-8],48), K(.5,[0,1.72,.8],[0,1.76,-10],46), K(.72,[0,1.7,-5],[0,1.9,-14],42)];
+  PROJ.forEach((p,k)=>{ const zc=roomZ(k), V=VIEW[p.id], at=(o,z)=>[o[0],o[1],z+o[2]], vw=port?V.vp:V.v;
+    if(k>0) L.push(K(k+.45,[0,1.68,wallZ(k)-.6],[0,V.d,zc+1.5],46));   // through the middle of the doorway
+    L.push(K(k===0?.86:k+.64,at(V.a[0],zc),at(V.a[1],zc),V.a[2]));
+    L.push(K(k+1,at(vw[0],zc),at(vw[1],zc),vw[2])); });
+  /* and out: past the last room to the far arch, and into the courtyard's light */
+  L.push(K(4.3,[.2,1.7,-72.2],[0,2.2,-82],46), K(4.5,[0,1.72,-76.6],[0,1.9,-84],46), K(4.6,[0,1.72,-78.8],[0,1.9,-86],48));
+  return L;
+}
 function tracksFor(port){
-  const out={};
-  for(const k of ['out','out2','gal']){
+  const out={gal:galTrack(port)};
+  for(const k of ['out','out2']){
     let L=TRACK[k].map(x=>({...x}));
     if(port){ const o=TRACK_P[k]; L=L.map(x=>o[x.s]?{...o[x.s]}:x); if(k==='out2') L=L.concat(TRACK_P.outAdd.map(x=>({...x}))).sort((a,b)=>a.s-b.s); }
     out[k]=L;
@@ -2123,10 +2124,15 @@ function trackEval(keys,s,outP,outT){
   return lerp(a.f,b.f,u*u*(3-2*u));
 }
 /* virtual scroll position v (in stops) to path position s: linger at each stop, move between them */
+/* between two stops the walk eases in and out. Where a doorway lies between them it eases through that too, so you cross
+   a threshold at a walk and see the room open up, never in a blur: the stop's ease, mixed with one that comes almost to a
+   stand in the doorway (five times slower there than it was) */
 function warp(v){
-  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i;
-  const e=f-.5*Math.sin(TAU*f)/TAU;
-  return lerp(STOPS[i],STOPS[i+1],e);
+  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, a=STOPS[i], b=STOPS[i+1];
+  let e=f-.5*Math.sin(TAU*f)/TAU;
+  const d=[DOOR_IN,DOOR_OUT].find(x=>x>a+.05&&x<b-.05);
+  if(d!==undefined){ const fd=(d-a)/(b-a), E=x=>x-Math.sin(TAU*x)/TAU, held=f<fd?fd*E(f/fd):fd+(1-fd)*E((f-fd)/(1-fd)); e=lerp(e,held,.8); }
+  return lerp(a,b,e);
 }
 function stopOf(s){ let best=0,d=1e9; STOPS.forEach((x,i)=>{ const dd=Math.abs(x-s); if(dd<d){ d=dd; best=i; } }); return best; }
 /* which scene is on screen, and how far through a doorway blend */
@@ -2639,12 +2645,12 @@ function frame(tn){
 }
 function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
-  const beam=GAL&&prox(3)>.01?GAL.rooms[2].lock:0;   // how sure the drone is of where it is
+  const R=id=>SLOT[id]+1, beam=GAL&&prox(R('pharos'))>.01?GAL.room('pharos').lock:0;   // how sure the drone is of where it is
   const gate=S.mode==='gate', way=gate?S.gateHover:null, go=LAUNCH.near;
   // the gate at rest is not silent: the walk's score far off and muffled, and the lake under it; a way, shown, takes over
   const rest=gate&&!way?1:0;
   return {music:gate?.3*rest:(1-inside*.3)*(1-go*.6), musF:gate?1600:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:.2*rest):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?(way==='walk'?1500:850):lerp(2400,320,inside)+contact*1800,
-    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
+    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(R('krios')), ae:prox(R('aetos')), ph:prox(R('pharos')), og:prox(R('ogive')), beam, rise:sstep(R('ogive')-.3,R('ogive')+.4,s),
     warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));

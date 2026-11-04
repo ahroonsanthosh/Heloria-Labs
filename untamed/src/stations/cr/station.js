@@ -378,14 +378,22 @@ const HAIR={
   curly:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.186,20,12,0,TAU,0,Math.PI*.55),c,0,.02,-.01); cap.rotation.x=-.2; h.add(cap);
     for(let k=0;k<54;k++){ const ph=Math.acos(1-(k+.5)/54*1.25), th=k*2.39996, x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th); if(ph>.95&&z>.2) continue; if(ph>1.25) continue; h.add(mesh(SPH,c,x*.183,y*.183+.025,z*.183-.012,.042+(k%3)*.007)); } },
   short:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.183,20,12,0,TAU,0,Math.PI*.52),c,0,.012,-.012); cap.rotation.x=-.28; h.add(cap); const f=mesh(SPH,c,.035,.12,.1,.12,.05,.075); f.rotation.z=.25; h.add(f); },
-  quiff:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.182,20,12,0,TAU,0,Math.PI*.5),c,0,.015,-.012); cap.rotation.x=-.22; h.add(cap); const q=mesh(SPH,c,0,.165,.06,.1,.075,.12); q.rotation.x=.3; h.add(q); } };
-function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
+  quiff:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.182,20,12,0,TAU,0,Math.PI*.5),c,0,.015,-.012); cap.rotation.x=-.22; h.add(cap); const q=mesh(SPH,c,0,.165,.06,.1,.075,.12); q.rotation.x=.3; h.add(q); },
+  wavy:(h,c)=>{ HAIR.quiff(h,c); [[-.08,.17,.07,.06],[.07,.18,.05,.065],[-.02,.2,.0,.07],[.11,.13,.1,.05],[-.12,.12,.09,.05],[.0,.16,.13,.055]].forEach(([x,y,z,r])=>h.add(mesh(SPH,c,x,y,z,r,r*.8,r))); } };
+/* each of us, a little more ourselves: o.build broadens the shoulders; funnel and zip make a quarter-zip, polo a polo's collar
+   and buttons; under is the shirt collar showing beneath; watch, mous(tache); prop is the thing we carry for our project */
+function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); const W=o.build||1;
   const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.08,.5,0); l.add(mesh(CAPS(.062,.32),o.pants,0,-.22,0)); l.add(mesh(BOXG,o.shoes,0,-.46,.035,.12,.08,.21)); body.add(l); return l; });
-  body.add(mesh(CAPS(.15,.2),o.shirt,0,.77,0,1,1,.78)); body.add(mesh(BOXG,o.pants,0,.55,0,.3,.12,.2));
-  if(o.collar) body.add(mesh(CAPS(.07,.02),o.collar,0,.98,0,1.2,.6,1));
+  body.add(mesh(CAPS(.15,.2),o.shirt,0,.77,0,W,1,.78)); body.add(mesh(BOXG,o.pants,0,.55,0,.3,.12,.2));
+  if(o.funnel) body.add(mesh(new T.CylinderGeometry(.074,.09,.085,16,1,true),o.shirt,0,1.015,0));   // the stand-up collar of a quarter-zip
+  if(o.under) [-1,1].forEach(s=>{ const c=mesh(BOXG,o.under,s*.024,.985,.085,.04,.02,.02); c.rotation.z=s*.6; body.add(c); });
+  if(o.zip){ body.add(mesh(BOXG,o.zip,0,.9,.116,.011,.16,.008)); body.add(mesh(BOXG,o.zip,.008,.955,.12,.016,.034,.01)); }
+  if(o.polo){ [-1,1].forEach(s=>{ const c=mesh(BOXG,o.shirt,s*.04,.985,.08,.075,.022,.06); c.rotation.z=s*.45; c.rotation.x=-.3; body.add(c); });
+    body.add(mesh(BOXG,o.polo,0,.93,.117,.026,.08,.006)); [.95,.91].forEach(y=>body.add(mesh(SPH,'#5f5a55',0,y,.12,.008))); }
   body.add(mesh(CAPS(.055,.06),o.skin,0,1.0,0));
-  const arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2,.9,0); a.add(mesh(CAPS(.052,.12),o.shirt,0,-.09,0));
-    a.add(mesh(CAPS(.045,.15),o.short?o.skin:o.shirt,0,-.25,0)); a.add(mesh(SPH,o.skin,0,-.37,0,.05)); body.add(a); return a; });
+  const arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); a.add(mesh(CAPS(.052,.12),o.shirt,0,-.09,0,W,1,W));
+    a.add(mesh(CAPS(.045,.15),o.short?o.skin:o.shirt,0,-.25,0,W,1,W)); a.add(mesh(SPH,o.skin,0,-.37,0,.05)); body.add(a); return a; });
+  if(o.watch) arms[0].add(mesh(BOXG,o.watch,0,-.325,0,.105,.03,.105));
   const head=new T.Group(); head.position.y=1.15; body.add(head);
   head.add(mesh(SPH,o.skin,0,0,0,.172,.18,.165)); [-1,1].forEach(s=>head.add(mesh(SPH,o.skin,s*.165,-.01,0,.035,.045,.03)));
   const eyes=[-1,1].map(s=>{ const e=mesh(CAPS(.016,.022),'#1d1712',s*.062,.012,.152); head.add(e); return e; });
@@ -393,9 +401,20 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body);
   head.add(mesh(SPH,o.skin,0,-.03,.17,.024,.022,.02));
   const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c',{fig:true})); mo.position.set(0,-.08,.152); head.add(mo);
   HAIR[o.hair](head,o.hairC);
+  if(o.mous) head.add(mesh(BOXG,o.hairC,0,-.06,.162,.072,.017,.018));
+  if(o.goatee) head.add(mesh(BOXG,o.hairC,0,-.135,.142,.05,.04,.03));   // a short beard on the chin
+  let prop=null;
+  if(o.prop==='drone'){ prop=drone('#7fd3ff'); prop.matrixAutoUpdate=true; prop.scale.setScalar(.62); prop.position.set(-.46,1.48,.06); g.add(prop); }   // Aetos: a little drone at his shoulder, clear of the hand he waves with
+  if(o.prop==='rocket'){ prop=new T.Group(); prop.position.set(0,-.36,.07); arms[0].add(prop);   // Ogive: a model rocket in his hand
+    prop.add(mesh(new T.CylinderGeometry(.03,.03,.17,12),'#f4f0e8',0,.085,0)); prop.add(mesh(new T.ConeGeometry(.03,.07,12),'#f4f0e8',0,.205,0));
+    prop.add(mesh(new T.CylinderGeometry(.032,.032,.022,12),'#ef8a3c',0,.13,0)); [-1,1].forEach(s=>prop.add(mesh(BOXG,'#ffc392',s*.038,.012,0,.03,.045,.008))); }
+  if(o.prop==='headset'){ const hc='#2a2c31';   // Kríos: a headset, the mic at his mouth
+    const band=new T.Mesh(new T.TorusGeometry(.212,.013,6,24,Math.PI),toonMat(hc,{fig:true})); band.position.y=-.005; head.add(band);
+    [-1,1].forEach(s=>head.add(mesh(SPH,hc,s*.19,-.015,0,.035,.055,.05)));
+    const boom=mesh(BOXG,hc,-.12,-.06,.095,.011,.011,.18); boom.rotation.order='YXZ'; boom.rotation.y=.79; boom.rotation.x=.22; head.add(boom); head.add(mesh(SPH,hc,-.052,-.08,.158,.02)); }
   if(o.pack){ body.add(mesh(BOXG,o.pack,0,.8,-.17,.24,.3,.12)); body.add(mesh(BOXG,'#3f4b58',0,.93,-.235,.2,.05,.03)); }
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
-  g.userData={legs,arms,head,body,eyes}; return g; }
+  g.userData={legs,arms,head,body,eyes,drone:o.prop==='drone'?prop:null}; return g; }
 /* what each of us says depends on what you have played up there: your landmark stands, or we tell you it is still to come */
 const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
 const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
@@ -428,11 +447,11 @@ function linesFor(i){ const land=!!st.land, has=id=>land||S.docked.has(id), left
     'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
-    look:{shirt:'#f1eee8',collar:'#dcd7ce',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814'}},
+    look:{shirt:'#dcdcd8',funnel:true,under:'#8ea6c8',zip:'#4b4e53',watch:'#202224',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814',prop:'drone'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
-    look:{shirt:'#2b2a29',short:true,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#6b4a32'}},
+    look:{shirt:'#262524',short:true,polo:'#1a1918',build:1.1,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#86593a',prop:'rocket'}},
   {name:'Abraham Sabu Kurian',first:'Abraham',li:'https://www.linkedin.com/in/abraham-sabu-kurian/',at:[1.3,-2.7],face:[1.3,-8],pitch:470,
-    look:{shirt:'#2c2b2a',pants:'#3b3f48',shoes:'#2b2b2e',skin:'#8f5f40',hair:'quiff',hairC:'#1d1612'}}];
+    look:{shirt:'#252a37',funnel:true,zip:'#a9acb2',watch:'#202224',pants:'#cdbd9c',shoes:'#2b2b2e',skin:'#8f5f40',hair:'wavy',hairC:'#1d1612',mous:true,goatee:true,prop:'headset'}}];
 CREW.forEach((c,i)=>c.lines=linesFor(i));
 let people=[], me=null;
 function buildPeople(){
@@ -470,9 +489,24 @@ function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(
   add(new T.Mesh(new T.CylinderGeometry(.5,.66,.34,24),toonMat('#5a5f63')),0,.19,0);
   [Math.PI/4,-Math.PI/4].forEach(a=>{ const f=add(new T.Mesh(new T.BoxGeometry(3.1,1.25,.09),toonMat('#FFC392')),0,.64,0); f.rotation.y=a; });
   const w=add(new T.Mesh(new T.SphereGeometry(.17,16,10),toonMat('#38444d')),0,3.25,rAt(3.25)-.02); w.scale.set(1,1,.4); w.rotation.x=-Math.atan(RKR/RKH);
+  /* the hatch is cut out of the hull itself: a curved panel that closes flush into the opening, inside a dark frame (two
+     posts and a header), swinging on a hinge barrel along its bottom edge. Light outside, a grey deck inside, which is the
+     side you walk on when it lies open as a ramp */
+  const frM=toonMat('#4f5458'), seg=(r0,r1,y0,y1,a0,a1,m,sides)=>{ const gm=new T.CylinderGeometry(r1,r0,y1-y0,sides||10,1,true,a0,a1-a0); return add(new T.Mesh(gm,m),0,(y0+y1)/2,0); };
+  const JAMB=.07, PROUD=.022;
+  seg(rAt(FLOOR)+PROUD,rAt(BAND)+PROUD,FLOOR-.02,BAND+.02,GAP,GAP+JAMB,frM,3);            // the post on one side
+  seg(rAt(FLOOR)+PROUD,rAt(BAND)+PROUD,FLOOR-.02,BAND+.02,-GAP-JAMB,-GAP,frM,3);          // and on the other
+  seg(rAt(BAND)+PROUD,rAt(BAND+.075)+PROUD,BAND,BAND+.075,-GAP-JAMB,GAP+JAMB,frM,12);      // the header over it
+  const hinge=add(new T.Mesh(new T.CylinderGeometry(.05,.05,2*rAt(FLOOR)*Math.sin(GAP)+.08,14).rotateZ(Math.PI/2),frM),0,FLOOR,HINGE_Z+.035);   // the hinge barrel
   const piv=add(new T.Group(),0,FLOOR,HINGE_Z); piv.rotation.x=DOOR_SHUT; RK.door=piv;
-  const dr=new T.Mesh(new T.BoxGeometry(.98,DOOR_L,.07),toonMat('#e2dccf')); dr.position.set(0,DOOR_L/2,.035); piv.add(dr);
-  const hd=new T.Mesh(new T.BoxGeometry(.06,.2,.05),toonMat('#5a5f63')); hd.position.set(.33,DOOR_L*.55,.09); piv.add(hd);
+  const din=new T.Group(); din.rotation.x=-DOOR_SHUT; piv.add(din);   // at DOOR_SHUT the panel sits exactly in the hull
+  const doorM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')},uIn:{value:C3('#8f8a82')}},LU),vertexShader:TOON_V(),side:T.DoubleSide,
+    fragmentShader:`uniform vec3 uC,uIn; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
+      void main(){ nearFade(vW); vec3 n=normalize(vN); gl_FragColor=vec4(gl_FrontFacing?toon(uC,n,vW):toon(uIn,-n,vW),1.); }`});
+  const panel=new T.Mesh(new T.CylinderGeometry(rAt(BAND)-.004,rAt(FLOOR)-.004,BAND-FLOOR,14,1,true,-GAP+.004,2*GAP-.008).translate(0,(FLOOR+BAND)/2-FLOOR,-HINGE_Z),doorM); din.add(panel);
+  const hd=new T.Mesh(new T.BoxGeometry(.05,.22,.05),frM); hd.position.set(rAt(FLOOR+DOOR_L*.55)*Math.sin(GAP*.62),DOOR_L*.55,rAt(FLOOR+DOOR_L*.55)*Math.cos(GAP*.62)-HINGE_Z+.02); hd.rotation.y=GAP*.62; din.add(hd);   // the handle
+  [-1,1].forEach(sd=>{ const a=sd*GAP*.62, r=rAt(FLOOR+.12); const k=new T.Mesh(new T.BoxGeometry(.12,.24,.04),frM); k.position.set(r*Math.sin(a),.12,r*Math.cos(a)-HINGE_Z+.016); k.rotation.y=a; din.add(k); });   // the hinge straps, on the door
+  [[-.7,.3],[.7,.3],[-.7,.86],[.7,.86]].forEach(([u,v])=>{ const y=DOOR_L*v, a=GAP*u, r=rAt(FLOOR+y); const b=new T.Mesh(new T.CylinderGeometry(.022,.022,.02,8).rotateX(Math.PI/2),frM); b.position.set(r*Math.sin(a),y,r*Math.cos(a)-HINGE_Z+.008); b.rotation.y=a; din.add(b); });   // four bolts
   const fl=add(new T.Group(),0,.02,0); fl.add(new T.Mesh(new T.ConeGeometry(.5,2.2,16).rotateX(Math.PI).translate(0,-1.1,0),flatMat('#ff9b3d')),new T.Mesh(new T.ConeGeometry(.27,1.25,12).rotateX(Math.PI).translate(0,-.62,0),flatMat('#fff1b8'))); RK.flame=fl;
   const sh=new T.Mesh(SHG,SHM); sh.matrixAutoUpdate=false; sh.renderOrder=1; sh.layers.set(1); sc.add(sh); RK.shadow=sh;
   const pm=toonMat('#f3efe7'); for(let i=0;i<120;i++){ const m=new T.Mesh(GEO.blob,pm); m.visible=false; sc.add(m); RK.puffs.push({m,t:9,life:1,v:new T.Vector3(),s:1}); }
@@ -771,7 +805,7 @@ function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on
   a.x=nx; a.z=nz; a.dir=at(nx,nz); if(a.ob){ a.ob.x=nx; a.ob.z=nz; } a.walk=sp; a.ph=(a.ph||0)+dt*sp*4.6;
   AH.chk+=dt; if(AH.chk>.9){ if(Math.hypot(a.x-AH.lx,a.z-AH.lz)<.35) AH.rp=0; AH.chk=0; AH.lx=a.x; AH.lz=a.z; } }
 /* the shot of him: in front of him and a little to one side, at eye height, looking at him as he waves */
-function glanceStart(d){ const a=people[0]; GLN.t=0; GLN.d=d; a.wave=G_IN+G_HOLD+.4; A.chime(7,.05,.045); A.chime(9,.34,.035); A.whoosh(true,1.1,.05);
+function glanceStart(d){ const a=people[0]; GLN.t=0; GLN.d=d; a.wave=G_IN+G_HOLD+.4; A.chime(5,.05,.045); A.chime(8,.34,.035); A.whoosh(true,1.1,.05);
   let fx=a.face[0]-a.x, fz=a.face[1]-a.z; const l=Math.hypot(fx,fz)||1; fx/=l; fz/=l; const rx=-fz, rz=fx;
   const cx=a.x+fx*3.4+rx*.9, cz=a.z+fz*3.4+rz*.9; camAt(cx,cz,1.62,GLN.P);
   GLN.L.copy(a.dir).multiplyScalar(R+standH(a.x,a.z)+1.2); GLN.U.copy(at(cx,cz)); }
@@ -945,7 +979,8 @@ function standOn(g,u,f,h){ sT.crossVectors(u,f).normalize(); Mf.makeBasis(sT,u,f
 function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(walkPh);
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
   d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
-  if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016); }
+  if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016);
+  if(d.drone){ d.drone.position.y=1.48+Math.sin(t*2.3+i)*.035; d.drone.rotation.y=Math.sin(t*.5+i)*.5; } }
 
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
   const port=innerHeight>innerWidth, fov=FIN.on?FIN.fov*(port?1.3:1):port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
@@ -1078,7 +1113,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
     KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;
-    KR.mt-=dt; if(KR.mt<=0){ KR.mt=.15+Math.random()*.09; const d0=near(INST.kr); if(!quiet&&d0<6.5&&MK.kr.st==='on'&&Math.abs(w-.5)>.4) A.voice(w>.5?196:262); } }
+    const who=w>.5?1:0; if(who!==KR.who&&Math.abs(w-.5)>.4){ KR.who=who; const d0=near(INST.kr); if(!quiet&&d0<9&&MK.kr.st==='on') A.phrase(who,.014*(1-d0/9)); } }
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music, birds now and then, the sea near the shore, a light wind
@@ -1086,5 +1121,5 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
   const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.03+P.speed*.008)*hush);
 };
-st._dbg={began,get started(){ return started; },LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();

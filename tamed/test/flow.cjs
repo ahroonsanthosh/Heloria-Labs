@@ -72,7 +72,7 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     await at(stops[i]);
     if (!mobile && [1, 2, 3, 4, 6].includes(stops[i])) {
       await wait(2500); const a = (await st()).audio;
-      const room = { 1: 'kr', 2: 'ae', 3: 'ph', 4: 'og' }[stops[i]];
+      const room = { 1: 'ae', 2: 'ph', 3: 'og', 4: 'kr' }[stops[i]];
       const mt = await T(t => t.A.meter()); check(mt && mt.peak < .9 && mt.rmsDb < -12, 'never loud at s=' + stops[i] + ': peak ' + (mt && mt.peak) + ', rms ' + (mt && mt.rmsDb) + ' dBFS');
       if (room) check(a[room] > .15 && a.waterF < 700 && a.water < .3, 'sound in ' + room + ': its own layer (' + a[room] + '), water muffled (' + a.water + ' at ' + a.waterF + 'Hz)');
       else check(a.water > .45 && a.waterF > 3000 && a.kr < .02 && a.og < .02, 'sound at Contact: water fully back (' + a.water + ' at ' + a.waterF + 'Hz), rooms silent');
@@ -117,12 +117,12 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
     else { await page.mouse.move(box[0], box[1], { steps: 6 }); await wait(120); await page.mouse.up(); }
     return ok;
   };
-  await holdTo('pharos'); await at(3);
+  await holdTo('pharos'); await at(2);
   await shot('flow-pharos');
   await holdTo('team'); await at(5);
   /* the sundial opens it too; then a click on a name */
   await press('#dial'); await until(x => x.index === true, 'the sundial opens the index');
-  await press('#index li[data-go="ogive"]'); await at(4);
+  await press('#index li[data-go="krios"]'); await at(4);
   /* keys */
   if (!mobile) {
     await page.keyboard.press('ArrowUp'); await at(3);
@@ -133,15 +133,16 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
 
   /* ---- View project goes straight to the project, in a new tab, and the walk stays where it was ---- */
   const views = await page.evaluate(() => [...document.querySelectorAll('.view')].map(a => a.tagName + '|' + a.href + '|' + a.target + '|' + a.rel));
-  check(JSON.stringify(views) === JSON.stringify(['A|https://krios.ie/|_blank|noopener', 'A|https://github.com/ahroonsanthosh/Aetos|_blank|noopener', 'A|https://github.com/ahroonsanthosh/pharos|_blank|noopener', 'A|https://github.com/michaelsheffernan/ogive|_blank|noopener']), 'each View project is a link to the project: ' + views.join(' '));
+  check(JSON.stringify(views) === JSON.stringify(['A|https://github.com/ahroonsanthosh/Aetos|_blank|noopener', 'A|https://github.com/ahroonsanthosh/pharos|_blank|noopener', 'A|https://github.com/michaelsheffernan/ogive|_blank|noopener', 'A|https://krios.ie/|_blank|noopener']), 'each View project is a link to the project: ' + views.join(' '));
   check(await page.evaluate(() => !document.querySelector('#case') && !document.querySelector('[data-open]')), 'there are no project summary pages');
   await press('#menu a[data-nav="projects"]'); await at(1);
+  await T(t => t.jump(t.PLACES.find(p => p.id === 'krios').s)); await at(4);
   await ctx.route(/krios\.ie/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>krios</title>ok' }));
   const [tab] = await Promise.all([ctx.waitForEvent('page', { timeout: 20000 }).catch(() => null), press('#krios .view')]);
   if (tab) { try { await tab.waitForLoadState('domcontentloaded', { timeout: 15000 }); } catch (e) {} }
   check(!!tab && /krios\.ie/.test(tab.url()), 'View project on Kríos opens krios.ie in a new tab (' + (tab ? tab.url() : 'no tab') + ')');
   if (tab) await tab.close();
-  await wait(600); { const x = await st(); check(x.mode === 'world' && Math.abs(x.s - 1) < .012, 'the walk stays in Kríos'); }
+  await wait(600); { const x = await st(); check(x.mode === 'world' && Math.abs(x.s - 4) < .012, 'the walk stays in Kríos'); }
 
   /* ---- the three of us ---- */
   await press('#menu a[data-nav="team"]'); await at(5);
