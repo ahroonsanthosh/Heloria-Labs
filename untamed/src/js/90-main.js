@@ -47,9 +47,10 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
-/* the way in: scroll, swipe, tap, click or a key */
-$('#beginT').textContent=(FINE?'Scroll':'Swipe up')+({land:' to land',aetos:' into orbit'}[S.entry]||' to begin');
-addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
+/* the way in: a click, a tap, a swipe or a key. Not a scroll: a browser lets sound start only on a click, a tap or a key,
+   and the whole thing is meant to be heard from the first moment, so a scroll on the opening screen points at the prompt */
+$('#beginT').textContent=(FINE?'Click':'Tap')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
+addEventListener('wheel',e=>{ if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); },{passive:true});
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
@@ -161,8 +162,9 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if((S.mode==='station'||S.mode==='docking')&&!S.fin) A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
+    if((S.mode==='station'||S.mode==='docking')&&!S.fin) A.update(t,{sub:0,pad:S.stId==='cr'?0:.3,bright:.12}); // inside a station the orbit's score is a faint, muffled thing under the station's own air
   }
+  A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)

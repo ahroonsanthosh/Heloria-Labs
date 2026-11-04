@@ -20,9 +20,10 @@ SRC = os.path.join(HERE, 'src')
 PHOTO_DIR = os.path.join(ROOT, 'untamed', 'src', 'assets', 'img')
 PEOPLE = ['ahroon', 'michael', 'abraham']   # in this order, everywhere
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
-UNTAMED_ARTIFACT = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn'   # where the wild site lives when this is an artifact
-LAND_ARTIFACT = 'https://claude.ai/artifact/WLrXQD6rpaTTfBLAupCMFB'     # Land: straight down to Earth, a preview of its own (an artifact address cannot carry #land)
-ROCKET_ARTIFACT = 'https://claude.ai/artifact/19hq8DVBDhhNbFvSnbFSwE'   # the rocket at the end of the walk: into orbit, at Aetos
+# a standalone preview of the walk has nowhere of its own to send Land, Fly or the rocket: they open the whole site, which
+# lives as one artifact (tools/build.py --bundle). The separate previews these used to point at are gone
+ONE_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
+UNTAMED_ARTIFACT = LAND_ARTIFACT = ROCKET_ARTIFACT = ONE_ARTIFACT
 ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT}
 SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos'}
 # the one artifact that holds everything: this page at its front, the untamed as a page of its own beside it, the same tab

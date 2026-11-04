@@ -56,6 +56,11 @@ const A=(()=>{
     const mk=(type,f,q)=>{const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q||.7; const g=ctx.createGain(); g.gain.value=0; ns.connect(b); b.connect(g); g.connect(comp); return {b,g};};
     n.wind=mk('bandpass',700,.8); n.thrust=mk('bandpass',240,1.1); n.roar=mk('lowpass',380,.9); n.hiss=mk('highpass',3000,.5);
     n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
+    // each station's own air, under its screen: a bed of filtered noise and a low hum, shaped per station by A.bed
+    { const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.start(); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
+      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn);
+      n.hum=ctx.createOscillator(); n.hum.type='triangle'; n.hum.frequency.value=55; const hf=ctx.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=420;
+      n.humG=ctx.createGain(); n.humG.gain.value=0; n.hum.connect(hf); hf.connect(n.humG); n.humG.connect(comp); n.hum.start(); n.bedT=0; }
   }
   const last=new WeakMap();
   const set=(p,v,tc=.08)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
@@ -70,6 +75,11 @@ const A=(()=>{
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+Math.min(.05,dur*.3)); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
     s.connect(b); b.connect(a); a.connect(comp); if(send){const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(revIn);} s.start(t0,Math.random()); s.stop(t0+dur+.05);
   }
+  /* each station's air: f/q the noise band, g its level, hz/h the hum, wob a slow drift of the band, sea a slow swell, ping a
+     soft return every so many seconds at pf */
+  const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
+    og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
+    cr:{f:900,q:.4,g:.1,hz:55,h:0,sea:1}};   // Earth: a breeze through the grass under the town's music, so the gaps between its notes are never empty
   const PEN=[0,2,3,7,9]; // D dorian-ish pentatonic
   /* the untamed plays louder than the walk, and a sound you hear again and again is never quite the same twice */
   const LOUD=.9, vr=(k=.04)=>1+(Math.random()*2-1)*k;
@@ -97,8 +107,16 @@ const A=(()=>{
     hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
     whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    /* a station's own air under its screen, so docking never drops you into silence: Kríos a low murmur of voices in a
+       room, Aetos the hum of its radar and a slow sweep, Pharos the sea against the rocks, Ogive a hangar's hum and the hiss
+       of a vent, Beacon the static and the carrier of a radio mast. id null: the air goes */
+    bed(id,t){ if(!ctx) return; const B=BEDS[id];
+      if(B){ set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
+      const sw=B&&B.sea?.55+.45*Math.sin(t*.42)*Math.sin(t*.13+1):1;
+      set(n.bedG.gain,B?B.g*sw:0,B?.9:.5); set(n.humG.gain,B?B.h:0,B?.9:.5);
+      if(B&&B.ping&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
     muffle(v){ n.muf=!!v; },
-    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.cb) set(n.cb.lvl.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); if(n.mus) set(n.mus.gain,0,.3); },
+    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.cb) set(n.cb.lvl.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); if(n.mus) set(n.mus.gain,0,.3); if(n.bedG){ set(n.bedG.gain,0,.3); set(n.humG.gain,0,.3); } },
     /* station beacons: a soft glass tone per station in the score's key, each with its own slow pulse,
        louder as you approach and panned to where the station is */
     beacons(notes){ if(!ctx||n.beacons) return;
@@ -5020,9 +5038,10 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
-/* the way in: scroll, swipe, tap, click or a key */
-$('#beginT').textContent=(FINE?'Scroll':'Swipe up')+({land:' to land',aetos:' into orbit'}[S.entry]||' to begin');
-addEventListener('wheel',e=>{ if(S.mode==='load'&&S.ready&&e.deltaY>4) enter(); },{passive:true});
+/* the way in: a click, a tap, a swipe or a key. Not a scroll: a browser lets sound start only on a click, a tap or a key,
+   and the whole thing is meant to be heard from the first moment, so a scroll on the opening screen points at the prompt */
+$('#beginT').textContent=(FINE?'Click':'Tap')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
+addEventListener('wheel',e=>{ if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); },{passive:true});
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
@@ -5134,8 +5153,9 @@ function frame(now){
     if(S.stSnap){ stPos.copy(target); stLook.copy(S.st.camL); S.stSnap=false; }
     else { const k=S.mode==='docking'||S.mode==='undocking'?1-Math.exp(-14*dt):1-Math.exp(-4*dt); stPos.lerp(target,k); stLook.lerp(S.st.camL,1-Math.exp(-5*dt)); }
     stCam.position.copy(stPos); if(S.shake>0&&!RM){ const a=S.shake*S.shake*.22; stCam.position.add(tv[6].set((Math.random()-.5)*a,(Math.random()-.5)*a,0)); } stCam.lookAt(stLook);
-    if((S.mode==='station'||S.mode==='docking')&&!S.fin) A.update(t,{sub:0,pad:0}); // a station has only its own sounds; the orbit's score waits outside
+    if((S.mode==='station'||S.mode==='docking')&&!S.fin) A.update(t,{sub:0,pad:S.stId==='cr'?0:.3,bright:.12}); // inside a station the orbit's score is a faint, muffled thing under the station's own air
   }
+  A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)

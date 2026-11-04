@@ -5,7 +5,7 @@
 /* where the preview's ways out go, read from the build itself so the two never drift apart */
 const BUILD = require('fs').readFileSync(require('path').join(__dirname, '..', 'build.py'), 'utf8');
 const art = k => (BUILD.match(new RegExp('^' + k + " = '([^']+)'", 'm')) || [])[1];
-const UNTAMED = art('UNTAMED_ARTIFACT'), LAND = art('LAND_ARTIFACT'), ROCKET = art('ROCKET_ARTIFACT');
+const UNTAMED = art('ONE_ARTIFACT'), LAND = UNTAMED, ROCKET = UNTAMED;   // a standalone walk preview sends all three to the whole site
 module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, ctx }) => {
   const st = () => T(t => t.state());
   const until = async (pred, desc, arg, timeout = 150000) => {

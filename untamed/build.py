@@ -5,7 +5,6 @@
   python3 untamed/build.py --single dist/x.html # the same document, somewhere else
   python3 untamed/build.py --artifact out.html  # page content only, for a claude.ai artifact
   python3 untamed/build.py --only kr --single /tmp/kr.html   # just one station (fast testing)
-  python3 untamed/build.py --src journey/src --artifact out.html   # the journey version, built from its own source tree
 
 The deployed site (Tamed at the front, Untamed under untamed/) is written by tools/build.py, which calls write_site() here.
 """
@@ -18,8 +17,9 @@ CORE_JS = ['00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js
 CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap'
-TAMED_ARTIFACT = 'https://claude.ai/artifact/2sQrGTPr8inczHUGHVpFss'   # where the calm site lives when this is an artifact
-FLY_ARTIFACT = 'https://claude.ai/artifact/LudKe5Wd8ZGPv88m9A4MMn'     # the whole thing, from the start, as an artifact
+# a standalone preview of the untamed sends the walk, and Fly the whole thing, to the whole site, which lives as one
+# artifact (tools/build.py --bundle). The separate previews these used to point at are gone
+TAMED_ARTIFACT = FLY_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
 
 def read(p): return open(os.path.join(SRC, p), encoding='utf-8').read()
 def b64(p): return base64.b64encode(open(os.path.join(SRC, p), 'rb').read()).decode()
@@ -37,7 +37,6 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly=''):
     html = calm_link(read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids)), tamed_url)
     has = lambda f: os.path.exists(os.path.join(SRC, 'js', f))
     core = [x for f in CORE_JS for x in ((['28-finale.js'] if f == '29-station.js' and has('28-finale.js') else []) + [f])]   # the last flight, before the stations
-    core += ['26-journey.js'] if has('26-journey.js') else []   # the journey version adds its director
     js = '\n'.join(read('js/' + f) for f in core)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')
@@ -110,7 +109,7 @@ def main():
     ap.add_argument('--single'); ap.add_argument('--artifact'); ap.add_argument('--only')
     ap.add_argument('--inline-three', action='store_true')
     ap.add_argument('--entry', choices=['land', 'aetos'], help='an artifact that opens on this way in: Land, or into orbit at Aetos')
-    ap.add_argument('--src', help='build from another source tree, e.g. journey/src (the default is untamed/src)')
+    ap.add_argument('--src', help='build from another source tree (the default is untamed/src)')
     a = ap.parse_args()
     global SRC
     if a.src: SRC = a.src if os.path.isabs(a.src) else os.path.join(ROOT, a.src)

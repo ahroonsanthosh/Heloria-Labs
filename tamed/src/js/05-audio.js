@@ -201,6 +201,12 @@ const A=(()=>{
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.075*g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+.16);
       o.connect(a); a.connect(n.comp); const s=ctx.createGain(); s.gain.value=.65; a.connect(s); s.connect(n.revIn); o.start(t0); o.stop(t0+.2);
       tone(f*3.1,.06,.008*g,'sine',f*4,.012,.4,.002); },
+    /* a hand moving through the water: a soft swish, longer and darker when slow, quicker and brighter when fast, from the
+       side of the screen the hand is on, and now and then a drop flicked off */
+    swish(k=.5,p=0){ if(!on) return; const out=pan(p*.7,n.comp), d=.5+.3*(1-k);
+      noise(d,.06+.09*k,700+1500*k,260+200*k,'bandpass',1.3,0,.35,out);
+      noise(d*.6,.012+.02*k,3400+900*k,1800,'bandpass',1.6,.03,.25,out);
+      if(k>.45&&Math.random()<.5) plip(.008+.01*k,.12+Math.random()*.2); },
     whoosh(up=true,dur=1.4,g=.07){ noise(dur,g,up?260:2600,up?2600:260,'bandpass',1,0,.5); },
     swell(){ if(!on) return; [62,66,69,74].forEach((m,i)=>tone(mtof(m),3.2,.03,'sine',0,i*.06,.8,.6)); noise(2.2,.05,200,2600,'lowpass',.7,0,.6); },
     open(){ if(!on) return; [57,62,66,69].forEach((m,i)=>tone(mtof(m),2.6,.028,'sine',mtof(m)*1.003,i*.05,.8,.35)); noise(1.4,.06,300,4200,'lowpass',.6,0,.6); },

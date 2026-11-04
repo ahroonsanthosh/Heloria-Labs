@@ -19,6 +19,16 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });
   if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });   // --hq: full-resolution black hole and sky, for stills
+  /* --meter: whatever reaches the speakers is also read by an analyser, so a scenario can ask window.__meter() how loud
+     the page is right now ({pk, db}); the page itself is not changed */
+  if (opt.meter) await ctx.addInitScript(() => {
+    const C = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (d, ...r) { const res = C.call(this, d, ...r);
+      if (d instanceof AudioDestinationNode) { const c = this.context; if (!c.__an) { c.__an = c.createAnalyser(); c.__an.fftSize = 4096; window.__meterCtx = c; } C.call(this, c.__an); }
+      return res; };
+    window.__meter = () => { const c = window.__meterCtx; if (!c || !c.__an) return { pk: 0, db: -200, state: 'none' }; const b = new Float32Array(c.__an.fftSize); c.__an.getFloatTimeDomainData(b);
+      let pk = 0, sq = 0; for (const v of b) { pk = Math.max(pk, Math.abs(v)); sq += v * v; } const rms = Math.sqrt(sq / b.length); return { pk: +pk.toFixed(4), db: rms > 0 ? +(20 * Math.log10(rms)).toFixed(1) : -200, state: c.state }; };
+  });
   const page = await ctx.newPage(); const errors = [];
   page.on('pageerror', e => { errors.push('pageerror: ' + e.message); console.log('PAGEERROR', e.message); });
   page.on('console', m => { if (m.type() === 'error') { errors.push('console: ' + m.text()); console.log('CONSOLE', m.text().slice(0, 300)); } });

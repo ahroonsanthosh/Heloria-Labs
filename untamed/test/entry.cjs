@@ -12,7 +12,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const load = await page.evaluate(() => ({ bg: getComputedStyle(document.querySelector('#load')).backgroundColor, ink: getComputedStyle(document.querySelector('#mark')).color, begin: document.querySelector('#beginT').textContent, landing: document.documentElement.classList.contains('landing') }));
   log('loader', JSON.stringify(load));
   await wait(1400); await shot(tag + '-0-loader');
-  const verb = mobile ? 'Swipe up' : 'Scroll';
+  const verb = mobile ? 'Tap' : 'Click';
   if (way === 'fly') {
     ok(!load.landing && /rgb\(5, 5, 4\)/.test(load.bg), 'Fly opens in the dark', load.bg);
     ok(load.begin === verb + ' to begin', 'its prompt', load.begin);
@@ -48,7 +48,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   }
   if (way === 'aetos') {
     ok(!load.landing && /rgb\(5, 5, 4\)/.test(load.bg), 'from the walk\'s rocket: the night it left you in', load.bg);
-    ok(load.begin === verb + ' into orbit', 'its prompt', load.begin);
+    ok(load.begin === verb + ' to go into orbit', 'its prompt', load.begin);
     await page.click('#load');
     ok(await until(h => h.S.mode === 'tohub' || h.S.mode === 'hub', 40000), 'straight into orbit');
     const s = await H(h => ({ lead: h.S.lead && h.S.lead.s.id, ap: !!h.S.ap, far: +h.S.probe.p.distanceTo(h.S.lead.s.pos).toFixed(1), ch: h.S.ch, story: !document.querySelector('#story').classList.contains('off') }));

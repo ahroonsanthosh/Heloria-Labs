@@ -264,6 +264,12 @@ const A=(()=>{
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.075*g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+.16);
       o.connect(a); a.connect(n.comp); const s=ctx.createGain(); s.gain.value=.65; a.connect(s); s.connect(n.revIn); o.start(t0); o.stop(t0+.2);
       tone(f*3.1,.06,.008*g,'sine',f*4,.012,.4,.002); },
+    /* a hand moving through the water: a soft swish, longer and darker when slow, quicker and brighter when fast, from the
+       side of the screen the hand is on, and now and then a drop flicked off */
+    swish(k=.5,p=0){ if(!on) return; const out=pan(p*.7,n.comp), d=.5+.3*(1-k);
+      noise(d,.06+.09*k,700+1500*k,260+200*k,'bandpass',1.3,0,.35,out);
+      noise(d*.6,.012+.02*k,3400+900*k,1800,'bandpass',1.6,.03,.25,out);
+      if(k>.45&&Math.random()<.5) plip(.008+.01*k,.12+Math.random()*.2); },
     whoosh(up=true,dur=1.4,g=.07){ noise(dur,g,up?260:2600,up?2600:260,'bandpass',1,0,.5); },
     swell(){ if(!on) return; [62,66,69,74].forEach((m,i)=>tone(mtof(m),3.2,.03,'sine',0,i*.06,.8,.6)); noise(2.2,.05,200,2600,'lowpass',.7,0,.6); },
     open(){ if(!on) return; [57,62,66,69].forEach((m,i)=>tone(mtof(m),2.6,.028,'sine',mtof(m)*1.003,i*.05,.8,.35)); noise(1.4,.06,300,4200,'lowpass',.6,0,.6); },
@@ -2532,7 +2538,8 @@ function waterInteract(){
   if(!M.on||S.mode!=='world'||HOLD.open) { if(WORLD.onWater){ WORLD.onWater=false; WORLD.offT=now(); } return; }
   if(waterAt(M.x,M.y,CAM.out,_hit)){ const sp=Math.hypot(M.vx,M.vy);
     if(!WORLD.onWater){ WORLD.onWater=true; if(now()-WORLD.offT>.55){ A.drop(.75); OUT.sim.drop(_hit.x,_hit.z,.55,1.4); } }
-    else if(sp>25) OUT.sim.stroke(_lastHit.x,_lastHit.z,_hit.x,_hit.z,clamp(sp/1500,0,1)*.6);
+    else if(sp>25){ OUT.sim.stroke(_lastHit.x,_lastHit.z,_hit.x,_hit.z,clamp(sp/1500,0,1)*.6);
+      const k=clamp(sp/1400,0,1); if(now()-(WORLD.swT||0)>.34-.14*k){ WORLD.swT=now(); A.swish(k,M.x/innerWidth*2-1); } }   // and you hear it move
     _lastHit.copy(_hit);
   } else if(WORLD.onWater){ WORLD.onWater=false; WORLD.offT=now(); }
 }
@@ -2634,7 +2641,9 @@ function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
   const beam=GAL&&prox(3)>.01?GAL.rooms[2].lock:0;   // how sure the drone is of where it is
   const gate=S.mode==='gate', way=gate?S.gateHover:null, go=LAUNCH.near;
-  return {music:gate?0:(1-inside*.3)*(1-go*.6), musF:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:0):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?1500:lerp(2400,320,inside)+contact*1800,
+  // the gate at rest is not silent: the walk's score far off and muffled, and the lake under it; a way, shown, takes over
+  const rest=gate&&!way?1:0;
+  return {music:gate?.3*rest:(1-inside*.3)*(1-go*.6), musF:gate?1600:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:.2*rest):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?(way==='walk'?1500:850):lerp(2400,320,inside)+contact*1800,
     wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(1), ae:prox(2), ph:prox(3), og:prox(4), beam, rise:sstep(3.7,4.4,s),
     warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
