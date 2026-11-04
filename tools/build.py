@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the whole Heloria Labs site: one place, three ways in.
 
-  python3 tools/build.py            # docs/ (what Cloudflare Pages serves) and the single-file builds in dist/
+  python3 tools/build.py            # docs/ (what Cloudflare serves) and the single-file builds in dist/
   python3 tools/build.py --docs /tmp/site   # the site somewhere else, nothing in dist/
   python3 tools/build.py --bundle /tmp/one  # everything as one claude.ai artifact: index.html (the page) and
                                             # untamed/index.html (a page of its own), linked in the same tab
@@ -11,7 +11,7 @@ docs/
   untamed/index.html  Heloria Untamed, the playable universe (Beacon, its contact station, links back to the calm walk)
   assets/             tamed.css, tamed.js, untamed.css, untamed.js, img/ (portraits, social images, icon), vendor/ (three.js)
   404.html            for any address that is not here
-  _headers            Cloudflare Pages: security headers, and how long each kind of file may be cached
+  _headers            for Cloudflare: security headers, and how long each kind of file may be cached
 """
 import argparse, importlib.util, os, shutil, sys
 
@@ -23,7 +23,7 @@ def load(name, path):
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
 
 
-# Cloudflare Pages reads this from the site's root. Pages and their code can change at any deploy, so they are checked
+# Cloudflare reads this from the site's root. Pages and their code can change at any deploy, so they are checked
 # again within the hour; three.js is a fixed version and kept for a year
 HEADERS = """/*
   X-Content-Type-Options: nosniff

@@ -50,7 +50,7 @@ python3 tools/build.py
 python3 -m http.server --directory docs 8000
 ```
 
-It's a static site, hosted on Cloudflare Pages. `wrangler.toml` points Pages at `docs/`, so there's no build step there.
+It's a static site on Cloudflare. Every push to `main` deploys `docs/` as it is; `wrangler.toml` points Cloudflare at it.
 
 <details>
 <summary>Tests</summary>

@@ -1,6 +1,8 @@
-# Cloudflare Pages. The site is built ahead of time into docs/ (python3 tools/build.py), so there is no build step:
-# connect the repository with the production branch set to main and the build command left empty, or run
-# `npx wrangler pages deploy` from here
+# Cloudflare serves the site straight from docs/ (built ahead of time by python3 tools/build.py), so there is no build
+# step: every push to main deploys it. docs/_headers sets the security headers and caching; docs/404.html is the 404 page.
 name = "heloria-labs"
-pages_build_output_dir = "docs"
 compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./docs"
+not_found_handling = "404-page"
