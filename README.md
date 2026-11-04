@@ -8,13 +8,13 @@
 
 Most company websites are a list of stats. I wanted ours to be somewhere you could actually go.
 
-Heloria Labs is three of us: me, Michael Sweeney Heffernan and Abraham Sabu Kurian. We build around hard problems: 
-[Kríos](https://krios.ie) (voice practice for sales teams),
+Heloria Labs is three of us: me, Michael Sweeney Heffernan and Abraham Sabu Kurian. We build around hard problems:
 [Aetos](https://github.com/ahroonsanthosh/Aetos) (counter-drone command),
-[Pharos](https://github.com/ahroonsanthosh/pharos) (drone navigation without GPS) and
-[Ogive](https://github.com/michaelsheffernan/ogive) (AI tools for rocket design).
+[Pharos](https://github.com/ahroonsanthosh/pharos) (drone navigation without GPS),
+[Ogive](https://github.com/michaelsheffernan/ogive) (AI tools for rocket design) and
+[Kríos](https://krios.ie) (voice practice for sales teams).
 
-The site has three ways in.
+The site has three ways in. Point at one on the front door and you see where it goes before you choose it.
 
 <table>
 <tr>
@@ -36,6 +36,8 @@ The site has three ways in.
 - Every sound is made live in the browser with the Web Audio API. There isn't a single audio file in here.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
+- Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
+  dark to a sales call that rises over a table as lines of light.
 - No framework. Plain JavaScript and three.js, built by a short Python script into a static site under 2 MB.
 
 ## Running it
