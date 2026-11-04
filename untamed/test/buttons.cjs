@@ -79,10 +79,12 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await wait(2600);
   const fc = await page.evaluate(() => { const el = document.querySelector('.st-ae');
     const b = [...el.querySelectorAll('.first .two')].map(x => { const r = x.getBoundingClientRect(); return { t: x.innerText.replace(/\s+/g, ' ').trim(), w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top) }; });
-    return { first: el.classList.contains('first'), b, back: getComputedStyle(document.querySelector('#station > #back')).display,
+    const c = el.querySelector('.first .code');
+    return { first: el.classList.contains('first'), b, code: c ? c.href + '|' + c.target : null, back: getComputedStyle(document.querySelector('#station > #back')).display,
       other: [...el.querySelectorAll('.go > [data-play], .go > .links')].filter(x => getComputedStyle(x).display !== 'none').length }; });
-  rec(fc.first && fc.b.length === 2 && fc.b.every(x => x.w > 100 && x.h > 40) && Math.abs(fc.b[0].w - fc.b[1].w) < 4 && Math.abs(fc.b[0].y - fc.b[1].y) < 4 && /play hold the sky/i.test(fc.b[0].t) && /skip, fly on/i.test(fc.b[1].t),
+  rec(fc.first && fc.b.length === 3 && fc.b.every(x => x.w > 100 && x.h > 40) && Math.abs(fc.b[0].w - fc.b[1].w) < 4 && Math.abs(fc.b[0].y - fc.b[1].y) < 4 && /play hold the sky/i.test(fc.b[0].t) && /skip, fly on/i.test(fc.b[1].t),
     'the first card offers Play Hold the Sky and Skip, fly on, equal and side by side', JSON.stringify(fc.b));
+  rec(fc.code === 'https://github.com/ahroonsanthosh/Aetos|_blank' && /github/i.test(fc.b[2].t), 'and the Aetos code on GitHub, in a new tab', fc.code);
   rec(fc.back === 'none' && fc.other === 0, 'and nothing else to choose from');
   await covered('.st-ae', 'the first card');
   await shot((mobile ? 'm-' : '') + 'ae-first');

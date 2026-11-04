@@ -177,12 +177,12 @@ const A=(()=>{
       if(st.water>.3&&t>n.nextPlip){ plip(.018*st.water*(st.waterF>1500?1:.4)); n.nextPlip=t+.35+Math.random()*2.4; }
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
       /* rooms */
-      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.46,.5); set(n.og.g.gain,st.og*.45,.5);
+      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.36,.5); set(n.og.g.gain,st.og*.45,.5);
       for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air */
       if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
-      set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
+      set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.3,.25);
       /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
       if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
       if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
@@ -192,10 +192,10 @@ const A=(()=>{
     /* the gate: a way being shown, and a way being taken */
     preview(v){ if(!on) return; const t=ctx.currentTime;
       if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
-      else if(v==='land'){ noise(3.3,.028,560,150,'bandpass',.9,0,.5); tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
+      else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air the rocket falls through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
         setTimeout(()=>{ if(S.gateHover!=='land'||!on) return; tone(80,.35,.05,'sine',52,0,.4,.004); noise(.5,.02,1200,300,'lowpass',.8,0,.3);
           glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
-      else if(v==='fly'){ tone(mtof(26),2.6,.04,'sine',mtof(24),0,.5,.5); noise(2.4,.03,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
+      else if(v==='fly'){ tone(mtof(26),2.6,.028,'sine',mtof(24),0,.5,.5); noise(2.4,.024,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
     leave(v){ if(!on) return; const t=ctx.currentTime;
       if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
       else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },

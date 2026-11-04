@@ -17,14 +17,19 @@ S.gateHover=null;
 const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
 const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
   ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
-  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); } };
+  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
 WAYS.forEach(w=>{ const v=w.dataset.way;
   w.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ CYC.off=true; setHover(v); } });
   w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen') setHover(null); });
   w.addEventListener('focus',()=>{ CYC.off=true; setHover(v); }); w.addEventListener('blur',()=>{ if(!S.leaving) setHover(null); }); });
 $('#tamed').addEventListener('click',()=>enter());
-/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the ways can be heard */
-['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='gate'&&!A.on) A.start(); },{capture:true,passive:true}));
+/* a browser lets sound start only from a click, a tap or a key; pointing and a mouse wheel are not enough. So the sound
+   wakes on the first of those it allows (on a phone the first swipe between the ways, on a desktop the arrow keys or any
+   click), and the way being shown is heard at once */
+S.prevAt=0;
+const gateWake=()=>{ if(S.mode!=='gate'||(A.on&&A.ctx&&A.ctx.state==='running')) return;
+  (A.on?A.ctx.resume():A.start()).then(()=>{ if(S.mode==='gate'&&!S.leaving&&S.gateHover&&performance.now()-S.prevAt>400){ A.preview(S.gateHover); S.prevAt=performance.now(); } }).catch(()=>{}); };
+['pointerdown','pointerup','touchend','keydown'].forEach(ev=>addEventListener(ev,gateWake,{capture:true,passive:true}));
 /* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
    cut; when they live somewhere else they open in a tab of their own */
 const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();

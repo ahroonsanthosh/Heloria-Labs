@@ -243,12 +243,12 @@ const A=(()=>{
       if(st.water>.3&&t>n.nextPlip){ plip(.018*st.water*(st.waterF>1500?1:.4)); n.nextPlip=t+.35+Math.random()*2.4; }
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
       /* rooms */
-      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.46,.5); set(n.og.g.gain,st.og*.45,.5);
+      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.36,.5); set(n.og.g.gain,st.og*.45,.5);
       for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air */
       if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
       if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
-      set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.42,.25);
+      set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.3,.25);
       /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
       if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
       if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
@@ -258,10 +258,10 @@ const A=(()=>{
     /* the gate: a way being shown, and a way being taken */
     preview(v){ if(!on) return; const t=ctx.currentTime;
       if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
-      else if(v==='land'){ noise(3.3,.028,560,150,'bandpass',.9,0,.5); tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
+      else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air the rocket falls through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
         setTimeout(()=>{ if(S.gateHover!=='land'||!on) return; tone(80,.35,.05,'sine',52,0,.4,.004); noise(.5,.02,1200,300,'lowpass',.8,0,.3);
           glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
-      else if(v==='fly'){ tone(mtof(26),2.6,.04,'sine',mtof(24),0,.5,.5); noise(2.4,.03,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
+      else if(v==='fly'){ tone(mtof(26),2.6,.028,'sine',mtof(24),0,.5,.5); noise(2.4,.024,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
     leave(v){ if(!on) return; const t=ctx.currentTime;
       if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
       else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
@@ -2297,14 +2297,19 @@ S.gateHover=null;
 const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
 const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
   ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
-  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); } };
+  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
 WAYS.forEach(w=>{ const v=w.dataset.way;
   w.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ CYC.off=true; setHover(v); } });
   w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen') setHover(null); });
   w.addEventListener('focus',()=>{ CYC.off=true; setHover(v); }); w.addEventListener('blur',()=>{ if(!S.leaving) setHover(null); }); });
 $('#tamed').addEventListener('click',()=>enter());
-/* any first touch of the gate wakes the sound (silently: the score waits for the walk), so the ways can be heard */
-['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='gate'&&!A.on) A.start(); },{capture:true,passive:true}));
+/* a browser lets sound start only from a click, a tap or a key; pointing and a mouse wheel are not enough. So the sound
+   wakes on the first of those it allows (on a phone the first swipe between the ways, on a desktop the arrow keys or any
+   click), and the way being shown is heard at once */
+S.prevAt=0;
+const gateWake=()=>{ if(S.mode!=='gate'||(A.on&&A.ctx&&A.ctx.state==='running')) return;
+  (A.on?A.ctx.resume():A.start()).then(()=>{ if(S.mode==='gate'&&!S.leaving&&S.gateHover&&performance.now()-S.prevAt>400){ A.preview(S.gateHover); S.prevAt=performance.now(); } }).catch(()=>{}); };
+['pointerdown','pointerup','touchend','keydown'].forEach(ev=>addEventListener(ev,gateWake,{capture:true,passive:true}));
 /* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
    cut; when they live somewhere else they open in a tab of their own */
 const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
@@ -2456,11 +2461,13 @@ UI.isBig=()=>curBig;
 /* ---- 72-gate.js ---- */
 /* ================= THE GATE: LAND, BEFORE YOU CHOOSE IT =================
    A bright drawn sky over the curve of a small planet, a few houses and trees on it, and the rocket coming down onto its
-   pad, in the flat colours and ink lines of the world Land takes you to. Drawn only while it is being shown. */
+   pad, in the flat colours and ink lines of the world Land takes you to. It opens the way Fly's dark comes in, from the
+   middle out, but through a bank of drawn clouds that rolls outward with a mist at its edge and clears to the sky; going,
+   the clouds close in again. Drawn only while it is being shown. */
 const LANDV=(()=>{
   const cv=$('#gateLand'), x=cv.getContext('2d');
   const INK='#2A241D';
-  let on=false, run=false, t0=0, last=0, fade=0, w=0, h=0, dpr=1;
+  let on=false, run=false, t0=0, last=0, k=0, w=0, h=0, dpr=1;
   const CLOUDS=[[.1,.13,1],[.6,.08,.8],[.88,.16,.7],[.34,.05,.55]];   // high in the sky, clear of the words
   const size=()=>{ dpr=Math.min(2,devicePixelRatio||1); w=innerWidth; h=innerHeight; const W2=Math.round(w*dpr), H2=Math.round(h*dpr);
     if(cv.width!==W2||cv.height!==H2){ cv.width=W2; cv.height=H2; } };
@@ -2491,7 +2498,10 @@ const LANDV=(()=>{
     x.fillStyle='#2F3336'; x.beginPath(); x.arc(0,-rh*.72,rw*.17,0,TAU); x.fill(); x.stroke(); };
   const D=3.4;   // seconds from the top of the sky to the pad
   function draw(now){
-    const t=(now-t0)/1000; size(); x.setTransform(dpr,0,0,dpr,0,0);
+    const t=(now-t0)/1000; size(); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h);
+    const op=RM?(k>0?1:0):1-Math.pow(1-k,3), H=UI.holeAt(), ox=H[0]*w, oy=(1-H[1])*h, R=op*Math.hypot(w,h)*.62, open=op<.999;
+    if(op<=0) return;
+    if(open){ x.save(); edge(ox,oy,R,now/1000,1); x.clip(); }
     const port=w/h<.82, P={R:Math.max(w,h)*1.9}; P.cx=w*.5; P.cy=h*(port?.84:.81)+P.R;
     /* the sky, its sun, its clouds */
     const sky=x.createLinearGradient(0,0,0,h); sky.addColorStop(0,'#86C4E6'); sky.addColorStop(.5,'#BBDFEF'); sky.addColorStop(.82,'#E9F4EF'); x.fillStyle=sky; x.fillRect(0,0,w,h);
@@ -2516,11 +2526,26 @@ const LANDV=(()=>{
     const pu=RM?0:(t-D)/1.2;
     if(pu>0&&pu<1){ x.fillStyle=`rgba(255,255,255,${(.85*(1-pu)).toFixed(3)})`; x.strokeStyle=`rgba(42,36,29,${(.5*(1-pu)).toFixed(3)})`; x.lineWidth=2;
       for(const [dx,r] of [[-1.3,.42],[-.6,.55],[.6,.55],[1.3,.42]]){ x.beginPath(); x.arc(rx+dx*s*(.6+pu),padY-s*.2-pu*s*.3,s*r*(.6+pu*.8),0,TAU); x.fill(); x.stroke(); } }
+    if(open){
+      /* a white mist just inside the opening, as if the sky is still clearing */
+      const m=x.createRadialGradient(ox,oy,R*.5,ox,oy,R*1.08); m.addColorStop(0,'rgba(255,255,255,0)'); m.addColorStop(1,'rgba(255,255,255,.9)'); x.fillStyle=m; x.fillRect(0,0,w,h);
+      x.restore();
+      /* the bank of cloud riding the edge: one outline round all of it, in the world's own ink */
+      const a=clamp((1-op)*3,0,1); if(a>0){ x.save(); x.globalAlpha=a; x.lineJoin='round';
+        edge(ox,oy,R,now/1000,1.32,.42); x.lineWidth=5; x.strokeStyle=INK; x.stroke(); x.fillStyle='#FFFFFF'; x.fill();
+        edge(ox,oy,R,now/1000,.9,.12); x.fillStyle='rgba(206,228,240,.75)'; x.fill(); x.restore(); } }
   }
-  function loop(now){ if(!run) return; draw(now); fade=on?1:fade-(now-last)/1000; last=now;
-    if(!on&&fade<=0){ run=false; return; } requestAnimationFrame(loop); }
+  /* the edge of the opening: a circle of radius R with round puffs along it. g scales the puffs, out pushes them outward */
+  const PUFF=Array.from({length:30},(_,i)=>.72+.56*((Math.sin(i*12.9898)*43758.5453)%1+1)%1);
+  function edge(cx,cy,R,t,g,out=0){ x.beginPath(); if(g===1){ x.moveTo(cx+R,cy); x.arc(cx,cy,R,0,TAU); }
+    const n=PUFF.length; for(let i=0;i<n;i++){ const a=i/n*TAU+t*.06, rb=(R*.12+10)*PUFF[i]*g*(1+.06*Math.sin(t*1.3+i)), d=R+rb*out;
+      const px=cx+Math.cos(a)*d, py=cy+Math.sin(a)*d; x.moveTo(px+rb,py); x.arc(px,py,rb,0,TAU); } }
+  function loop(now){ if(!run) return; const dt=Math.min(.1,(now-last)/1000); last=now;
+    k=on?Math.min(1,k+dt/.95):Math.max(0,k-dt/.6); draw(now);
+    if(!on&&k<=0){ x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,cv.width,cv.height); run=false; return; } requestAnimationFrame(loop); }
   addEventListener('resize',()=>{ if(run) size(); });
-  return { show(v){ if(v===on) return; on=v; if(v){ t0=performance.now(); fade=1; if(!run){ run=true; last=t0; requestAnimationFrame(loop); } } else fade=1.1; },
+  return { show(v){ if(v===on) return; on=v; if(v){ t0=performance.now(); if(!run){ run=true; last=t0; requestAnimationFrame(loop); } } },
+    get k(){ return k; },
     get t(){ return on?(performance.now()-t0)/1000:-1; } };
 })();
 

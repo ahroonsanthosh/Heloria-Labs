@@ -481,6 +481,10 @@ html.landing #load.go #mark .c{transform:translate(0,-18vh) scale(1.15);filter:b
 .st-ae .first .two{flex-direction:column;gap:8px;height:auto;min-height:66px;min-width:236px;padding:13px 26px 12px;border-color:var(--ink);background:rgba(8,7,6,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .st-ae .first .two b{font:inherit;font-size:12px;letter-spacing:.1em}
 .st-ae .first .two span{font-size:9px;letter-spacing:.06em;opacity:.6}
+/* the third choice is the code itself: the same shape, a little quieter than the two ways on */
+.st-ae .first .code{border-color:rgba(255,248,238,.4)}
+.st-ae .first .code b{display:inline-flex;align-items:center;gap:8px}
+.st-ae .first .code .ar{width:10px;height:10px}
 html.firstdock #station>#back{display:none}
 .st-ae.fguard .first .two{pointer-events:none!important}
 .st-ae{--hos:#FF5636;--fri:#A5C3FF;--unk:#B5AFA3}
@@ -587,8 +591,9 @@ html.firstdock #station>#back{display:none}
   .st-ae .go .lbl{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;justify-items:start;text-align:left}
   .st-ae .go .lbl b{font-size:20px}
   .st-ae .go [data-play]{flex:1 1 auto}
-  .st-ae.first .go .first{flex:1 1 100%;gap:10px}
+  .st-ae.first .go .first{flex:1 1 100%;gap:10px;flex-wrap:wrap}
   .st-ae .first .two{flex:1 1 0;min-width:0;padding:12px 10px}
+  .st-ae .first .code{flex:1 1 100%;min-height:48px;padding:10px}
   .st-ae .ae-top{left:var(--gl);transform:none;top:calc(var(--gt) + 100px);justify-items:start;text-align:left;gap:7px}
   .st-ae .ae-meter{width:150px}
   .st-ae .ae-hint{font-size:9px}

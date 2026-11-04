@@ -54,8 +54,7 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #gate.walk .gate-glow{ opacity:1; transform:translate(-50%,-50%) scale(1.25); }
 #gate.walk #word{ color:#5A3E22; }
 /* Land: a bright drawn sky over a small town, and a rocket coming down to it */
-#gateLand{ position:absolute; inset:0; width:100%; height:100%; display:block; opacity:0; pointer-events:none; transition:opacity .9s var(--ease); }
-#gate.land #gateLand{ opacity:1; }
+#gateLand{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }   /* it opens and closes itself, through its clouds */
 #gate.land .gate-glow{ opacity:0; }
 #gate.land{ color:#2A241D; }
 /* Fly: the dark comes in and bends round a black hole; the letters cannot keep still */

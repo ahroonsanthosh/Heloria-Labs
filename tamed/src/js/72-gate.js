@@ -1,10 +1,12 @@
 /* ================= THE GATE: LAND, BEFORE YOU CHOOSE IT =================
    A bright drawn sky over the curve of a small planet, a few houses and trees on it, and the rocket coming down onto its
-   pad, in the flat colours and ink lines of the world Land takes you to. Drawn only while it is being shown. */
+   pad, in the flat colours and ink lines of the world Land takes you to. It opens the way Fly's dark comes in, from the
+   middle out, but through a bank of drawn clouds that rolls outward with a mist at its edge and clears to the sky; going,
+   the clouds close in again. Drawn only while it is being shown. */
 const LANDV=(()=>{
   const cv=$('#gateLand'), x=cv.getContext('2d');
   const INK='#2A241D';
-  let on=false, run=false, t0=0, last=0, fade=0, w=0, h=0, dpr=1;
+  let on=false, run=false, t0=0, last=0, k=0, w=0, h=0, dpr=1;
   const CLOUDS=[[.1,.13,1],[.6,.08,.8],[.88,.16,.7],[.34,.05,.55]];   // high in the sky, clear of the words
   const size=()=>{ dpr=Math.min(2,devicePixelRatio||1); w=innerWidth; h=innerHeight; const W2=Math.round(w*dpr), H2=Math.round(h*dpr);
     if(cv.width!==W2||cv.height!==H2){ cv.width=W2; cv.height=H2; } };
@@ -35,7 +37,10 @@ const LANDV=(()=>{
     x.fillStyle='#2F3336'; x.beginPath(); x.arc(0,-rh*.72,rw*.17,0,TAU); x.fill(); x.stroke(); };
   const D=3.4;   // seconds from the top of the sky to the pad
   function draw(now){
-    const t=(now-t0)/1000; size(); x.setTransform(dpr,0,0,dpr,0,0);
+    const t=(now-t0)/1000; size(); x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h);
+    const op=RM?(k>0?1:0):1-Math.pow(1-k,3), H=UI.holeAt(), ox=H[0]*w, oy=(1-H[1])*h, R=op*Math.hypot(w,h)*.62, open=op<.999;
+    if(op<=0) return;
+    if(open){ x.save(); edge(ox,oy,R,now/1000,1); x.clip(); }
     const port=w/h<.82, P={R:Math.max(w,h)*1.9}; P.cx=w*.5; P.cy=h*(port?.84:.81)+P.R;
     /* the sky, its sun, its clouds */
     const sky=x.createLinearGradient(0,0,0,h); sky.addColorStop(0,'#86C4E6'); sky.addColorStop(.5,'#BBDFEF'); sky.addColorStop(.82,'#E9F4EF'); x.fillStyle=sky; x.fillRect(0,0,w,h);
@@ -60,10 +65,25 @@ const LANDV=(()=>{
     const pu=RM?0:(t-D)/1.2;
     if(pu>0&&pu<1){ x.fillStyle=`rgba(255,255,255,${(.85*(1-pu)).toFixed(3)})`; x.strokeStyle=`rgba(42,36,29,${(.5*(1-pu)).toFixed(3)})`; x.lineWidth=2;
       for(const [dx,r] of [[-1.3,.42],[-.6,.55],[.6,.55],[1.3,.42]]){ x.beginPath(); x.arc(rx+dx*s*(.6+pu),padY-s*.2-pu*s*.3,s*r*(.6+pu*.8),0,TAU); x.fill(); x.stroke(); } }
+    if(open){
+      /* a white mist just inside the opening, as if the sky is still clearing */
+      const m=x.createRadialGradient(ox,oy,R*.5,ox,oy,R*1.08); m.addColorStop(0,'rgba(255,255,255,0)'); m.addColorStop(1,'rgba(255,255,255,.9)'); x.fillStyle=m; x.fillRect(0,0,w,h);
+      x.restore();
+      /* the bank of cloud riding the edge: one outline round all of it, in the world's own ink */
+      const a=clamp((1-op)*3,0,1); if(a>0){ x.save(); x.globalAlpha=a; x.lineJoin='round';
+        edge(ox,oy,R,now/1000,1.32,.42); x.lineWidth=5; x.strokeStyle=INK; x.stroke(); x.fillStyle='#FFFFFF'; x.fill();
+        edge(ox,oy,R,now/1000,.9,.12); x.fillStyle='rgba(206,228,240,.75)'; x.fill(); x.restore(); } }
   }
-  function loop(now){ if(!run) return; draw(now); fade=on?1:fade-(now-last)/1000; last=now;
-    if(!on&&fade<=0){ run=false; return; } requestAnimationFrame(loop); }
+  /* the edge of the opening: a circle of radius R with round puffs along it. g scales the puffs, out pushes them outward */
+  const PUFF=Array.from({length:30},(_,i)=>.72+.56*((Math.sin(i*12.9898)*43758.5453)%1+1)%1);
+  function edge(cx,cy,R,t,g,out=0){ x.beginPath(); if(g===1){ x.moveTo(cx+R,cy); x.arc(cx,cy,R,0,TAU); }
+    const n=PUFF.length; for(let i=0;i<n;i++){ const a=i/n*TAU+t*.06, rb=(R*.12+10)*PUFF[i]*g*(1+.06*Math.sin(t*1.3+i)), d=R+rb*out;
+      const px=cx+Math.cos(a)*d, py=cy+Math.sin(a)*d; x.moveTo(px+rb,py); x.arc(px,py,rb,0,TAU); } }
+  function loop(now){ if(!run) return; const dt=Math.min(.1,(now-last)/1000); last=now;
+    k=on?Math.min(1,k+dt/.95):Math.max(0,k-dt/.6); draw(now);
+    if(!on&&k<=0){ x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,cv.width,cv.height); run=false; return; } requestAnimationFrame(loop); }
   addEventListener('resize',()=>{ if(run) size(); });
-  return { show(v){ if(v===on) return; on=v; if(v){ t0=performance.now(); fade=1; if(!run){ run=true; last=t0; requestAnimationFrame(loop); } } else fade=1.1; },
+  return { show(v){ if(v===on) return; on=v; if(v){ t0=performance.now(); if(!run){ run=true; last=t0; requestAnimationFrame(loop); } } },
+    get k(){ return k; },
     get t(){ return on?(performance.now()-t0)/1000:-1; } };
 })();

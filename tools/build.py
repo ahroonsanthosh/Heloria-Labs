@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the whole Heloria Labs site: one place, three ways in.
 
-  python3 tools/build.py            # docs/ (what GitHub Pages serves) and the single-file builds in dist/
+  python3 tools/build.py            # docs/ (what Cloudflare Pages serves) and the single-file builds in dist/
   python3 tools/build.py --docs /tmp/site   # the site somewhere else, nothing in dist/
   python3 tools/build.py --bundle /tmp/one  # everything as one claude.ai artifact: index.html (the page) and
                                             # untamed/index.html (a page of its own), linked in the same tab
@@ -11,6 +11,7 @@ docs/
   untamed/index.html  Heloria Untamed, the playable universe (Beacon, its contact station, links back to the calm walk)
   assets/             tamed.css, tamed.js, untamed.css, untamed.js, img/ (portraits, social images, icon), vendor/ (three.js)
   404.html            for any address that is not here
+  _headers            Cloudflare Pages: security headers, and how long each kind of file may be cached
 """
 import argparse, importlib.util, os, shutil, sys
 
@@ -20,6 +21,25 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, path))
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
+
+
+# Cloudflare Pages reads this from the site's root. Pages and their code can change at any deploy, so they are checked
+# again within the hour; three.js is a fixed version and kept for a year
+HEADERS = """/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/assets/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+/assets/img/*
+  Cache-Control: public, max-age=604800
+
+/assets/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+"""
 
 
 def main():
@@ -45,6 +65,7 @@ def main():
     untamed.write_site(out)   # first: it also lays down the shared files in assets/
     tamed.write_site(out)
     open(os.path.join(out, '.nojekyll'), 'w').write('')
+    open(os.path.join(out, '_headers'), 'w').write(HEADERS)
     print('site     ->', out)
     for root, _, files in sorted(os.walk(out)):
         for f in sorted(files):
