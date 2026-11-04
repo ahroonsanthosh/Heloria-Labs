@@ -114,8 +114,8 @@ const A=(()=>{
      soft return every so many seconds at pf */
   const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
     og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
-    cr:{f:560,q:.6,g:.06,hz:55,h:0,type:'lowpass',send:0}};   /* Earth: a soft, low breeze under the town's music, so the gaps between its notes are never
-       empty; no hiss on top and no echo of it (noise mixed with its own echo is what sounds phasey) */
+    cr:{f:560,q:.6,g:0,hz:55,h:0,type:'lowpass',send:0}};   /* Earth has no air of its own: the town's music, the birds, footsteps and voices carry it,
+       and nothing there is noise, so nothing can hiss, crackle or phase */
   /* the town's key on Earth: C major pentatonic. inKey snaps a pitch to its nearest note there */
   const PENT_C=[0,2,4,7,9], inKey=f=>{ const m=69+12*Math.log2(f/440), o=Math.floor(m/12)*12; let best=m, bd=99;
     for(const k of [-12,0,12]) for(const pc of PENT_C){ const c=o+k+pc; if(Math.abs(c-m)<bd){ bd=Math.abs(c-m); best=c; } } return 440*Math.pow(2,(best-69)/12); };
@@ -190,8 +190,8 @@ const A=(()=>{
        own notes; one phrase each turn, so it is a conversation you can follow, not a murmur */
     phrase(who,g=.012){ if(!on||muted||!ctx) return; const M=who?[67,64,62]:[72,76,79];
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
-    /* music for Earth: a slow, warm loop (keys, a plucked melody, soft bass, brushes and a little vinyl), built note by note
-       in the score's own scheduler. music(v) sets the level; call it every frame while it should play. */
+    /* music for Earth: a slow, warm loop (keys, a plucked melody, soft bass and brushes), built note by note
+       in the score's own scheduler; no crackle, nothing on Earth that could sound like static. music(v) sets the level; call it every frame while it should play. */
     music(v){ if(!ctx) return;
       if(!n.mus){ n.mus=ctx.createGain(); n.mus.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3400; lp.Q.value=.5; n.mus.connect(lp); lp.connect(comp);
         const sg=ctx.createGain(); sg.gain.value=.4; lp.connect(sg); sg.connect(revIn); n.mt=ctx.currentTime+.15; n.ms=0; n.mel=7; }
@@ -211,7 +211,6 @@ const A=(()=>{
         if(pos===0||pos===5) play(95,t0,.22,.07,'sine',.005,42);                    // a soft kick
         if(pos===4) hit(t0,.16,.022,1900,'bandpass',.9);                            // a brush on the snare
         if(k%2===1) hit(t0,.045,.007+Math.random()*.004,7000,'highpass',.7);        // brushes on the offbeat
-        if(!LITE&&Math.random()<.18) hit(t0+Math.random()*.2,.012,.012,3000+Math.random()*3000,'bandpass',3); // vinyl
         if([0,3,4,6].includes(pos)&&Math.random()<.62){ n.mel=clamp(n.mel+Math.floor(Math.random()*5)-2,0,SCALE.length-1); const f=mf(SCALE[n.mel]);
           play(f,t0,beat*1.5,.024,'sine',.004); play(f*3.01,t0,beat*.35,.005,'sine',.002); }
         n.ms++; n.mt+=beat*(k%2?.44:.56); } };
@@ -5110,10 +5109,9 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     const who=w>.5?1:0; if(who!==KR.who&&Math.abs(w-.5)>.4){ KR.who=who; const d0=near(INST.kr); if(!quiet&&d0<9&&MK.kr.st==='on') A.phrase(who,.014*(1-d0/9)); } }
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
-  // sound: the music, birds now and then, the sea near the shore, a light wind
+  // sound: the music and birds now and then
   A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_LAND?.55*sstep(T_LAND,T_END,CUT.t):0):.55); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)) A.chirp((Math.random()-.5)*1.6); }
-  const hush=FIN.on&&FIN.t>F_IGN-F_HOLD&&FIN.t<F_IGN?0:FIN.on&&FIN.shut&&!FIN.ign?.5:1;   // the second before ignition is silent
-  const shore=1-sstep(.0,.14,isle(P.u)); A.hiss(.3*shore*(.6+.4*Math.sin(t*.7))*hush); A.wind((.015+P.speed*.004)*hush);
+  A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
 st._dbg={began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
