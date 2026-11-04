@@ -8,6 +8,7 @@
 
 The deployed site (Tamed at the front, Untamed under untamed/) is written by tools/build.py, which calls write_site() here.
 """
+import hashlib
 import argparse, base64, glob, json, os, shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -97,9 +98,14 @@ def write_site(out, only=None):
     shutil.copytree(os.path.join(SRC, 'assets', 'img'), os.path.join(out, 'assets', 'img'), dirs_exist_ok=True)
     for f in ('three.min.js', 'three.LICENSE.txt'): shutil.copy(os.path.join(SRC, 'assets', 'vendor', f), os.path.join(out, 'assets', 'vendor', f))
     js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp' % n for n in CREW]))
+    js = wrap_js(js)
     open(os.path.join(out, 'assets', 'untamed.css'), 'w', encoding='utf-8').write(css)
-    open(os.path.join(out, 'assets', 'untamed.js'), 'w', encoding='utf-8').write(wrap_js(js))
-    page = DOC_HEAD.replace('{A}', A).replace('{F}', FONTS_CSS) + html + '\n<script src="%svendor/three.min.js"></script>\n<script src="%suntamed.js"></script>\n</body>\n</html>\n' % (A, A)
+    open(os.path.join(out, 'assets', 'untamed.js'), 'w', encoding='utf-8').write(js)
+    # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
+    # the moment the page changes, instead of running yesterday's code for an hour
+    fp = lambda t: hashlib.sha1(t.encode('utf-8')).hexdigest()[:10]
+    page = (DOC_HEAD.replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A).replace('{F}', FONTS_CSS) + html
+            + '\n<script src="%svendor/three.min.js"></script>\n<script src="%suntamed.js?v=%s"></script>\n</body>\n</html>\n' % (A, A, fp(js)))
     open(os.path.join(out, 'untamed', 'index.html'), 'w', encoding='utf-8').write(page)
     nf = os.path.join(SRC, '404.html')
     if os.path.exists(nf): shutil.copy(nf, os.path.join(out, '404.html'))

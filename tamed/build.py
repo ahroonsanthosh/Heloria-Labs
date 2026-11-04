@@ -106,6 +106,10 @@ def write(path, text):
     return p, size
 
 
+def fingerprint(text):
+    import hashlib
+    return hashlib.sha1(text.encode('utf-8')).hexdigest()[:10]
+
 def write_site(out):
     """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
     out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
@@ -115,10 +119,13 @@ def write_site(out):
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
             '<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">\n'
             '<meta property="og:image" content="%s">\n<meta name="twitter:card" content="summary_large_image">\n' % og)
+    # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
+    # the moment the page changes, instead of running yesterday's code for an hour
+    vc, vj = fingerprint(css), fingerprint(app)
     page = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
-            + head + '\n' + meta + '<link rel="stylesheet" href="assets/tamed.css">\n</head>\n<body>\n' + html + '\n'
-            '<script src="assets/vendor/three.min.js"></script>\n<script src="assets/tamed.js"></script>\n</body>\n</html>\n')
+            + head + '\n' + meta + '<link rel="stylesheet" href="assets/tamed.css?v=' + vc + '">\n</head>\n<body>\n' + html + '\n'
+            '<script src="assets/vendor/three.min.js"></script>\n<script src="assets/tamed.js?v=' + vj + '"></script>\n</body>\n</html>\n')
     os.makedirs(os.path.join(out, 'assets', 'img'), exist_ok=True)
     open(os.path.join(out, 'index.html'), 'w', encoding='utf-8').write(page)
     open(os.path.join(out, 'assets', 'tamed.css'), 'w', encoding='utf-8').write(css)
