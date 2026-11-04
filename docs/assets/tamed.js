@@ -967,7 +967,7 @@ function buildOutside(){
     const cv=document.createElement('canvas'); cv.width=PLQ.w; cv.height=PLQ.h; const x=cv.getContext('2d');
     const tex=new T.CanvasTexture(cv); tex.anisotropy=16; tex.colorSpace=T.NoColorSpace;
     const nm=el.querySelector('.nm').textContent.trim(), parts=nm.split(' '), L1=parts[0].toUpperCase(), L2=parts.slice(1).join(' ').toUpperCase();
-    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Instrument Serif", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
+    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Libre Caslon Display", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
     const fit=(t,max,z,ls)=>{ for(;z>18;z--){ font(z,ls); if(x.measureText(t).width<=max) break; } return z; };
     const cut=(t,cx,y,z,ls)=>{ font(z,ls); x.lineJoin='round'; x.lineWidth=Math.max(2,z*.03);
       x.fillStyle=x.strokeStyle='#00f'; x.fillText(t,cx,y+z*.05); x.strokeText(t,cx,y+z*.05);
@@ -980,7 +980,7 @@ function buildOutside(){
       x.globalCompositeOperation='source-over'; if('letterSpacing' in x) x.letterSpacing='0px'; tex.needsUpdate=true; };
     draw();
     /* the inscription waits for its font */
-    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Instrument Serif"').then(draw,()=>{});
+    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Libre Caslon Display"').then(draw,()=>{});
     return tex;
   };
   const PEO_EL=$$('#people .person');
@@ -2289,7 +2289,7 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
 UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; $('#gateState').textContent=FINE?'Scroll to choose, click to go':'Swipe to choose, tap to go'; };
+UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; gateFoot(); };
 /* the three ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
    walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down; Fly,
    the dark coming in round a black hole. On a touch screen, with nothing to point with, the gate shows them in turn */
@@ -2298,9 +2298,17 @@ const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
 const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
   ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
   LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
+/* nothing opens on the first press. On a desktop you point to look; the first click (anywhere, on a way or not) only
+   starts the sound, since a browser plays nothing before one, and after that a click on a way goes. On a phone, with no
+   pointing, a tap or a swipe chooses a way and a tap on the chosen one goes. A way chosen without going says so */
+S.gateWoke=false; S.gateSel=null;
+const AGAIN=$$('#gate .way .again');
+function gateFoot(){ $('#gateState').textContent=FINE?(S.gateWoke?'Point to look, click to go':'Point to look, click to listen'):'Swipe or tap to choose, tap again to go'; }
+const hint=(v,t)=>WAYS.forEach((w,i)=>{ const on=w.dataset.way===v; w.classList.toggle('sel',on); if(on) AGAIN[i].textContent=t; });
+const choose=(v,t)=>{ CYC.off=true; S.gateSel=v; if(S.gateHover===v) A.hover(); setHover(v); hint(v,t); };
 WAYS.forEach(w=>{ const v=w.dataset.way;
   w.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ CYC.off=true; setHover(v); } });
-  w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen') setHover(null); });
+  w.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'||e.pointerType==='pen'){ setHover(null); if(FINE){ hint(null); S.gateSel=null; } } });
   w.addEventListener('focus',()=>{ CYC.off=true; setHover(v); }); w.addEventListener('blur',()=>{ if(!S.leaving) setHover(null); }); });
 $('#tamed').addEventListener('click',()=>enter());
 /* a browser lets sound start only from a click, a tap or a key; pointing and a mouse wheel are not enough. So the sound
@@ -2310,6 +2318,13 @@ S.prevAt=0;
 const gateWake=()=>{ if(S.mode!=='gate'||(A.on&&A.ctx&&A.ctx.state==='running')) return;
   (A.on?A.ctx.resume():A.start()).then(()=>{ if(S.mode==='gate'&&!S.leaving&&S.gateHover&&performance.now()-S.prevAt>400){ A.preview(S.gateHover); S.prevAt=performance.now(); } }).catch(()=>{}); };
 ['pointerdown','pointerup','touchend','keydown'].forEach(ev=>addEventListener(ev,gateWake,{capture:true,passive:true}));
+/* the press that wakes the gate never opens a way: its click only chooses (on a way) or does nothing (anywhere else) */
+const EAT={until:0};
+addEventListener('pointerdown',e=>{ if(S.mode!=='gate'||S.gateWoke||!gate.classList.contains('ready')) return; S.gateWoke=true; EAT.until=performance.now()+900; gateFoot(); },{capture:true,passive:true});
+addEventListener('keydown',e=>{ if(S.mode!=='gate'||S.gateWoke||!gate.classList.contains('ready')||!(e.key==='Enter'||e.key===' ')) return; const f=document.activeElement; if(f&&f.closest&&f.closest('#gate .way')){ S.gateWoke=true; EAT.until=performance.now()+900; gateFoot(); } },{capture:true,passive:true});
+gate.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving) return; const w=e.target.closest&&e.target.closest('.way[data-way]'), v=w&&w.dataset.way;
+  const eat=performance.now()<EAT.until; EAT.until=0;
+  if(eat||(!FINE&&w&&S.gateSel!==v)){ e.preventDefault(); e.stopImmediatePropagation(); if(w) choose(v,FINE?'Click again to go':'Tap again to go'); } },true);
 /* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
    cut; when they live somewhere else they open in a tab of their own */
 const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
@@ -2329,8 +2344,11 @@ UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contai
    phone and the arrow keys. A click, a tap or Enter goes. (A trackpad goes on sending fading wheel events after the
    fingers lift, so a new gesture is a quiet gap or a clear rise in strength; the rest is ignored) */
 const GW={last:0,peak:0,armed:true,acc:0}, ORDER=['walk','land','fly'];
-const gateStep=d=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.off=true;
-  const i=ORDER.indexOf(S.gateHover); setHover(ORDER[i<0?0:clamp(i+d,0,2)]); };
+/* a key or a swipe is a press the browser counts, so it wakes the gate; a mouse wheel is not, so after one the first click
+   still only listens */
+const gateStep=(d,press)=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.off=true;
+  const i=ORDER.indexOf(S.gateHover), v=ORDER[i<0?0:clamp(i+d,0,2)]; if(press&&!S.gateWoke){ S.gateWoke=true; gateFoot(); }
+  if(S.gateWoke) choose(v,FINE?'Click to go':'Tap to go'); else { S.gateSel=v; setHover(v); } };
 addEventListener('wheel',e=>{ if(S.mode!=='gate') return; e.preventDefault();
   const t=performance.now(), d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.2?e.deltaX:e.deltaY)*(e.deltaMode===1?18:e.deltaMode===2?innerHeight:1), ad=Math.abs(d), gap=t-GW.last; GW.last=t;
   if(gap>220||ad>GW.peak*1.7+6){ GW.armed=true; GW.acc=0; }
@@ -2338,11 +2356,12 @@ addEventListener('wheel',e=>{ if(S.mode!=='gate') return; e.preventDefault();
   if(!GW.armed) return; GW.acc+=d; if(Math.abs(GW.acc)>36){ gateStep(Math.sign(GW.acc)); GW.acc=0; GW.armed=false; } },{passive:false});
 { let t0=null; addEventListener('touchstart',e=>{ t0=S.mode==='gate'?[e.touches[0].clientX,e.touches[0].clientY]:null; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='gate'||!t0) return; const c=e.changedTouches[0], dx=t0[0]-c.clientX, dy=t0[1]-c.clientY, d=Math.abs(dy)>Math.abs(dx)?dy:dx; t0=null;
-    if(Math.abs(d)>34) gateStep(Math.sign(d)); },{passive:true}); }
+    if(Math.abs(d)>34){ EAT.until=0; gateStep(Math.sign(d),true); } },{passive:true}); }
 addEventListener('keydown',e=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return;
-  if(['ArrowDown','ArrowRight','PageDown'].includes(e.key)){ e.preventDefault(); gateStep(1); }
-  else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); gateStep(-1); }
-  else if(e.key==='Enter'&&S.gateHover&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gate .way'))){ e.preventDefault(); $('#gate .way[data-way="'+S.gateHover+'"]').click(); } });
+  if(['ArrowDown','ArrowRight','PageDown'].includes(e.key)){ e.preventDefault(); gateStep(1,true); }
+  else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); gateStep(-1,true); }
+  else if(e.key==='Enter'&&S.gateHover&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gate .way'))){ e.preventDefault();
+    if(!S.gateWoke||S.gateSel!==S.gateHover){ S.gateWoke=true; gateFoot(); choose(S.gateHover,FINE?'Click again to go':'Tap again to go'); } else $('#gate .way[data-way="'+S.gateHover+'"]').click(); } });
 
 if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */

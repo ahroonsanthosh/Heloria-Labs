@@ -294,7 +294,7 @@ function buildOutside(){
     const cv=document.createElement('canvas'); cv.width=PLQ.w; cv.height=PLQ.h; const x=cv.getContext('2d');
     const tex=new T.CanvasTexture(cv); tex.anisotropy=16; tex.colorSpace=T.NoColorSpace;
     const nm=el.querySelector('.nm').textContent.trim(), parts=nm.split(' '), L1=parts[0].toUpperCase(), L2=parts.slice(1).join(' ').toUpperCase();
-    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Instrument Serif", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
+    const font=(z,ls=.16)=>{ x.font='400 '+z+'px "Libre Caslon Display", Georgia, serif'; if('letterSpacing' in x) x.letterSpacing=Math.round(z*ls)+'px'; };
     const fit=(t,max,z,ls)=>{ for(;z>18;z--){ font(z,ls); if(x.measureText(t).width<=max) break; } return z; };
     const cut=(t,cx,y,z,ls)=>{ font(z,ls); x.lineJoin='round'; x.lineWidth=Math.max(2,z*.03);
       x.fillStyle=x.strokeStyle='#00f'; x.fillText(t,cx,y+z*.05); x.strokeText(t,cx,y+z*.05);
@@ -307,7 +307,7 @@ function buildOutside(){
       x.globalCompositeOperation='source-over'; if('letterSpacing' in x) x.letterSpacing='0px'; tex.needsUpdate=true; };
     draw();
     /* the inscription waits for its font */
-    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Instrument Serif"').then(draw,()=>{});
+    if(document.fonts&&document.fonts.load) document.fonts.load('400 160px "Libre Caslon Display"').then(draw,()=>{});
     return tex;
   };
   const PEO_EL=$$('#people .person');
