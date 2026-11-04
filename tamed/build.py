@@ -44,6 +44,12 @@ def photos():
     return out
 
 
+def land_data():
+    """Land from above, rendered by Land's own engine: what the gate's Land way shows before you choose it"""
+    with open(os.path.join(SRC, 'assets', 'land.webp'), 'rb') as f:
+        return 'data:image/webp;base64,' + base64.b64encode(f.read()).decode()
+
+
 def sources():
     css = sorted(glob.glob(os.path.join(SRC, 'css', '*.css')))
     js = sorted(glob.glob(os.path.join(SRC, 'js', '*.js')))
@@ -61,16 +67,16 @@ def check_dashes(files):
         sys.exit('em dash found (use a comma, colon or full stop):\n  ' + '\n  '.join(bad))
 
 
-def parts(links, photo_list):
-    """the css, the markup and the script, with the photos and the ways out of the walk filled in"""
+def parts(links, photo_list, land):
+    """the css, the markup and the script, with the photos, the Land still and the ways out of the walk filled in"""
     css_files, js_files = sources()
     check_dashes(css_files + js_files + [os.path.join(SRC, 'head.html'), os.path.join(SRC, 'body.html')])
     css = '\n'.join(open(f, encoding='utf-8').read() for f in css_files)
     js = '\n'.join('/* ---- %s ---- */\n' % os.path.basename(f) + open(f, encoding='utf-8').read() for f in js_files)
-    for key in ('__PHOTOS__',) + tuple(links):
+    for key in ('__PHOTOS__', '__LANDIMG__') + tuple(links):
         if key not in js:
             sys.exit('the app script lost its %s placeholder' % key)
-    js = js.replace('__PHOTOS__', json.dumps(photo_list))
+    js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__LANDIMG__', land)
     for key, url in links.items():
         js = js.replace(key, url)
     app = "(()=>{\n'use strict';\n" + js + "\n})();\n"
@@ -78,7 +84,7 @@ def parts(links, photo_list):
 
 
 def body(links=ART_LINKS):
-    css, html, app = parts(links, photos())
+    css, html, app = parts(links, photos(), land_data())
     return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + html + '\n'
             + '<script src="%s"></script>\n' % THREE_CDN + '<script>\n' + app + '</script>\n')
 
@@ -103,7 +109,7 @@ def write(path, text):
 def write_site(out):
     """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
     out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
-    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp' % n for n in PEOPLE])
+    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp' % n for n in PEOPLE], 'assets/img/land.webp')
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
     og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
@@ -117,6 +123,8 @@ def write_site(out):
     open(os.path.join(out, 'index.html'), 'w', encoding='utf-8').write(page)
     open(os.path.join(out, 'assets', 'tamed.css'), 'w', encoding='utf-8').write(css)
     open(os.path.join(out, 'assets', 'tamed.js'), 'w', encoding='utf-8').write(app)
+    with open(os.path.join(SRC, 'assets', 'land.webp'), 'rb') as f, open(os.path.join(out, 'assets', 'img', 'land.webp'), 'wb') as g:
+        g.write(f.read())
     if og.endswith('og-tamed.jpg'):
         with open(os.path.join(SRC, 'assets', 'og.jpg'), 'rb') as f, open(os.path.join(out, og), 'wb') as g:
             g.write(f.read())

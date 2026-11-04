@@ -17,7 +17,7 @@ S.gateHover=null;
 const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
 const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
   ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
-  LANDV.show(v==='land'); if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
+  if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
 /* nothing opens on the first press. On a desktop you point to look; the first click (anywhere, on a way or not) only
    starts the sound, since a browser plays nothing before one, and after that a click on a way goes. On a phone, with no
    pointing, a tap or a swipe chooses a way and a tap on the chosen one goes. A way chosen without going says so */

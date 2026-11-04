@@ -192,8 +192,8 @@ const A=(()=>{
     /* the gate: a way being shown, and a way being taken */
     preview(v){ if(!on) return; const t=ctx.currentTime;
       if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
-      else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air the rocket falls through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
-        setTimeout(()=>{ if(S.gateHover!=='land'||!on) return; tone(80,.35,.05,'sine',52,0,.4,.004); noise(.5,.02,1200,300,'lowpass',.8,0,.3);
+      else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air you fall through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
+        setTimeout(()=>{ if(S.gateHover!=='land'||!on) return;
           glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
       else if(v==='fly'){ tone(mtof(26),2.6,.028,'sine',mtof(24),0,.5,.5); noise(2.4,.024,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
     leave(v){ if(!on) return; const t=ctx.currentTime;
