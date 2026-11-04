@@ -49,25 +49,50 @@ addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e
    Nothing flies you into it: the stations take autopilot, the horizon you fly into by hand */
 const SEAL=2.4, HOLE={id:'hole',name:'The horizon',pos:new T.Vector3(),vel:new T.Vector3(),R:0,color:'#FFC392'};
 const holeOpen=()=>S.docked.size>=1, SEALTINT=new T.Color(.06,.015,0);
+/* where the fall begins: where the hole looks as if it begins. The tracer puts the horizon at rs (BH.RS), but what you see is
+   its shadow, the black disc of every ray that comes closer than 2.6 rs and falls in, so 1.43 units out from the centre.
+   The camera rides up and behind the probe, though, and seen from there a probe that has gone past the hole, a few units
+   behind it, is already hidden in that disc. So the probe is in once it is within the shadow's radius, or once the camera sees
+   it inside the black disc: behind the hole, or in front of it inside the disk's inner edge (further out in front it is still
+   over the bright disk, which crosses in front of the lower half of the black) */
+const SHADOW=2.598*BH.RS, _hc=new T.Vector3();
+function inHole(p,r){
+  if(r<SHADOW) return true; if(r>4.2) return false;
+  const C=hubCam.position, dH=C.length(), d=_hc.copy(p).sub(C), dP=d.length(), u=dH/BH.RS;
+  const disc=Math.asin(Math.min(1,2.598/u*Math.sqrt(Math.max(0,1-1/u))));   // the shadow's angular radius from where the camera is
+  const off=Math.acos(clamp(-C.dot(d)/(dH*dP),-1,1));                       // and the probe's angle from the hole's centre
+  return off<disc*.9&&(dP>dH||r<BH.u.uRin.value*BH.RS);
+}
 /* on the way to Aetos nothing flies you: a click on it says how to fly */
 function leadNudge(){ toast(FINE?'Hold W to fire the thruster':'Drag up to fire the thruster'); A.beep(660); }
 function autopilot(s){ if(S.lead){ if(S.mode==='hub') leadNudge(); return; } if(S.mode!=='hub'||!s||s===HOLE) return; if(S.near===s) return dock(s); S.ap=s; toast('Autopilot · '+s.name); A.blip(); }
 $('#dockp').addEventListener('click',()=>S.near&&dock(S.near));
 
 /* ---------- physics ---------- */
+/* flying by hand, made forgiving for a first flight. Hold the thruster without steering and the view turns toward where you
+   are meant to go, briskly but never in a whip: Aetos on the way in, the hole while its contact calls (the hole only once it
+   is roughly ahead: you still point yourself at it). Under thrust the probe goes where it points instead of skidding sideways,
+   and never faster than you can follow. Closing on a station it slows to a speed you can dock at, and the catch is generous.
+   Let go beside a station and you hold station by it; let go anywhere else and you settle into an orbit */
+const DOCKR=3.2, FLYCAP=8.5, TURN=1.6, _fa=new T.Vector3(), _fb=new T.Vector3();
+function flightGoal(){ return S.lead?S.lead.s:(S.push&&!S.been&&holeOpen()&&S.sealK<1)?HOLE:null; }
 function hubPhysics(dt){
   const P=S.probe;
-  const fwd=tv[1].set(-Math.sin(S.yaw),0,-Math.cos(S.yaw)), rgt=tv[2].set(Math.cos(S.yaw),0,-Math.sin(S.yaw));
   let ix=0,iz=0;
   if(keys.has('KeyW')||keys.has('ArrowUp')) iz+=1; if(keys.has('KeyS')||keys.has('ArrowDown')) iz-=1;
   if(keys.has('KeyD')||keys.has('ArrowRight')) ix+=1; if(keys.has('KeyA')||keys.has('ArrowLeft')) ix-=1;
-  if(drag&&drag.touch){ ix=clamp((drag.x-drag.ox)/50,-1,1); iz=clamp(-(drag.y-drag.oy)/50,-1,1); }
-  if(S.lead){ S.lead.t+=dt;
-    // you fly in yourself. The camera keeps Aetos ahead, so the thruster (W, or the stick pushed up) takes you to it,
-    // except for a while after you have dragged to look round. Flying into it docks you
-    const a=S.lead.s.pos, dx=a.x-P.p.x, dz=a.z-P.p.z, l=Math.hypot(dx,dz)||1;
-    if(!(drag&&!drag.touch)&&S.t-(S.lookT??-9)>2.5) S.yaw+=angDiff(Math.atan2(-dx/l,-dz/l),S.yaw)*Math.min(1,dt*(iz>0?2.2:1.2));
-    if(l<2.4&&S.mode==='hub'){ dock(S.lead.s); return; } }
+  if(drag&&drag.touch){ ix=clamp((drag.x-drag.ox)/50,-1,1); iz=clamp(-(drag.y-drag.oy)/50,-1,1);
+    if(iz>.3&&Math.abs(ix)<.4*iz) ix=0; }   // a thumb pushing up is never quite straight: a little to the side is not steering
+  const goal=S.ap?null:flightGoal(), looking=drag&&!drag.touch, looked=S.t-(S.lookT??-9);
+  let gl=1e9;
+  if(goal){ const dx=goal.pos.x-P.p.x, dz=goal.pos.z-P.p.z; gl=Math.hypot(dx,dz)||1e-3; const err=angDiff(Math.atan2(-dx/gl,-dz/gl),S.yaw);
+    // the thruster held, no steering, and no look round in the last moment: the view turns toward the goal
+    if(iz>0&&!ix&&!looking&&looked>1.2&&(goal!==HOLE||Math.abs(err)<1.6)) S.yaw+=clamp(err*3,-TURN,TURN)*dt;
+    // on the way in the camera keeps Aetos ahead as you coast too, except for a while after you have dragged to look round
+    else if(S.lead&&!looking&&looked>2.5) S.yaw+=clamp(err*1.2,-TURN,TURN)*dt; }
+  // you fly in to Aetos yourself, and flying into it docks you
+  if(S.lead){ S.lead.t+=dt; if(gl<DOCKR&&S.mode==='hub'){ dock(S.lead.s); return; } }
+  const fwd=tv[1].set(-Math.sin(S.yaw),0,-Math.cos(S.yaw)), rgt=tv[2].set(Math.cos(S.yaw),0,-Math.sin(S.yaw));
   const thrust=tv[3].copy(fwd).multiplyScalar(iz).addScaledVector(rgt,ix);
   if(thrust.lengthSq()>.01){ S.firstThrust=true; if(S.guide==='big'||S.guide==='lead') S.guideGo=true; }
   if((S.guide==='big'||S.guide==='lead')&&S.guideGo&&S.t-S.guideT>1.4) guide('small');   // once you are moving, and it has been read
@@ -83,17 +108,26 @@ function hubPhysics(dt){
   } else U.apLine.visible=false;
   const tl=Math.min(1.5,thrust.length()); P.thr=damp(P.thr,tl,10,dt);
   const acc=tv[8].set(-P.p.x,0,-P.p.z).multiplyScalar(GM/(r*r*r)).addScaledVector(thrust,9);
-  if(tl<.05&&r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.4); }
+  if(!S.ap&&tl>.05){ const tn=_fa.copy(thrust).normalize(), al=P.v.dot(tn); acc.x-=(P.v.x-tn.x*al)*2.4; acc.z-=(P.v.z-tn.z*al)*2.4; }   // the skid across the thrust dies away
+  else if(tl<.05){
+    if(goal&&goal!==HOLE&&gl<7) acc.addScaledVector(_fa.copy(goal.vel).sub(P.v),1.1);   // let go beside a station: you hold station by it
+    else if(r>3.5){ const vc=Math.sqrt(GM/r); const tang=tv[9].set(-P.p.z/r,0,P.p.x/r); const sg=Math.sign(tang.dot(P.v))||1; tang.multiplyScalar(vc*sg).sub(P.v); acc.addScaledVector(tang,.9); } }
   if(r>RB-2.5){ acc.addScaledVector(tv[4].set(-P.p.x/r,0,-P.p.z/r),(r-(RB-2.5))*9); if(S.t>S.edgeT){ S.edgeT=S.t+6; A.beep(440); } }
   if(S.ap&&S.ap!==HOLE&&r<7) acc.addScaledVector(tv[4].set(P.p.x/r,0,P.p.z/r),30);
-  P.v.addScaledVector(acc,dt); if(P.v.length()>12) P.v.setLength(12);
+  P.v.addScaledVector(acc,dt);
+  // closing on a station, the speed toward it is held to one you can stop from by the time you get there
+  if(goal&&goal!==HOLE){ const u=_fa.set(goal.pos.x-P.p.x,0,goal.pos.z-P.p.z).multiplyScalar(1/gl), c=_fb.copy(P.v).sub(goal.vel).dot(u), cm=2.4+.85*Math.max(0,gl-DOCKR);
+    if(c>cm) P.v.addScaledVector(u,-(c-cm)*Math.min(1,dt*6)); }
+  { const sp=P.v.length(); if(!S.ap&&sp>FLYCAP) P.v.multiplyScalar(Math.max(FLYCAP/sp,1-dt*4)); if(P.v.length()>12) P.v.setLength(12); }   // by hand, never faster than you can follow
   P.p.addScaledVector(P.v,dt); P.p.y=0;
   if(S.ap&&S.ap!==HOLE){ const rr=Math.hypot(P.p.x,P.p.z); if(rr<4){ P.p.multiplyScalar(4/rr); const vr=(P.v.x*P.p.x+P.v.z*P.p.z)/4; if(vr<0){ P.v.x-=vr*P.p.x/4; P.v.z-=vr*P.p.z/4; } } } // autopilot never falls in by accident
-  // until you have docked somewhere, the horizon is sealed: the probe bounces off it
-  if(!holeOpen()){ const rr=Math.hypot(P.p.x,P.p.z);
-    if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
-      U.sealU.uNear.value=1; if(S.t>S.sealT){ S.sealT=S.t+3.5; toast('The horizon is sealed · dock at any station first'); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
-  else if(r<1.35){ crossHorizon(); return; }
+  // until you have docked somewhere and the seal has broken, the horizon is sealed: the probe bounces off it. Once it is open,
+  // the fall is judged where the probe is now, after this frame's move, the place this frame draws it
+  { const rr=Math.hypot(P.p.x,P.p.z);
+    if(!holeOpen()||S.sealK>=1){
+      if(rr<SEAL){ const nx=P.p.x/rr, nz=P.p.z/rr; P.p.x=nx*SEAL; P.p.z=nz*SEAL; const vr=P.v.x*nx+P.v.z*nz; if(vr<0){ P.v.x-=1.7*vr*nx; P.v.z-=1.7*vr*nz; }
+        U.sealU.uNear.value=1; if(!holeOpen()&&S.t>S.sealT){ S.sealT=S.t+3.5; toast('The horizon is sealed · dock at any station first'); A.beep(330); A.beep(262); feedback(.35,1.2,SEALTINT); } } }
+    else if(inHole(P.p,rr)){ crossHorizon(); return; } }
   if(P.v.lengthSq()>.04) P.head=P.head+angDiff(Math.atan2(-P.v.x,-P.v.z),P.head)*Math.min(1,dt*6);
   U.probe.position.copy(P.p); U.probe.rotation.set(0,P.head,0); U.engU.uThr.value=P.thr; A.thrust(P.thr);
   if(P.thr>.1){ tv[4].set(Math.sin(P.head),0,Math.cos(P.head)).multiplyScalar(.3+P.thr*.35).add(P.p); for(let k=0;k<Math.ceil(P.thr*3*Q);k++) U.exhaust.emit(tv[4],1,.35,null,0,.45+Math.random()*.3); }
@@ -104,8 +138,8 @@ function hubPhysics(dt){
   U.dustU.uC.value.copy(P.p); U.dustU.uV.value.copy(P.v); U.gridU.uProbe.value.copy(P.p); U.sealU.uNear.value=damp(U.sealU.uNear.value,0,2.5,dt);
   U.fenceU.uPA.value=Math.atan2(P.p.z,P.p.x); U.fenceU.uNear.value=sstep(RB-6,RB-1,r);
   // proximity
-  let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<2.6?1:0,6,dt); });
-  S.near=nd<2.6?near:null;
+  let near=null, nd=1e9; STA.forEach(s=>{ const d=s.pos.distanceTo(P.p); if(d<nd){nd=d;near=s;} s.zone.material.uniforms.uNear.value=damp(s.zone.material.uniforms.uNear.value,d<DOCKR?1:0,6,dt); });
+  S.near=nd<DOCKR?near:null;
   const dp=$('#dockp'); dp.hidden=!S.near||FINE||!!S.lead; if(S.near){ dp.textContent='Dock at '+S.near.name; dp.style.setProperty('--acc',S.near.color); }
   // telemetry + warnings
   const g=1/Math.sqrt(Math.max(1e-4,1-BH.RS/r)); S.tau+=dt/g;

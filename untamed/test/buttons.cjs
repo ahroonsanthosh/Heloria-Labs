@@ -292,7 +292,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await until(() => window.__heloria.ST.cr._dbg.FIN.ign, null, 300000), 'and it lights once you have held long enough');
   if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 51, pointerType: 'touch', clientX: 195, clientY: 500, bubbles: true })));
   else await page.keyboard.up('Space');
-  rec(await until(() => window.__heloria.S.flashMin > .05 && window.__heloria.S.stId === 'cr', null, 600000), 'it climbs until the camera looks back down at Earth, and the light comes in');
+  rec(await until(() => window.__heloria.post.uniforms.uLight.value.z > .05 && window.__heloria.S.stId === 'cr', null, 600000), 'it climbs until the camera looks back down at Earth, and the light comes in from the rocket');
   rec(await until(() => window.__heloria.S.mode === 'credits', null, 600000), 'and straight onto the white page: no scene in orbit after it');
   rec(await H(h => !h.U.probe.visible && h.S.st === null), 'Earth has put itself away behind the page');
   await H(h => { h.S.finX = 1; }); await wait(20000);
