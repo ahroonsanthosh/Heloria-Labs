@@ -239,16 +239,21 @@ function missileGeo(){
 }
 
 /* ---------- build: ground, command post, sites, contacts, interceptors, effects ---------- */
-let GU, labCv, labCx, labTex, labMode=-1, cpAnt, cpMat, inst, rot, rotSp, lights, lP, lC, lS, drops, dP, dC, msl, trails, tP, tC, puffs, pP, pA, pC, pV, pL, pI=0, debris, jamWall;
+let GU, labTex, labMode=-1, cpAnt, cpMat, inst, rot, rotSp, lights, lP, lC, lS, drops, dP, dC, msl, trails, tP, tC, puffs, pP, pA, pC, pV, pL, pI=0, debris, jamWall;
 const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
-  if(!labCx||labMode===+mob) return; labMode=+mob;
-  const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
+  if(!labTex||labMode===+mob) return; labMode=+mob;
+  const N=2048, cv=document.createElement('canvas'); cv.width=cv.height=N; const x=cv.getContext('2d',{willReadFrequently:true}), k=N/(2*LR); x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
   const fs=mob?38:22, sy=mob?1.1:1.3; x.font=`900 ${fs}px "Doto", monospace`; x.strokeStyle='#fff'; x.lineWidth=Math.max(1,fs*.06); x.lineJoin='round';
   // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
   const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.strokeText(t,0,0); x.fillText(t,0,0); x.restore(); };
   for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
   for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.24:.14), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left'); }
+  /* the ground reads only the red of the labels, so the card keeps just that channel: the same labels in a quarter of the
+     memory. Rows go bottom up, as the canvas would have been turned for the card, and the canvas itself is let go */
+  const px=x.getImageData(0,0,N,N).data, r=labTex.image.data;
+  for(let j=0;j<N;j++){ const src=(N-1-j)*N*4, dst=j*N; for(let i=0;i<N;i++) r[dst+i]=px[src+i*4]; }
+  cv.width=cv.height=0;
   labTex.needsUpdate=true;
 }
 // terrain heightfield, baked once: value noise fbm, 4 octaves, over the whole ground disc
@@ -264,8 +269,8 @@ function heightTex(){
 }
 st.build=async function(){
   try{ await Promise.race([document.fonts.load('900 20px "Doto"'),wait(1500)]); }catch(e){}
-  labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
-  labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
+  labTex=new T.DataTexture(new Uint8Array(2048*2048),2048,2048,T.RedFormat,T.UnsignedByteType); labTex.generateMipmaps=true; labTex.minFilter=T.LinearMipmapLinearFilter; labTex.magFilter=T.LinearFilter;
+  labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},
     uJam:{value:new T.Vector2()},uInk:{value:COL.ink},uHos:{value:COL.hos},uFri:{value:COL.fri},uUnk:{value:COL.unk},tLab:{value:labTex},tH:{value:heightTex()}};
   const ground=new T.Mesh(new T.PlaneGeometry(GR*2,GR*2).rotateX(-Math.PI/2),new T.ShaderMaterial({uniforms:GU,vertexShader:GROUND_V,fragmentShader:GROUND_F,extensions:{derivatives:true}}));

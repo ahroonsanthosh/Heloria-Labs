@@ -322,6 +322,14 @@ const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:2});
 const rtA=mkRT(), rtB=mkRT();
+/* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
+   and only a doorway between them needs both; so each is held only while it is being drawn and given back a few seconds
+   after, and a phone or a laptop never carries one it is not using. One that is needed again is made full size before
+   anything is drawn into it, so the picture never knows (the trace of the hole likewise, while a station has the screen) */
+const RTL=new Map();
+function rtLive(rt,on,t){ if(on){ RTL.set(rt,t); const W=Math.max(1,Math.floor(innerWidth*DPR)), H=Math.max(1,Math.floor(innerHeight*DPR)); if(rt.width!==W||rt.height!==H) rt.setSize(W,H); }
+  else if(rt.width>1&&t-(RTL.get(rt)??-1e9)>3) rt.setSize(1,1); }
+function bhLive(on,t){ if(on){ RTL.set(BH,t); if(BH.rt.width<=2) BH.resize(); } else if(BH.rt.width>2&&t-(RTL.get(BH)??-1e9)>3) BH.rt.setSize(1,1); }
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
@@ -374,7 +382,7 @@ const postScene=new T.Scene(); const pq=new T.Mesh(new T.PlaneGeometry(2,2),post
 function setPx(cam){ G.uPx.value=innerHeight*DPR/(2*Math.tan(cam.fov*Math.PI/360)); }
 function resize(){ const w=innerWidth,h=innerHeight; renderer.setPixelRatio(DPR); renderer.setSize(w,h,false);
   [hubCam,stCam].forEach(c=>{c.aspect=w/h;c.updateProjectionMatrix();});
-  rtA.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); rtB.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; BH.resize(); }
+  for(const rt of [rtA,rtB]) if(rt.width>1) rt.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; if(BH.rt.width>2) BH.resize(); }   // (one given back stays so)
 addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResize(); });
 
 /* adaptive quality: watch frame times, trade pixel density and trace resolution for smoothness */
@@ -1940,16 +1948,21 @@ function missileGeo(){
 }
 
 /* ---------- build: ground, command post, sites, contacts, interceptors, effects ---------- */
-let GU, labCv, labCx, labTex, labMode=-1, cpAnt, cpMat, inst, rot, rotSp, lights, lP, lC, lS, drops, dP, dC, msl, trails, tP, tC, puffs, pP, pA, pC, pV, pL, pI=0, debris, jamWall;
+let GU, labTex, labMode=-1, cpAnt, cpMat, inst, rot, rotSp, lights, lP, lC, lS, drops, dP, dC, msl, trails, tP, tC, puffs, pP, pA, pC, pV, pL, pI=0, debris, jamWall;
 const NL=MAXD*3+MAXM+1;
 function drawLabels(mob){
-  if(!labCx||labMode===+mob) return; labMode=+mob;
-  const N=labCv.width, k=N/(2*LR), x=labCx; x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
+  if(!labTex||labMode===+mob) return; labMode=+mob;
+  const N=2048, cv=document.createElement('canvas'); cv.width=cv.height=N; const x=cv.getContext('2d',{willReadFrequently:true}), k=N/(2*LR); x.fillStyle='#000'; x.fillRect(0,0,N,N); x.fillStyle='#fff'; x.textBaseline='middle';
   const fs=mob?38:22, sy=mob?1.1:1.3; x.font=`900 ${fs}px "Doto", monospace`; x.strokeStyle='#fff'; x.lineWidth=Math.max(1,fs*.06); x.lineJoin='round';
   // labels near the camera (south, +z) are drawn smaller so that perspective leaves them all about the same size
   const put=(t,wx,wz,al)=>{ const f=clamp(1-wz*(mob?.022:.045),.68,1.32); x.save(); x.translate(N/2+wx*k,N/2+wz*k); x.scale(f,sy*f); x.textAlign=al; x.strokeText(t,0,0); x.fillText(t,0,0); x.restore(); };
   for(let a=0;a<360;a+=mob?90:30){ const b=a*Math.PI/180, rr=mob?RS-.46:RS+.5+.08*Math.max(0,-Math.cos(b)); put(String(a).padStart(3,'0'),Math.sin(b)*rr,-Math.cos(b)*rr,'center'); }
   for(let km=1;km<=5;km++){ if(mob&&km%2===0) continue; const rr=km*KM-(mob?.24:.14), b=42*Math.PI/180; put(km+' km',Math.sin(b)*rr+.06,-Math.cos(b)*rr,'left'); }
+  /* the ground reads only the red of the labels, so the card keeps just that channel: the same labels in a quarter of the
+     memory. Rows go bottom up, as the canvas would have been turned for the card, and the canvas itself is let go */
+  const px=x.getImageData(0,0,N,N).data, r=labTex.image.data;
+  for(let j=0;j<N;j++){ const src=(N-1-j)*N*4, dst=j*N; for(let i=0;i<N;i++) r[dst+i]=px[src+i*4]; }
+  cv.width=cv.height=0;
   labTex.needsUpdate=true;
 }
 // terrain heightfield, baked once: value noise fbm, 4 octaves, over the whole ground disc
@@ -1965,8 +1978,8 @@ function heightTex(){
 }
 st.build=async function(){
   try{ await Promise.race([document.fonts.load('900 20px "Doto"'),wait(1500)]); }catch(e){}
-  labCv=document.createElement('canvas'); labCv.width=labCv.height=2048; labCx=labCv.getContext('2d');
-  labTex=new T.CanvasTexture(labCv); labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
+  labTex=new T.DataTexture(new Uint8Array(2048*2048),2048,2048,T.RedFormat,T.UnsignedByteType); labTex.generateMipmaps=true; labTex.minFilter=T.LinearMipmapLinearFilter; labTex.magFilter=T.LinearFilter;
+  labTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy()); drawLabels(false);
   GU={uNow:{value:0},uSw:{value:0},uLab:{value:.5},uBoot:{value:1},uB:{value:PB},uR:{value:RG},uSite:{value:SITES.map(s=>new T.Vector4(s.p.x,s.p.z,1,-99))},uThr:{value:new T.Vector3()},
     uJam:{value:new T.Vector2()},uInk:{value:COL.ink},uHos:{value:COL.hos},uFri:{value:COL.fri},uUnk:{value:COL.unk},tLab:{value:labTex},tH:{value:heightTex()}};
   const ground=new T.Mesh(new T.PlaneGeometry(GR*2,GR*2).rotateX(-Math.PI/2),new T.ShaderMaterial({uniforms:GU,vertexShader:GROUND_V,fragmentShader:GROUND_F,extensions:{derivatives:true}}));
@@ -4938,7 +4951,8 @@ st.enter=function(){ const P=player; CUT.on=false; CUT.landed=false; CUT.door=fa
   $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
   marksEnter(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
-st.exit=function(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
+st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.dispose(); shRT.depthTexture.dispose(); baked=false; }   /* Earth's own drawing buffers and its sun's shadow are given back while you are not on Earth: the next frame here makes them again */
+  CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
 
@@ -5256,6 +5270,8 @@ let peerList=[], room=null, lastPres=0;
 const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
+/* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
+async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
 async function boot(){
   const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
@@ -5268,11 +5284,16 @@ async function boot(){
   for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
   txt.textContent='Compiling shaders'; await nextFrame();
   universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
-  try{ renderer.compile(U.scene,hubCam); }catch(e){} renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
+  await compileQuiet(U.scene,hubCam); renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
   universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=false; setP(.7);
-  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
-    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(rtB); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
-  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  /* every station is drawn once now, so nothing stalls the first time you see it: its shaders compiled (in the background
+     where the browser can) and its textures sent, into a small target of the same kind, so the warming never holds a
+     full screen's worth of memory for a station you are not in */
+  const warm=mkRT(); warm.setSize(64,64);
+  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); await compileQuiet(st.scene,stCam);
+    st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
+    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(warm); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warm); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
+  warm.dispose(); renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   setP(1); $('#load').classList.add('ready'); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
 }
 
@@ -5423,6 +5444,7 @@ function frame(now){
   }
   A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
+  { const tn=performance.now()/1000; rtLive(rtA,needA,tn); rtLive(rtB,needB,tn); bhLive(needA,tn); }
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;

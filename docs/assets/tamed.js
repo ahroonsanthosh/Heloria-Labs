@@ -2585,7 +2585,7 @@ function resize(){
   if(!GL_OK) return;
   const w=innerWidth, h=innerHeight, d=QL.dpr; renderer.setPixelRatio(d); renderer.setSize(w,h,false);
   const W=Math.max(2,Math.floor(w*d)), H=Math.max(2,Math.floor(h*d));
-  rtA.setSize(W,H); rtB.setSize(W,H); POST.setSize(W,H); OUT.setSize(W,H); GAL.setSize(W,H);
+  rtA.setSize(W,H); if(rtB.width>1) rtB.setSize(W,H); POST.setSize(W,H); OUT.setSize(W,H); GAL.setSize(W,H);
   for(const c of Object.values(CAM)){ c.aspect=w/h; c.updateProjectionMatrix(); }
   GU.uRes.value.set(W,H); POST.comp.uniforms.uAsp.value=w/h; POST.mixM.uniforms.uAsp.value=w/h;
   const was=STOPS.length; setLayout(); if(STOPS.length!==was){ const s=S.s; SC.v=SC.target=clamp(STOPS.indexOf(placeAt(s).s),0,STOPS.length-1); }
@@ -2637,6 +2637,11 @@ function frame(tn){
   launchHit();
   if(needGal){ camAt('gal',s,CAM.gal); G.px=GU.uRes.value.y/(2*Math.tan(CAM.gal.fov*DEG/2)); GAL.update(dt); GAL.applyLight(tod,TINT,s); }
   const Wd={out:OUT,gal:GAL};
+  /* the second full-screen target is only for a doorway, where two places are drawn at once: it is made as you come near
+     one, well before the blend begins, and given back a few seconds after you have walked on */
+  { const tn=now(), nearDoor=Math.min(Math.abs(s-DOOR_IN),Math.abs(s-DOOR_OUT))<BLEND+.35||!!mx.b;
+    if(nearDoor){ rtB.lastUse=tn; if(rtB.width!==rtA.width||rtB.height!==rtA.height) rtB.setSize(rtA.width,rtA.height); }
+    else if(rtB.width>1&&tn-(rtB.lastUse||-1e9)>3) rtB.setSize(1,1); }
   let src;
   if(mx.b){ Wd[mx.a].render(CAM[mx.a],rtA); Wd[mx.b].render(CAM[mx.b],rtB); const m=POST.mixM.uniforms; m.tA.value=rtA.texture; m.tB.value=rtB.texture; m.uK.value=mx.k; POST.pass(POST.mixM,POST.mix); src=POST.mix; }
   else { Wd[mx.a].render(CAM[mx.a],rtA); src=rtA; }
@@ -2679,6 +2684,8 @@ function audioState(s,inside){
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 
+/* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
+async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
 async function boot(){
   if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08);
@@ -2695,7 +2702,7 @@ async function boot(){
   for(let i=0;i<steps.length;i++){ const [s,w]=steps[i]; const W=w==='out'?OUT:GAL, cam=CAM[w];
     S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
     camAt(w,s,cam); W.update(.016); W.applyLight(tod,TINT,s);
-    try{ renderer.compile(W.scene,cam); }catch(e){}
+    await compileQuiet(W.scene,cam);
     W.render(cam,rtA); UI.loadStep(.45+.5*(i+1)/steps.length); await nextFrame(); }
   S.s=0; drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex;
   const bt=POST.bloom(rtA); POST.comp.uniforms.tScene.value=rtA.texture; POST.comp.uniforms.tBloom.value=bt; POST.pass(POST.comp,null);

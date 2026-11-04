@@ -319,6 +319,14 @@ const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:2});
 const rtA=mkRT(), rtB=mkRT();
+/* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
+   and only a doorway between them needs both; so each is held only while it is being drawn and given back a few seconds
+   after, and a phone or a laptop never carries one it is not using. One that is needed again is made full size before
+   anything is drawn into it, so the picture never knows (the trace of the hole likewise, while a station has the screen) */
+const RTL=new Map();
+function rtLive(rt,on,t){ if(on){ RTL.set(rt,t); const W=Math.max(1,Math.floor(innerWidth*DPR)), H=Math.max(1,Math.floor(innerHeight*DPR)); if(rt.width!==W||rt.height!==H) rt.setSize(W,H); }
+  else if(rt.width>1&&t-(RTL.get(rt)??-1e9)>3) rt.setSize(1,1); }
+function bhLive(on,t){ if(on){ RTL.set(BH,t); if(BH.rt.width<=2) BH.resize(); } else if(BH.rt.width>2&&t-(RTL.get(BH)??-1e9)>3) BH.rt.setSize(1,1); }
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
@@ -371,7 +379,7 @@ const postScene=new T.Scene(); const pq=new T.Mesh(new T.PlaneGeometry(2,2),post
 function setPx(cam){ G.uPx.value=innerHeight*DPR/(2*Math.tan(cam.fov*Math.PI/360)); }
 function resize(){ const w=innerWidth,h=innerHeight; renderer.setPixelRatio(DPR); renderer.setSize(w,h,false);
   [hubCam,stCam].forEach(c=>{c.aspect=w/h;c.updateProjectionMatrix();});
-  rtA.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); rtB.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; BH.resize(); }
+  for(const rt of [rtA,rtB]) if(rt.width>1) rt.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; if(BH.rt.width>2) BH.resize(); }   // (one given back stays so)
 addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResize(); });
 
 /* adaptive quality: watch frame times, trade pixel density and trace resolution for smoothness */

@@ -3,6 +3,8 @@ let peerList=[], room=null, lastPres=0;
 const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
+/* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
+async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
 async function boot(){
   const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
@@ -15,11 +17,16 @@ async function boot(){
   for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
   txt.textContent='Compiling shaders'; await nextFrame();
   universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
-  try{ renderer.compile(U.scene,hubCam); }catch(e){} renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
+  await compileQuiet(U.scene,hubCam); renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
   universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=false; setP(.7);
-  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
-    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(rtB); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(rtB); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
-  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  /* every station is drawn once now, so nothing stalls the first time you see it: its shaders compiled (in the background
+     where the browser can) and its textures sent, into a small target of the same kind, so the warming never holds a
+     full screen's worth of memory for a station you are not in */
+  const warm=mkRT(); warm.setSize(64,64);
+  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); await compileQuiet(st.scene,stCam);
+    st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
+    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(warm); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warm); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
+  warm.dispose(); renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   setP(1); $('#load').classList.add('ready'); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
 }
 
@@ -170,6 +177,7 @@ function frame(now){
   }
   A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
+  { const tn=performance.now()/1000; rtLive(rtA,needA,tn); rtLive(rtB,needB,tn); bhLive(needA,tn); }
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;
