@@ -45,18 +45,26 @@ const A=(()=>{
     const now=performance.now();
     if(ctx.state!=='running'){ if(!downAt) downAt=now; ctx.resume().catch(()=>{}); wdT=-1; return; }
     downAt=0; const c=ctx.currentTime;
-    if(wdT>0&&now-wdT>900&&c===wdC){ if(++wdBad>=2){ rebuild(); return; } ctx.suspend().then(()=>ctx.resume()).catch(()=>{}); }
+    if(wdT>0&&now-wdT>900&&c===wdC){ wdBad++; ctx.suspend().then(()=>ctx.resume()).catch(()=>{}); }   // (a stalled clock is rebuilt on the next tap)
     else if(c!==wdC) wdBad=0;
-    wdT=now; wdC=c; }
+    wdT=now; wdC=c;
+    /* and it listens: what leaves for the speakers is never a value that is not a number (one such value poisons every node
+       after it, and the sound is gone for good), and while the town's music plays it is never exact silence. Either, twice
+       running, and the whole sound is built again */
+    if(n.mon&&!muted){ n.mon.getFloatTimeDomainData(n.monBuf); let pk=0, bad=false; for(const v of n.monBuf){ if(v!==v||v===Infinity||v===-Infinity){ bad=true; break; } const a=v<0?-v:v; if(a>pk) pk=a; }
+      n.dead=(bad||(pk===0&&n.musV>.01))?(n.dead||0)+1:0; if(n.dead>=2) rebuild(); } }
   setInterval(watch,1000);
   document.addEventListener('visibilitychange',()=>{ wdT=-1; if(!document.hidden&&ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); });
   ['touchend','pointerup','click','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(!ctx||!on||ctx.state==='running') return;
     if(downAt&&performance.now()-downAt>2500) rebuild(); else ctx.resume().catch(()=>{}); },{capture:true,passive:true}));
+  /* a clock that stopped and would not restart is built again on the next click or tap: inside a gesture a browser always
+     lets a new context sound, where a rebuild from a timer could leave it waiting in silence */
+  ['touchend','pointerup','click','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(ctx&&on&&wdBad>=2) rebuild(); },{capture:true,passive:true}));
   const CH=[[73.42,146.83,220,329.63,440],[65.41,130.81,196,293.66,392],[58.27,116.54,174.61,261.63,349.23],[55,110,164.81,246.94,329.63]];
   function init(){
     if(ctx) return;
+    try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // Safari: play like media, set before the sound starts (changing it mid-play interrupts it)
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
-    try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;
@@ -65,7 +73,8 @@ const A=(()=>{
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
       const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
-      out.connect(hp); hp.connect(lim); lim.connect(ctx.destination); }
+      out.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
+      n.mon=ctx.createAnalyser(); n.mon.fftSize=2048; n.monBuf=new Float32Array(2048); lim.connect(n.mon); }   // the watchdog listens here
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3; comp.connect(out);
     rev=ctx.createConvolver(); const L=Math.floor(ctx.sampleRate*(LITE?1.6:3.2)), ir=ctx.createBuffer(2,L,ctx.sampleRate);   // a shorter room on a phone: half the work
     for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,2.6);}
@@ -122,6 +131,7 @@ const A=(()=>{
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
+    _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
@@ -201,9 +211,14 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+dur+.05); };
       const hit=(t0,dur,g,f,type,q)=>{ const s=shot(); const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q; const a=ctx.createGain();
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); };
+      /* a held chord under it all: three pure tones per bar that swell in, hold, and hand over to the next bar's, so the
+         town is never silent between phrases (no noise and nothing detuned, so nothing in it can hiss or phase) */
+      const hold=(f,t0,len,g)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t0);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.6); a.gain.setValueAtTime(g,t0+len); a.gain.linearRampToValueAtTime(0,t0+len+.6);
+        o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+len+.7); };   // (a short handover: neighbouring chords a semitone apart never sound long together)
       const PROG=[[53,57,60,64,67],[52,55,59,62,66],[50,53,57,60,64],[48,52,55,59,62]], BASS=[41,40,38,36], SCALE=[60,62,64,67,69,72,74,76,79];
       while(n.mt<ctx.currentTime+1.2){ const k=n.ms, t0=n.mt, pos=k%8, bar=Math.floor(k/8), ch=PROG[bar%4];
-        if(pos===0){ ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*(LITE?2.6:3.6),.018,'sine',.03); if(!LITE) play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
+        if(pos===0){ [ch[0],ch[2],ch[4]].forEach((m,i)=>hold(mf(m),t0,beat*4,i?.007:.01)); ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*(LITE?2.6:3.6),.018,'sine',.03); if(!LITE) play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t0+i*.01,beat*1.3,.011,'sine',.02)); play(mf(BASS[bar%4]+7),t0,beat*.9,.05,'sine',.02); }
         if(pos===0||pos===5) play(95,t0,.22,.07,'sine',.005,42);                    // a soft kick
         if(pos===4) hit(t0,.16,.022,1900,'bandpass',.9);                            // a brush on the snare

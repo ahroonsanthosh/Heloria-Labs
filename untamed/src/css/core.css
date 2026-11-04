@@ -268,7 +268,8 @@ html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
 .card h2{font-size:clamp(64px,10vw,176px);line-height:.82}
 .card h2.long{font-size:clamp(44px,6.2vw,104px);line-height:.88}
 .card .lede{max-width:46ch}
-.go{position:absolute;right:calc(var(--gr) + 6px);bottom:calc(var(--gb) + 8px);display:flex;gap:18px;align-items:center;transition:opacity .6s var(--ease)}
+/* (scoped to stations: the opening screen also takes a class named go as it leaves, and must keep covering the screen) */
+.st .go{position:absolute;right:calc(var(--gr) + 6px);bottom:calc(var(--gb) + 8px);display:flex;gap:18px;align-items:center;transition:opacity .6s var(--ease)}
 .go .lbl{display:grid;gap:6px;justify-items:end;text-align:right}
 .go .lbl b{font:800 22px/1 var(--disp);font-variation-settings:"ROND" 100;text-transform:uppercase;color:var(--acc);-webkit-text-stroke:0}
 .go .links{display:flex;gap:8px}
@@ -354,7 +355,7 @@ html.fin #fin.on~#cur,html.fin #fin.on~#curd{opacity:1}
   #guide .gl{bottom:calc(var(--gb) + 150px)}
   .card{left:var(--gl);right:var(--gr);max-width:none;bottom:auto;top:calc(var(--gt) + 92px);gap:12px}
   .card h2{font-size:64px}.card h2.long{font-size:40px}
-  .go{left:var(--gl);right:var(--gr);justify-content:space-between}
+  .st .go{left:var(--gl);right:var(--gr);justify-content:space-between}
   .notes{display:none}
   .c2{display:none}
   .res{grid-template-columns:1fr;gap:18px;top:calc(50% + 20px)}
