@@ -4179,50 +4179,182 @@ const SHG=new T.PlaneGeometry(1,1).rotateX(-Math.PI/2);
 const SHM=new T.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,
   vertexShader:`varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
   fragmentShader:`varying vec2 vU; void main(){ float r=length(vU-.5)*2.; gl_FragColor=vec4(.12,.18,.16,(1.-smoothstep(.55,1.,r))*.32); }`});
-const capG=new Map(); const CAPS=(r,l)=>{ const k=r+'|'+l; if(!capG.has(k)) capG.set(k,new T.CapsuleGeometry(r,l,4,10)); return capG.get(k); };
-const SPH=new T.SphereGeometry(1,20,14), BOXG=new T.BoxGeometry(1,1,1);
+const BOXG=new T.BoxGeometry(1,1,1);
 function mesh(g,c,x=0,y=0,z=0,sx=1,sy=sx,sz=sx){ const m=new T.Mesh(g,toonMat(c,{fig:true})); m.position.set(x,y,z); m.scale.set(sx,sy,sz); return m; }
+/* each part of a person that moves on its own (the body, the head, the eyes, each leg, each upper arm and forearm) is one
+   mesh: every piece of it is baked in, in its own colour, so a face, a collar or a head of curls costs a single draw */
+const FIGM=toonMat('#ffffff',{fig:true,vc:true});
+const FG={sph:new T.SphereGeometry(1,14,10).toNonIndexed(), ball:new T.IcosahedronGeometry(1,1), box:new T.BoxGeometry(1,1,1).toNonIndexed(), cone:new T.ConeGeometry(1,1,12).toNonIndexed(),
+  limb:new T.CylinderGeometry(1,.78,1,12,1,true).toNonIndexed(), tube:new T.CylinderGeometry(1,1,1,14,1,true).toNonIndexed(), can:new T.CylinderGeometry(1,1,1,14).toNonIndexed(),
+  band:new T.TorusGeometry(1,.06,6,26,Math.PI).toNonIndexed()};
+const v3=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), fM=new T.Matrix4(), fNM=new T.Matrix3(), fQ=new T.Quaternion(), fE=new T.Euler(), fT=v3(), fS=v3(), fU=v3(), fW=v3(), fX=v3(1,0,0), fY=v3(0,1,0);
+const tint=(c,k)=>C3(c).clone().lerp(C3(k>0?'#ffffff':'#000000'),Math.abs(k));
+function part(){ const P=[],N=[],C=[], o={};
+  /* one triangle, turned to face the way its normals point */
+  o.tri=(a,na,b,nb,c,nc,col)=>{ fU.subVectors(b,a).cross(fW.subVectors(c,a)); if(fU.dot(fW.copy(na).add(nb).add(nc))<0){ [b,c]=[c,b]; [nb,nc]=[nc,nb]; } const k=C3(col);
+    for(const [p,n] of [[a,na],[b,nb],[c,nc]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); C.push(k.r,k.g,k.b); } };
+  /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap */
+  o.grid=(G,col,wrap)=>{ for(let i=0;i<G.length-1;i++) for(let j=0;j<G[i].length-(wrap?0:1);j++){ const j2=(j+1)%G[i].length, a=G[i][j], b=G[i][j2], c=G[i+1][j2], d=G[i+1][j];
+    o.tri(a.p,a.n,b.p,b.n,c.p,c.n,col); o.tri(a.p,a.n,c.p,c.n,d.p,d.n,col); } };
+  /* the same, seen from both sides (a collar) */
+  o.grid2=(G,col,wrap)=>{ o.grid(G,col,wrap); o.grid(G.map(r=>r.map(v=>({p:v.p,n:v.n.clone().negate()}))),col,wrap); };
+  /* one of the shapes in FG, placed by a matrix; at x,y,z, scaled, turned; or with its own axes laid along a, b and c */
+  o.geo=(g,col,M)=>{ const p=g.attributes.position, q=g.attributes.normal, V=[v3(),v3(),v3()], Q=[v3(),v3(),v3()]; fNM.getNormalMatrix(M);
+    for(let i=0;i<p.count;i+=3){ for(let k=0;k<3;k++){ V[k].fromBufferAttribute(p,i+k).applyMatrix4(M); Q[k].fromBufferAttribute(q,i+k).applyMatrix3(fNM).normalize(); } o.tri(V[0],Q[0],V[1],Q[1],V[2],Q[2],col); } };
+  o.put=(g,col,x,y,z,sx,sy=sx,sz=sx,rx=0,ry=0,rz=0)=>o.geo(g,col,fM.compose(fT.set(x,y,z),fQ.setFromEuler(fE.set(rx,ry,rz,'YXZ')),fS.set(sx,sy,sz)));
+  o.along=(g,col,p,a,b,c)=>o.geo(g,col,fM.makeBasis(a,b,c).setPosition(p));
+  /* the mesh, its origin at (x,y,z), so that it scales about there */
+  o.mesh=(x=0,y=0,z=0)=>{ for(let i=0;i<P.length;i+=3){ P[i]-=x; P[i+1]-=y; P[i+2]-=z; } const g=new T.BufferGeometry();
+    g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(N,3)); g.setAttribute('color',new T.Float32BufferAttribute(C,3));
+    const m=new T.Mesh(g,FIGM); m.position.set(x,y,z); return m; };
+  return o; }
+/* a tube through rings [y, half width, half depth, forward], all the way round or from angle a0 to a1 (0 is the front) */
+function tube(R0,n=16,a0=0,a1=TAU){ const full=a1-a0>TAU-1e-4, m=full?n:n+1, cy=(R0[0][0]+R0[R0.length-1][0])/2;
+  const G=R0.map(([y,rx,rz,dz=0])=>Array.from({length:m},(_,j)=>{ const a=a0+(a1-a0)*j/n; return {p:v3(Math.sin(a)*rx,y,Math.cos(a)*rz+dz),c:dz}; }));
+  G.forEach((row,i)=>row.forEach((v,j)=>{ const L=row[full?(j+m-1)%m:Math.max(0,j-1)].p, Rr=row[full?(j+1)%m:Math.min(m-1,j+1)].p, U=G[Math.min(G.length-1,i+1)][j].p, D=G[Math.max(0,i-1)][j].p;
+    v.n=v3().subVectors(Rr,L).cross(v3().subVectors(U,D)); if(v.n.lengthSq()<1e-12) v.n.set(0,v.p.y-cy,0); v.n.normalize(); if(v.n.dot(v3(v.p.x,v.p.y-cy,v.p.z-v.c))<0) v.n.negate(); }));
+  return G; }
+/* a head: where each direction from its middle lands on the skin. w, h, d: half its width, height and depth; jaw: how much
+   narrower it gets toward the chin; chin: how far the chin comes forward */
+const headF=(w,h,d,jaw,chin)=>u=>{ const lo=sstep(.15,-.95,u.y), fr=sstep(-.35,.35,u.z);
+  return v3(u.x*w*(1-jaw*lo),u.y*h,u.z*d*lerp(1.07,1-.05*(1-lo),fr)+chin*lo*Math.max(0,u.z)); };
+function fnorm(f,u){ const t1=v3().crossVectors(u,Math.abs(u.y)<.9?fY:fX).normalize(), t2=v3().crossVectors(u,t1), p=f(u),
+  n=f(t1.multiplyScalar(.01).add(u).normalize()).sub(p).cross(f(t2.multiplyScalar(.01).add(u).normalize()).sub(p)).normalize(); return n.dot(p)<0?n.negate():n; }
+function skin(f,n=26,m=18){ return Array.from({length:m+1},(_,i)=>{ const th=Math.PI*i/m; return Array.from({length:n},(_,j)=>{ const ph=TAU*j/n, u=v3(Math.sin(th)*Math.sin(ph),Math.cos(th),Math.sin(th)*Math.cos(ph)); return {p:f(u),n:fnorm(f,u)}; }); }); }
+/* the point of the face seen at (x, y) from straight in front, lifted off the skin by off */
+function onFace(f,x,y,off){ const w=f(v3(1,0,0)).x, h=f(v3(0,1,0)).y; let X=x/w, Y=y/h; const u=v3();
+  for(let k=0;k<14;k++){ u.set(X,Y,Math.sqrt(Math.max(.01,1-X*X-Y*Y))).normalize(); const p=f(u); X+=(x-p.x)/w; Y+=(y-p.y)/h; }
+  const n=fnorm(f,u); return {p:f(u).addScaledVector(n,off),n}; }
+/* painting on a surface S(x, y, off) that curves away from you: a filled shape (its outline as seen from in front), laid on in
+   rings so it follows the curve; or a stroke along a line of points, with a width at each */
+function fine(pts,close,st=.007){ const o=[], n=pts.length; for(let i=0;i<(close?n:n-1);i++){ const a=pts[i], b=pts[(i+1)%n], k=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/st));
+  for(let j=0;j<k;j++) o.push(a.map((v,c)=>lerp(v,b[c],j/k))); } if(!close) o.push(pts[n-1]); return o; }
+function blot(B,S,pts,col,off=.003){ const q=fine(pts,true), cx=q.reduce((s,p)=>s+p[0],0)/q.length, cy=q.reduce((s,p)=>s+p[1],0)/q.length;
+  B.grid([0,1,2,3].map(k=>q.map(([x,y])=>S(cx+(x-cx)*k/3,cy+(y-cy)*k/3,off))),col,true); }
+function line(B,S,pts,wd,col,off=.003){ const q=fine(pts.map(([x,y],i)=>[x,y,Array.isArray(wd)?wd[i]:wd]),false,.005), G=[[],[]];
+  q.forEach(([x,y,w],i)=>{ const a=q[Math.max(0,i-1)], b=q[Math.min(q.length-1,i+1)], tx=b[0]-a[0], ty=b[1]-a[1], l=Math.hypot(tx,ty)||1; w/=2;
+    G[0].push(S(x-ty/l*w,y+tx/l*w,off)); G[1].push(S(x+ty/l*w,y-tx/l*w,off)); }); B.grid(G,col); }
+/* ... or raised off it, h(x, y) high, over a patch from x0 to x1 and y0 to y1 (a nose), its normals from its own shape */
+function bump(B,S,x0,x1,y0,y1,h,col,n=14){ const G=Array.from({length:n+1},(_,i)=>Array.from({length:n+1},(_,j)=>{ const x=lerp(x0,x1,j/n), y=lerp(y1,y0,i/n); return S(x,y,.0006+h(x,y)); }));
+  G.forEach((r,i)=>r.forEach((v,j)=>{ const k=v3().subVectors(r[Math.min(n,j+1)].p,r[Math.max(0,j-1)].p).cross(v3().subVectors(G[Math.max(0,i-1)][j].p,G[Math.min(n,i+1)][j].p)).normalize(); v.n=k.dot(v.n)<0?k.negate():k; }));
+  B.grid(G,col); }
+/* ... or the space between two curves, top(x) and bot(x), across xs */
+function band(B,S,xs,top,bot,col,off=.003){ B.grid([xs.map(x=>S(x,top(x),off)),xs.map(x=>S(x,bot(x),off))],col); }
+const oval=(x,y,rx,ry,n=12)=>Array.from({length:n},(_,i)=>[x+Math.cos(TAU*i/n)*rx,y+Math.sin(TAU*i/n)*ry]);
+/* hair that hugs the head out to a hairline: edge(a) is how far down from the crown it comes (a is the way round: 0 in front, a
+   quarter turn to his left), lift(t,a) how far it stands off the skin, t going from the crown (0) to the hairline (1). Its
+   edge turns in under the skin, so the pen draws the hairline. Gives back at(t,a,up), a point on the hair (up above it) and the
+   normal there, and lump(), to lay a shape on it */
+function cap(B,f,col,edge,lift,tilt=.25,n=12,m=40){ const A=v3(0,Math.cos(tilt),-Math.sin(tilt)), F=v3(0,Math.sin(tilt),Math.cos(tilt));
+  const dir=(th,a)=>A.clone().multiplyScalar(Math.cos(th)).addScaledVector(F,Math.sin(th)*Math.cos(a)).addScaledVector(fX,Math.sin(th)*Math.sin(a)).normalize();
+  const at=(t,a,up=0)=>{ const u=dir(edge(a)*t,a), nn=fnorm(f,u); return {p:f(u).addScaledVector(nn,lift(t,a)+up),n:nn}; };
+  const G=[], E=[], I=[]; for(let i=0;i<=n;i++) G.push(Array.from({length:m},(_,j)=>at(i/n,TAU*j/m)));
+  for(let i=1;i<=n;i++) G[i].forEach((v,j)=>{ const k=v3().subVectors(G[i][(j+1)%m].p,G[i][(j+m-1)%m].p).cross(v3().subVectors(G[Math.min(n,i+1)][j].p,G[i-1][j].p)).normalize(); if(k.dot(v.n)<0) k.negate(); v.k=k; });
+  for(let i=1;i<=n;i++) G[i].forEach(v=>{ v.n=v.k; });
+  for(let j=0;j<m;j++){ const a=TAU*j/m, th=edge(a), u=dir(th,a), nn=fnorm(f,u), tg=f(dir(th+.03,a)).sub(f(u)).normalize(); E.push({p:G[n][j].p,n:tg}); I.push({p:f(u).addScaledVector(nn,-.005),n:tg}); }
+  B.grid(G,col,true); B.grid([E,I],col,true);
+  /* a shape laid on it at p, long along L, its sizes r: long, wide, deep */
+  const lump=(g,c,p,n,L,r)=>{ const l=L.clone().normalize(), s=v3().crossVectors(n,l); if(s.lengthSq()<1e-6) s.crossVectors(fX,l); s.normalize(); const d=v3().crossVectors(l,s).normalize(); B.along(g,c,p,l.multiplyScalar(r[0]),s.multiplyScalar(r[1]),d.multiplyScalar(r[2])); };
+  return {at,lump}; }
+const burns=(a,w=1.22,k=.3)=>k*Math.exp(-(((Math.abs(a)-w)/.13)**2));   // sideburns, just in front of the ears
+/* hair, each of us as in our photo: tight black curls with short sides; a light brown crop pushed up at the front; dark
+   waves swept back and up. (short is for you, the visitor) */
 const HAIR={
-  curly:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.186,20,12,0,TAU,0,Math.PI*.55),c,0,.02,-.01); cap.rotation.x=-.2; h.add(cap);
-    for(let k=0;k<54;k++){ const ph=Math.acos(1-(k+.5)/54*1.25), th=k*2.39996, x=Math.sin(ph)*Math.cos(th), y=Math.cos(ph), z=Math.sin(ph)*Math.sin(th); if(ph>.95&&z>.2) continue; if(ph>1.25) continue; h.add(mesh(SPH,c,x*.183,y*.183+.025,z*.183-.012,.042+(k%3)*.007)); } },
-  short:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.183,20,12,0,TAU,0,Math.PI*.52),c,0,.012,-.012); cap.rotation.x=-.28; h.add(cap); const f=mesh(SPH,c,.035,.12,.1,.12,.05,.075); f.rotation.z=.25; h.add(f); },
-  quiff:(h,c)=>{ const cap=mesh(new T.SphereGeometry(.182,20,12,0,TAU,0,Math.PI*.5),c,0,.015,-.012); cap.rotation.x=-.22; h.add(cap); const q=mesh(SPH,c,0,.165,.06,.1,.075,.12); q.rotation.x=.3; h.add(q); },
-  wavy:(h,c)=>{ HAIR.quiff(h,c); [[-.08,.17,.07,.06],[.07,.18,.05,.065],[-.02,.2,.0,.07],[.11,.13,.1,.05],[-.12,.12,.09,.05],[.0,.16,.13,.055]].forEach(([x,y,z,r])=>h.add(mesh(SPH,c,x,y,z,r,r*.8,r))); } };
-/* each of us, a little more ourselves: o.build broadens the shoulders; funnel and zip make a quarter-zip, polo a polo's collar
-   and buttons; under is the shirt collar showing beneath; watch, mous(tache); prop is the thing we carry for our project */
-function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); const W=o.build||1;
-  const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.08,.5,0); l.add(mesh(CAPS(.062,.32),o.pants,0,-.22,0)); l.add(mesh(BOXG,o.shoes,0,-.46,.035,.12,.08,.21)); body.add(l); return l; });
-  body.add(mesh(CAPS(.15,.2),o.shirt,0,.77,0,W,1,.78)); body.add(mesh(BOXG,o.pants,0,.55,0,.3,.12,.2));
-  if(o.funnel) body.add(mesh(new T.CylinderGeometry(.074,.09,.085,16,1,true),o.shirt,0,1.015,0));   // the stand-up collar of a quarter-zip
-  if(o.under) [-1,1].forEach(s=>{ const c=mesh(BOXG,o.under,s*.024,.985,.085,.04,.02,.02); c.rotation.z=s*.6; body.add(c); });
-  if(o.zip){ body.add(mesh(BOXG,o.zip,0,.9,.116,.011,.16,.008)); body.add(mesh(BOXG,o.zip,.008,.955,.12,.016,.034,.01)); }
-  if(o.polo){ [-1,1].forEach(s=>{ const c=mesh(BOXG,o.shirt,s*.04,.985,.08,.075,.022,.06); c.rotation.z=s*.45; c.rotation.x=-.3; body.add(c); });
-    body.add(mesh(BOXG,o.polo,0,.93,.117,.026,.08,.006)); [.95,.91].forEach(y=>body.add(mesh(SPH,'#5f5a55',0,y,.12,.008))); }
-  body.add(mesh(CAPS(.055,.06),o.skin,0,1.0,0));
-  const arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); a.add(mesh(CAPS(.052,.12),o.shirt,0,-.09,0,W,1,W));
-    a.add(mesh(CAPS(.045,.15),o.short?o.skin:o.shirt,0,-.25,0,W,1,W)); a.add(mesh(SPH,o.skin,0,-.37,0,.05)); body.add(a); return a; });
-  if(o.watch) arms[0].add(mesh(BOXG,o.watch,0,-.325,0,.105,.03,.105));
-  const head=new T.Group(); head.position.y=1.15; body.add(head);
-  head.add(mesh(SPH,o.skin,0,0,0,.172,.18,.165)); [-1,1].forEach(s=>head.add(mesh(SPH,o.skin,s*.165,-.01,0,.035,.045,.03)));
-  const eyes=[-1,1].map(s=>{ const e=mesh(CAPS(.016,.022),'#1d1712',s*.062,.012,.152); head.add(e); return e; });
-  [-1,1].forEach(s=>{ const b=mesh(BOXG,o.hairC,s*.064,.07,.158,.065,.016,.02); b.rotation.z=-s*.12; head.add(b); });
-  head.add(mesh(SPH,o.skin,0,-.03,.17,.024,.022,.02));
-  const mo=new T.Mesh(new T.TorusGeometry(.032,.0075,6,14,Math.PI).rotateZ(Math.PI),toonMat('#7a3d2c',{fig:true})); mo.position.set(0,-.08,.152); head.add(mo);
-  HAIR[o.hair](head,o.hairC);
-  if(o.mous) head.add(mesh(BOXG,o.hairC,0,-.06,.162,.072,.017,.018));
-  if(o.goatee) head.add(mesh(BOXG,o.hairC,0,-.135,.142,.05,.04,.03));   // a short beard on the chin
+  curly:(B,f,c)=>{ const c2=C3(c).clone().lerp(C3('#6a4a36'),.22), r=seeded(7), edge=a=>1.32-.36*Math.cos(a)+burns(a,1.2,.26), sd=a=>Math.abs(Math.sin(a)),
+    H=cap(B,f,c,edge,(t,a)=>.006+.028*(1-t*t)*(1-.6*sd(a)));
+    // coils all over the top, fewer down the faded sides; a few fall forward onto his forehead
+    for(let k=0;k<84;k++){ const t=Math.sqrt((k+.5)/84)*.92, a=k*2.39996; if(t>.6&&sd(a)>.78||t>.74&&Math.cos(a)<-.15) continue;
+      const rr=.025+r()*.012, q=H.at(t,a,rr*.3); B.put(FG.ball,k%3?c:c2,q.p.x,q.p.y,q.p.z,rr,rr*.85,rr,r()*3,r()*3,r()*3); }
+    for(let k=0;k<8;k++){ const a=(k/7-.5)*1.6, rr=.022+r()*.008, q=H.at(.96+.04*(k%2),a,rr*.2); B.put(FG.ball,k%2?c2:c,q.p.x,q.p.y-.006,q.p.z,rr,rr*.9,rr,r()*3,r()*3,0); } },
+  textured:(B,f,c)=>{ const fr=a=>Math.max(0,Math.cos(a))**1.5, rg=(t,a)=>(.5+.5*Math.cos(a*15+3*t))**2, edge=a=>1.4-.38*Math.cos(a)+burns(a,1.22,.2)+.05*fr(a)*rg(1,a);
+    // short at the sides, the fringe pushed up into a ridge of pieces along the front, the pieces running back over the top
+    cap(B,f,c,edge,(t,a)=>.01+.016*(1-t*t)+.052*fr(a)*sstep(.1,.72,t)*sstep(1,.9,t)+.012*sstep(.05,.5,t)*rg(t,a)*(.4+.6*fr(a)),.25,14,90); },
+  wavy:(B,f,c)=>{ const fr=a=>Math.max(0,Math.cos(a*.85))**1.3, edge=a=>1.3-.4*Math.cos(a)+burns(a,1.22,.24);
+    // high at the front and swept back over the top in waves, short at the sides; two locks fallen onto his forehead
+    const H=cap(B,f,c,edge,(t,a)=>.011+.012*(1-t)+.07*fr(a)*sstep(0,.72,t)*sstep(1,.86,t)+.011*sstep(.05,.4,t)*(.5+.5*Math.cos(a*11+2.2*Math.sin(t*6)))**2,.25,14,80);
+    for(const a of [-.4,-.22]){ const q=H.at(.97,a,-.002), L=v3(a-.2,-1,.3); H.lump(FG.sph,c,q.p.addScaledVector(L.clone().normalize(),.026),q.n,L,[.04,.013,.008]); } },
+  short:(B,f,c)=>{ const edge=a=>1.3-.36*Math.cos(a)+burns(a,1.22,.2); cap(B,f,c,edge,(t,a)=>.012+.012*(1-t)); } };
+/* a face, painted on: eyes (dark, with a glint; in a mesh of their own so they can blink), brows, a nose, a mouth, and
+   what each of us has besides (a moustache and a chin beard, rosy cheeks) */
+function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F.ey??-.012, ex=F.ex??.058, rw=F.rw??.0155, rh=F.rh??.021, my=ey-(F.mouth??.078), hc=o.hairC, bw=F.bw??.014;
+  [-1,1].forEach(s=>{ blot(E,S,oval(s*ex,ey,rw,rh,14),'#221a16',.0035); blot(E,S,oval(s*ex+rw*.32,ey+rh*.4,rw*.36,rw*.36,8),'#fbf7f0',.005);
+    const by=ey+(F.by??.05), ar=F.arch??.008; line(B,S,[[s*(ex-.03),by-.003+(F.knit??0)],[s*(ex-.006),by+ar],[s*(ex+.03),by-.002]],[bw,bw*.9,bw*.5],hc,.0035); });
+  // the nose: a ridge from between the eyes to a rounded tip, its wings either side, so the pen finds only its underside
+  const nt=ey-(F.nose??.036), ns=F.ns??1; bump(B,S,-.03,.03,nt-.022,ey+.004,(x,y)=>{ const t=clamp((ey-.004-y)/(ey-.004-nt),0,1.6), w=(.005+.008*Math.min(t,1))*ns;
+    return (.012*ns*(t<1?t**1.5:Math.exp(-(((t-1)/.24)**2)))*Math.exp(-((x/w)**2))+.006*ns*[-1,1].reduce((m,s)=>m+Math.exp(-(((x-s*.011*ns)/.006)**2+((y-nt-.002)/.006)**2)),0)); },o.skin,18);
+  if(o.cheeks) [-1,1].forEach(s=>blot(B,S,oval(s*.088,ey-.042,.02,.012),C3(o.skin).clone().lerp(C3('#ee8f7c'),.38),.003));
+  const mc='#5a2822';
+  if(o.mouth==='grin'){ const W=.046, top=x=>my+.004+.01*(x/W)**2, bot=x=>my+.01*(x/W)**2-.026*(1-(x/W)**2), xs=Array.from({length:11},(_,i)=>(i/10*2-1)*W);
+    band(B,S,xs,top,bot,'#6b2a27',.003); band(B,S,xs.map(x=>x*.96),x=>top(x)-.001,x=>Math.min(top(x)-.001,Math.max(bot(x)+.004,top(x)-.011)),'#f6f0e6',.0042);
+    blot(B,S,oval(0,my-.019,.014,.005,10),'#c4615c',.0042); }
+  else if(o.mouth==='smirk') line(B,S,[[-.033,my+.006],[-.012,my-.004],[.012,my-.004],[.031,my+.008],[.036,my+.012]],[.004,.0075,.0075,.006,.003],mc,.0035);
+  else line(B,S,[[-.032,my+.007],[-.012,my-.003],[.012,my-.003],[.032,my+.007]],[.004,.007,.007,.004],mc,.0035);
+  if(o.mous) line(B,S,[[-.038,my+.008],[-.022,my+.017],[0,my+.019],[.022,my+.017],[.038,my+.008]],[.004,.008,.007,.008,.004],hc,.004);
+  if(o.goatee){ blot(B,S,[[-.009,my-.012],[.009,my-.012],[.006,my-.03],[-.006,my-.03]],hc,.004);
+    blot(B,S,[[-.022,my-.036],[0,my-.03],[.022,my-.036],[.026,my-.062],[.016,my-.08],[0,my-.086],[-.016,my-.08],[-.026,my-.062]],hc,.004);
+    const q=S(0,my-.066,0); B.put(FG.sph,hc,0,q.p.y-.006,q.p.z-.012,.024,.022,.02,.5); }
+  return ey; }
+/* each of us, a little more ourselves. build broadens the shoulders (arm: the arms); head is the shape of the head (half width,
+   height, depth, how much the jaw narrows, how far the chin comes forward); funnel and zip make a quarter-zip (funnel: how far
+   open its collar is), polo a polo's collar and buttons; under is the shirt collar showing beneath; watch on the left wrist;
+   mous(tache), goatee, cheeks, mouth; prop is the thing we carry for our project */
+function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); const W=o.build||1, Aw=o.arm||W, sk=o.skin, sh=o.shirt;
+  const bd=part();
+  bd.put(FG.sph,o.pants,0,.53,0,.138*W,.09,.088);
+  // the top, hem to neck: in at the waist, out at the chest, round over the shoulders; a band at the hem
+  const D=(o.depth||.7)/.7, TR=[[.465,.13,.092],[.475,.142,.1],[.535,.144,.102],[.545,.136,.096],[.65,.136,.096],[.79,.152,.108],[.86,.166,.11],[.9,.188,.104],[.932,.194,.094],[.952,.175,.082],[.968,.13,.068],[.981,.076,.055],[.99,.046,.044]].map(([y,x,z])=>[y,x*W,z*D]);
+  bd.grid(tube(TR,22),sh,true);
+  const TS=(x,y,off)=>{ let k=0; while(k<TR.length-2&&TR[k+1][0]<y) k++; const [y0,x0,z0]=TR[k], [y1,x1,z1]=TR[k+1], e=clamp((y-y0)/(y1-y0),0,1), rx=lerp(x0,x1,e), rz=lerp(z0,z1,e), q=clamp(x/rx,-.98,.98), z=rz*Math.sqrt(1-q*q), n=v3(x/(rx*rx),0,z/(rz*rz)).normalize();
+    return {p:v3(x,y,z).addScaledVector(n,off),n}; };
+  bd.put(FG.tube,sk,0,1.0,0,.045,.13,.043);   // the neck
+  if(o.funnel){ const gp=o.funnel;   // a quarter-zip: its stand-up collar, open at the front where the zip is down
+    bd.grid2(tube([[.95,.07*Math.max(1,W*.9),.064,.004],[.995,.066,.06,.006],[1.04,.062,.057,.007]],18,gp,TAU-gp),sh,false);
+    const vb=o.zipV??.9; blot(bd,TS,[[-.046*gp/.5,.986],[.046*gp/.5,.986],[0,vb]],o.under||tint(sh,-.4),.002);
+    if(o.under){ bd.grid(tube([[.955,.05,.047,.006],[.998,.048,.046,.006]],14),o.under,true);   // the shirt collar beneath, its points spread over the zip
+      [-1,1].forEach(s=>blot(bd,TS,[[s*.008,.986],[s*.05,.978],[s*.03,.944]],tint(o.under,.15),.0035)); }
+    line(bd,TS,[[0,vb+.004],[0,.755]],.008,o.zip,.003); const q=TS(.0,vb-.012,.008); bd.put(FG.box,o.zip,q.p.x+.004,q.p.y,q.p.z,.011,.03,.006,0,0,.12);
+    line(bd,TS,[[-.004,.755],[.004,.755]],.006,o.zip,.003); }
+  if(o.polo){   // a polo: a collar lying over the shoulders with its points on the chest, and a placket with two buttons
+    bd.grid2(tube([[.995,.054,.05,.006],[.97,.074,.066,.006],[.955,.086,.074,.006]],18,.3,TAU-.3),sh,false);
+    [-1,1].forEach(s=>{ const q=TS(s*.03,.948,.005); bd.put(FG.box,sh,q.p.x,q.p.y,q.p.z,.052,.04,.007,-.55,0,s*.42); });
+    blot(bd,TS,[[-.013,.97],[.013,.97],[.013,.865],[-.013,.865]],o.polo,.003); [.94,.9].forEach(y=>{ const q=TS(0,y,.006); bd.put(FG.sph,'#59534d',q.p.x,q.p.y,q.p.z,.0065,.0065,.004); }); }
+  if(o.logo) blot(bd,TS,oval(.075*W,.86,.011,.006,8),o.logo,.003);
+  if(o.pack){ bd.put(FG.box,o.pack,0,.79,-.17,.24,.3,.12); bd.put(FG.box,tint(o.pack,-.3),0,.93,-.205,.2,.05,.06); [-1,1].forEach(s=>bd.put(FG.box,tint(o.pack,-.3),s*.085,.83,0,.028,.2,.235)); }   // and its straps
+  body.add(bd.mesh());
+  // legs: trousers tapering to the ankle, and shoes with a sole
+  const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.074*W,.5,0); const L=part();
+    L.put(FG.sph,o.pants,0,0,0,.07); L.put(FG.limb,o.pants,0,-.215,0,.069,.43,.069); L.put(FG.tube,o.pants,0,-.418,0,.058,.026,.06);
+    L.put(FG.box,o.sole||tint(o.shoes,-.35),0,-.488,.03,.098,.024,.21); L.put(FG.sph,o.shoes,0,-.458,.034,.052,.044,.102); L.put(FG.sph,o.shoes,0,-.445,-.012,.05,.05,.05);
+    l.add(L.mesh()); body.add(l); return l; });
+  // arms: a rounded shoulder and the upper arm in one piece, the forearm and hand in another, so a wave can bend at the elbow
+  const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
+    U.put(FG.sph,sh,0,-.012,0,.049*Aw);
+    if(o.short){ U.put(FG.limb,sh,0,-.055,0,.058*Aw,.11,.058*Aw); U.put(FG.tube,sh,0,-.104,0,.047*Aw,.014,.047*Aw); U.put(FG.limb,sk,0,-.14,0,.045*Aw,.09,.045*Aw); }
+    else U.put(FG.limb,sh,0,-.09,0,.049*Aw,.18,.049*Aw);
+    a.add(U.mesh()); const fa=new T.Group(); fa.position.y=-.18; fa.rotation.x=-.12; a.add(fa); const Fm=part();
+    Fm.put(FG.sph,sl,0,0,0,.039*Aw); Fm.put(FG.limb,sl,0,-.075,0,.04*Aw,.15,.04*Aw);
+    if(!o.short) Fm.put(FG.tube,sh,0,-.14,0,.035*Aw,.026,.035*Aw);   // a ribbed cuff
+    Fm.put(FG.sph,sk,0,-.19,.004,.024*Aw,.043,.034*Aw); Fm.put(FG.sph,sk,-s*.006,-.172,.026,.012,.022,.012,.4);   // the hand, palm in, thumb forward
+    if(o.watch&&s>0){ Fm.put(FG.tube,o.watch,0,-.128,0,.034*Aw,.016,.034*Aw); Fm.put(FG.can,o.watch,.034*Aw,-.128,0,.016,.008,.016,0,0,Math.PI/2); Fm.put(FG.can,'#5d6066',.038*Aw,-.128,0,.011,.002,.011,0,0,Math.PI/2); }
+    if(o.prop==='rocket'&&s<0){ const z=.05;   // Ogive: a model rocket in his hand
+      Fm.put(FG.can,'#f4f0e8',0,-.15,z,.03,.17,.03); Fm.put(FG.cone,'#f4f0e8',0,-.03,z,.03,.07,.03); Fm.put(FG.can,'#ef8a3c',0,-.105,z,.032,.022,.032);
+      [-1,1].forEach(k=>Fm.put(FG.box,'#ffc392',k*.038,-.222,z,.03,.045,.008)); }
+    fa.add(Fm.mesh()); fore.push(fa); body.add(a); return a; });
+  // the head
+  const head=new T.Group(); head.position.y=1.165; body.add(head); const H=part(), E=part(), hd=o.head||[.152,.172,.16,.14,.024], f=headF(...hd);
+  H.grid(skin(f),sk,true);
+  [-1,1].forEach(s=>H.put(FG.sph,sk,s*hd[0]*.97,-.022,-.008,.02,.038,.028,0,s*.35));   // ears
+  const ey=face(H,E,f,o);
+  HAIR[o.hair](H,f,o.hairC);
+  if(o.prop==='headset'){ const hc='#2a2c31';   // Kríos: a headset, its band behind his hair, the mic at his mouth
+    H.put(FG.band,hc,0,.0,-.01,hd[0]+.035,.225,.225,-.55); [-1,1].forEach(s=>{ H.put(FG.sph,hc,s*(hd[0]+.03),-.02,-.004,.024,.046,.042); H.put(FG.can,'#4a4d54',s*(hd[0]+.05),-.02,-.004,.03,.006,.03,0,0,Math.PI/2); });
+    const m0=v3(-(hd[0]+.04),-.04,.03), mq=onFace(f,-.036,ey-.075,.016).p, L=mq.clone().sub(m0), mid=m0.clone().add(mq).multiplyScalar(.5), s1=v3().crossVectors(L,fY).normalize().multiplyScalar(.006), s2=v3().crossVectors(L,s1).normalize().multiplyScalar(.006);
+    H.along(FG.box,hc,mid,L,s1,s2); H.put(FG.sph,hc,mq.x,mq.y,mq.z,.014); }
+  head.add(H.mesh()); const em=E.mesh(0,ey,0); head.add(em);
   let prop=null;
   if(o.prop==='drone'){ prop=drone('#7fd3ff'); prop.matrixAutoUpdate=true; prop.scale.setScalar(.62); prop.position.set(-.46,1.48,.06); g.add(prop); }   // Aetos: a little drone at his shoulder, clear of the hand he waves with
-  if(o.prop==='rocket'){ prop=new T.Group(); prop.position.set(0,-.36,.07); arms[0].add(prop);   // Ogive: a model rocket in his hand
-    prop.add(mesh(new T.CylinderGeometry(.03,.03,.17,12),'#f4f0e8',0,.085,0)); prop.add(mesh(new T.ConeGeometry(.03,.07,12),'#f4f0e8',0,.205,0));
-    prop.add(mesh(new T.CylinderGeometry(.032,.032,.022,12),'#ef8a3c',0,.13,0)); [-1,1].forEach(s=>prop.add(mesh(BOXG,'#ffc392',s*.038,.012,0,.03,.045,.008))); }
-  if(o.prop==='headset'){ const hc='#2a2c31';   // Kríos: a headset, the mic at his mouth
-    const band=new T.Mesh(new T.TorusGeometry(.212,.013,6,24,Math.PI),toonMat(hc,{fig:true})); band.position.y=-.005; head.add(band);
-    [-1,1].forEach(s=>head.add(mesh(SPH,hc,s*.19,-.015,0,.035,.055,.05)));
-    const boom=mesh(BOXG,hc,-.12,-.06,.095,.011,.011,.18); boom.rotation.order='YXZ'; boom.rotation.y=.79; boom.rotation.x=.22; head.add(boom); head.add(mesh(SPH,hc,-.052,-.08,.158,.02)); }
-  if(o.pack){ body.add(mesh(BOXG,o.pack,0,.8,-.17,.24,.3,.12)); body.add(mesh(BOXG,'#3f4b58',0,.93,-.235,.2,.05,.03)); }
-  const sh=new T.Mesh(SHG,SHM); sh.scale.set(.62,1,.62); sh.position.y=.025; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
-  g.userData={legs,arms,head,body,eyes,drone:o.prop==='drone'?prop:null}; return g; }
+  const shd=new T.Mesh(SHG,SHM); shd.scale.set(.62,1,.62); shd.position.y=.025; shd.renderOrder=1; shd.layers.set(1); g.add(shd);
+  g.userData={legs,arms,fore,head,body,eyes:[em],drone:o.prop==='drone'?prop:null}; return g; }
 /* what each of us says: every landmark stands, so we talk about them as they are, and mention it if you came by way of
    the flight and stopped at one of them up there */
 const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
@@ -4244,11 +4376,14 @@ function linesFor(i){ const land=!!st.land, been=id=>!land&&S.docked.has(id), ba
     'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
-    look:{shirt:'#dcdcd8',funnel:true,under:'#8ea6c8',zip:'#4b4e53',watch:'#202224',pants:'#3d4350',shoes:'#2b2b2e',skin:'#9a6847',hair:'curly',hairC:'#1f1814',prop:'drone'}},
+    look:{shirt:'#ecebe5',funnel:.55,zipV:.9,under:'#93b1d8',zip:'#45484e',watch:'#1c1d20',build:.95,pants:'#3d4350',shoes:'#2b2b2e',skin:'#9c6646',
+      head:[.148,.176,.16,.17,.03],face:{bw:.016,arch:.006},mouth:'smirk',hair:'curly',hairC:'#1b1411',prop:'drone'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
-    look:{shirt:'#262524',short:true,polo:'#1a1918',build:1.1,pants:'#4a4f5a',shoes:'#ece7dc',skin:'#e3b796',hair:'short',hairC:'#86593a',prop:'rocket'}},
+    look:{shirt:'#262524',short:true,polo:'#1c1b1a',build:1.14,arm:1.2,depth:.74,pants:'#4a4f5a',shoes:'#ece7dc',sole:'#cfc8bb',skin:'#e8b898',
+      head:[.16,.172,.164,.1,.024],face:{rh:.016,bw:.011,arch:.011,by:.054},mouth:'grin',cheeks:true,hair:'textured',hairC:'#9a6842',prop:'rocket'}},
   {name:'Abraham Sabu Kurian',first:'Abraham',li:'https://www.linkedin.com/in/abraham-sabu-kurian/',at:[1.3,-2.7],face:[1.3,-8],pitch:470,
-    look:{shirt:'#252a37',funnel:true,zip:'#a9acb2',watch:'#202224',pants:'#cdbd9c',shoes:'#2b2b2e',skin:'#8f5f40',hair:'wavy',hairC:'#1d1612',mous:true,goatee:true,prop:'headset'}}];
+    look:{shirt:'#222838',funnel:.32,zipV:.925,zip:'#b6bac2',logo:'#8d93a0',watch:'#202224',pants:'#d6b88c',shoes:'#3b2d25',skin:'#94603f',
+      head:[.148,.18,.16,.2,.03],face:{bw:.015,arch:.004,knit:.004},mouth:'smile',mous:true,goatee:true,hair:'wavy',hairC:'#251c17',prop:'headset'}}];
 CREW.forEach((c,i)=>c.lines=linesFor(i));
 let people=[], me=null;
 function buildPeople(){
@@ -4778,8 +4913,12 @@ const sT=new T.Vector3();
 function standOn(g,u,f,h){ sT.crossVectors(u,f).normalize(); Mf.makeBasis(sT,u,f); g.quaternion.setFromRotationMatrix(Mf); g.position.copy(u).multiplyScalar(R+h); }
 function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(walkPh);
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
+  d.fore[0].rotation.x=-.12-Math.max(0,sw)*.4*amt; d.fore[1].rotation.x=-.12-Math.max(0,-sw)*.4*amt;   // the elbow bends as the arm swings forward
   d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
-  if(wave>0){ d.arms[1].rotation.z=damp(d.arms[1].rotation.z,-2.6+Math.sin(t*11)*.35,14,.016); d.arms[1].rotation.x=0; } else d.arms[1].rotation.z=damp(d.arms[1].rotation.z,0,8,.016);
+  // a wave: the left arm out and up, the forearm upright, waving from the elbow
+  const a=d.arms[1], f=d.fore[1];
+  if(wave>0){ a.rotation.z=damp(a.rotation.z,1.95,14,.016); a.rotation.x=0; f.rotation.z=damp(f.rotation.z,.95+Math.sin(t*11)*.38,14,.016); }
+  else { a.rotation.z=damp(a.rotation.z,0,8,.016); f.rotation.z=damp(f.rotation.z,0,8,.016); }
   if(d.drone){ d.drone.position.y=1.48+Math.sin(t*2.3+i)*.035; d.drone.rotation.y=Math.sin(t*.5+i)*.5; } }
 
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
