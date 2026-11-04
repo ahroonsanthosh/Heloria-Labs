@@ -317,16 +317,20 @@ renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const hubCam=new T.PerspectiveCamera(36,1,.1,900), stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
-const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:Q<1?0:2});
+let RTS=Q<1?0:2;   // how many samples a full-screen target smooths its edges with (the frame timer can take it to none)
+const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:RTS});
 const rtA=mkRT(), rtB=mkRT();
 /* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
-   and only a doorway between them needs both; so each is held only while it is being drawn and given back a few seconds
-   after, and a phone or a laptop never carries one it is not using. One that is needed again is made full size before
-   anything is drawn into it, so the picture never knows (the trace of the hole likewise, while a station has the screen) */
+   and only a doorway between them needs both; so each is held only while it is being drawn and given back the moment it
+   is not, and a phone or a laptop never carries one it is not using. One that is needed again is made full size before
+   anything is drawn into it, so the picture never knows (the trace of the hole likewise, while a station has the screen).
+   A station that draws itself (Earth inks its own lines, smoothing its edges as it goes) hands over a finished picture
+   that covers the screen; its target needs no smoothing of its own, which on a laptop is a large saving */
 const RTL=new Map();
-function rtLive(rt,on,t){ if(on){ RTL.set(rt,t); const W=Math.max(1,Math.floor(innerWidth*DPR)), H=Math.max(1,Math.floor(innerHeight*DPR)); if(rt.width!==W||rt.height!==H) rt.setSize(W,H); }
-  else if(rt.width>1&&t-(RTL.get(rt)??-1e9)>3) rt.setSize(1,1); }
-function bhLive(on,t){ if(on){ RTL.set(BH,t); if(BH.rt.width<=2) BH.resize(); } else if(BH.rt.width>2&&t-(RTL.get(BH)??-1e9)>3) BH.rt.setSize(1,1); }
+function rtLive(rt,on,t,smp){ if(on){ RTL.set(rt,t); if(smp!==undefined&&rt.samples!==smp){ rt.samples=smp; rt.dispose(); }
+    const W=Math.max(1,Math.floor(innerWidth*DPR)), H=Math.max(1,Math.floor(innerHeight*DPR)); if(rt.width!==W||rt.height!==H) rt.setSize(W,H); }
+  else if(rt.width>1) rt.setSize(1,1); }   // (what is needed only ever changes one way through a doorway, so there is nothing to wait for)
+function bhLive(on,t){ if(on){ RTL.set(BH,t); if(BH.rt.width<=2) BH.resize(); } else if(BH.rt.width>2) BH.rt.setSize(1,1); }
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
@@ -386,7 +390,7 @@ addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResiz
 const QM={buf:[],cool:0,
   tick(ms,now){ if(window.__TEST) return; this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
     const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-    if(avg>23){ if(rtA.samples>0){ rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
+    if(avg>23){ if(RTS>0){ RTS=0; rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
     else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.9)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
 
 /* ---------- particle + material toolkit ---------- */
