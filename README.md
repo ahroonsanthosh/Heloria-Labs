@@ -2,14 +2,14 @@
 
 <h1 align="center">Heloria</h1>
 
-<p align="center">The website for Heloria Labs. Built by me, Ahroon Santhosh, in Cork.</p>
+<p align="center">The website I built for Heloria Labs.</p>
 
 <br>
 
-Most company websites are a list of claims. I wanted ours to be somewhere you could actually go.
+Most company websites are a list of stats. I wanted ours to be somewhere you could actually go.
 
-Heloria Labs is three of us: me, Michael Sweeney Heffernan and Abraham Sabu Kurian. We build software for problems
-with physics in them: [Kríos](https://krios.ie) (voice practice for sales teams),
+Heloria Labs is three of us: me, Michael Sweeney Heffernan and Abraham Sabu Kurian. We build around hard problems: 
+[Kríos](https://krios.ie) (voice practice for sales teams),
 [Aetos](https://github.com/ahroonsanthosh/Aetos) (counter-drone command),
 [Pharos](https://github.com/ahroonsanthosh/pharos) (drone navigation without GPS) and
 [Ogive](https://github.com/michaelsheffernan/ogive) (AI tools for rocket design).
@@ -29,7 +29,7 @@ The site has three ways in.
 </tr>
 </table>
 
-## The parts I'm proudest of
+## How it works
 
 - The black hole is ray-traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler
   beaming and gravitational redshift. Every colour in it comes from one blackbody scale.
