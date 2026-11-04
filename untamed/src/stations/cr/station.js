@@ -851,7 +851,7 @@ addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; re
   const p=pickPerson(e); if(p) goTalk(p); });
 addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
-addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
+addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
 
 /* ---------- talking ---------- */

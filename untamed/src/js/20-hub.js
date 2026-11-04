@@ -43,7 +43,7 @@ addEventListener('pointermove',e=>{
 });
 const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick').hidden=true; $('#stick i').style.transform=''; } };
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
-addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
+addEventListener('wheel',e=>{ if(S.mode==='hub'&&!S.wheelSettle){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
 /* the hole as a destination: sealed until you have docked at one station; what is on the other side is Earth.
    Nothing flies you into it: the stations take autopilot, the horizon you fly into by hand */

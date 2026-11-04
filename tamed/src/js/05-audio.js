@@ -31,7 +31,7 @@ const A=(()=>{
   ['touchend','pointerup','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); },{capture:true,passive:true}));
   function init(){
     if(ctx) return;
-    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
+    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps
     n.master=ctx.createGain(); n.master.gain.value=0;
     n.comp=ctx.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=14; n.comp.ratio.value=3; n.comp.attack.value=.02; n.comp.release.value=.5;
@@ -41,10 +41,10 @@ const A=(()=>{
     /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
-      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='none';
     n.comp.connect(n.master); n.master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
     n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; lim.connect(n.meter);
-    n.rev=ctx.createConvolver(); n.rev.buffer=ir(LITE?2.4:5.2,2.6);   // a shorter room on a phone: half the work n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
+    n.rev=ctx.createConvolver(); n.rev.buffer=ir(Math.min(.25,12000/ctx.sampleRate),1.4);   /* a short room, worked out on the sound's own thread: a long one is worked out on an ordinary thread that a busy page starves, and the sound crackles and cuts out while the page is in front */ n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
     n.revIn=ctx.createGain(); n.revIn.connect(n.rev);
     /* nine seconds of each noise, read by every layer at its own speed (src): no two layers line up, so nothing phases */
     const nb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;

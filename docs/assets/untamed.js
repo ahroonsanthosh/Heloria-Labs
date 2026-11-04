@@ -67,7 +67,7 @@ const A=(()=>{
   function init(){
     if(ctx) return;
     try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // Safari: play like media, set before the sound starts (changing it mid-play interrupts it)
-    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
+    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;
@@ -75,12 +75,15 @@ const A=(()=>{
       /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
-      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='none';
       out.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
       n.mon=ctx.createAnalyser(); n.mon.fftSize=2048; n.monBuf=new Float32Array(2048); lim.connect(n.mon); }   // the watchdog listens here
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3; comp.connect(out);
-    rev=ctx.createConvolver(); const L=Math.floor(ctx.sampleRate*(LITE?1.6:3.2)), ir=ctx.createBuffer(2,L,ctx.sampleRate);   // a shorter room on a phone: half the work
-    for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,2.6);}
+    /* the room: kept short enough (a quarter of a second) that the browser works it out on the sound's own thread. A longer
+       room is worked out on an ordinary thread, which a busy page starves, and the sound turns to crackle and static and
+       cuts out the moment the page is in front, while it plays clean in a background tab */
+    rev=ctx.createConvolver(); const L=Math.min(12000,Math.floor(ctx.sampleRate*.25)), ir=ctx.createBuffer(2,L,ctx.sampleRate);
+    for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,1.4);}
     rev.buffer=ir; const rg=ctx.createGain(); rg.gain.value=.65; rev.connect(rg); rg.connect(comp); revIn=ctx.createGain(); revIn.connect(rev);
     // pad: five detuned voices per chord tone through a breathing low-pass
     n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=520; n.padF.Q.value=.7;
@@ -969,7 +972,7 @@ addEventListener('pointermove',e=>{
 });
 const endDrag=e=>{ if(drag&&(!e||e.pointerId===drag.id)){ drag=null; $('#stick').hidden=true; $('#stick i').style.transform=''; } };
 addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
-addEventListener('wheel',e=>{ if(S.mode==='hub'){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
+addEventListener('wheel',e=>{ if(S.mode==='hub'&&!S.wheelSettle){ S.zoom=clamp(S.zoom*Math.exp(e.deltaY*.0008),.72,1.35); e.preventDefault(); } },{passive:false});
 
 /* the hole as a destination: sealed until you have docked at one station; what is on the other side is Earth.
    Nothing flies you into it: the stations take autopilot, the horizon you fly into by hand */
@@ -1324,7 +1327,7 @@ function escape(){
    gesture is either a quiet gap or a clear rise in strength; everything else after a chapter change is ignored. */
 const wh={last:0,peak:0,armed:true};
 addEventListener('wheel',e=>{
-  if(S.mode!=='story') return; e.preventDefault();
+  if(S.mode!=='story') return; e.preventDefault(); if(S.wheelSettle) return;
   const now=performance.now(), d=e.deltaMode===1?e.deltaY*18:e.deltaMode===2?e.deltaY*innerHeight:e.deltaY, ad=Math.abs(d), gap=now-wh.last; wh.last=now;
   if(gap>200||ad>wh.peak*1.7+6){ wh.armed=true; story.acc=0; }
   wh.peak=gap>200?ad:Math.max(ad,wh.peak*.92);
@@ -4725,7 +4728,7 @@ addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; re
   const p=pickPerson(e); if(p) goTalk(p); });
 addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
-addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
+addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
 
 /* ---------- talking ---------- */
@@ -5344,10 +5347,12 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
-/* the way in: a click, a tap, a swipe or a key. Not a scroll: a browser lets sound start only on a click, a tap or a key,
-   and the whole thing is meant to be heard from the first moment, so a scroll on the opening screen points at the prompt */
-$('#beginT').textContent=(FINE?'Click':'Tap')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
-addEventListener('wheel',e=>{ if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); },{passive:true});
+/* the way in: a scroll or a swipe (a click, a tap or a key do it too). Coming from the front door you have already clicked,
+   and the browser lets the sound start on the scroll. The scroll that begins it is let finish before anything else on the
+   page listens to the wheel, so a trackpad's long glide does not run on into the story or the zoom */
+$('#beginT').textContent=(FINE?'Scroll':'Swipe')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
+{ let wheelT=0, t0=0; addEventListener('wheel',e=>{ const now=performance.now(); if(S.wheelSettle&&now-wheelT>260&&now-t0>2600) S.wheelSettle=false; wheelT=now;
+    if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; S.wheelSettle=true; t0=now; enter(); },{passive:true,capture:true}); }
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });

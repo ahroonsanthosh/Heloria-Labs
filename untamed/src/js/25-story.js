@@ -31,7 +31,7 @@ function escape(){
    gesture is either a quiet gap or a clear rise in strength; everything else after a chapter change is ignored. */
 const wh={last:0,peak:0,armed:true};
 addEventListener('wheel',e=>{
-  if(S.mode!=='story') return; e.preventDefault();
+  if(S.mode!=='story') return; e.preventDefault(); if(S.wheelSettle) return;
   const now=performance.now(), d=e.deltaMode===1?e.deltaY*18:e.deltaMode===2?e.deltaY*innerHeight:e.deltaY, ad=Math.abs(d), gap=now-wh.last; wh.last=now;
   if(gap>200||ad>wh.peak*1.7+6){ wh.armed=true; story.acc=0; }
   wh.peak=gap>200?ad:Math.max(ad,wh.peak*.92);

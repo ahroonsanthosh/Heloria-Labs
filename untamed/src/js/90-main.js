@@ -58,10 +58,12 @@ function enter(){
   setTimeout(()=>{ A.boom(); S.flash=.6; feedback(.6,1.2); },1150);
   setTimeout(()=>{ show('#load',false); show('#chrome',true); },900);
 }
-/* the way in: a click, a tap, a swipe or a key. Not a scroll: a browser lets sound start only on a click, a tap or a key,
-   and the whole thing is meant to be heard from the first moment, so a scroll on the opening screen points at the prompt */
-$('#beginT').textContent=(FINE?'Click':'Tap')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
-addEventListener('wheel',e=>{ if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); },{passive:true});
+/* the way in: a scroll or a swipe (a click, a tap or a key do it too). Coming from the front door you have already clicked,
+   and the browser lets the sound start on the scroll. The scroll that begins it is let finish before anything else on the
+   page listens to the wheel, so a trackpad's long glide does not run on into the story or the zoom */
+$('#beginT').textContent=(FINE?'Scroll':'Swipe')+({land:' to land',aetos:' to go into orbit'}[S.entry]||' to begin');
+{ let wheelT=0, t0=0; addEventListener('wheel',e=>{ const now=performance.now(); if(S.wheelSettle&&now-wheelT>260&&now-t0>2600) S.wheelSettle=false; wheelT=now;
+    if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; S.wheelSettle=true; t0=now; enter(); },{passive:true,capture:true}); }
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });

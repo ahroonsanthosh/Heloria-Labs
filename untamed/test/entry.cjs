@@ -12,7 +12,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const load = await page.evaluate(() => ({ bg: getComputedStyle(document.querySelector('#load')).backgroundColor, ink: getComputedStyle(document.querySelector('#mark')).color, begin: document.querySelector('#beginT').textContent, landing: document.documentElement.classList.contains('landing') }));
   log('loader', JSON.stringify(load));
   await wait(1400); await shot(tag + '-0-loader');
-  const verb = mobile ? 'Tap' : 'Click';
+  const verb = mobile ? 'Swipe' : 'Scroll';
   if (way === 'fly') {
     ok(!load.landing && /rgb\(5, 5, 4\)/.test(load.bg), 'Fly opens in the dark', load.bg);
     ok(load.begin === verb + ' to begin', 'its prompt', load.begin);

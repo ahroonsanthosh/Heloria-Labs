@@ -64,7 +64,7 @@ const A=(()=>{
   function init(){
     if(ctx) return;
     try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // Safari: play like media, set before the sound starts (changing it mid-play interrupts it)
-    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
+    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;
@@ -72,12 +72,15 @@ const A=(()=>{
       /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
-      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='none';
       out.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
       n.mon=ctx.createAnalyser(); n.mon.fftSize=2048; n.monBuf=new Float32Array(2048); lim.connect(n.mon); }   // the watchdog listens here
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3; comp.connect(out);
-    rev=ctx.createConvolver(); const L=Math.floor(ctx.sampleRate*(LITE?1.6:3.2)), ir=ctx.createBuffer(2,L,ctx.sampleRate);   // a shorter room on a phone: half the work
-    for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,2.6);}
+    /* the room: kept short enough (a quarter of a second) that the browser works it out on the sound's own thread. A longer
+       room is worked out on an ordinary thread, which a busy page starves, and the sound turns to crackle and static and
+       cuts out the moment the page is in front, while it plays clean in a background tab */
+    rev=ctx.createConvolver(); const L=Math.min(12000,Math.floor(ctx.sampleRate*.25)), ir=ctx.createBuffer(2,L,ctx.sampleRate);
+    for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,1.4);}
     rev.buffer=ir; const rg=ctx.createGain(); rg.gain.value=.65; rev.connect(rg); rg.connect(comp); revIn=ctx.createGain(); revIn.connect(rev);
     // pad: five detuned voices per chord tone through a breathing low-pass
     n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=520; n.padF.Q.value=.7;
