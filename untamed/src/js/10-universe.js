@@ -32,7 +32,7 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
       // the seal breaking sends one wave out across the whole system
-      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},uShock):0.; y-=.7*sk;
+      float sk=uShock>0.?exp(-((r-uShock)*(r-uShock))*.7)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},uShock):0.; y-=.7*sk;
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
       vA=uOp*((.045+.14*wv)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);

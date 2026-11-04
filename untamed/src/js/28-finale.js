@@ -9,7 +9,7 @@ function finaleWhite(){ if(S.mode==='credits') return; const st=ST.cr;
   S.st=null; S.stId=null; S.iris=0; credits(); }
 
 /* the white page */
-function credits(){ if(S.mode==='credits') return; S.mode='credits'; S.flashMin=1; post.uniforms.uFlash.value=1;
+function credits(){ if(S.mode==='credits') return; S.mode='credits'; S.flashMin=1; post.uniforms.uFlash.value=1; post.uniforms.uLight.value.z=1;   /* the white of the page itself */
   A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
   $('#finAgain').textContent=S.entry==='fly'?'Fly again':'Fly the whole thing';
   finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }

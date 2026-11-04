@@ -107,7 +107,7 @@ function waterMat(U,mirror,sim,o={}){
       vec2 ruv=vMC.xy/vMC.w+off;
       vec4 rf=texture2D(tRefl,ruv);
       float cs=max(dot(N,V),0.);
-      float fr=.02+.98*pow(1.-cs,5.);
+      float fr=.02+.98*((1.-cs)*(1.-cs)*(1.-cs)*(1.-cs)*(1.-cs));
       vec3 body=uDeep*(.55+.45*uSky);
       vec3 c=mix(body,rf.rgb,clamp(fr*1.04,0.,1.));
       vec3 Hh=normalize(uSunDir+V); float sp=pow(max(dot(N,Hh),0.),900.)*60.+pow(max(dot(N,Hh),0.),90.)*1.2;

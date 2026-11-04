@@ -53,10 +53,10 @@ function skyMat(){
       vec2 dh=normalize(d.xz+1e-5), sh=normalize(uSunDir.xz+1e-5); float az=dot(dh,sh)*.5+.5;
       c=mix(c,uHorS,pow(az,2.6)*exp(-hy*5.5));
       float anti=pow(1.-az,1.6);
-      c=mix(c,uBelt,anti*uBeltK*exp(-pow((hy-.085)/.075,2.)));
-      c=mix(c,uZen*vec3(.86,.9,1.05),anti*uBeltK*.5*exp(-pow(hy/.035,2.))*smoothstep(.07,-.02,uSunDir.y));
+      c=mix(c,uBelt,anti*uBeltK*exp(-(((hy-.085)/.075)*((hy-.085)/.075))));
+      c=mix(c,uZen*vec3(.86,.9,1.05),anti*uBeltK*.5*exp(-((hy/.035)*(hy/.035)))*smoothstep(.07,-.02,uSunDir.y));
       float mu=dot(d,uSunDir);
-      c+=uGlow*(pow(max(mu,0.),5.)*.28+pow(max(mu,0.),48.)*.75+pow(max(mu,0.),700.)*2.2)*uSunK;
+      c+=uGlow*(((max(mu,0.))*(max(mu,0.))*(max(mu,0.))*(max(mu,0.))*(max(mu,0.)))*.28+pow(max(mu,0.),48.)*.75+pow(max(mu,0.),700.)*2.2)*uSunK;
       /* thin evening cloud, streaked along the horizon */
       vec2 cp=d.xz/(hy+.09);
       float n=fbm2(cp*vec2(.32,1.25)+vec2(uTime*.0025,0.)+vec2(7.,3.));

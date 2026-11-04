@@ -34,10 +34,32 @@ const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Mat
 /* ---------- sound: a generative score, not beeps ---------- */
 const A=(()=>{
   let ctx=null,out,comp,rev,revIn,on=false,muted=false; const n={};
+  const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
+  /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
+     sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
+     else. So: lighter work on a phone (LITE), the playback audio session on iOS, and a watchdog once a second that wakes
+     the context if it was put to sleep and restarts it if its clock has stopped moving */
+  /* and if waking it does not work (a clock still stopped after a restart, or a context that will not come back even on a
+     tap) the whole sound is built again on a fresh context: everything in it is made from n, so nothing is lost */
+  let wdT=-1, wdC=-1, wdBad=0, downAt=0;
+  function rebuild(){ const old=ctx; if(!old) return; if(n.musClock) clearInterval(n.musClock); for(const k in n) delete n[k];
+    ctx=null; init(); try{ old.close(); }catch(e){} set(out.gain,muted?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
+  function watch(){ if(!ctx||!on||document.hidden){ wdT=-1; return; }
+    const now=performance.now();
+    if(ctx.state!=='running'){ if(!downAt) downAt=now; ctx.resume().catch(()=>{}); wdT=-1; return; }
+    downAt=0; const c=ctx.currentTime;
+    if(wdT>0&&now-wdT>900&&c===wdC){ if(++wdBad>=2){ rebuild(); return; } ctx.suspend().then(()=>ctx.resume()).catch(()=>{}); }
+    else if(c!==wdC) wdBad=0;
+    wdT=now; wdC=c; }
+  setInterval(watch,1000);
+  document.addEventListener('visibilitychange',()=>{ wdT=-1; if(!document.hidden&&ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); });
+  ['touchend','pointerup','click','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(!ctx||!on||ctx.state==='running') return;
+    if(downAt&&performance.now()-downAt>2500) rebuild(); else ctx.resume().catch(()=>{}); },{capture:true,passive:true}));
   const CH=[[73.42,146.83,220,329.63,440],[65.41,130.81,196,293.66,392],[58.27,116.54,174.61,261.63,349.23],[55,110,164.81,246.94,329.63]];
   function init(){
     if(ctx) return;
-    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
+    try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;
@@ -45,10 +67,10 @@ const A=(()=>{
       /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
-      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='2x';
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
       out.connect(hp); hp.connect(lim); lim.connect(ctx.destination); }
     comp=ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3; comp.connect(out);
-    rev=ctx.createConvolver(); const L=ctx.sampleRate*3.2, ir=ctx.createBuffer(2,L,ctx.sampleRate);
+    rev=ctx.createConvolver(); const L=Math.floor(ctx.sampleRate*(LITE?1.6:3.2)), ir=ctx.createBuffer(2,L,ctx.sampleRate);   // a shorter room on a phone: half the work
     for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,2.6);}
     rev.buffer=ir; const rg=ctx.createGain(); rg.gain.value=.65; rev.connect(rg); rg.connect(comp); revIn=ctx.createGain(); revIn.connect(rev);
     // pad: five detuned voices per chord tone through a breathing low-pass
@@ -101,7 +123,7 @@ const A=(()=>{
   const LOUD=.75, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
   return {
-    get on(){return on&&!muted}, get ctx(){return ctx},
+    get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
@@ -182,12 +204,12 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); };
       const PROG=[[53,57,60,64,67],[52,55,59,62,66],[50,53,57,60,64],[48,52,55,59,62]], BASS=[41,40,38,36], SCALE=[60,62,64,67,69,72,74,76,79];
       while(n.mt<ctx.currentTime+1.2){ const k=n.ms, t0=n.mt, pos=k%8, bar=Math.floor(k/8), ch=PROG[bar%4];
-        if(pos===0){ ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*3.6,.018,'sine',.03); play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
+        if(pos===0){ ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*(LITE?2.6:3.6),.018,'sine',.03); if(!LITE) play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t0+i*.01,beat*1.3,.011,'sine',.02)); play(mf(BASS[bar%4]+7),t0,beat*.9,.05,'sine',.02); }
         if(pos===0||pos===5) play(95,t0,.22,.07,'sine',.005,42);                    // a soft kick
         if(pos===4) hit(t0,.16,.022,1900,'bandpass',.9);                            // a brush on the snare
         if(k%2===1) hit(t0,.045,.007+Math.random()*.004,7000,'highpass',.7);        // brushes on the offbeat
-        if(Math.random()<.18) hit(t0+Math.random()*.2,.012,.012,3000+Math.random()*3000,'bandpass',3); // vinyl
+        if(!LITE&&Math.random()<.18) hit(t0+Math.random()*.2,.012,.012,3000+Math.random()*3000,'bandpass',3); // vinyl
         if([0,3,4,6].includes(pos)&&Math.random()<.62){ n.mel=clamp(n.mel+Math.floor(Math.random()*5)-2,0,SCALE.length-1); const f=mf(SCALE[n.mel]);
           play(f,t0,beat*1.5,.024,'sine',.004); play(f*3.01,t0,beat*.35,.005,'sine',.002); }
         n.ms++; n.mt+=beat*(k%2?.44:.56); } };
@@ -303,9 +325,9 @@ const rtA=mkRT(), rtB=mkRT();
 const post=new T.ShaderMaterial({
   uniforms:{tA:{value:rtA.texture},tB:{value:rtB.texture},uIris:{value:0},uIC:{value:new T.Vector2(.5,.5)},uIrisCol:{value:new T.Color('#FFC392')},
     uAspect:G.uAspect,uTime:G.uTime,uWarp:{value:0},uFlash:{value:0},uStretch:{value:0},uSC:{value:new T.Vector2(.5,.5)},
-    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1},uFlat:{value:0},uBurn:{value:0}},
+    uTint:{value:new T.Color(0,0,0)},uCA:{value:0},uGrade:{value:new T.Color(1,1,1)},uVig:{value:1},uExpo:{value:1},uBloom:{value:1},uFlat:{value:0},uBurn:{value:0},uLight:{value:new T.Vector3(.5,.5,0)}},
   vertexShader:`varying vec2 vUv; void main(){vUv=uv; gl_Position=vec4(position.xy,0.,1.);}`,
-  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom,uFlat,uBurn; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade; varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tA,tB; uniform float uIris,uAspect,uTime,uWarp,uFlash,uStretch,uCA,uVig,uExpo,uBloom,uFlat,uBurn; uniform vec2 uIC,uSC; uniform vec3 uIrisCol,uTint,uGrade,uLight; varying vec2 vUv;
   float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
   float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
   vec3 bl(sampler2D t,vec2 uv){ vec2 px=vec2(1./uAspect,1.)*.0045; vec2 qx=vec2(px.x,-px.y);
@@ -339,6 +361,13 @@ const post=new T.ShaderMaterial({
     c+=uTint;
     c+=(hash(vUv*vec2(1920.,1080.)+fract(uTime))-.5)*.03;
     c=mix(c,vec3(1.,.98,.95),clamp(uFlash,0.,1.));
+    if(uLight.z>0.){ /* the end of the last flight: the light takes over from the rocket outward. The brightest things burn
+                        out first, a glow opens round the rocket and spreads until the picture is the white of the page */
+      float k=clamp(uLight.z,0.,1.), d=length((vUv-uLight.xy)*vec2(uAspect,1.));
+      c=min(c*(1.+3.2*k*k),vec3(1.)); c=mix(c,vec3(1.),k*k*k*.55);
+      c+=vec3(1.)*k*exp(-d*d/(.006+.35*k*k));
+      float R=k*k*2.5-.15; c=mix(c,vec3(1.),smoothstep(R+.06,R-.5,d));
+      c=mix(c,vec3(1.),smoothstep(.88,1.,k)); }
     gl_FragColor=vec4(max(c,0.),1.);
   }`, depthTest:false, depthWrite:false});
 const postScene=new T.Scene(); const pq=new T.Mesh(new T.PlaneGeometry(2,2),post); pq.frustumCulled=false; postScene.add(pq);
@@ -512,7 +541,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
   float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n3(p);p*=2.07;a*=.5;}return s;}
   // stars: three magnitudes on hashed cells of the direction sphere, colour from temperature, denser along the galactic band
   vec3 stars(vec3 d){
-    vec3 c=vec3(0.); float band=exp(-pow(dot(d,GN),2.)*9.);
+    vec3 c=vec3(0.); float band=exp(-((dot(d,GN))*(dot(d,GN)))*9.);
     for(int k=0;k<3;k++){ float sc=k==0?60.:(k==1?140.:300.); vec3 q=d*sc; vec3 id=floor(q); vec3 f=fract(q)-.5;
       float h=h3(id+float(k)*13.); float th=k==0?.975:(k==1?.955-band*.05:.93-band*.12);
       if(h>th){ vec3 o=vec3(h3(id+1.7),h3(id+3.1),h3(id+5.3))-.5; float dd=length(f-o*.7);
@@ -531,7 +560,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
       float r=length(p);
       float dt=clamp(.07*r*r/(r+2.),.012,max(3.,r*.08));
       vec3 pp=p;
-      vec3 acc=-1.5*h2*p/pow(r,5.);
+      vec3 acc=-1.5*h2*p/(r*r*r*r*r);
       v+=acc*dt; p+=v*dt;
       // thin disk crossing
       if(uDisk>0. && pp.y*p.y<0.){
@@ -558,10 +587,14 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
       if(r>uEsc&&dot(p,v)>0.) break;   // heading out past the disk and the camera: the rest of the bend is negligible
     }
     vec3 d=normalize(v);
-    col+=(1.-a)*sky(d);
+    if(a<1.) col+=(1.-a)*sky(d);   // (a ray that fell in sees no sky: never even look, its direction can be anything)
     // collapse glow: a star before it falls in (used by the entrance)
     col+=uStar*vec3(1.,.86,.7)*.0;
-    gl_FragColor=vec4(col*uExpo,1.);
+    col=max(col*uExpo,vec3(0.));
+    #if __VERSION__ >= 300
+    if(any(isnan(col))||any(isinf(col))) col=vec3(0.);   // one bad pixel would spread through the glow into black squares
+    #endif
+    gl_FragColor=vec4(col,1.);
   }`});
 
 /* ================= THE SKY, DRAWN ONCE =================
@@ -593,7 +626,7 @@ BH.makeSky=function(){
       if(kind>1.5){ // edge-on: a thin luminous disk split by a dark dust lane
         float rr=abs(q.x), z=q.y;
         float disk=exp(-rr*2.6)*exp(-abs(z)*26.)*1.3+exp(-dot(q,q)*14.)*.9;
-        float lane=1.-.85*exp(-pow(z*40.+.25,2.))*smoothstep(1.,.15,rr);
+        float lane=1.-.85*exp(-((z*40.+.25)*(z*40.+.25)))*smoothstep(1.,.15,rr);
         return mix(vec3(1.,.82,.62),vec3(.78,.86,1.),smoothstep(.1,.7,rr))*disk*lane*.22; }
       q.y/=max(cos(inc),.12);
       float r=length(q), th=atan(q.y,q.x);
@@ -601,7 +634,7 @@ BH.makeSky=function(){
         return vec3(1.,.8,.6)*exp(-pow(r,.62)*4.2)*.35; }
       float arms=pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)),2.6);
       float knots=smoothstep(.986,1.,h2(floor(q*46.)+seed))*arms*smoothstep(.95,.25,r);
-      float dust=1.-.55*pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55),5.)*smoothstep(.12,.4,r);
+      float dust=1.-.55*((.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55)))*smoothstep(.12,.4,r);
       float disk=exp(-r*3.1)*(.35+.9*arms)*dust;
       float bulge=exp(-r*r*55.);
       vec3 col=vec3(.75,.84,1.)*disk*.8+vec3(1.,.83,.6)*bulge*.9+vec3(1.,.55,.5)*knots*.45;
@@ -618,10 +651,14 @@ BH.makeSky=function(){
       float clouds=fbm(d*7.+2.), fine=fbm(d*31.-4.);
       float lanes=smoothstep(.42,.7,fbm(d*5.5+vec3(9.,3.,1.)))*core;
       vec3 c=vec3(.005,.0055,.007)*(.5+fbm(d*1.7+11.));
-      c+=mix(vec3(.9,.82,.7),vec3(.72,.78,.95),clouds)*band*(.008+.03*pow(clouds,2.4)+.03*pow(fine,3.))*(1.-.85*lanes);
+      c+=mix(vec3(.9,.82,.7),vec3(.72,.78,.95),clouds)*band*(.008+.03*pow(clouds,2.4)+.03*(fine*fine*fine))*(1.-.85*lanes);
       // two faint nebulae in deep amber, a hint of hydrogen glow, no more
       c+=nebula(d,normalize(vec3(-.55,.18,-.81)),.32,vec3(.035,.011,.006))+nebula(d,normalize(vec3(.62,-.5,-.55)),.22,vec3(.026,.012,.006));
       c+=${glsl};
+      c=max(c,vec3(0.));
+      #if __VERSION__ >= 300
+      if(any(isnan(c))||any(isinf(c))) c=vec3(0.);
+      #endif
       gl_FragColor=vec4(c,1.); }`});
   sc.add(new T.Mesh(new T.BoxGeometry(2,2,2),mat));
   cam.update(renderer,sc); mat.dispose(); sc.children[0].geometry.dispose();
@@ -679,7 +716,7 @@ float eland(vec3 d){ return efbm(d*2.3+vec3(3.1,1.7,.4))+.5*smoothstep(.8,.93,d.
       float d=length(p.xz-uProbe.xz); y-=.9*exp(-d*d*.5);
       for(int i=0;i<${NST};i++){ float ds=length(p.xz-uSt[i].xz); y-=.8*exp(-ds*ds*.3); }
       // the seal breaking sends one wave out across the whole system
-      float sk=uShock>0.?exp(-pow(r-uShock,2.)*.7)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},uShock):0.; y-=.7*sk;
+      float sk=uShock>0.?exp(-((r-uShock)*(r-uShock))*.7)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},uShock):0.; y-=.7*sk;
       p.y=y; float wv=pow(.5+.5*sin(r*.7-uTime*1.1),12.);
       float dc=distance((modelMatrix*vec4(p,1.)).xyz,cameraPosition);
       vA=uOp*((.045+.14*wv)*smoothstep(${RB.toFixed(1)},${(RB-11).toFixed(1)},r)*smoothstep(7.5,10.5,r)+.24*exp(-d*d*.1)+.7*sk*smoothstep(7.,9.,r))*smoothstep(3.,9.,dc)*smoothstep(46.,20.,dc);
@@ -1265,7 +1302,7 @@ function finaleWhite(){ if(S.mode==='credits') return; const st=ST.cr;
   S.st=null; S.stId=null; S.iris=0; credits(); }
 
 /* the white page */
-function credits(){ if(S.mode==='credits') return; S.mode='credits'; S.flashMin=1; post.uniforms.uFlash.value=1;
+function credits(){ if(S.mode==='credits') return; S.mode='credits'; S.flashMin=1; post.uniforms.uFlash.value=1; post.uniforms.uLight.value.z=1;   /* the white of the page itself */
   A.hush(); A.update(S.t,{sub:0,pad:.45,bright:.18}); A.credits(); holdEl.classList.remove('on','go');
   $('#finAgain').textContent=S.entry==='fly'?'Fly again':'Fly the whole thing';
   finEl.hidden=false; requestAnimationFrame(()=>finEl.classList.add('on')); }
@@ -1800,7 +1837,7 @@ const droneMat=new T.ShaderMaterial({uniforms:{uBase:{value:new T.Color('#4a453e
   vertexShader:`varying vec3 vN,vW,vC; void main(){ vec4 p=vec4(position,1.); vec3 n=normal; vC=vec3(1.); ${INST_V}
     vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(mat3(modelMatrix)*n); gl_Position=projectionMatrix*viewMatrix*w; }`,
   fragmentShader:`uniform vec3 uBase; varying vec3 vN,vW,vC; void main(){ vec3 n=normalize(vN), V=normalize(cameraPosition-vW);
-    float up=n.y*.5+.5, fr=pow(1.-abs(dot(n,V)),2.);
+    float up=n.y*.5+.5, fr=((1.-abs(dot(n,V)))*(1.-abs(dot(n,V))));
     gl_FragColor=vec4(uBase*(.18+.82*up*up)+vC*(.12+fr*1.25),1.); }`});
 // rotor discs: two blurred blades turning, per-instance phase and direction
 const RRAD=.085;
@@ -1834,7 +1871,7 @@ const faceMat=new T.MeshBasicMaterial({color:0x0b0a09,polygonOffset:true,polygon
 const jamWallMat=new T.ShaderMaterial({uniforms:{uA:{value:0},uT:G.uTime},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
   vertexShader:`varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
   fragmentShader:`uniform float uA,uT; varying vec2 vU; void main(){ float y=vU.y; float s=.55+.45*sin(vU.x*6.2831*90.+uT*6.)*sin(y*40.-uT*9.);
-    gl_FragColor=vec4(vec3(.65,.76,1.)*uA*pow(1.-y,3.)*s*.32,1.); }`});
+    gl_FragColor=vec4(vec3(.65,.76,1.)*uA*((1.-y)*(1.-y)*(1.-y))*s*.32,1.); }`});
 const lineMat=new T.LineBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
 
 /* ---------- geometry helpers ---------- */
@@ -2783,7 +2820,7 @@ function buildFX(){
   // the correlation surface as a lattice of points that rises where the camera's edges agree with the map's
   latU={uHeat:U.uHeat,uWave:U.uWave,uCirc:U.uCirc,uLift:{value:0},uMs:{value:MS}};
   const SURF=`vec2 mp=uHeat.xy+aIdx*uMs*uHeat.z; float k=clamp((uWave.z-length(mp-uWave.xy))/.07,0.,1.); float ins=1.-smoothstep(uCirc.z-.004,uCirc.z+.004,length(mp-uCirc.xy));
-      float v=clamp(aV,0.,1.), e=1.-pow(1.-k,3.); vec3 q=vec3((mp.x-.5)*${PW}.,aH+.012+uLift*pow(v,1.9)*e,(mp.y-.5)*${PW}.);`;
+      float v=clamp(aV,0.,1.), e=1.-((1.-k)*(1.-k)*(1.-k)); vec3 q=vec3((mp.x-.5)*${PW}.,aH+.012+uLift*pow(v,1.9)*e,(mp.y-.5)*${PW}.);`;
   lat=pts(cloud(MG*MG,(i,r,o,ex)=>{ o[0]=o[1]=o[2]=0; ex.aIdx[i*2]=i%MG; ex.aIdx[i*2+1]=(i/MG)|0; },{aIdx:2,aV:1,aH:1}),
     PM({size:.045,color:'#FFD5B3',uniforms:latU,decl:'attribute vec2 aIdx; attribute float aV,aH; uniform vec4 uHeat,uWave; uniform vec3 uCirc; uniform float uLift,uMs;',fns:CMAP,body:SURF+`
       p=q; col=cmap(v); b=ins*k*uHeat.w*(.16+1.9*pow(v,2.4)); sz=.55+1.6*v*v;`}));
@@ -3303,7 +3340,7 @@ const ladLabels=[];
   for(let m=10;m<=520;m+=10){ const y=m*SCF, maj=m%50===0; P.push(0,y,0,maj?.6:.22,y,0); K.push(maj?1:0,maj?1:0); }
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('aK',new T.Float32BufferAttribute(K,1));
   const m=new T.LineSegments(g,new T.ShaderMaterial({uniforms:ladU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
-    vertexShader:`uniform float uFocus; attribute float aK; varying float vA; void main(){ float y=position.y; vA=(.1+.5*exp(-pow((y-uFocus)/6.5,2.)))*(.45+.55*aK); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    vertexShader:`uniform float uFocus; attribute float aK; varying float vA; void main(){ float y=position.y; vA=(.1+.5*exp(-(((y-uFocus)/6.5)*((y-uFocus)/6.5))))*(.45+.55*aK); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform float uOn,uLad; varying float vA; void main(){ gl_FragColor=vec4(vec3(1.,.86,.72)*vA*uOn*uLad,1.); }`}));
   m.frustumCulled=false; lad.add(m);
   for(let mm=50;mm<=500;mm+=50){ const sp=labelSprite(256,64); drawLabel(sp,mm+' m','#FFE6D2',38,'right'); sp.position.set(-.18,mm*SCF,0); sp.scale.set(1.12,.28,1); sp.center.set(1,.5); sp.userData.y=mm*SCF; lad.add(sp); ladLabels.push(sp); }
@@ -3322,7 +3359,7 @@ const tgt=new T.Group(); W.add(tgt);
     body:'float rr=length(p.xz); float a=atan(p.z,p.x); p.xz*=1.+uHit*.12; float dz=-(modelViewMatrix*vec4(p,1.)).z; b=uOn*(.22+.45*aR.w+uNear*.35+uHit*1.2)*(1.-smoothstep(7.,10.5,rr)*(1.-aR.w)*.7)*(.6+.4*step(.5,fract(a*3.-uTime*.08))); sz=(2.+aR.w*1.2+uHit*1.5)*dz/(uSize*uPx);'})));
   const disc=new T.Mesh(new T.CircleGeometry(10.4,72),new T.ShaderMaterial({uniforms:tgtU,transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
     vertexShader:`varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform float uOn,uHit,uNear; varying vec2 vP; void main(){ float r=length(vP); float a=(.01+.02*uNear+.07*uHit)*(1.-smoothstep(2.,10.4,r))+(.13+.3*uHit)*exp(-pow((r-10.)/.12,2.)); gl_FragColor=vec4(vec3(1.,.7,.46)*a*uOn,1.); }`}));
+    fragmentShader:`uniform float uOn,uHit,uNear; varying vec2 vP; void main(){ float r=length(vP); float a=(.01+.02*uNear+.07*uHit)*(1.-smoothstep(2.,10.4,r))+(.13+.3*uHit)*exp(-(((r-10.)/.12)*((r-10.)/.12))); gl_FragColor=vec4(vec3(1.,.7,.46)*a*uOn,1.); }`}));
   disc.rotation.x=-HP; tgt.add(disc);
 }
 // flight path: a dot every 80 ms of flight, kept for the results
@@ -3340,7 +3377,7 @@ const canU={uOn:{value:1},uA:{value:new T.Color('#FFB475')},uB:{value:new T.Colo
       p.xz*=1.-.08*ln*rim; p.y+=.06*ln*rim; vP=position; vec4 w=modelMatrix*vec4(p,1.); vN=normalize(mat3(modelMatrix)*normal); vV=normalize(cameraPosition-w.xyz); gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform vec3 uA,uB; uniform float uOn; varying vec3 vP,vN,vV; void main(){ float a=atan(vP.z,vP.x)/6.28318*8.; vec3 base=mix(uA,uB,step(.5,fract(a)));
       float f=abs(dot(normalize(vN),normalize(vV))), top=smoothstep(1.4,2.05,vP.y), seam=1.-smoothstep(0.,.04,abs(fract(a+.5)-.5));
-      vec3 c=base*(.1+.17*f+.14*top)+base*pow(1.-f,2.)*.34; c*=1.-.3*seam; gl_FragColor=vec4(c*uOn,1.); }`})));
+      vec3 c=base*(.1+.17*f+.14*top)+base*((1.-f)*(1.-f))*.34; c*=1.-.3*seam; gl_FragColor=vec4(c*uOn,1.); }`})));
   const lp=[]; for(let k=0;k<8;k++){ const a=k/8*TAU; lp.push(Math.cos(a)*.906,1.51,Math.sin(a)*.906,0,0,0); }
   const lg=new T.BufferGeometry(); lg.setAttribute('position',new T.Float32BufferAttribute(lp,3));
   canopy.add(new T.LineSegments(lg,new T.LineBasicMaterial({color:0xE9E2D4,transparent:true,opacity:.6,depthWrite:false})));
@@ -4129,7 +4166,7 @@ function buildGround(){
         vec3 q=vec3(d.x*1.8,d.y*3.6,d.z*1.8)+vec3(uTime*.006,0.,uTime*.003); float f=efbm(q), fw=fwidth(f)*1.2+.002, band=smoothstep(.0,.1,h)*(1.-smoothstep(.7,.9,h));
         float cl=smoothstep(.57-fw,.57+fw,f)*band, top=smoothstep(.61-fw,.61+fw,efbm(q+vec3(.02,.06,-.02)));
         c=mix(c,vec3(.86,.92,.93),cl); c=mix(c,vec3(.99,.99,.96),top*cl);
-        float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-pow((a-.036)*120.,2.))*.22;
+        float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-(((a-.036)*120.)*((a-.036)*120.)))*.22;
         if(uSpace>0.){ vec3 cell=floor(d*380.); float sh=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
           float star=step(.9965,sh)*(.5+.5*fract(sh*91.7))*smoothstep(.5,1.,uSpace);
           c=mix(c,vec3(.012,.014,.022)+star*vec3(.95,.92,.88),smoothstep(0.,1.,uSpace)); }
@@ -4715,9 +4752,13 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   fUp.copy(up).multiplyScalar(1-k2).addScaledVector(fA.crossVectors(fSide,up).normalize(),-k2).normalize();
   stUp.copy(fUp); stCam.up.copy(fUp); UPU.value.copy(up); LU.uPly.value.copy(FIN.cp); S.stSnap=true;   // uPly at the camera: nothing gets cut away
   // looking back down at the town from above the rocket, the light takes over, and then the white page
-  if(tau>F_SPACE-.2){ S.flashMin=sstep(F_SPACE-.2,F_SPACE+1.6,tau); if(S.flashMin>=1&&!FIN.handed){ FIN.handed=true; if(typeof finaleWhite==='function') setTimeout(finaleWhite,0); } } }   /* (after this frame: Earth is still drawing it) */
+  if(tau>F_SPACE-.5){ const k=sstep(F_SPACE-.5,F_SPACE+2.1,tau), L=post.uniforms.uLight.value;
+    /* where the rocket is on the screen: the light opens from it */
+    V.copy(FIN.pos).addScaledVector(up,-.5).project(stCam); const vis=V.z<1&&Math.abs(V.x)<1.1&&Math.abs(V.y)<1.1, x=vis?V.x*.5+.5:.5, y=vis?V.y*.5+.5:.5;
+    if(L.z<=0) L.set(x,y,0); L.x=lerp(L.x,x,1-Math.exp(-4*dt)); L.y=lerp(L.y,y,1-Math.exp(-4*dt)); L.z=k;
+    if(k>=1&&!FIN.handed){ FIN.handed=true; if(typeof finaleWhite==='function') setTimeout(finaleWhite,0); } } }   /* (after this frame: Earth is still drawing it) */
 /* when space has taken over completely, Earth puts itself back as it was */
-st.finaleEnd=function(){ FIN.on=false; S.fin=false; launchPrompt(false); el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
+st.finaleEnd=function(){ post.uniforms.uLight.value.z=0; FIN.on=false; S.fin=false; launchPrompt(false); el.classList.remove('fin'); SPACEU.value=0; LU.uFogK.value=1; RK.flame.visible=false; A.roarTone(380); A.whine(0); if(LFLAME) LFLAME.visible=false; me.visible=true; rocketLanded();
   people.forEach(p=>{ [p.x,p.z]=p.at; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; }); BIRDS.forEach(b=>{ b.h=Math.min(b.h,10); }); AH.st='home'; };
 
 /* ---------- lifecycle ---------- */
@@ -4922,16 +4963,16 @@ st.build=function(){
   // the mast
   tower=new T.LineSegments(mastGeo(),new T.ShaderMaterial({uniforms:{uTime:G.uTime,uE:u.uE,uFire:u.uFire,uPulse:u.uPulse,uC:{value:new T.Color('#FF9A3A')},uOp:{value:1}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
     vertexShader:`attribute float aY,aK; uniform float uTime,uE,uFire; uniform vec4 uPulse; varying float vB;
-      float pk(float c,float y){ return c<0.?0.:exp(-pow((y-c)*11.,2.)); }
-      void main(){ float y=aY; float b=.2+.26*y+.14*exp(-pow((y-fract(uTime*.2))*7.,2.));
+      float pk(float c,float y){ return c<0.?0.:exp(-(((y-c)*11.)*((y-c)*11.))); }
+      void main(){ float y=aY; float b=.2+.26*y+.14*exp(-(((y-fract(uTime*.2))*7.)*((y-fract(uTime*.2))*7.)));
         b+=(pk(uPulse.x,y)+pk(uPulse.y,y)+pk(uPulse.z,y)+pk(uPulse.w,y))*1.3;
-        b=b*(.75+.6*uE)+uFire*(.6+1.6*exp(-pow((y-fract(uTime*1.6))*5.,2.)));
+        b=b*(.75+.6*uE)+uFire*(.6+1.6*exp(-(((y-fract(uTime*1.6))*5.)*((y-fract(uTime*1.6))*5.))));
         vB=b*aK*smoothstep(-.02,.08,y); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform vec3 uC; uniform float uOp; varying float vB; void main(){ gl_FragColor=vec4(uC*vB*uOp,1.); }`}));
   tower.frustumCulled=false; sc.add(tower);
   // the lamp
   const lg=new T.BufferGeometry(); lg.setAttribute('position',new T.Float32BufferAttribute([0,0,0,0,0,0],3)); lg.setAttribute('aR',new T.Float32BufferAttribute([0,.5,.5,0, 1,.5,.5,0],4));
-  sc.add(pts(lg,PM({size:.5,color:'#FF8100',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uH;',body:`p=uLamp; float bl=.55+.45*pow(.5+.5*sin(uTime*2.2),3.);
+  sc.add(pts(lg,PM({size:.5,color:'#FF8100',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uH;',body:`p=uLamp; float bl=.55+.45*((.5+.5*sin(uTime*2.2))*(.5+.5*sin(uTime*2.2))*(.5+.5*sin(uTime*2.2)));
     if(aR.x<.5){ sz=.42*uH/6.; b=(.9+bl*.9+uE*1.4+uFire*3.)*.9; col=vec3(1.,.93,.82); } else { sz=(2.2+uE*1.2+uFire*3.)*uH/6.; b=.12+.18*bl+.25*uE+.7*uFire; }`})));
   // radio rings leaving the lamp
   sc.add(pts(cloud(NR*180,(i,r,o,ex)=>{ o[0]=o[1]=o[2]=0; ex.aRg[i]=Math.floor(i/180); },{aRg:1}),PM({size:.05,color:'#FFB066',uniforms:u,decl:'attribute float aRg; uniform vec3 uLamp; uniform float uH; uniform vec4 uRg[8];',body:`
@@ -4942,7 +4983,7 @@ st.build=function(){
   sc.add(pts(cloud(Math.floor(4200*Q+900),(i,r,o)=>{o[0]=gauss()*.05;o[2]=gauss()*.05;o[1]=r[0];}),PM({size:.05,color:'#FFD9B0',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uFireT,uH;',
     body:`float sp=.12+uE*.25+uFire*1.4, t=fract(position.y-uTime*sp); float w=1.+uE*.8+uFire*3.;
       p=uLamp+vec3(position.x*w*uH/6.,t*uH*(1.8+uFire*1.2),position.z*w*uH/6.);
-      float pk=exp(-pow((t-(uTime-uFireT)*.9),2.)*260.)*step(0.,uTime-uFireT)*step(uTime-uFireT,1.4);
+      float pk=exp(-(((t-(uTime-uFireT)*.9))*((t-(uTime-uFireT)*.9)))*260.)*step(0.,uTime-uFireT)*step(uTime-uFireT,1.4);
       b=(.16+.5*uE+1.4*uFire+3.*pk)*(1.-t)*smoothstep(0.,.05,t); sz=1.+pk*1.5;`})));
   // signals already received, orbiting the lamp
   sc.add(pts(cloud(200,(i,r,o)=>{o[0]=i;o[1]=r[0];o[2]=r[1];}),PM({size:.12,color:'#FFFFFF',uniforms:u,decl:'uniform float uCount,uH; uniform vec3 uLamp;',body:`

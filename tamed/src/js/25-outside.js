@@ -181,8 +181,8 @@ function buildOutside(){
       float inV=(1.-smoothstep(2.95,3.1,abs(vWP.x)))*smoothstep(.6,1.2,vWP.z)*(1.-smoothstep(${(PV.portal-.1).toFixed(2)},${(PV.portal+.25).toFixed(2)},vWP.z))*(1.-smoothstep(${(YP+7.5).toFixed(2)},${(YP+7.8).toFixed(2)},vWP.y))*step(${(YP-.05).toFixed(2)},vWP.y);
       outgoingLight+=diffuseColor.rgb*uLampCol*inV*(max(dot(wN,Lv),0.)*.8+.2)*(2.4/(1.+dl*dl*.16)); }
     { float wet=1.-smoothstep(.0,.42,vWP.y);
-      if(wet>.01){ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.);
-        float sk=pow(max(dot(R,uSunDir),0.),5.); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.7+.5*smoothstep(-.1,.4,R.y));
+      if(wet>.01){ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.04+.96*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
+        float sk=((max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.7+.5*smoothstep(-.1,.4,R.y));
         outgoingLight+=env*fr*wet*.85; } }`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#F2EADF', rough:.9, joint:1, caustic:1, cav:CAV, glsl:WATER, emisGLSL:EMIS,
     albedo:`{ float wet=1.-smoothstep(.02,.5,vWP.y); diffuseColor.rgb*=mix(1.,.7,wet*(wN.y>.9?.5:1.));
@@ -197,7 +197,7 @@ function buildOutside(){
 
   /* deep in the portal: a warm room glowing beyond the inner arch */
   const glowM=new T.ShaderMaterial({uniforms:{uC:{value:col('#FFB066')},uK:{value:4.2}},vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uC; uniform float uK; varying vec2 vUv; void main(){ float x=vUv.x-.5; float g=.5+.5*exp(-x*x*7.)*(1.15-vUv.y*.6)+.35*exp(-pow((vUv.y-.08)*6.,2.))*exp(-x*x*4.); gl_FragColor=vec4(uC*g*uK,1.); }`});
+    fragmentShader:`uniform vec3 uC; uniform float uK; varying vec2 vUv; void main(){ float x=vUv.x-.5; float g=.5+.5*exp(-x*x*7.)*(1.15-vUv.y*.6)+.35*exp(-(((vUv.y-.08)*6.)*((vUv.y-.08)*6.)))*exp(-x*x*4.); gl_FragColor=vec4(uC*g*uK,1.); }`});
   const glow=new T.Mesh(new T.PlaneGeometry(2.4,4.9),glowM); glow.position.set(0,YP+2.45,1.0); sc.add(glow); W.glowM=glowM;
 
   /* stepping stones of the same pale stone: across the water to the steps, and out from the far arch toward the sunset */
@@ -213,8 +213,8 @@ function buildOutside(){
     const g=slab(w,d,.03+rnd()*.02); g.rotateY((rnd()-.5)*.36); g.translate(x,0,z); stones.push(g); }
   const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.02;}', key:'stones', color:'#EEE5D8', rough:.75, joint:0, glsl:WATER,
     albedo:'{ float top=smoothstep(.55,.9,wN.y); diffuseColor.rgb*=mix(.66,1.,top)*mix(.8,1.,smoothstep(-.02,.06,vWP.y)); }',
-    emisGLSL:`{ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.05+.95*pow(1.-max(dot(wN,V),0.),5.);
-      float sk=pow(max(dot(R,uSunDir),0.),4.); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.75+.45*smoothstep(-.1,.4,R.y));
+    emisGLSL:`{ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.05+.95*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
+      float sk=((max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.75+.45*smoothstep(-.1,.4,R.y));
       outgoingLight+=env*fr*.8; }`});
   const st=new T.Mesh(mergeGeos(stones),stoneM); st.receiveShadow=true; st.castShadow=true; sc.add(st);
 
@@ -321,7 +321,7 @@ function buildOutside(){
         vec2 pq=vec2((vWP.z-uPlq.y)/${FP.pw.toFixed(3)}+.5,(vWP.y-uPlq.z)/${FP.phh.toFixed(3)});
         vec4 plq=texture2D(tPlq,clamp(pq,0.,1.))*step(0.,pq.x)*step(pq.x,1.)*step(0.,pq.y)*step(pq.y,1.)*step(wN.x,-.5);
         diffuseColor.rgb*=mix(vec3(1.),vec3(.12,.09,.07)*(1.-.35*uPlqHot),plq.r)*(1.+.42*plq.b*(1.-plq.r));`,
-      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
+      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
     plinthM.userData.u.uWetP={value:0}; plinthM.userData.u.uPlqHot={value:0};
     plinthM.userData.u.tPlq={value:plaque(PEO_EL[i])}; plinthM.userData.u.uPlq={value:new T.Vector4(PEOPLE_AT[i][0]-FP.pd/2,PEOPLE_AT[i][1],0,0)};
     const plinth=new T.Mesh(boxGeo(-FP.pw/2,FP.pw/2,-.4,FP.phh,-FP.pd/2,FP.pd/2),plinthM); plinth.castShadow=plinth.receiveShadow=true; grp.add(plinth);
@@ -350,7 +350,7 @@ function buildOutside(){
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
     vertexShader:`attribute float aL; varying float vL; varying vec3 vWP; varying vec3 vN; void main(){ vL=aL; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform float uK,uTime; uniform vec3 uCol; varying float vL; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}${GLSL.haze.split('vec3 haze')[0]}
-    void main(){ vec3 V=normalize(vWP-cameraPosition); float face=abs(dot(normalize(vN),V)); float look=pow(max(dot(V,uSunDir),0.),3.);
+    void main(){ vec3 V=normalize(vWP-cameraPosition); float face=abs(dot(normalize(vN),V)); float look=((max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.)));
       float n=.55+.45*vnoise(vec2(vWP.z*1.3+uTime*.12,vWP.y*1.6-uTime*.08)+vWP.x*.07);
       float a=pow(1.-vL,1.6)*smoothstep(0.,.04,vL)*(.25+.75*face)*(.16+1.6*look)*n;
       gl_FragColor=vec4(uCol*a*.055*uK,1.); }`});
@@ -462,7 +462,7 @@ function makeGrass(U,clumps){
       vec3 c=mix(uBase,uMid,smoothstep(0.,.5,vT)); c=mix(c,uTip,smoothstep(.5,1.,vT)); c=mix(c,c*vec3(1.08,1.,.82),step(.7,vH)); c=mix(c,vec3(dot(c,vec3(.33))),.18*step(vH,.25)); c*=.86+.26*vH;
       vec3 V=normalize(vWP-cameraPosition);
       float dif=.45+.55*abs(dot(normalize(vN),uSunDir));
-      float back=pow(max(dot(V,uSunDir),0.),3.)*smoothstep(.3,1.,vT);
+      float back=((max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.)))*smoothstep(.3,1.,vT);
       vec3 l=c*(uAmb+uSunCol*dif*.85)+uSunCol*uTip*back*1.3;
       l*=mix(.55,1.,smoothstep(0.,.35,vT));
       gl_FragColor=vec4(haze(l,vWP),1.);
@@ -488,7 +488,7 @@ function makeSeeds(U,N){
       p.y=mod(p.y,uBox.y)+.25;
       vec4 mv=viewMatrix*vec4(p,1.); float d=-mv.z;
       gl_PointSize=clamp(uSize*(.45+aR.w*1.1)*uPx/max(d,.1),1.,38.);
-      vec3 dir=normalize(p-c); float fs=pow(max(dot(dir,uSunDir),0.),5.);
+      vec3 dir=normalize(p-c); float fs=((max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.)));
       vA=smoothstep(.6,2.2,d)*(1.-smoothstep(21.,27.,length(p.xz-c.xz)))*(.75+2.4*fs+.5*aR.z)*smoothstep(.1,.5,p.y);
       gl_Position=projectionMatrix*mv;
     }`,

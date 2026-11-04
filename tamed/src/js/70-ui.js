@@ -66,7 +66,7 @@ addEventListener('keydown',e=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.c
   else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); gateStep(-1); }
   else if(e.key==='Enter'&&S.gateHover&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gate .way'))){ e.preventDefault(); $('#gate .way[data-way="'+S.gateHover+'"]').click(); } });
 
-if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
+if(!FINE){ $('#cue span').textContent='Swipe up to begin'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-go]'); if(!a) return;
@@ -79,6 +79,15 @@ $$('.view').forEach(a=>a.addEventListener('click',e=>{ e.stopPropagation(); A.cl
 
 /* ---------- sections follow the walk ---------- */
 const SECS=$$('.sec').map(el=>({el,p:placeById(el.dataset.place),on:false,vis:-1}));
+/* standing at the start without scrolling: every few seconds the cue calls again and the walk leans a step forward and
+   back, so you see that scrolling walks you in */
+function cueCall(s,dt){
+  if(S.mode!=='world'||UI._fs||RM||(TEST&&!window.__NUDGE)){ UI._idle=0; return; }
+  if(SC.touch||SC.inertia||s>.02||now()-SC.lastIn<1){ UI._idle=Math.min(UI._idle||0,0); return; }
+  UI._idle=(UI._idle||0)+dt;
+  if(UI._idle>4.5){ UI._idle=-3.5; const c=$('#cue'); c.classList.remove('call'); void c.offsetWidth; c.classList.add('call');
+    SC.glide=null; SC.pin=false; SC.target=.045; SC.lastIn=now(); SC.lastF=S.frame; }
+}
 UI.firstScroll=()=>{ if(!UI._fs){ UI._fs=1; $('#cue').classList.add('gone'); } };
 UI.jumped=()=>{ TXT.dirty=true; };
 let fgKey='';
@@ -95,6 +104,7 @@ UI.update=(s,dt)=>{
   const key=_fg.getHexString(); if(key!==fgKey){ fgKey=key; document.documentElement.style.setProperty('--fg','#'+key); document.documentElement.classList.toggle('lite',k>.5); }
   const pl=placeAt(s); if(pl!==UI._pl){ UI._pl=pl; $('#dialT').textContent=pl.name; $$('#menu a').forEach(a=>a.classList.toggle('on',(a.dataset.nav==='projects'&&pl.proj>=0)||a.dataset.nav===pl.id)); document.documentElement.style.setProperty('--accent',pl.tint); }
   $('#cue').classList.toggle('away',s>.12);
+  cueCall(s,dt);
   dialUpdate(s);
   peopleUpdate(s,dt);
 };

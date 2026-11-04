@@ -86,9 +86,24 @@ const A=(()=>{
     const L=Math.floor(ctx.sampleRate*sec), b=ctx.createBuffer(2,L,ctx.sampleRate);
     for(let c=0;c<2;c++){ const d=b.getChannelData(c); let lp=0; for(let i=0;i<L;i++){ const t=i/L; const k=.35+.6*(1-t); lp=lp+(Math.random()*2-1-lp)*k; d[i]=lp*Math.pow(1-t,decay)*(i<ctx.sampleRate*.012?.3:1); } }
     return b; }
+  const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
+  /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
+     sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
+     else. So: lighter work on a phone (LITE), the playback audio session on iOS, and a watchdog once a second that wakes
+     the context if it was put to sleep and restarts it if its clock has stopped moving */
+  let wdT=-1, wdC=-1;
+  function watch(){ if(!ctx||!on||document.hidden) return;
+    if(ctx.state!=='running'){ ctx.resume().catch(()=>{}); wdT=-1; return; }
+    const now=performance.now(), c=ctx.currentTime;
+    if(wdT>0&&now-wdT>900&&c===wdC){ ctx.suspend().then(()=>ctx.resume()).catch(()=>{}); }
+    wdT=now; wdC=c; }
+  setInterval(watch,1000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); });
+  ['touchend','pointerup','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); },{capture:true,passive:true}));
   function init(){
     if(ctx) return;
-    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=LITE?new AC({latencyHint:'playback'}):new AC(); }catch(e){ ctx=new AC(); } }   // a phone gets a deeper buffer: a busy frame can never starve the speaker
+    try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps
     n.master=ctx.createGain(); n.master.gain.value=0;
     n.comp=ctx.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=14; n.comp.ratio.value=3; n.comp.attack.value=.02; n.comp.release.value=.5;
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
@@ -97,10 +112,10 @@ const A=(()=>{
     /* a soft clip in place of a limiter: below 0.7 it lets the sound through untouched, above it rounds the peaks off
          smoothly towards full scale. (The browser's compressor would add its own make-up gain to everything) */
       const cv=new Float32Array(2049); for(let i=0;i<cv.length;i++){ const x=i/1024-1, a=Math.abs(x); cv[i]=a<=.7?x:Math.sign(x)*(.7+.28*Math.tanh((a-.7)/.28)); }
-      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample='2x';
+      const lim=ctx.createWaveShaper(); lim.curve=cv; lim.oversample=LITE?'none':'2x';
     n.comp.connect(n.master); n.master.connect(hp); hp.connect(lim); lim.connect(ctx.destination);
     n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; lim.connect(n.meter);
-    n.rev=ctx.createConvolver(); n.rev.buffer=ir(5.2,2.6); n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
+    n.rev=ctx.createConvolver(); n.rev.buffer=ir(LITE?2.4:5.2,2.6);   // a shorter room on a phone: half the work n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
     n.revIn=ctx.createGain(); n.revIn.connect(n.rev);
     /* nine seconds of each noise, read by every layer at its own speed (src): no two layers line up, so nothing phases */
     const nb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;
@@ -439,7 +454,7 @@ function stoneMat(o){
         +GLSL.noise+GLSL.sdf+(o.sdf||'float mapAO(vec3 p){return 1e5;}')+GLSL.ao+GLSL.haze+GLSL.stone+(o.caustic?GLSL.caustic:'')+(o.cav||'')+(o.glsl||''))
       .replace('#include <map_fragment>','#include <map_fragment>\n vec3 wN=normalize(vWN); diffuseColor.rgb*=stoneTex(vWP,wN);'+(o.albedo||''))
       .replace('#include <aomap_fragment>','#include <aomap_fragment>\n{ float ao=sceneAO(vWP,wN);'+(o.cav?' ao*=cavity(vWP,wN);':'')+' reflectedLight.indirectDiffuse*=ao; reflectedLight.indirectSpecular*=ao; reflectedLight.directDiffuse*=mix(1.,ao,.3); }')
-      .replace('#include <opaque_fragment>',(mir?`{ vec2 ruv=vMC.xy/vMC.w; vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.);
+      .replace('#include <opaque_fragment>',(mir?`{ vec2 ruv=vMC.xy/vMC.w; vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
           vec3 rc=textureLod(uMirror,ruv,2.2).rgb*.55+textureLod(uMirror,ruv,4.).rgb*.45; outgoingLight+=rc*uMirrorK*mix(.25,1.,fr)*(1.-uRefl); }`:'')
         +'outgoingLight+=uEmis;'+(o.emisGLSL||'')+'\n#include <opaque_fragment>')
       .replace('#include <fog_fragment>','gl_FragColor.rgb=haze(gl_FragColor.rgb,vWP);');
@@ -544,10 +559,10 @@ function skyMat(){
       vec2 dh=normalize(d.xz+1e-5), sh=normalize(uSunDir.xz+1e-5); float az=dot(dh,sh)*.5+.5;
       c=mix(c,uHorS,pow(az,2.6)*exp(-hy*5.5));
       float anti=pow(1.-az,1.6);
-      c=mix(c,uBelt,anti*uBeltK*exp(-pow((hy-.085)/.075,2.)));
-      c=mix(c,uZen*vec3(.86,.9,1.05),anti*uBeltK*.5*exp(-pow(hy/.035,2.))*smoothstep(.07,-.02,uSunDir.y));
+      c=mix(c,uBelt,anti*uBeltK*exp(-(((hy-.085)/.075)*((hy-.085)/.075))));
+      c=mix(c,uZen*vec3(.86,.9,1.05),anti*uBeltK*.5*exp(-((hy/.035)*(hy/.035)))*smoothstep(.07,-.02,uSunDir.y));
       float mu=dot(d,uSunDir);
-      c+=uGlow*(pow(max(mu,0.),5.)*.28+pow(max(mu,0.),48.)*.75+pow(max(mu,0.),700.)*2.2)*uSunK;
+      c+=uGlow*(((max(mu,0.))*(max(mu,0.))*(max(mu,0.))*(max(mu,0.))*(max(mu,0.)))*.28+pow(max(mu,0.),48.)*.75+pow(max(mu,0.),700.)*2.2)*uSunK;
       /* thin evening cloud, streaked along the horizon */
       vec2 cp=d.xz/(hy+.09);
       float n=fbm2(cp*vec2(.32,1.25)+vec2(uTime*.0025,0.)+vec2(7.,3.));
@@ -672,7 +687,7 @@ function waterMat(U,mirror,sim,o={}){
       vec2 ruv=vMC.xy/vMC.w+off;
       vec4 rf=texture2D(tRefl,ruv);
       float cs=max(dot(N,V),0.);
-      float fr=.02+.98*pow(1.-cs,5.);
+      float fr=.02+.98*((1.-cs)*(1.-cs)*(1.-cs)*(1.-cs)*(1.-cs));
       vec3 body=uDeep*(.55+.45*uSky);
       vec3 c=mix(body,rf.rgb,clamp(fr*1.04,0.,1.));
       vec3 Hh=normalize(uSunDir+V); float sp=pow(max(dot(N,Hh),0.),900.)*60.+pow(max(dot(N,Hh),0.),90.)*1.2;
@@ -871,8 +886,8 @@ function buildOutside(){
       float inV=(1.-smoothstep(2.95,3.1,abs(vWP.x)))*smoothstep(.6,1.2,vWP.z)*(1.-smoothstep(${(PV.portal-.1).toFixed(2)},${(PV.portal+.25).toFixed(2)},vWP.z))*(1.-smoothstep(${(YP+7.5).toFixed(2)},${(YP+7.8).toFixed(2)},vWP.y))*step(${(YP-.05).toFixed(2)},vWP.y);
       outgoingLight+=diffuseColor.rgb*uLampCol*inV*(max(dot(wN,Lv),0.)*.8+.2)*(2.4/(1.+dl*dl*.16)); }
     { float wet=1.-smoothstep(.0,.42,vWP.y);
-      if(wet>.01){ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.);
-        float sk=pow(max(dot(R,uSunDir),0.),5.); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.7+.5*smoothstep(-.1,.4,R.y));
+      if(wet>.01){ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.04+.96*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
+        float sk=((max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.7+.5*smoothstep(-.1,.4,R.y));
         outgoingLight+=env*fr*wet*.85; } }`;
   const stone=stoneMat({U:W.U, sdf:W.sdfGLSL, key:'out', color:'#F2EADF', rough:.9, joint:1, caustic:1, cav:CAV, glsl:WATER, emisGLSL:EMIS,
     albedo:`{ float wet=1.-smoothstep(.02,.5,vWP.y); diffuseColor.rgb*=mix(1.,.7,wet*(wN.y>.9?.5:1.));
@@ -887,7 +902,7 @@ function buildOutside(){
 
   /* deep in the portal: a warm room glowing beyond the inner arch */
   const glowM=new T.ShaderMaterial({uniforms:{uC:{value:col('#FFB066')},uK:{value:4.2}},vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uC; uniform float uK; varying vec2 vUv; void main(){ float x=vUv.x-.5; float g=.5+.5*exp(-x*x*7.)*(1.15-vUv.y*.6)+.35*exp(-pow((vUv.y-.08)*6.,2.))*exp(-x*x*4.); gl_FragColor=vec4(uC*g*uK,1.); }`});
+    fragmentShader:`uniform vec3 uC; uniform float uK; varying vec2 vUv; void main(){ float x=vUv.x-.5; float g=.5+.5*exp(-x*x*7.)*(1.15-vUv.y*.6)+.35*exp(-(((vUv.y-.08)*6.)*((vUv.y-.08)*6.)))*exp(-x*x*4.); gl_FragColor=vec4(uC*g*uK,1.); }`});
   const glow=new T.Mesh(new T.PlaneGeometry(2.4,4.9),glowM); glow.position.set(0,YP+2.45,1.0); sc.add(glow); W.glowM=glowM;
 
   /* stepping stones of the same pale stone: across the water to the steps, and out from the far arch toward the sunset */
@@ -903,8 +918,8 @@ function buildOutside(){
     const g=slab(w,d,.03+rnd()*.02); g.rotateY((rnd()-.5)*.36); g.translate(x,0,z); stones.push(g); }
   const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.02;}', key:'stones', color:'#EEE5D8', rough:.75, joint:0, glsl:WATER,
     albedo:'{ float top=smoothstep(.55,.9,wN.y); diffuseColor.rgb*=mix(.66,1.,top)*mix(.8,1.,smoothstep(-.02,.06,vWP.y)); }',
-    emisGLSL:`{ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.05+.95*pow(1.-max(dot(wN,V),0.),5.);
-      float sk=pow(max(dot(R,uSunDir),0.),4.); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.75+.45*smoothstep(-.1,.4,R.y));
+    emisGLSL:`{ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.05+.95*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
+      float sk=((max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.75+.45*smoothstep(-.1,.4,R.y));
       outgoingLight+=env*fr*.8; }`});
   const st=new T.Mesh(mergeGeos(stones),stoneM); st.receiveShadow=true; st.castShadow=true; sc.add(st);
 
@@ -1011,7 +1026,7 @@ function buildOutside(){
         vec2 pq=vec2((vWP.z-uPlq.y)/${FP.pw.toFixed(3)}+.5,(vWP.y-uPlq.z)/${FP.phh.toFixed(3)});
         vec4 plq=texture2D(tPlq,clamp(pq,0.,1.))*step(0.,pq.x)*step(pq.x,1.)*step(0.,pq.y)*step(pq.y,1.)*step(wN.x,-.5);
         diffuseColor.rgb*=mix(vec3(1.),vec3(.12,.09,.07)*(1.-.35*uPlqHot),plq.r)*(1.+.42*plq.b*(1.-plq.r));`,
-      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*pow(1.-max(dot(wN,V),0.),5.); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
+      emisGLSL:'{ vec3 V=normalize(cameraPosition-vWP); float fr=.04+.96*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))); outgoingLight+=uHazeSun*fr*uWetP*.5; }'}); 
     plinthM.userData.u.uWetP={value:0}; plinthM.userData.u.uPlqHot={value:0};
     plinthM.userData.u.tPlq={value:plaque(PEO_EL[i])}; plinthM.userData.u.uPlq={value:new T.Vector4(PEOPLE_AT[i][0]-FP.pd/2,PEOPLE_AT[i][1],0,0)};
     const plinth=new T.Mesh(boxGeo(-FP.pw/2,FP.pw/2,-.4,FP.phh,-FP.pd/2,FP.pd/2),plinthM); plinth.castShadow=plinth.receiveShadow=true; grp.add(plinth);
@@ -1040,7 +1055,7 @@ function buildOutside(){
     blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor,
     vertexShader:`attribute float aL; varying float vL; varying vec3 vWP; varying vec3 vN; void main(){ vL=aL; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform float uK,uTime; uniform vec3 uCol; varying float vL; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}${GLSL.haze.split('vec3 haze')[0]}
-    void main(){ vec3 V=normalize(vWP-cameraPosition); float face=abs(dot(normalize(vN),V)); float look=pow(max(dot(V,uSunDir),0.),3.);
+    void main(){ vec3 V=normalize(vWP-cameraPosition); float face=abs(dot(normalize(vN),V)); float look=((max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.)));
       float n=.55+.45*vnoise(vec2(vWP.z*1.3+uTime*.12,vWP.y*1.6-uTime*.08)+vWP.x*.07);
       float a=pow(1.-vL,1.6)*smoothstep(0.,.04,vL)*(.25+.75*face)*(.16+1.6*look)*n;
       gl_FragColor=vec4(uCol*a*.055*uK,1.); }`});
@@ -1152,7 +1167,7 @@ function makeGrass(U,clumps){
       vec3 c=mix(uBase,uMid,smoothstep(0.,.5,vT)); c=mix(c,uTip,smoothstep(.5,1.,vT)); c=mix(c,c*vec3(1.08,1.,.82),step(.7,vH)); c=mix(c,vec3(dot(c,vec3(.33))),.18*step(vH,.25)); c*=.86+.26*vH;
       vec3 V=normalize(vWP-cameraPosition);
       float dif=.45+.55*abs(dot(normalize(vN),uSunDir));
-      float back=pow(max(dot(V,uSunDir),0.),3.)*smoothstep(.3,1.,vT);
+      float back=((max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.))*(max(dot(V,uSunDir),0.)))*smoothstep(.3,1.,vT);
       vec3 l=c*(uAmb+uSunCol*dif*.85)+uSunCol*uTip*back*1.3;
       l*=mix(.55,1.,smoothstep(0.,.35,vT));
       gl_FragColor=vec4(haze(l,vWP),1.);
@@ -1178,7 +1193,7 @@ function makeSeeds(U,N){
       p.y=mod(p.y,uBox.y)+.25;
       vec4 mv=viewMatrix*vec4(p,1.); float d=-mv.z;
       gl_PointSize=clamp(uSize*(.45+aR.w*1.1)*uPx/max(d,.1),1.,38.);
-      vec3 dir=normalize(p-c); float fs=pow(max(dot(dir,uSunDir),0.),5.);
+      vec3 dir=normalize(p-c); float fs=((max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.))*(max(dot(dir,uSunDir),0.)));
       vA=smoothstep(.6,2.2,d)*(1.-smoothstep(21.,27.,length(p.xz-c.xz)))*(.75+2.4*fs+.5*aR.z)*smoothstep(.1,.5,p.y);
       gl_Position=projectionMatrix*mv;
     }`,
@@ -1209,7 +1224,7 @@ function makeLaunch(W){
   const mat=c=>{ const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:col(c)},uSunCol:{value:new T.Color('#FFD2A6')},uSkyCol:{value:new T.Color('#B9B4CE')}},W.U),
     vertexShader:RV, fragmentShader:`uniform vec3 uC,uSunCol,uSkyCol; varying vec3 vN,vWP; ${GLSL.haze}
       void main(){ vec3 N=normalize(vN), V=normalize(cameraPosition-vWP);
-        float key=max(dot(N,normalize(uSunDir+vec3(0.,.25,0.))),0.), rim=pow(1.-abs(dot(N,V)),3.);
+        float key=max(dot(N,normalize(uSunDir+vec3(0.,.25,0.))),0.), rim=((1.-abs(dot(N,V)))*(1.-abs(dot(N,V)))*(1.-abs(dot(N,V))));
         /* the low sun is behind it from where you stand, so the evening sky and the lake light the side you see */
         float fill=.55+.45*max(dot(N,V),0.);
         vec3 c=uC*(uSkyCol*.45+uSunCol*key*.8+vec3(1.,.86,.76)*fill*.62)+uSunCol*rim*.4;
@@ -1444,7 +1459,7 @@ function lightLine(c,w=3){
         vec3 side=normalize(cross(d,toC)+vec3(1e-5,0.,0.)); P+=side*position.y*length(cameraPosition-P)*uW/uPx;
         vU=u; vV=position.y*2.; vL=length(uB-uA); gl_Position=projectionMatrix*viewMatrix*vec4(P,1.); }`,
     fragmentShader:`uniform float uDraw,uK,uDash; uniform vec3 uCol; varying float vU,vV,vL;
-      void main(){ float on=1.-smoothstep(uDraw-.004,uDraw,vU); float head=exp(-pow((vU-uDraw)*vL*3.,2.))*1.6*step(uDraw,.999);
+      void main(){ float on=1.-smoothstep(uDraw-.004,uDraw,vU); float head=exp(-(((vU-uDraw)*vL*3.)*((vU-uDraw)*vL*3.)))*1.6*step(uDraw,.999);
         float dash=uDash>0.?smoothstep(.35,.5,abs(fract(vU*vL/uDash)-.5)*2.):1.;
         float core=exp(-vV*vV*3.); gl_FragColor=vec4(uCol*core*(on*.6*dash+head)*uK,1.); }`});
   const mesh=new T.Mesh(new T.PlaneGeometry(1,1,48,1),m); mesh.frustumCulled=false; return {mesh,U};
@@ -1529,7 +1544,7 @@ function buildKrios(W,zc,k){
         float dx=max(r-px,0.)+max(px-(uLen-r),0.); float d=length(vec2(dx,py))-r;
         float body=1.-smoothstep(-.01,.004,d), halo=exp(-max(d,0.)*36.)*.3;
         float w=fract(px/.27+uSeed), gap=smoothstep(.8,.86,w)*(1.-smoothstep(.97,1.,w));
-        float on=step(x,uType), caret=exp(-pow((x-uType)*uLen*30.,2.))*(1.-step(.999,uType))*1.4;
+        float on=step(x,uType), caret=exp(-(((x-uType)*uLen*30.)*((x-uType)*uLen*30.)))*(1.-step(.999,uType))*1.4;
         float a=body*(1.-gap*.8)*on; gl_FragColor=vec4(uCol*(a*.85+halo*on+caret*body)*uK,a*clamp(uK*1.1,0.,1.)*.92); }`});
   const LINES=[];
   for(let i=0;i<12;i++){ const who=i%2, ex=i>>1, len=KR_LEN[who][ex], side=who?1:-1;
@@ -1810,7 +1825,7 @@ function buildOgive(W,zc,OR,k){
     fragmentShader:`uniform vec3 uCol; uniform float uTime,uK; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}
     void main(){ vec3 V=normalize(cameraPosition-vWP); float e=abs(dot(normalize(vN),V));
       float n=.55+.45*vnoise(vec2(atan(vWP.x,vWP.z-(${zc.toFixed(2)}))*3.,vWP.y*.6-uTime*.5));
-      float a=pow(e,2.)*n*(.55+.45*smoothstep(0.,6.,vWP.y))*smoothstep(0.,.4,vWP.y);
+      float a=(e*e)*n*(.55+.45*smoothstep(0.,6.,vWP.y))*smoothstep(0.,.4,vWP.y);
       gl_FragColor=vec4(uCol*a*.1*uK,1.); }`});
   const column=new T.Mesh(new T.CylinderGeometry(OR*.97,OR*.97,44,64,1,true),colM); column.position.set(0,22,zc); g.add(column); W.ogColumn=column;
   /* the rocket, in parts made at unit size and stretched to each design: a boat tail, the body, a tangent ogive nose, four fins */
@@ -1980,7 +1995,7 @@ const POST={};
     /* most of the curve applied to luminance only, so warm light stays peach instead of turning yellow; the brightest channel rolls to white */
     vec3 tmap(vec3 x){ float L=dot(x,vec3(.2126,.7152,.0722)); float la=aces(vec3(L)).x; vec3 h=x*(la/max(L,1e-5));
       float m=max(h.r,max(h.g,h.b)); if(m>1.) h=mix(h/m,vec3(1.),clamp((m-1.)/(m+.6),0.,1.)); return mix(aces(x),clamp(h,0.,1.),.62); }
-    vec3 toS(vec3 c){ return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c)); }
+    vec3 toS(vec3 c){ c=max(c,vec3(0.)); return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c)); }
     /* the Land way, before you choose it: Land itself, its town on its small world seen from high above (a still rendered by
        Land's own engine, so it is exactly that world, its own clouds in its sky), and you falling slowly towards it. Its
        clouds are flat white with a pale blue rim on the shaded side; the opening's edge is drawn the same way. t is how long
@@ -2004,7 +2019,7 @@ const POST={};
         if(r<1.){ uv-=dp/uRes*(.5*h)*uDropK; lens=uDropK; }
         vec2 lq=q/uDropR-vec2(-.34,.36); spec=exp(-dot(lq,lq)*26.)*step(r,1.)*uDropK;
         rim=smoothstep(.72,.98,r)*smoothstep(1.06,.98,r)*uDropK;
-        vec2 sq=(dp-vec2(2.,-4.))/uDropR; shade=exp(-pow(max(length(sq)-.7,0.)*3.,2.))*(1.-step(r,1.))*.16*uDropK;
+        vec2 sq=(dp-vec2(2.,-4.))/uDropR; shade=exp(-((max(length(sq)-.7,0.)*3.)*(max(length(sq)-.7,0.)*3.)))*(1.-step(r,1.))*.16*uDropK;
       }
       vec2 cd=uv-.5; float ca=uCA*(dot(cd,cd)*2.2+.12)+lens*.006;
       vec3 c=vec3(texture2D(tScene,uv+cd*ca).r,texture2D(tScene,uv).g,texture2D(tScene,uv-cd*ca).b);
@@ -2046,10 +2061,10 @@ const POST={};
         c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18;
         if(rh>0.){ float tl=-.13, cs=cos(tl), sn=sin(tl); vec2 dk=vec2(hq.x*cs-hq.y*sn,hq.x*sn+hq.y*cs);
           float sh=1.-smoothstep(rh*.96,rh*1.01,hr);
-          float ring=exp(-pow((hr-rh*1.045)/(rh*.028),2.));
-          float band=exp(-pow(dk.y/(rh*.055),2.))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
-          float over=exp(-pow((hr-rh*1.2)/(rh*.075),2.))*smoothstep(-.05*rh,rh*.5,dk.y);
-          float under=exp(-pow((hr-rh*1.1)/(rh*.045),2.))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
+          float ring=exp(-(((hr-rh*1.045)/(rh*.028))*((hr-rh*1.045)/(rh*.028))));
+          float band=exp(-((dk.y/(rh*.055))*(dk.y/(rh*.055))))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
+          float over=exp(-(((hr-rh*1.2)/(rh*.075))*((hr-rh*1.2)/(rh*.075))))*smoothstep(-.05*rh,rh*.5,dk.y);
+          float under=exp(-(((hr-rh*1.1)/(rh*.045))*((hr-rh*1.1)/(rh*.045))))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
           float dop=1.+.7*clamp(-dk.x/(rh*2.4),-1.,1.);
           float flick=.92+.08*fbm2(vec2(atan(dk.y,dk.x)*3.,hr*30.-uTime*.6));
           c=mix(c,vec3(0.),sh*edge);
@@ -2157,16 +2172,42 @@ function trackEval(keys,s,outP,outT){
   go(k=>k.p,outP); go(k=>k.t,outT);
   return lerp(a.f,b.f,u*u*(3-2*u));
 }
-/* virtual scroll position v (in stops) to path position s: linger at each stop, move between them */
-/* between two stops the walk eases in and out. Where a doorway lies between them it eases through that too, so you cross
-   a threshold at a walk and see the room open up, never in a blur: the stop's ease, mixed with one that comes almost to a
-   stand in the doorway (five times slower there than it was) */
+/* virtual scroll position v (in stops) to path position s. Between two stops the walk is paced by how much the picture
+   changes, not by how far along the path it is: a long turn takes more scroll, a straight stretch less, so a steady scroll
+   gives a steady walk. It still eases out of one stop and into the next, and a doorway, where one place gives way to the
+   next, takes its own unhurried share of the scroll so you cross a threshold at a walk and see the room open up */
+const PACE={tr:null, stops:null, seg:[], N:240, DOOR:.28, FLOOR:.3, EVEN:.22, EASE:.4};
+function paceBuild(){
+  PACE.tr=TR; PACE.stops=STOPS; PACE.seg=[];
+  const p0=v3(),t0=v3(),p1=v3(),t1=v3(), a0=v3(), a1=v3();
+  const look=(s,p,t)=>{ const m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a; return trackEval(name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2),s,p,t); };
+  for(let i=0;i<STOPS.length-1;i++){
+    const a=STOPS[i], b=STOPS[i+1], N=PACE.N, ds=(b-a)/N, d=new Float64Array(N), door=new Uint8Array(N);
+    let sum=0, n=0;
+    for(let j=0;j<N;j++){ const s=a+(j+.5)*ds;
+      if([DOOR_IN,DOOR_OUT].some(x=>Math.abs(s-x)<BLEND)){ door[j]=1; continue; }
+      /* how much the picture changes over this step: how far the view turns, how far the camera travels against how far
+         off it is looking, and how much the lens zooms */
+      const f0=look(s-ds/2,p0,t0), f1=look(s+ds/2,p1,t1);
+      a0.subVectors(t0,p0); a1.subVectors(t1,p1); const l0=a0.length(), l1=a1.length();
+      const turn=Math.acos(clamp(a0.dot(a1)/(l0*l1),-1,1)), go=p0.distanceTo(p1)/Math.max(2,(l0+l1)/2), zoom=Math.abs(f1-f0)/Math.max(1,f0);
+      d[j]=(turn+.75*go+zoom)/ds; sum+=d[j]; n++; }
+    const mean=n?sum/n:1;
+    let rest=0, nd=0;
+    for(let j=0;j<N;j++){ if(door[j]){ nd++; continue; } d[j]=lerp(Math.max(d[j],PACE.FLOOR*mean),mean,PACE.EVEN); rest+=d[j]; }
+    if(nd){ const dd=PACE.DOOR/(1-PACE.DOOR)*rest/nd; for(let j=0;j<N;j++) if(door[j]) d[j]=dd; }
+    /* soften the edges, so the pace never changes from one step to the next */
+    for(let pass=0;pass<3;pass++){ const c=d.slice(); for(let j=0;j<N;j++){ let t=0,w=0; for(let k=-4;k<=4;k++){ const q=j+k; if(q>=0&&q<N){ t+=c[q]; w++; } } d[j]=t/w; } }
+    const C=new Float64Array(N+1); for(let j=0;j<N;j++) C[j+1]=C[j]+d[j]; for(let j=0;j<=N;j++) C[j]/=C[N];
+    PACE.seg.push({a,b,C}); }
+}
 function warp(v){
-  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, a=STOPS[i], b=STOPS[i+1];
-  let e=f-.5*Math.sin(TAU*f)/TAU;
-  const d=[DOOR_IN,DOOR_OUT].find(x=>x>a+.05&&x<b-.05);
-  if(d!==undefined){ const fd=(d-a)/(b-a), E=x=>x-Math.sin(TAU*x)/TAU, held=f<fd?fd*E(f/fd):fd+(1-fd)*E((f-fd)/(1-fd)); e=lerp(e,held,.8); }
-  return lerp(a,b,e);
+  if(PACE.tr!==TR||PACE.stops!==STOPS) paceBuild();
+  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, g=PACE.seg[i], C=g.C, N=C.length-1;
+  const e=clamp(f-PACE.EASE*Math.sin(TAU*f)/TAU,0,1);
+  let lo=0, hi=N; while(hi-lo>1){ const m=(lo+hi)>>1; if(C[m]<=e) lo=m; else hi=m; }
+  const u=(lo+(e-C[lo])/Math.max(1e-9,C[hi]-C[lo]))/N;
+  return lerp(g.a,g.b,clamp(u,0,1));
 }
 function stopOf(s){ let best=0,d=1e9; STOPS.forEach((x,i)=>{ const dd=Math.abs(x-s); if(dd<d){ d=dd; best=i; } }); return best; }
 /* which scene is on screen, and how far through a doorway blend */
@@ -2380,7 +2421,7 @@ addEventListener('keydown',e=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.c
   else if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); gateStep(-1); }
   else if(e.key==='Enter'&&S.gateHover&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#gate .way'))){ e.preventDefault(); $('#gate .way[data-way="'+S.gateHover+'"]').click(); } });
 
-if(!FINE){ $('#cue span').textContent='Swipe'; $('#tamed .m').textContent='2 min · swipe'; }
+if(!FINE){ $('#cue span').textContent='Swipe up to begin'; $('#tamed .m').textContent='2 min · swipe'; }
 /* ---------- menu and anything that names a place ---------- */
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-go]'); if(!a) return;
@@ -2393,6 +2434,15 @@ $$('.view').forEach(a=>a.addEventListener('click',e=>{ e.stopPropagation(); A.cl
 
 /* ---------- sections follow the walk ---------- */
 const SECS=$$('.sec').map(el=>({el,p:placeById(el.dataset.place),on:false,vis:-1}));
+/* standing at the start without scrolling: every few seconds the cue calls again and the walk leans a step forward and
+   back, so you see that scrolling walks you in */
+function cueCall(s,dt){
+  if(S.mode!=='world'||UI._fs||RM||(TEST&&!window.__NUDGE)){ UI._idle=0; return; }
+  if(SC.touch||SC.inertia||s>.02||now()-SC.lastIn<1){ UI._idle=Math.min(UI._idle||0,0); return; }
+  UI._idle=(UI._idle||0)+dt;
+  if(UI._idle>4.5){ UI._idle=-3.5; const c=$('#cue'); c.classList.remove('call'); void c.offsetWidth; c.classList.add('call');
+    SC.glide=null; SC.pin=false; SC.target=.045; SC.lastIn=now(); SC.lastF=S.frame; }
+}
 UI.firstScroll=()=>{ if(!UI._fs){ UI._fs=1; $('#cue').classList.add('gone'); } };
 UI.jumped=()=>{ TXT.dirty=true; };
 let fgKey='';
@@ -2409,6 +2459,7 @@ UI.update=(s,dt)=>{
   const key=_fg.getHexString(); if(key!==fgKey){ fgKey=key; document.documentElement.style.setProperty('--fg','#'+key); document.documentElement.classList.toggle('lite',k>.5); }
   const pl=placeAt(s); if(pl!==UI._pl){ UI._pl=pl; $('#dialT').textContent=pl.name; $$('#menu a').forEach(a=>a.classList.toggle('on',(a.dataset.nav==='projects'&&pl.proj>=0)||a.dataset.nav===pl.id)); document.documentElement.style.setProperty('--accent',pl.tint); }
   $('#cue').classList.toggle('away',s>.12);
+  cueCall(s,dt);
   dialUpdate(s);
   peopleUpdate(s,dt);
 };
@@ -2655,7 +2706,7 @@ requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
-window.__tamed={S,SC,A,QL,PLACES,LAUNCH,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
+window.__tamed={S,SC,A,QL,UI,PLACES,LAUNCH,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,
@@ -2668,6 +2719,9 @@ window.__tamed={S,SC,A,QL,PLACES,LAUNCH,get OUT(){return OUT;},get GAL(){return 
   hover(v){ setHover(v); },
   sun(el,az){ S.sunOv=el==null?null:[el,az]; },
   cam(name,p,t,f){ S.camOv=name?[name,p,t,f]:null; },
+  /* for the scroll tests: where the camera is for a scroll position v, without moving the walk */
+  walkAt(v){ const s=warp(v), m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a, keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2), p=new T.Vector3(), t=new T.Vector3(), f=trackEval(keys,s,p,t);
+    return {s,scene:name,p:p.toArray(),t:t.toArray(),f}; },
 };
 
 })();

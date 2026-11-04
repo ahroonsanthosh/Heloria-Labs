@@ -184,9 +184,19 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 /* small labels keep a faint halo of the light they sit on, so they read over water as well as sky */
 .dial-t,#cue span{ text-shadow:0 0 12px rgba(255,247,238,.6),0 0 3px rgba(255,247,238,.38); transition:opacity .8s,text-shadow .8s; }
 .lite .dial-t,.lite #cue span{ text-shadow:0 1px 10px rgba(20,14,10,.38); }
-#cue{ position:absolute; left:50%; bottom:clamp(26px,4vh,38px); transform:translateX(-50%); margin:0; display:flex; flex-direction:column; align-items:center; gap:10px; font-size:11px; letter-spacing:.24em; text-transform:uppercase; opacity:.7; transition:opacity 1s var(--ease); }
-#cue i{ width:1px; height:34px; background:linear-gradient(currentColor,transparent); animation:cue 2.2s var(--ease) infinite; transform-origin:50% 0; }
-@keyframes cue{ 0%{ transform:scaleY(0); opacity:1 } 60%{ transform:scaleY(1); opacity:1 } 100%{ transform:scaleY(1); opacity:0 } }
+/* the first thing the walk asks of you, said plainly: a mouse whose wheel turns (on a phone a finger's track, upward), and
+   the words. Standing still too long, it calls again, and the walk leans forward a step to show what scrolling does */
+#cue{ position:absolute; left:50%; bottom:clamp(30px,6.5vh,64px); transform:translateX(-50%); margin:0; display:flex; align-items:center; gap:13px; padding:9px 20px 9px 11px; border-radius:999px; background:rgba(251,247,241,.66); -webkit-backdrop-filter:blur(10px) saturate(1.2); backdrop-filter:blur(10px) saturate(1.2); box-shadow:0 8px 28px rgba(46,34,22,.14),inset 0 0 0 1px rgba(255,255,255,.5); color:#2B2620; font-size:12px; font-weight:500; letter-spacing:.22em; text-transform:uppercase; white-space:nowrap; transition:opacity 1s var(--ease); }
+#cue span,.lite #cue span{ text-shadow:none; }
+#cue .wheel{ position:relative; flex:none; width:18px; height:28px; border:1.5px solid currentColor; border-radius:10px; }
+#cue .wheel i{ position:absolute; left:50%; top:5px; width:2.5px; height:6px; margin-left:-1.25px; border-radius:2px; background:currentColor; animation:wheel 1.6s var(--ease) infinite; }
+.coarse #cue .wheel{ width:16px; height:30px; border-radius:9px; }
+.coarse #cue .wheel i{ top:auto; bottom:4px; width:6px; height:6px; margin-left:-3px; border-radius:50%; animation:swipe 1.6s var(--ease) infinite; }
+@keyframes wheel{ 0%{ transform:translateY(0); opacity:0 } 15%{ opacity:1 } 70%{ transform:translateY(9px); opacity:0 } 100%{ transform:translateY(9px); opacity:0 } }
+@keyframes swipe{ 0%{ transform:translateY(0); opacity:0 } 15%{ opacity:1 } 70%{ transform:translateY(-15px); opacity:0 } 100%{ transform:translateY(-15px); opacity:0 } }
+#cue.call{ animation:call 1.6s var(--ease); }
+@keyframes call{ 0%{ transform:translateX(-50%) } 30%{ transform:translateX(-50%) translateY(-7px) scale(1.06) } 100%{ transform:translateX(-50%) } }
+
 #cue.gone,#cue.away{ opacity:0; }
 .indexed #ui{ opacity:.25; }
 
@@ -237,7 +247,8 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
   .mail{ font-size:clamp(21px,6vw,28px); }
   #dial svg{ width:46px; height:46px; }
   /* on a phone the foot of the screen is usually water or a dark room: the small labels there stay pale */
-  #dial,#cue{ color:var(--light); } .dial-t,#cue span{ text-shadow:0 1px 10px rgba(20,14,10,.45),0 0 2px rgba(20,14,10,.3); }
+  #dial{ color:var(--light); } .dial-t{ text-shadow:0 1px 10px rgba(20,14,10,.45),0 0 2px rgba(20,14,10,.3); }
+  #cue{ bottom:clamp(96px,14vh,130px); }
   .dial-t{ font-size:11px; }
   .ways{ flex-direction:column; gap:16px; align-items:center; margin-top:4.6vh; }
   .ways-rule{ width:42px; height:1px; }

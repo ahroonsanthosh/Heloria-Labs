@@ -80,16 +80,42 @@ function trackEval(keys,s,outP,outT){
   go(k=>k.p,outP); go(k=>k.t,outT);
   return lerp(a.f,b.f,u*u*(3-2*u));
 }
-/* virtual scroll position v (in stops) to path position s: linger at each stop, move between them */
-/* between two stops the walk eases in and out. Where a doorway lies between them it eases through that too, so you cross
-   a threshold at a walk and see the room open up, never in a blur: the stop's ease, mixed with one that comes almost to a
-   stand in the doorway (five times slower there than it was) */
+/* virtual scroll position v (in stops) to path position s. Between two stops the walk is paced by how much the picture
+   changes, not by how far along the path it is: a long turn takes more scroll, a straight stretch less, so a steady scroll
+   gives a steady walk. It still eases out of one stop and into the next, and a doorway, where one place gives way to the
+   next, takes its own unhurried share of the scroll so you cross a threshold at a walk and see the room open up */
+const PACE={tr:null, stops:null, seg:[], N:240, DOOR:.28, FLOOR:.3, EVEN:.22, EASE:.4};
+function paceBuild(){
+  PACE.tr=TR; PACE.stops=STOPS; PACE.seg=[];
+  const p0=v3(),t0=v3(),p1=v3(),t1=v3(), a0=v3(), a1=v3();
+  const look=(s,p,t)=>{ const m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a; return trackEval(name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2),s,p,t); };
+  for(let i=0;i<STOPS.length-1;i++){
+    const a=STOPS[i], b=STOPS[i+1], N=PACE.N, ds=(b-a)/N, d=new Float64Array(N), door=new Uint8Array(N);
+    let sum=0, n=0;
+    for(let j=0;j<N;j++){ const s=a+(j+.5)*ds;
+      if([DOOR_IN,DOOR_OUT].some(x=>Math.abs(s-x)<BLEND)){ door[j]=1; continue; }
+      /* how much the picture changes over this step: how far the view turns, how far the camera travels against how far
+         off it is looking, and how much the lens zooms */
+      const f0=look(s-ds/2,p0,t0), f1=look(s+ds/2,p1,t1);
+      a0.subVectors(t0,p0); a1.subVectors(t1,p1); const l0=a0.length(), l1=a1.length();
+      const turn=Math.acos(clamp(a0.dot(a1)/(l0*l1),-1,1)), go=p0.distanceTo(p1)/Math.max(2,(l0+l1)/2), zoom=Math.abs(f1-f0)/Math.max(1,f0);
+      d[j]=(turn+.75*go+zoom)/ds; sum+=d[j]; n++; }
+    const mean=n?sum/n:1;
+    let rest=0, nd=0;
+    for(let j=0;j<N;j++){ if(door[j]){ nd++; continue; } d[j]=lerp(Math.max(d[j],PACE.FLOOR*mean),mean,PACE.EVEN); rest+=d[j]; }
+    if(nd){ const dd=PACE.DOOR/(1-PACE.DOOR)*rest/nd; for(let j=0;j<N;j++) if(door[j]) d[j]=dd; }
+    /* soften the edges, so the pace never changes from one step to the next */
+    for(let pass=0;pass<3;pass++){ const c=d.slice(); for(let j=0;j<N;j++){ let t=0,w=0; for(let k=-4;k<=4;k++){ const q=j+k; if(q>=0&&q<N){ t+=c[q]; w++; } } d[j]=t/w; } }
+    const C=new Float64Array(N+1); for(let j=0;j<N;j++) C[j+1]=C[j]+d[j]; for(let j=0;j<=N;j++) C[j]/=C[N];
+    PACE.seg.push({a,b,C}); }
+}
 function warp(v){
-  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, a=STOPS[i], b=STOPS[i+1];
-  let e=f-.5*Math.sin(TAU*f)/TAU;
-  const d=[DOOR_IN,DOOR_OUT].find(x=>x>a+.05&&x<b-.05);
-  if(d!==undefined){ const fd=(d-a)/(b-a), E=x=>x-Math.sin(TAU*x)/TAU, held=f<fd?fd*E(f/fd):fd+(1-fd)*E((f-fd)/(1-fd)); e=lerp(e,held,.8); }
-  return lerp(a,b,e);
+  if(PACE.tr!==TR||PACE.stops!==STOPS) paceBuild();
+  const n=STOPS.length; v=clamp(v,0,n-1); const i=Math.min(n-2,Math.floor(v)), f=v-i, g=PACE.seg[i], C=g.C, N=C.length-1;
+  const e=clamp(f-PACE.EASE*Math.sin(TAU*f)/TAU,0,1);
+  let lo=0, hi=N; while(hi-lo>1){ const m=(lo+hi)>>1; if(C[m]<=e) lo=m; else hi=m; }
+  const u=(lo+(e-C[lo])/Math.max(1e-9,C[hi]-C[lo]))/N;
+  return lerp(g.a,g.b,clamp(u,0,1));
 }
 function stopOf(s){ let best=0,d=1e9; STOPS.forEach((x,i)=>{ const dd=Math.abs(x-s); if(dd<d){ d=dd; best=i; } }); return best; }
 /* which scene is on screen, and how far through a doorway blend */

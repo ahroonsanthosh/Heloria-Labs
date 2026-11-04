@@ -170,7 +170,7 @@ const droneMat=new T.ShaderMaterial({uniforms:{uBase:{value:new T.Color('#4a453e
   vertexShader:`varying vec3 vN,vW,vC; void main(){ vec4 p=vec4(position,1.); vec3 n=normal; vC=vec3(1.); ${INST_V}
     vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(mat3(modelMatrix)*n); gl_Position=projectionMatrix*viewMatrix*w; }`,
   fragmentShader:`uniform vec3 uBase; varying vec3 vN,vW,vC; void main(){ vec3 n=normalize(vN), V=normalize(cameraPosition-vW);
-    float up=n.y*.5+.5, fr=pow(1.-abs(dot(n,V)),2.);
+    float up=n.y*.5+.5, fr=((1.-abs(dot(n,V)))*(1.-abs(dot(n,V))));
     gl_FragColor=vec4(uBase*(.18+.82*up*up)+vC*(.12+fr*1.25),1.); }`});
 // rotor discs: two blurred blades turning, per-instance phase and direction
 const RRAD=.085;
@@ -204,7 +204,7 @@ const faceMat=new T.MeshBasicMaterial({color:0x0b0a09,polygonOffset:true,polygon
 const jamWallMat=new T.ShaderMaterial({uniforms:{uA:{value:0},uT:G.uTime},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
   vertexShader:`varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
   fragmentShader:`uniform float uA,uT; varying vec2 vU; void main(){ float y=vU.y; float s=.55+.45*sin(vU.x*6.2831*90.+uT*6.)*sin(y*40.-uT*9.);
-    gl_FragColor=vec4(vec3(.65,.76,1.)*uA*pow(1.-y,3.)*s*.32,1.); }`});
+    gl_FragColor=vec4(vec3(.65,.76,1.)*uA*((1.-y)*(1.-y)*(1.-y))*s*.32,1.); }`});
 const lineMat=new T.LineBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending});
 
 /* ---------- geometry helpers ---------- */

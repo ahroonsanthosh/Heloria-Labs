@@ -36,16 +36,16 @@ st.build=function(){
   // the mast
   tower=new T.LineSegments(mastGeo(),new T.ShaderMaterial({uniforms:{uTime:G.uTime,uE:u.uE,uFire:u.uFire,uPulse:u.uPulse,uC:{value:new T.Color('#FF9A3A')},uOp:{value:1}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
     vertexShader:`attribute float aY,aK; uniform float uTime,uE,uFire; uniform vec4 uPulse; varying float vB;
-      float pk(float c,float y){ return c<0.?0.:exp(-pow((y-c)*11.,2.)); }
-      void main(){ float y=aY; float b=.2+.26*y+.14*exp(-pow((y-fract(uTime*.2))*7.,2.));
+      float pk(float c,float y){ return c<0.?0.:exp(-(((y-c)*11.)*((y-c)*11.))); }
+      void main(){ float y=aY; float b=.2+.26*y+.14*exp(-(((y-fract(uTime*.2))*7.)*((y-fract(uTime*.2))*7.)));
         b+=(pk(uPulse.x,y)+pk(uPulse.y,y)+pk(uPulse.z,y)+pk(uPulse.w,y))*1.3;
-        b=b*(.75+.6*uE)+uFire*(.6+1.6*exp(-pow((y-fract(uTime*1.6))*5.,2.)));
+        b=b*(.75+.6*uE)+uFire*(.6+1.6*exp(-(((y-fract(uTime*1.6))*5.)*((y-fract(uTime*1.6))*5.))));
         vB=b*aK*smoothstep(-.02,.08,y); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform vec3 uC; uniform float uOp; varying float vB; void main(){ gl_FragColor=vec4(uC*vB*uOp,1.); }`}));
   tower.frustumCulled=false; sc.add(tower);
   // the lamp
   const lg=new T.BufferGeometry(); lg.setAttribute('position',new T.Float32BufferAttribute([0,0,0,0,0,0],3)); lg.setAttribute('aR',new T.Float32BufferAttribute([0,.5,.5,0, 1,.5,.5,0],4));
-  sc.add(pts(lg,PM({size:.5,color:'#FF8100',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uH;',body:`p=uLamp; float bl=.55+.45*pow(.5+.5*sin(uTime*2.2),3.);
+  sc.add(pts(lg,PM({size:.5,color:'#FF8100',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uH;',body:`p=uLamp; float bl=.55+.45*((.5+.5*sin(uTime*2.2))*(.5+.5*sin(uTime*2.2))*(.5+.5*sin(uTime*2.2)));
     if(aR.x<.5){ sz=.42*uH/6.; b=(.9+bl*.9+uE*1.4+uFire*3.)*.9; col=vec3(1.,.93,.82); } else { sz=(2.2+uE*1.2+uFire*3.)*uH/6.; b=.12+.18*bl+.25*uE+.7*uFire; }`})));
   // radio rings leaving the lamp
   sc.add(pts(cloud(NR*180,(i,r,o,ex)=>{ o[0]=o[1]=o[2]=0; ex.aRg[i]=Math.floor(i/180); },{aRg:1}),PM({size:.05,color:'#FFB066',uniforms:u,decl:'attribute float aRg; uniform vec3 uLamp; uniform float uH; uniform vec4 uRg[8];',body:`
@@ -56,7 +56,7 @@ st.build=function(){
   sc.add(pts(cloud(Math.floor(4200*Q+900),(i,r,o)=>{o[0]=gauss()*.05;o[2]=gauss()*.05;o[1]=r[0];}),PM({size:.05,color:'#FFD9B0',uniforms:u,decl:'uniform vec3 uLamp; uniform float uE,uFire,uFireT,uH;',
     body:`float sp=.12+uE*.25+uFire*1.4, t=fract(position.y-uTime*sp); float w=1.+uE*.8+uFire*3.;
       p=uLamp+vec3(position.x*w*uH/6.,t*uH*(1.8+uFire*1.2),position.z*w*uH/6.);
-      float pk=exp(-pow((t-(uTime-uFireT)*.9),2.)*260.)*step(0.,uTime-uFireT)*step(uTime-uFireT,1.4);
+      float pk=exp(-(((t-(uTime-uFireT)*.9))*((t-(uTime-uFireT)*.9)))*260.)*step(0.,uTime-uFireT)*step(uTime-uFireT,1.4);
       b=(.16+.5*uE+1.4*uFire+3.*pk)*(1.-t)*smoothstep(0.,.05,t); sz=1.+pk*1.5;`})));
   // signals already received, orbiting the lamp
   sc.add(pts(cloud(200,(i,r,o)=>{o[0]=i;o[1]=r[0];o[2]=r[1];}),PM({size:.12,color:'#FFFFFF',uniforms:u,decl:'uniform float uCount,uH; uniform vec3 uLamp;',body:`

@@ -19,7 +19,7 @@ function makeLaunch(W){
   const mat=c=>{ const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:col(c)},uSunCol:{value:new T.Color('#FFD2A6')},uSkyCol:{value:new T.Color('#B9B4CE')}},W.U),
     vertexShader:RV, fragmentShader:`uniform vec3 uC,uSunCol,uSkyCol; varying vec3 vN,vWP; ${GLSL.haze}
       void main(){ vec3 N=normalize(vN), V=normalize(cameraPosition-vWP);
-        float key=max(dot(N,normalize(uSunDir+vec3(0.,.25,0.))),0.), rim=pow(1.-abs(dot(N,V)),3.);
+        float key=max(dot(N,normalize(uSunDir+vec3(0.,.25,0.))),0.), rim=((1.-abs(dot(N,V)))*(1.-abs(dot(N,V)))*(1.-abs(dot(N,V))));
         /* the low sun is behind it from where you stand, so the evening sky and the lake light the side you see */
         float fill=.55+.45*max(dot(N,V),0.);
         vec3 c=uC*(uSkyCol*.45+uSunCol*key*.8+vec3(1.,.86,.76)*fill*.62)+uSunCol*rim*.4;

@@ -46,7 +46,7 @@ const POST={};
     /* most of the curve applied to luminance only, so warm light stays peach instead of turning yellow; the brightest channel rolls to white */
     vec3 tmap(vec3 x){ float L=dot(x,vec3(.2126,.7152,.0722)); float la=aces(vec3(L)).x; vec3 h=x*(la/max(L,1e-5));
       float m=max(h.r,max(h.g,h.b)); if(m>1.) h=mix(h/m,vec3(1.),clamp((m-1.)/(m+.6),0.,1.)); return mix(aces(x),clamp(h,0.,1.),.62); }
-    vec3 toS(vec3 c){ return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c)); }
+    vec3 toS(vec3 c){ c=max(c,vec3(0.)); return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(.0031308,c)); }
     /* the Land way, before you choose it: Land itself, its town on its small world seen from high above (a still rendered by
        Land's own engine, so it is exactly that world, its own clouds in its sky), and you falling slowly towards it. Its
        clouds are flat white with a pale blue rim on the shaded side; the opening's edge is drawn the same way. t is how long
@@ -70,7 +70,7 @@ const POST={};
         if(r<1.){ uv-=dp/uRes*(.5*h)*uDropK; lens=uDropK; }
         vec2 lq=q/uDropR-vec2(-.34,.36); spec=exp(-dot(lq,lq)*26.)*step(r,1.)*uDropK;
         rim=smoothstep(.72,.98,r)*smoothstep(1.06,.98,r)*uDropK;
-        vec2 sq=(dp-vec2(2.,-4.))/uDropR; shade=exp(-pow(max(length(sq)-.7,0.)*3.,2.))*(1.-step(r,1.))*.16*uDropK;
+        vec2 sq=(dp-vec2(2.,-4.))/uDropR; shade=exp(-((max(length(sq)-.7,0.)*3.)*(max(length(sq)-.7,0.)*3.)))*(1.-step(r,1.))*.16*uDropK;
       }
       vec2 cd=uv-.5; float ca=uCA*(dot(cd,cd)*2.2+.12)+lens*.006;
       vec3 c=vec3(texture2D(tScene,uv+cd*ca).r,texture2D(tScene,uv).g,texture2D(tScene,uv-cd*ca).b);
@@ -112,10 +112,10 @@ const POST={};
         c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18;
         if(rh>0.){ float tl=-.13, cs=cos(tl), sn=sin(tl); vec2 dk=vec2(hq.x*cs-hq.y*sn,hq.x*sn+hq.y*cs);
           float sh=1.-smoothstep(rh*.96,rh*1.01,hr);
-          float ring=exp(-pow((hr-rh*1.045)/(rh*.028),2.));
-          float band=exp(-pow(dk.y/(rh*.055),2.))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
-          float over=exp(-pow((hr-rh*1.2)/(rh*.075),2.))*smoothstep(-.05*rh,rh*.5,dk.y);
-          float under=exp(-pow((hr-rh*1.1)/(rh*.045),2.))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
+          float ring=exp(-(((hr-rh*1.045)/(rh*.028))*((hr-rh*1.045)/(rh*.028))));
+          float band=exp(-((dk.y/(rh*.055))*(dk.y/(rh*.055))))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
+          float over=exp(-(((hr-rh*1.2)/(rh*.075))*((hr-rh*1.2)/(rh*.075))))*smoothstep(-.05*rh,rh*.5,dk.y);
+          float under=exp(-(((hr-rh*1.1)/(rh*.045))*((hr-rh*1.1)/(rh*.045))))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
           float dop=1.+.7*clamp(-dk.x/(rh*2.4),-1.,1.);
           float flick=.92+.08*fbm2(vec2(atan(dk.y,dk.x)*3.,hr*30.-uTime*.6));
           c=mix(c,vec3(0.),sh*edge);

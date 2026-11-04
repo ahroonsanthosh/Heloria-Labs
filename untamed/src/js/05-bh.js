@@ -30,7 +30,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
   float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n3(p);p*=2.07;a*=.5;}return s;}
   // stars: three magnitudes on hashed cells of the direction sphere, colour from temperature, denser along the galactic band
   vec3 stars(vec3 d){
-    vec3 c=vec3(0.); float band=exp(-pow(dot(d,GN),2.)*9.);
+    vec3 c=vec3(0.); float band=exp(-((dot(d,GN))*(dot(d,GN)))*9.);
     for(int k=0;k<3;k++){ float sc=k==0?60.:(k==1?140.:300.); vec3 q=d*sc; vec3 id=floor(q); vec3 f=fract(q)-.5;
       float h=h3(id+float(k)*13.); float th=k==0?.975:(k==1?.955-band*.05:.93-band*.12);
       if(h>th){ vec3 o=vec3(h3(id+1.7),h3(id+3.1),h3(id+5.3))-.5; float dd=length(f-o*.7);
@@ -49,7 +49,7 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
       float r=length(p);
       float dt=clamp(.07*r*r/(r+2.),.012,max(3.,r*.08));
       vec3 pp=p;
-      vec3 acc=-1.5*h2*p/pow(r,5.);
+      vec3 acc=-1.5*h2*p/(r*r*r*r*r);
       v+=acc*dt; p+=v*dt;
       // thin disk crossing
       if(uDisk>0. && pp.y*p.y<0.){
@@ -76,10 +76,14 @@ BH.mat=new T.ShaderMaterial({uniforms:BH.u,depthTest:false,depthWrite:false,
       if(r>uEsc&&dot(p,v)>0.) break;   // heading out past the disk and the camera: the rest of the bend is negligible
     }
     vec3 d=normalize(v);
-    col+=(1.-a)*sky(d);
+    if(a<1.) col+=(1.-a)*sky(d);   // (a ray that fell in sees no sky: never even look, its direction can be anything)
     // collapse glow: a star before it falls in (used by the entrance)
     col+=uStar*vec3(1.,.86,.7)*.0;
-    gl_FragColor=vec4(col*uExpo,1.);
+    col=max(col*uExpo,vec3(0.));
+    #if __VERSION__ >= 300
+    if(any(isnan(col))||any(isinf(col))) col=vec3(0.);   // one bad pixel would spread through the glow into black squares
+    #endif
+    gl_FragColor=vec4(col,1.);
   }`});
 
 /* ================= THE SKY, DRAWN ONCE =================
@@ -111,7 +115,7 @@ BH.makeSky=function(){
       if(kind>1.5){ // edge-on: a thin luminous disk split by a dark dust lane
         float rr=abs(q.x), z=q.y;
         float disk=exp(-rr*2.6)*exp(-abs(z)*26.)*1.3+exp(-dot(q,q)*14.)*.9;
-        float lane=1.-.85*exp(-pow(z*40.+.25,2.))*smoothstep(1.,.15,rr);
+        float lane=1.-.85*exp(-((z*40.+.25)*(z*40.+.25)))*smoothstep(1.,.15,rr);
         return mix(vec3(1.,.82,.62),vec3(.78,.86,1.),smoothstep(.1,.7,rr))*disk*lane*.22; }
       q.y/=max(cos(inc),.12);
       float r=length(q), th=atan(q.y,q.x);
@@ -119,7 +123,7 @@ BH.makeSky=function(){
         return vec3(1.,.8,.6)*exp(-pow(r,.62)*4.2)*.35; }
       float arms=pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)),2.6);
       float knots=smoothstep(.986,1.,h2(floor(q*46.)+seed))*arms*smoothstep(.95,.25,r);
-      float dust=1.-.55*pow(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55),5.)*smoothstep(.12,.4,r);
+      float dust=1.-.55*((.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55))*(.5+.5*cos(2.*(th-log(r+.02)*2.4-seed)+.55)))*smoothstep(.12,.4,r);
       float disk=exp(-r*3.1)*(.35+.9*arms)*dust;
       float bulge=exp(-r*r*55.);
       vec3 col=vec3(.75,.84,1.)*disk*.8+vec3(1.,.83,.6)*bulge*.9+vec3(1.,.55,.5)*knots*.45;
@@ -136,10 +140,14 @@ BH.makeSky=function(){
       float clouds=fbm(d*7.+2.), fine=fbm(d*31.-4.);
       float lanes=smoothstep(.42,.7,fbm(d*5.5+vec3(9.,3.,1.)))*core;
       vec3 c=vec3(.005,.0055,.007)*(.5+fbm(d*1.7+11.));
-      c+=mix(vec3(.9,.82,.7),vec3(.72,.78,.95),clouds)*band*(.008+.03*pow(clouds,2.4)+.03*pow(fine,3.))*(1.-.85*lanes);
+      c+=mix(vec3(.9,.82,.7),vec3(.72,.78,.95),clouds)*band*(.008+.03*pow(clouds,2.4)+.03*(fine*fine*fine))*(1.-.85*lanes);
       // two faint nebulae in deep amber, a hint of hydrogen glow, no more
       c+=nebula(d,normalize(vec3(-.55,.18,-.81)),.32,vec3(.035,.011,.006))+nebula(d,normalize(vec3(.62,-.5,-.55)),.22,vec3(.026,.012,.006));
       c+=${glsl};
+      c=max(c,vec3(0.));
+      #if __VERSION__ >= 300
+      if(any(isnan(c))||any(isinf(c))) c=vec3(0.);
+      #endif
       gl_FragColor=vec4(c,1.); }`});
   sc.add(new T.Mesh(new T.BoxGeometry(2,2,2),mat));
   cam.update(renderer,sc); mat.dispose(); sc.children[0].geometry.dispose();

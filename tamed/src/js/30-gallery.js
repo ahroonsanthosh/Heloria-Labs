@@ -136,7 +136,7 @@ function lightLine(c,w=3){
         vec3 side=normalize(cross(d,toC)+vec3(1e-5,0.,0.)); P+=side*position.y*length(cameraPosition-P)*uW/uPx;
         vU=u; vV=position.y*2.; vL=length(uB-uA); gl_Position=projectionMatrix*viewMatrix*vec4(P,1.); }`,
     fragmentShader:`uniform float uDraw,uK,uDash; uniform vec3 uCol; varying float vU,vV,vL;
-      void main(){ float on=1.-smoothstep(uDraw-.004,uDraw,vU); float head=exp(-pow((vU-uDraw)*vL*3.,2.))*1.6*step(uDraw,.999);
+      void main(){ float on=1.-smoothstep(uDraw-.004,uDraw,vU); float head=exp(-(((vU-uDraw)*vL*3.)*((vU-uDraw)*vL*3.)))*1.6*step(uDraw,.999);
         float dash=uDash>0.?smoothstep(.35,.5,abs(fract(vU*vL/uDash)-.5)*2.):1.;
         float core=exp(-vV*vV*3.); gl_FragColor=vec4(uCol*core*(on*.6*dash+head)*uK,1.); }`});
   const mesh=new T.Mesh(new T.PlaneGeometry(1,1,48,1),m); mesh.frustumCulled=false; return {mesh,U};
@@ -221,7 +221,7 @@ function buildKrios(W,zc,k){
         float dx=max(r-px,0.)+max(px-(uLen-r),0.); float d=length(vec2(dx,py))-r;
         float body=1.-smoothstep(-.01,.004,d), halo=exp(-max(d,0.)*36.)*.3;
         float w=fract(px/.27+uSeed), gap=smoothstep(.8,.86,w)*(1.-smoothstep(.97,1.,w));
-        float on=step(x,uType), caret=exp(-pow((x-uType)*uLen*30.,2.))*(1.-step(.999,uType))*1.4;
+        float on=step(x,uType), caret=exp(-(((x-uType)*uLen*30.)*((x-uType)*uLen*30.)))*(1.-step(.999,uType))*1.4;
         float a=body*(1.-gap*.8)*on; gl_FragColor=vec4(uCol*(a*.85+halo*on+caret*body)*uK,a*clamp(uK*1.1,0.,1.)*.92); }`});
   const LINES=[];
   for(let i=0;i<12;i++){ const who=i%2, ex=i>>1, len=KR_LEN[who][ex], side=who?1:-1;
@@ -502,7 +502,7 @@ function buildOgive(W,zc,OR,k){
     fragmentShader:`uniform vec3 uCol; uniform float uTime,uK; varying vec3 vWP; varying vec3 vN; ${GLSL.noise}
     void main(){ vec3 V=normalize(cameraPosition-vWP); float e=abs(dot(normalize(vN),V));
       float n=.55+.45*vnoise(vec2(atan(vWP.x,vWP.z-(${zc.toFixed(2)}))*3.,vWP.y*.6-uTime*.5));
-      float a=pow(e,2.)*n*(.55+.45*smoothstep(0.,6.,vWP.y))*smoothstep(0.,.4,vWP.y);
+      float a=(e*e)*n*(.55+.45*smoothstep(0.,6.,vWP.y))*smoothstep(0.,.4,vWP.y);
       gl_FragColor=vec4(uCol*a*.1*uK,1.); }`});
   const column=new T.Mesh(new T.CylinderGeometry(OR*.97,OR*.97,44,64,1,true),colM); column.position.set(0,22,zc); g.add(column); W.ogColumn=column;
   /* the rocket, in parts made at unit size and stretched to each design: a boat tail, the body, a tangent ogive nose, four fins */
