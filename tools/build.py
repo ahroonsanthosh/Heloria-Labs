@@ -24,7 +24,8 @@ def load(name, path):
 
 
 # Cloudflare reads this from the site's root. Pages and their code can change at any deploy, so they are checked
-# again within the hour; three.js is a fixed version and kept for a year
+# again within the hour; three.js is a fixed version and kept for a year. Rules for a folder add to those of the folders
+# round it, so the inner ones drop the outer Cache-Control (the ! lines) before setting their own
 HEADERS = """/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
@@ -35,9 +36,11 @@ HEADERS = """/*
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 
 /assets/img/*
+  ! Cache-Control
   Cache-Control: public, max-age=604800
 
 /assets/vendor/*
+  ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 """
 
