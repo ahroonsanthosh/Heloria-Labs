@@ -197,34 +197,33 @@ const A=(()=>{
        own notes; one phrase each turn, so it is a conversation you can follow, not a murmur */
     phrase(who,g=.012){ if(!on||muted||!ctx) return; const M=who?[67,64,62]:[72,76,79];
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
-    /* music for Earth: a slow, warm loop (keys, a plucked melody, soft bass and brushes), built note by note
-       in the score's own scheduler; no crackle, nothing on Earth that could sound like static. music(v) sets the level; call it every frame while it should play. */
+    /* music for Earth: a slow, warm loop of chords, a soft bass, a held chord under them and a plucked melody, built note by
+       note in the score's own scheduler. Made for the speakers people have: every note is one tone with its harmonics in exact
+       tune (nothing detuned, so nothing beats against anything), voiced where a phone or a laptop can play it, with no kick
+       and no noise in it, and it goes straight to the speakers: no compressor to make it breathe and no echo to make a note
+       swell or sink. music(v) sets the level; call it every frame while it should play. */
     music(v){ if(!ctx) return;
-      if(!n.mus){ n.mus=ctx.createGain(); n.mus.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3400; lp.Q.value=.5; n.mus.connect(lp); lp.connect(comp);
-        const sg=ctx.createGain(); sg.gain.value=.4; lp.connect(sg); sg.connect(revIn); n.mt=ctx.currentTime+.15; n.ms=0; n.mel=7; }
-      set(n.mus.gain,v*1.2,.9); n.musV=v;   /* Earth's music carries the town now the hiss is gone: level with the stations */
+      if(!n.mus){ n.mus=ctx.createGain(); n.mus.gain.value=0; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=4200; lp.Q.value=.5; n.mus.connect(lp); lp.connect(out);
+        n.ep=ctx.createPeriodicWave(new Float32Array([0,0,0,0,0,0]),new Float32Array([0,1,.34,.14,.06,.03]));   // a rounded keys tone: the note and its true harmonics
+        n.mt=ctx.currentTime+.15; n.ms=0; n.mel=7; }
+      set(n.mus.gain,v*3.4,.9); n.musV=v;   // as loud on a phone or laptop speaker as a station is
       if(!n.musClock) n.musClock=setInterval(()=>{ if(n.musV>.001&&n.musGo) n.musGo(); },200);   // its own clock: notes keep coming when a frame runs long
       if(v<=.001) return; if(n.musGo){ n.musGo(); return; }
       n.musGo=()=>{ if(n.mt<ctx.currentTime) n.mt=ctx.currentTime+.05;
       const mf=m=>440*Math.pow(2,(m-69)/12), beat=60/72, bus=n.mus;
-      const play=(f,t0,dur,g,type,atk,f2)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.6);
+      const key=(o)=>{ if(n.ep) o.setPeriodicWave(n.ep); else o.type='triangle'; };
+      const play=(f,t0,dur,g,atk)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); key(o); o.frequency.setValueAtTime(f,t0);
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+dur+.05); };
-      const hit=(t0,dur,g,f,type,q)=>{ const s=shot(); const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q; const a=ctx.createGain();
-        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(bus); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); };
-      /* a held chord under it all: three pure tones per bar that swell in, hold, and hand over to the next bar's, so the
-         town is never silent between phrases (no noise and nothing detuned, so nothing in it can hiss or phase) */
-      const hold=(f,t0,len,g)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t0);
+      /* the held chord: three tones per bar that come in, hold, and hand over to the next bar's, so the town is never silent
+         between phrases; a short handover, so neighbouring chords a semitone apart never sound long together */
+      const hold=(f,t0,len,g)=>{ const o=ctx.createOscillator(), a=ctx.createGain(); key(o); o.frequency.setValueAtTime(f,t0);
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.6); a.gain.setValueAtTime(g,t0+len); a.gain.linearRampToValueAtTime(0,t0+len+.6);
-        o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+len+.7); };   // (a short handover: neighbouring chords a semitone apart never sound long together)
-      const PROG=[[53,57,60,64,67],[52,55,59,62,66],[50,53,57,60,64],[48,52,55,59,62]], BASS=[41,40,38,36], SCALE=[60,62,64,67,69,72,74,76,79];
+        o.connect(a); a.connect(bus); o.start(t0); o.stop(t0+len+.7); };
+      const PROG=[[65,69,72,76,79],[64,67,71,74,78],[62,65,69,72,76],[60,64,67,71,74]], BASS=[53,52,50,48], SCALE=[72,74,76,79,81,84,86,88,91];
       while(n.mt<ctx.currentTime+1.2){ const k=n.ms, t0=n.mt, pos=k%8, bar=Math.floor(k/8), ch=PROG[bar%4];
-        if(pos===0){ [ch[0],ch[2],ch[4]].forEach((m,i)=>hold(mf(m),t0,beat*4,i?.007:.01)); ch.forEach((m,i)=>{ play(mf(m),t0+i*.012,beat*(LITE?2.6:3.6),.018,'sine',.03); if(!LITE) play(mf(m)*2.003,t0+i*.012,beat*1.4,.004,'triangle',.02); }); play(mf(BASS[bar%4]),t0,beat*1.7,.075,'sine',.02); }
-        if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t0+i*.01,beat*1.3,.011,'sine',.02)); play(mf(BASS[bar%4]+7),t0,beat*.9,.05,'sine',.02); }
-        if(pos===0||pos===5) play(95,t0,.22,.07,'sine',.005,42);                    // a soft kick
-        if(pos===4) hit(t0,.16,.022,1900,'bandpass',.9);                            // a brush on the snare
-        if(k%2===1) hit(t0,.045,.007+Math.random()*.004,7000,'highpass',.7);        // brushes on the offbeat
-        if([0,3,4,6].includes(pos)&&Math.random()<.62){ n.mel=clamp(n.mel+Math.floor(Math.random()*5)-2,0,SCALE.length-1); const f=mf(SCALE[n.mel]);
-          play(f,t0,beat*1.5,.024,'sine',.004); play(f*3.01,t0,beat*.35,.005,'sine',.002); }
+        if(pos===0){ [ch[0],ch[2],ch[4]].forEach((m,i)=>hold(mf(m),t0,beat*4,i?.009:.012)); ch.forEach((m,i)=>play(mf(m),t0+i*.012,beat*3.2,.017,.03)); play(mf(BASS[bar%4]),t0,beat*1.8,.05,.02); }
+        if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t0+i*.01,beat*1.3,.011,.02)); play(mf(BASS[bar%4]+7),t0,beat*.9,.035,.02); }
+        if([0,3,4,6].includes(pos)&&Math.random()<.62){ n.mel=clamp(n.mel+Math.floor(Math.random()*5)-2,0,SCALE.length-1); play(mf(SCALE[n.mel]),t0,beat*1.5,.02,.006); }
         n.ms++; n.mt+=beat*(k%2?.44:.56); } };
       n.musGo(); },
     /* a station going past at speed, on the side it passes */
