@@ -59,6 +59,8 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
       // a short record of the game per wave, and anything that goes wrong, looked at after every step
       watch() {
         const g = d.game, c = d.clk;
+        // a contact that appears in the same step as a wave ends (the last of its bag) belongs to the wave that sent it
+        const was = T.cur;
         if (g && (!T.cur || T.cur.wave !== g.wave)) { if (T.cur) T.cur.endWt = T.cur.lastWt; T.cur = { wave: g.wave, t0: c, score0: g.score, kills0: g.kills, leak0: g.leak, blue0: g.blue, jams0: g.jams, shots0: g.shots, spawn: {}, lastWt: 0 }; T.waves.push(T.cur); }
         if (g && T.cur) { const w = T.cur; w.lastWt = g.wt; w.t1 = c; w.score = g.score; w.kills = g.kills - w.kills0; w.leak = g.leak - w.leak0; w.blue = g.blue - w.blue0; w.jams = g.jams - w.jams0; w.shots = g.shots - w.shots0; w.left = d.D.filter(T.hostile).length; }
         if (!g && T.cur && !T.cur.over) { T.cur.over = true; T.cur.endWt = T.cur.lastWt; }
@@ -66,7 +68,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
         const vanished = [];
         for (const [k, e] of T.seen) { const x = d.D[e.i]; if (!x.on || x.id !== e.id) { vanished.push(e); T.seen.delete(k); } }
         for (const x of d.D) { if (!x.on || x.demo) continue; const k = x.i + ':' + x.id;
-          if (!T.seen.has(k)) { T.seen.set(k, { i: x.i, id: x.id, type: x.type }); if (T.cur && g) T.cur.spawn[x.type] = (T.cur.spawn[x.type] || 0) + 1; }
+          if (!T.seen.has(k)) { T.seen.set(k, { i: x.i, id: x.id, type: x.type }); const w = was || T.cur; if (w && g) w.spawn[x.type] = (w.spawn[x.type] || 0) + 1; }
           if (![x.p.x, x.p.y, x.p.z, x.v.x, x.v.z].every(Number.isFinite)) T.flag('nan' + k, 'contact ' + x.id + ' has a position that is not a number');
           if (!x.tk) T.flag('tk' + k, 'contact ' + x.id + ' has no track symbol on the screen');
           if (x.type !== 'friend' && x.age > 45) T.flag('old' + k, x.type + ' ' + x.id + ' still flying ' + x.age.toFixed(0) + ' s after it appeared');

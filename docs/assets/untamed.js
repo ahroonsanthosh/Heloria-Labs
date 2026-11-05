@@ -1859,7 +1859,7 @@ const M4=new T.Matrix4(), M5=new T.Matrix4(), Qn=new T.Quaternion(), EU=new T.Eu
 /* pools: contacts, swarm groups, interceptors, scope paints, ground events */
 const D=[...Array(MAXD)].map((_,i)=>({i,on:false,p:new T.Vector3(),v:new T.Vector3(),q:new T.Quaternion(),goal:new T.Vector3(),off:new T.Vector3(),
   type:'scout',cls:'unk',hp:1,id:0,site:0,grp:null,ph:0,yaw:0,yawR:0,roll:0,pitch:0,jam:0,jamHit:false,fall:false,vy:0,spin:0,eng:0,idT:-1,reacted:false,
-  demo:false,loiter:false,tk:null,sx:0,sy:0,vis:false,hov:false,rowHov:false,tti:99,flash:0,dmgT:-9,age:0}));
+  demo:false,loiter:false,tk:null,sx:0,sy:0,vis:false,hov:false,rowHov:false,tti:99,flash:0,dmgT:-9,age:0,rel:-1}));
 const GP=[...Array(MAXG)].map(()=>({on:false,c:new T.Vector3(),v:new T.Vector3(),site:0,id:0,n:0,ph:0,tk:null,cls:'unk',alt:.72,sx:0,sy:0,vis:false,lead:null,tti:99}));
 const MS=[...Array(MAXM)].map(()=>({on:false,live:false,demo:false,p:new T.Vector3(),v:new T.Vector3(),tgt:null,t:0,lost:0,fade:1,tr:new Float32Array(TL*3),trN:0,d0:1,k:0}));
 const PB=[...Array(NB)].map(()=>new T.Vector4(0,0,-99,0)); let pbI=0;
@@ -2156,7 +2156,7 @@ const TINT_B=new T.Color(0,.02,.08), TINT_R=new T.Color(.1,0,0), TINT_J=new T.Co
 let hovD=null;
 function freeD(){ for(const d of D) if(!d.on) return d; return null; }
 function resetD(d,type){ Object.assign(d,{on:true,type,cls:'unk',hp:TYPES[type].hp,id:nextId++,grp:null,ph:Math.random()*TAU,jam:0,jamHit:false,fall:false,vy:0,spin:0,eng:0,idT:-1,reacted:false,
-  demo:!game,loiter:false,tk:null,hov:false,rowHov:false,tti:99,flash:0,dmgT:-9,age:0,roll:0,pitch:0,yawR:0,cruise:1,dive:false}); d.v.set(0,0,0); }
+  demo:!game,loiter:false,tk:null,hov:false,rowHov:false,tti:99,flash:0,dmgT:-9,age:0,roll:0,pitch:0,yawR:0,cruise:1,dive:false,rel:-1}); d.v.set(0,0,0); }
 function pickSite(){ let n=0; for(const s of SITES) if(s.hp>0) n++; if(!n) return -1; let k=(Math.random()*n)|0; for(let i=0;i<3;i++) if(SITES[i].hp>0&&k--===0) return i; return 0; }
 function spawnBearing(si){ const s=SITES[si].p, sb=brg(s.x,s.z); let b=0; for(let k=0;k<12;k++){ b=Math.random()*TAU; if(Math.abs(angDiff(b,sb))>.8) break; } return b; }
 function spawnHostile(type){ const si=pickSite(); if(si<0) return null; const d=freeD(); if(!d) return null; resetD(d,type); d.site=si;
@@ -2423,9 +2423,14 @@ st.enter=function(){ st.abort(); st.setState('menu');
 st.exit=function(){ st.abort(); };
 
 /* ---------- per frame: sweep, missiles, effects ---------- */
+// d.rel is how far the sweep still has to turn to reach a contact; when it jumps by more than half a turn the line has
+// passed it, even if the contact slipped back across the line inside one frame and so never sat in the swept slice
 function sweepPaint(s0,s1){
   const wrap=s1<s0;
-  for(const d of D){ if(!d.on) continue; const b=brg(d.p.x,d.p.z); if(wrap?(b<=s0&&b>s1):(b<=s0||b>s1)) continue; if(Math.hypot(d.p.x,d.p.z)>RS+.25) continue;
+  for(const d of D){ if(!d.on) continue; const b=brg(d.p.x,d.p.z), rel=(b-s1+TAU)%TAU, was=d.rel; d.rel=rel;
+    const out=Math.hypot(d.p.x,d.p.z)>RS+.25;
+    if(wrap?(b<=s0&&b>s1):(b<=s0||b>s1)){ if(!out&&d.cls==='unk'&&was>=0&&rel>was+Math.PI) identify(d,false); continue; }
+    if(out) continue;
     identify(d,false); paintAt(d.p.x,d.p.z,CLN[d.cls]); d.flash=1; }
 }
 function stepM(m,dt){
