@@ -120,10 +120,17 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return { seen, talking: !!d.talk().p }; });
   rec(!pass_.seen, 'walking over to Ahroon past Aetos, its card never flashes up', JSON.stringify(pass_));
   await E((e, d) => { d.closeTalk(); });
-  const cards = await E((e, d) => { const out = {}; d.began(); for (const id of ['kr', 'ae', 'ph', 'og', 'be']) { const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(6); const c = document.querySelector('#crProj'); const early = c.classList.contains('on');
+  const cards = await E((e, d) => { const out = {}; d.began(); for (const id of ['kr', 'ae', 'ph', 'og', 'be'].concat(d.INST.cafe ? ['cafe'] : [])) { const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(6); const c = document.querySelector('#crProj'); const early = c.classList.contains('on');
       e.run(24); out[id] = !early && c.classList.contains('on') && c.target && c.href && c.querySelector('.crpj-n').textContent; } return out; });
   rec(Object.values(cards).every(Boolean), 'stopping by each landmark shows what it is, with its link, after a moment', JSON.stringify(cards));
   const tgt = await page.evaluate(() => { const c = document.querySelector('#crProj'); return c.target; });
+  /* the café, where it is built: its card books a chat by email, in the same tab, and the board out front is solid */
+  const cafe = await E((e, d) => { const q = d.INST.cafe; if (!q) return null; d.began(); e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(30); const c = document.querySelector('#crProj');
+    return { on: c.classList.contains('on'), n: c.querySelector('.crpj-n').textContent, href: c.getAttribute('href'), target: c.target, legs: d.OBS.filter(o => Math.hypot(o.x - q.x, o.z - q.z) < 4.6 && o.r === .15).length }; });
+  if (cafe) {
+    rec(cafe.on && cafe.n === 'Café' && /^mailto:contact@helorialabs\.com\?subject=Booking/.test(cafe.href) && cafe.target === '_self', 'stopping by the café offers to book a chat by email', JSON.stringify({ ...cafe, href: cafe.href.slice(0, 70) }));
+    rec(cafe.legs >= 3, 'the café board stands solid on the pavement', String(cafe.legs));
+  } else log('the café board is not in this build');
   await E((e, d, h) => { h.ST.cr.land = false; d.marksEnter(); });
 
   console.log('\nSUMMARY ' + pass + ' passed, ' + fail + ' failed' + (failed.length ? '\n  FAILED: ' + failed.join('; ') : ''));

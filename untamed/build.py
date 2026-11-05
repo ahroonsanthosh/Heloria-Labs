@@ -51,12 +51,15 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly='', pretty=False):
     js = js.replace("'__ENTRY__'", json.dumps(entry)).replace("'__FLY__'", json.dumps(fly)).replace("'__PRETTY__'", json.dumps(pretty))
     return ids, css, html, js
 
+# Earth's café board, "book a chat with us": in the previews and the tests, and on the live site only once this is True
+CAFE_LIVE = False
+
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
 
 def single(only, inline_three=False, entry='', tamed_url=TAMED_ARTIFACT):
     ids, css, html, js = parts(only, tamed_url=tamed_url, entry=entry, fly=FLY_ARTIFACT if entry else '')
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
-    js = js.replace('__PHOTOS__', json.dumps(photos))
+    js = js.replace('__PHOTOS__', json.dumps(photos)).replace('__CAFE__', 'true')
     head = read('head.html')
     if entry: head = head.replace('<title>Heloria Labs Orbit</title>', '<title>Heloria Labs %s</title>' % {'land': 'Earth', 'aetos': 'Aetos'}[entry])   # a preview of its own, named for its way in
     three = ('<script>\n' + read('assets/vendor/three.min.js') + '\n</script>') if inline_three else '<script src="%s"></script>' % THREE_CDN
@@ -102,7 +105,7 @@ def write_site(out, only=None):
     for f in ('three.min.js', 'three.LICENSE.txt'): shutil.copy(os.path.join(SRC, 'assets', 'vendor', f), os.path.join(out, 'assets', 'vendor', f))
     # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
     pfp = lambda n: hashlib.sha1(open(os.path.join(SRC, 'assets', 'img', n + '.webp'), 'rb').read()).hexdigest()[:10]
-    js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW]))
+    js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW])).replace('__CAFE__', 'true' if CAFE_LIVE else 'false')
     js = wrap_js(js)
     open(os.path.join(out, 'assets', 'untamed.css'), 'w', encoding='utf-8').write(css)
     open(os.path.join(out, 'assets', 'untamed.js'), 'w', encoding='utf-8').write(js)
