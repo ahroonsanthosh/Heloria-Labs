@@ -3034,12 +3034,23 @@ const feedCv=$('#phFeed'), fx=feedCv.getContext('2d'), stg=$$('.stg li',el), D={
   ff:$('#phF'),clk:$('#phClk'),tru:$('#phTru'),ln:$('#phLn'),dist:$('#phDist'),banner:$('#phBanner'),pops:$('#phPops'),fxl:$('#phFx')};
 let FN=300, vig=null, noiseC=null;
 function feedSize(){ const r=D.box.getBoundingClientRect(); const n=Math.max(96,Math.round((r.width||300)*Math.min(2,devicePixelRatio||1)));
-  if(n!==FN||!vig){ FN=feedCv.width=feedCv.height=n; const [c,x]=cv2(n); const g=x.createRadialGradient(n/2,n/2,n*.18,n/2,n/2,n*.74); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.78)'); x.fillStyle=g; x.fillRect(0,0,n,n); vig=c; } }
+  if(n!==FN||!vig){ FN=feedCv.width=feedCv.height=n; const [c,x]=cv2(n); const g=x.createRadialGradient(n/2,n/2,n*.18,n/2,n/2,n*.74); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.78)'); x.fillStyle=g; x.fillRect(0,0,n,n); vig=c;
+    if(F&&game) drawFeed(F); } } // a new size clears the canvas: put the frame back, or a phone turned while matching shows nothing to match
 { const [c,x]=cv2(128), im=x.createImageData(128,128); for(let i=0;i<im.data.length;i+=4){ const v=Math.random()*255; im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255; } x.putImageData(im,0,0); noiseC=c; }
-const lay={cx:0,cy:0,d:400,stack:false};
-function measure(){ const W=innerWidth, H=innerHeight, f=$('#phF').getBoundingClientRect(), hb=q('.gbc').getBoundingClientRect(), top=Math.min(H*.2,140);
+const lay={cx:0,cy:0,d:400,stack:false,side:false};
+const AIM_T='Drag the square over the map until it matches the camera, then let go', AIM_M='Move the square over the map until it matches the camera, then click', AIM_K='Or arrow keys and Enter';
+function measure(){ const W=innerWidth, H=innerHeight, f=$('#phF').getBoundingClientRect(), top=Math.min(H*.2,140);
+  /* the words under the map change through a fix: the map is framed for them as they stand while you aim (the first fix's,
+     with its line of keys), not as they happened to read when this ran, which left the circle under them in some games */
+  const h0=D.help.textContent, k0=D.keys.textContent; D.help.textContent=TOUCH?AIM_T:AIM_M; D.keys.textContent=TOUCH?'':AIM_K;
+  const hb=q('.gbc').getBoundingClientRect(), gl=q('.gtl').getBoundingClientRect(); D.help.textContent=h0; D.keys.textContent=k0;
   const helpTop=Math.min(H-70,hb.top||H-80);
-  if(f.bottom<H*.5){ lay.stack=true; const y0=f.bottom+14, y1=helpTop-10; lay.cx=W/2; lay.cy=(y0+y1)/2; lay.d=Math.min(W*.94,(y1-y0)); }
+  lay.side=H<=520&&W/H>=.9;
+  if(lay.side){ lay.stack=false; const x0=Math.max(gl.right,hb.right)+18, x1=f.left-22, y0=40, y1=H-14;   // a phone held sideways: a column of HUD each side, the map between (station.css)
+    lay.cx=(x0+x1)/2; lay.cy=(y0+y1)/2; lay.d=Math.min((x1-x0)*.94,(y1-y0)*.9); }
+  /* the phone's layout (station.css) puts the map under the camera, with room above the circle for its label; a tall desktop
+     window keeps the map beside the camera, as its HUD is laid out */
+  else if(NARROW()&&f.bottom<H*.5){ lay.stack=true; const y0=f.bottom+28, y1=helpTop-10; lay.cx=W/2; lay.cy=(y0+y1)/2; lay.d=Math.min(W*.94,(y1-y0)); }
   else { lay.stack=false; const x1=f.left-28; lay.cx=x1/2+8; lay.cy=(top+helpTop)/2+6; lay.d=Math.min(x1*.92,(helpTop-top)*.98); }
   feedSize(); }
 
@@ -3075,7 +3086,7 @@ function teleText(F,force){ if(!force&&(teleT+=1)%4) return; const s=F.stage, k=
   const hd=Math.round(((F.head*(1-k))*180/Math.PI+360)%360), tl=Math.round(F.tilt*(1-k)*180/Math.PI);
   D.tele.textContent=s<2?`Hdg ${String(hd).padStart(3,'0')}° · Tilt ${tl}°`:'North up · nadir'; D.tele2.textContent=s<2?'Alt 120 m':'Edges'; }
 const SHORT=['Raw frame: tilted, rotated, autumn light','Rectify: onto the ground, north up','Describe: edges only, colour and shadow gone'];
-function stageUI(s){ stg.forEach((li,i)=>{ li.classList.toggle('on',i===s); li.classList.toggle('done',i<s); }); D.cap.textContent=CAPS[s]; if(s<3&&lay.stack&&F&&F.phase==='feed') setHelp(SHORT[s],F.r===1?'':TOUCH?'Tap the camera to skip':'Click the camera or press Space to skip'); }
+function stageUI(s){ stg.forEach((li,i)=>{ li.classList.toggle('on',i===s); li.classList.toggle('done',i<s); }); D.cap.textContent=CAPS[s]; if(s<3&&(lay.stack||lay.side)&&F&&F.phase==='feed') setHelp(SHORT[s],F.r===1?'':TOUCH?'Tap the camera to skip':'Click the camera or press Space to skip'); }
 
 /* ---------- drone flight: loiter around a centre, bank into turns ---------- */
 const _f=new T.Vector3(), _c=[new T.Vector3(),new T.Vector3(),new T.Vector3(),new T.Vector3()], _ap=new T.Vector3(), _q=new T.Euler(0,0,0,'YXZ');
@@ -3130,10 +3141,9 @@ function startFix(Fx){
   A.ping(988,.04); A.whoosh(true,.7,.08);
   drawFeed(F);
 }
-function toMatch(){ if(!F||F.phase!=='feed') return; F.stage=3; F.st=0; F.phase='aim'; D.ff.classList.add('aim'); if(game&&F.r<ROUNDS&&!prepJob) prepJob=prepFix(F.r+1,game.avoid); stageUI(3); drawFeed(F); teleText(F,true); D.box.removeAttribute('data-cur'); A.chime(4);
+function toMatch(){ if(!F||F.phase!=='feed') return; F.stage=3; F.st=0; F.phase='aim'; D.ff.classList.add('aim'); if(game&&F.r<ROUNDS&&!prepJob) prepJob=prepFix(F.r+1,game.avoid); stageUI(3); drawFeed(F); teleText(F,true); D.box.removeAttribute('data-cur'); curReset(); A.chime(4); // (the cursor would keep the camera's Skip label out over the map)
   vis(D.ring,true); cursorAim(true); if(!aim.want){ aim.x=F.cx; aim.y=F.cy; aim.want=1; aim.kb=false; } // the tool is visible before you move
-  setHelp(TOUCH?'Drag the square over the map until it matches the camera, then let go':'Move the square over the map until it matches the camera, then click',
-    TOUCH?'':(F.r===1?'Or arrow keys and Enter':'')); }
+  setHelp(TOUCH?AIM_T:AIM_M,TOUCH?'':(F.r===1?AIM_K:'')); }
 function spoofAt(Fx,out){ const s=Fx.spoof, d=s.v*(Fx.ft+Fx.t); out[0]=s.x0+s.dx*d; out[1]=s.y0+s.dy*d; return out; }
 const _sp=[0,0];
 function commit(px,py){
@@ -3192,10 +3202,11 @@ st.play=function(){
   blurInside(); if(game) st.abort();
   finishJobs(); if(!pend||pend.set!==cur||pend.r!==1){ prepJob=prepFix(1,[]); } while(prepJob&&!prepJob.next().done){} prepJob=null;
   if(!pend) return;
-  game={r:0,score:0,list:[],trusted:0,close:0,wrong:0,spoofed:0,gnss:0,avoid:[],from:0,cnt:1}; D.score.textContent='0';
-  measure(); st.setState('play'); U.uMenu.value=0;
+  game={r:0,score:0,list:[],trusted:0,close:0,wrong:0,spoofed:0,gnss:0,avoid:[],from:0,cnt:1,k0:performance.now()}; D.score.textContent='0';
+  st.setState('play'); U.uMenu.value=0;
   A.jam(); feedback(0,1.1);
   const n=pend; pend=null; startFix(n);
+  measure(); // once the fix is on the screen: the camera's stage line is lit, and the panel is as tall as it will be
 };
 st.abort=function(){ game=null; F=null; cursorAim(false); D.ff.classList.remove('aim'); hideMarks(); vis(D.next,false); if(U){ U.uOn.value=0; U.uHeat.value.w=0; U.uFoot.value.w=0; U.uLock.value.w=0; U.uHover.value.w=0; } if(beam) beam.visible=false; prepJob=null; aim.drag=false; };
 function menuLoiter(){ const nar=NARROW(); drone.C.set(nar?.2:-.9,0,nar?2.6:-1.6); drone.r=nar?1.25:1.75; drone.alt=nar?1.6:2.05; }
@@ -3222,14 +3233,17 @@ addEventListener('pointermove',e=>{ if(S.st!==st||st.state!=='play'||!F||F.phase
   else if(aim.drag&&e.pointerId===aim.id){ const p=pick(e.clientX,e.clientY); if(p.ok){ aim.x=p.px; aim.y=p.py; } } },{passive:true});
 addEventListener('pointerup',e=>{ if(!aim.drag||e.pointerId!==aim.id) return; aim.drag=false; if(S.st===st&&F&&F.phase==='aim') commit(aim.x,aim.y); });
 addEventListener('pointercancel',e=>{ if(aim.drag&&e.pointerId===aim.id){ aim.drag=false; aim.want=0; } });
-addEventListener('keydown',e=>{ if(S.mode!=='station'||S.st!==st||st.state!=='play'||!F) return; if(e.target.closest&&e.target.closest('input,textarea,a')) return;
+// (a key pressed before the game began, the Enter that started it from the title, is not also a press inside it)
+addEventListener('keydown',e=>{ if(S.mode!=='station'||S.st!==st||st.state!=='play'||!F||(game&&e.timeStamp<game.k0)) return; if(e.target.closest&&e.target.closest('input,textarea,a')) return;
   if(e.code==='Enter'||e.code==='Space'){ e.preventDefault(); if(e.repeat) return;
     if(F.phase==='aim'){ if(aim.want&&aim.kb) commit(aim.x,aim.y); else { if(!aim.want){ aim.x=F.cx; aim.y=F.cy; } aim.want=1; aim.kb=true; A.tick(); } }
     else if(F.phase==='feed') toMatch(); else if(F.phase==='reveal'&&D.next.classList.contains('on')) nextFix(); }
   else if(F.phase==='aim'&&/^(Arrow|Key[WASD]$)/.test(e.code)){ e.preventDefault(); if(!aim.want){ aim.x=F.cx; aim.y=F.cy; } aim.want=1; aim.kb=true; } });
 D.next.addEventListener('click',nextFix);
 D.box.addEventListener('click',()=>{ if(F&&F.phase==='feed') toMatch(); });
-addEventListener('resize',()=>{ if(S.st===st) measure(); });
+/* the title's side notes are stacked by the height they had when first laid out (station framework): on a new size, or once
+   shown again after the sideways layout hid them, they are measured afresh, or they run into each other */
+addEventListener('resize',()=>{ st.notes.forEach(n=>{ n._h=0; }); if(S.st===st) measure(); });
 
 /* ---------- per frame ---------- */
 const STEP={x:0,y:0};
@@ -3244,7 +3258,8 @@ st.update=function(dt,t){
       if(aim.kb){ STEP.x=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0); STEP.y=(keys.has('ArrowDown')||keys.has('KeyS')?1:0)-(keys.has('ArrowUp')||keys.has('KeyW')?1:0);
         const sp=(keys.has('ShiftLeft')||keys.has('ShiftRight')?260:110)*dt; aim.x=clamp(aim.x+STEP.x*sp,0,MAP); aim.y=clamp(aim.y+STEP.y*sp,0,MAP); } }
     if(F.phase==='reveal'){ F.rt+=dt; const rt=F.rt;
-      U.uWave.value.z=E.o(clamp(rt/1.05,0,1))*(F.R*2.3/MAP); U.uWave.value.w=1-sstep(.8,1.1,rt); latU.uLift.value=1.25*E.o(clamp(rt/1.2,0,1));
+      // the wave runs out from the guess until it has crossed the whole circle, however far outside it the guess was
+      U.uWave.value.z=E.o(clamp(rt/1.05,0,1))*(Math.max(F.R*2.3,Math.hypot(F.px-F.cx,F.py-F.cy)+F.R+72)/MAP); U.uWave.value.w=1-sstep(.8,1.1,rt); latU.uLift.value=1.25*E.o(clamp(rt/1.2,0,1));
       if(rt>=.95&&!F.lock) lock();
       if(F.lock){ const k=clamp((rt-.95)/.5,0,1), ov=1+1.25*Math.pow(1-k,3)-.06*Math.sin(k*Math.PI); U.uFoot.value.set(F.x/MAP,F.y/MAP,FEED/2/MAP*ov,Math.min(1,k*3));
         U.uLock.value.z=E.o(clamp((rt-.95)/.9,0,1))*.09; U.uLock.value.w=1-clamp((rt-.95)/.9,0,1);
@@ -3278,7 +3293,7 @@ st.update=function(dt,t){
     if(F.phase==='reveal'&&F.lock) frustum(true,F.x,F.y,dt); else frustum(false,0,0,dt);
   } else {
     // title: a slow cinematic orbit over the map, the drone surveying with its camera
-    U.uOn.value=damp(U.uOn.value,0,3,dt); U.uHover.value.w=0; U.uHeat.value.w=damp(U.uHeat.value.w,0,3,dt); U.uFoot.value.w=damp(U.uFoot.value.w,0,3,dt);
+    U.uOn.value=damp(U.uOn.value,0,3,dt); U.uHover.value.w=0; U.uHeat.value.w=damp(U.uHeat.value.w,0,3,dt); U.uFoot.value.w=damp(U.uFoot.value.w,0,3,dt); U.uLock.value.w=damp(U.uLock.value.w,0,3,dt);
     if(beam.visible){ beam.material.uniforms.uOp.value=damp(beam.material.uniforms.uOp.value,0,3,dt); if(beam.material.uniforms.uOp.value<.01) beam.visible=false; }
     if(st.state==='menu') menuLoiter();
     const a=t*.045;

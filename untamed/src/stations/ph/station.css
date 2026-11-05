@@ -1,5 +1,6 @@
 /* pharos: the camera feed and its pipeline, map markers, the fix strip on the results */
-.st-ph .phf{position:absolute;right:calc(var(--gr) + 6px);top:calc(var(--gt) + 112px);width:min(300px,24vw);display:grid;gap:10px}
+/* (below the score, which grows with the screen past 56 px: the panel steps down with it so the two never meet) */
+.st-ph .phf{position:absolute;right:calc(var(--gr) + 6px);top:calc(var(--gt) + 112px + max(0px,(min(68px,4.4vw) - 56px)*.9));width:min(300px,24vw);display:grid;gap:10px}
 .st-ph .phf .hd{display:flex;justify-content:space-between;gap:12px;color:var(--acc)}
 .st-ph .box{position:relative;display:block;width:100%;aspect-ratio:1;background:#000;outline:1px solid var(--hair2);overflow:hidden}
 .st-ph .box canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -76,6 +77,44 @@
   .st-ph .gtl{max-width:calc(100vw - 230px)}
   .st-ph .help{font-size:12px}
   .st-ph .fx li{grid-template-columns:20px 60px minmax(0,1fr) 48px;gap:8px}
+  /* the results carry five fixes as well as the figures: a little tighter, so that on a phone they fit with their buttons */
+  .st-ph .res{gap:14px}
+  .st-ph .res .l{gap:10px}
+  .st-ph .fx{gap:5px}
+  .st-ph .res .r{gap:12px}
+  .st-ph .res .stats div{padding:9px 0 8px}
+  .st-ph .res p{line-height:1.5}
+  .st-ph .res .acts{gap:8px}
+}
+/* phones held sideways, and any short window: the fix counter, the words and the Next button stand in a column on the
+   left, the score and the camera in a column on the right, and the map takes the middle (station.js frames it to match) */
+@media (max-height:520px) and (min-aspect-ratio:9/10){
+  .st-ph .gtr{top:var(--gt);gap:2px}
+  .st-ph .gtr .num{font-size:28px}
+  .st-ph .phf{width:min(170px,22vw);top:calc(var(--gt) + 52px);gap:6px}
+  .st-ph .phf .hd #phFrm,.st-ph .box .t2,.st-ph .fcap{display:none}
+  .st-ph .box .t1{left:6px;top:5px;font-size:8px}
+  .st-ph .stg{grid-template-columns:1fr}
+  .st-ph .stg li:not(.on){display:none}
+  .st-ph .gtl{max-width:none}
+  .st-ph .gbc{left:calc(var(--gl) + 6px);bottom:var(--gb);transform:none;width:min(190px,24vw);justify-items:start;text-align:left;gap:8px}
+  .st-ph .help{font-size:12px;text-wrap:pretty}
+  /* the title: no side notes, and a smaller name */
+  .st-ph .notes{display:none}
+  .st-ph .card{gap:10px}
+  .st-ph .card h2{font-size:44px}
+  .st-ph .card .lede{font-size:12px;line-height:1.5}
+  /* the results in two columns and small enough that their buttons show without scrolling */
+  .st-ph .res{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);top:50%;max-height:calc(100% - 16px);padding:14px 20px;gap:10px 26px}
+  .st-ph .res .l{gap:8px}
+  .st-ph .res .r{gap:10px}
+  .st-ph .res .grade{font-size:28px}
+  .st-ph .res .score{font-size:52px}
+  .st-ph .fx{gap:4px}
+  .st-ph .res .stats div{padding:6px 0 5px;gap:3px}
+  .st-ph .res .stats b{font-size:15px}
+  .st-ph .res p{font-size:11.5px;line-height:1.5}
+  .st-ph .res .acts{padding-top:4px}
 }
 .st-ph::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity .7s var(--ease);background:linear-gradient(180deg,rgba(5,5,4,.92) 0%,rgba(5,5,4,.7) 30%,rgba(5,5,4,0) 50%)}
 @media (max-width:820px),(max-aspect-ratio:9/10){.st-ph.is-menu::after{opacity:1}}
