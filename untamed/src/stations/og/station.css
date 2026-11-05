@@ -140,7 +140,9 @@
 .st-og.chute-now #ogPromptT{color:var(--acc)}
 
 @media (pointer:coarse){.st-og .og-launch kbd{display:none}}
-@media (max-width:820px),(max-aspect-ratio:9/10){
+/* the upright layout goes with the upright rocket (station.js stands it up under an aspect of 20:21): a landscape window
+   under 820 px wide keeps the desktop's bar and the rocket lying down; a phone held sideways keeps this and its own below */
+@media (max-width:820px) and (max-aspect-ratio:20/21),(max-aspect-ratio:9/10),(max-width:820px) and (max-height:520px){
   .st-og{--gh:92px}
   .st-og .ogtl{top:calc(var(--gt) + 96px);gap:4px}
   .st-og .ogtl .num{font-size:36px}
@@ -164,6 +166,19 @@
   .st-og.ph-design .ogcap,.st-og.ph-disarm .ogcap{visibility:hidden}
   .ogchute .btn{min-width:min(320px,calc(100vw - 48px))}
 }
+/* a shorter phone held upright: the report tighter, so its buttons show without scrolling */
+@media (max-width:820px) and (max-height:760px) and (max-aspect-ratio:20/21){
+  .st-og .res{padding:16px 18px;gap:12px}
+  .st-og .res .l{gap:6px}
+  .st-og .res .r{gap:10px}
+  .st-og .res .grade{font-size:28px}
+  .st-og .res .score{font-size:48px}
+  .st-og .res .stats div{padding:6px 0 5px;gap:3px}
+  .st-og .res .stats b{font-size:15px}
+  .st-og .res p{font-size:11.5px;line-height:1.5}
+  .st-og .res .acts{padding-top:4px;gap:8px}
+  .st-og .res .acts .btn{height:36px;padding:0 12px}
+}
 /* phones held sideways: a short screen, so the HUD gets compact and the gauge steps aside */
 @media (max-height:520px) and (min-aspect-ratio:9/10){
   .st-og .ogtl{top:calc(var(--gt) + 52px);left:auto;right:calc(var(--gr) + 6px);justify-items:end;text-align:right;gap:2px}
@@ -184,7 +199,12 @@
   .ogcap{top:calc(var(--gt) + 34px)}
   .ogchute{bottom:calc(var(--gb) - 4px)}
   .st-og.chute-now .ogchute{bottom:calc(7vh + var(--gb) - 10px)}
-  .st-og .res{max-height:calc(100% - 16px);padding:14px 20px;gap:10px 26px}
+  /* in flight the read-outs keep to the left and the chute button to the right: in the middle it hid the rocket at the top */
+  .st-og .alt{left:calc(var(--gl) + 6px);right:auto;justify-items:start;text-align:left}
+  .ogchute{left:auto;right:calc(var(--gr) + 6px);transform:translateY(8px);justify-items:end;text-align:right}
+  .st-og.chute-ready .ogchute{transform:none}
+  .ogchute .btn{min-width:200px}
+  .st-og .res{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);top:50%;max-height:calc(100% - 16px);padding:14px 20px;gap:10px 26px}
   .st-og .res .l{gap:8px}
   .st-og .res .r{gap:10px}
   .st-og .res .grade{font-size:28px}
@@ -194,5 +214,20 @@
   .st-og .res p{font-size:11.5px;line-height:1.5}
   .st-og .res .acts{padding-top:4px}
   .st-og .res .acts .btn{height:36px}
+  /* the title: no side notes, and a smaller name */
+  .st-og .notes{display:none}
+  .st-og .card{gap:10px}
+  .st-og .card h2{font-size:44px}
+  .st-og .card .lede{font-size:12px;line-height:1.5}
+}
+/* and on a phone under 820 px wide the design bar and the launch button stay in one row along the foot, and the countdown
+   in the middle, as on a wider one (on the right it would stand on the target) */
+@media (max-width:820px) and (max-height:520px) and (min-aspect-ratio:9/10){
+  .ogcd{left:50%;right:auto;transform:translateX(-50%);justify-items:center}
+  .ogfoot{flex-direction:row;align-items:flex-end;gap:12px}
+  .ogdock{justify-items:start}
+  .ogbar{display:flex}
+  .ogbar .og-ask{width:auto}
+  .st-og .og-launch{width:auto}
 }
 

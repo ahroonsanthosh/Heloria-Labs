@@ -75,7 +75,7 @@ const CALLS=[
   end:["Let's do it. I'll bring her in.","Sounds good. Email me some times.","Send something over and I'll see."],
   beats:[
   {w:"Hi, Priya here. Is this about the webinar?",r:[
-    R("No, it's a cold call, I'm afraid. It's about coaching at your scale. Have you a minute?",2,12,6,"Honest, and about her job. She gives you the minute."),
+    R("No, it's a cold call, I'm afraid. It's about coaching at your scale. Have you a minute?",2,12,8,"Honest, and about her job. She gives you the minute."),
     R("Hi Priya, I'm with Kríos. We do practice calls for sales teams.",1,2,2,"Clear enough, but nothing about her yet."),
     R("Yes! Well, sort of. Did you enjoy it?",0,-14,-4,"A small lie. She'll find out in a sentence.")]},
   {w:"Sure, I've a minute. What's on your mind?",c:"A minute. Go on.",r:[
@@ -166,7 +166,8 @@ function showOptions(g){
   const b=g.c.beats[g.bi]; g.order=shuffle([0,1,2]);
   E.btns.forEach((x,k)=>{ const r=b.r[g.order[k]]; $('span',x).textContent=r.t; x.setAttribute('aria-label',`Reply ${k+1}: ${r.t}`); });
   noteHide(); void E.ops.offsetWidth; E.ops.classList.add('in'); g.ph='pick'; g.t=0; setPh('pick'); A.tick();
-  E.hint.textContent=FINE&&g.bi===0?'Pick a reply · keys 1, 2, 3':''; E.time.classList.remove('low'); // shown on the first turn only E.bar.style.transform='scaleX(1)';
+  E.hint.textContent=FINE&&g.bi===0?'Pick a reply · keys 1, 2, 3':''; // shown on the first turn only
+  E.time.classList.remove('low'); E.bar.style.transform='scaleX(1)';   // the clock starts full, not where the last turn's ran out
 }
 function choose(g,k){
   if(!g||g.ph!=='pick') return;
@@ -177,7 +178,7 @@ function choose(g,k){
   // points: the read, a little for speed, more for a run of good reads
   let pts=0; if(q===2){ g.streak++; g.good++; } else g.streak=0;
   if(q>0){ const spd=Math.round(100*clamp(1-(rt-1.2)/7,0,1)); pts=Math.round(([0,120,300][q]+spd)*(q===2?1+.25*Math.min(g.streak-1,4):1)); g.score+=pts; }
-  if(q===0&&!g.worst) g.worst={i:g.bi,n:note};
+  if(q===0&&k>=0&&!g.worst) g.worst={i:g.bi,n:note};   // a misread you said; going quiet has its own line in the results
   // what the room does
   MK[g.bi]=k<0?0:q; mkGeo.attributes.aK.array[g.bi]=MK[g.bi]; mkGeo.attributes.aK.needsUpdate=true;
   U2.uHit.value=q===2?1:q===0?-1:.35;
@@ -242,9 +243,11 @@ st.abort=function(){ game=null; setPh('idle'); E.ops.classList.remove('in'); not
 st.enter=function(){ U2.uIn.value=0; resetDial(); setPh('idle'); layout(true); };
 st.exit=function(){ game=null; };
 let lay=null;
-function layout(force){ const n=NARROW(), key=n+'|'+st.state; if(!force&&key===lay) return; lay=key; const play=st.state!=='menu';
-  // in a call the room sits in the gap between the buyer's line and the replies
-  if(n){ if(play){ st.camP.set(0,.85,16.5); st.camL.set(0,.8,0); } else { st.camP.set(0,.35,12.5); st.camL.set(0,-.15,0); } }
+function layout(force){ const n=NARROW(), side=innerHeight<=520&&innerWidth/innerHeight>=.9, low=innerWidth/innerHeight<.9&&innerHeight<=760, key=n+'|'+side+'|'+low+'|'+st.state; if(!force&&key===lay) return; lay=key; const play=st.state!=='menu';
+  // in a call the room sits in the gap between the buyer's line and the replies (held sideways, the stylesheet's short shape: a strip)
+  if(side&&play){ st.camP.set(0,.2,13); st.camL.set(0,.17,0); }
+  else if(low&&play){ st.camP.set(0,-.05,18.5); st.camL.set(0,-.1,0); }   // a shorter phone held upright: a smaller room, higher, clear of the replies
+  else if(n){ if(play){ st.camP.set(0,.85,16.5); st.camL.set(0,.8,0); } else { st.camP.set(0,.35,12.5); st.camL.set(0,-.15,0); } }
   else { if(play){ st.camP.set(0,.6,11.6); st.camL.set(0,.56,0); } else { st.camP.set(0,.35,7.6); st.camL.set(0,-.5,0); } } }
 
 let shownScore=0;
