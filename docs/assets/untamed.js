@@ -241,7 +241,7 @@ const A=(()=>{
         t+=beat*(k%2?.44:.56); k++; } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   let making=!!OAC;
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,900); }
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */

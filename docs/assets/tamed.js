@@ -218,16 +218,18 @@ const A=(()=>{
           const m=x<0?-x:x; if(m>.7) x=(x<0?-1:1)*(.7+.28*Math.tanh((m-.7)/.28)); const s=Math.round(x*32767); if(pcm) pcm[i]=s; else v.setInt16(44+i*2,s,true); } },()=>{
         L.rms=Math.sqrt(sq/Math.max(1,NP-NH)); L.bytes=ab.byteLength;
         const url=URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
-        L.els=[0,1].map(()=>{ const e=new Audio(); e.preload='auto'; e.src=url; e.loop=false; e.volume=0;
+        L.els=[0,1].map(()=>{ const e=new Audio(); e.preload='auto'; e.src=url; e.loop=false; e.volume=0; e._end=L.P+L.H-.03;
           if(L.tape){ e.preservesPitch=e.mozPreservesPitch=e.webkitPreservesPitch=false; L.canRate=('preservesPitch' in e)||('webkitPreservesPitch' in e)||('mozPreservesPitch' in e); }
           e.addEventListener('ended',()=>{ e.currentTime=0; }); return e; });
         next(); }); });
   }
   /* worked out one after another, a moment after the page loads: first what the gate needs, then the walk in order */
   let qi=0; const REN={t0:0,ms:0};
-  function renderNext(){ if(qi>=LOOPS.length){ for(const k in IRS) delete IRS[k]; REN.ms=Math.round(performance.now()-REN.t0); return; }
-    const L=LOOPS[qi++], t=performance.now(); render(L,()=>{ L.ms=Math.round(performance.now()-t); setTimeout(renderNext,30); }); }
-  if(OAC) setTimeout(()=>{ REN.t0=performance.now(); renderNext(); },900);
+  let QU=null;
+  function renderNext(){ if(!QU) QU=[LP.music,...LOOPS.filter(L=>L!==LP.music)];
+    if(qi>=QU.length){ for(const k in IRS) delete IRS[k]; REN.ms=Math.round(performance.now()-REN.t0); return; }
+    const L=QU[qi++], t=performance.now(); render(L,()=>{ L.ms=Math.round(performance.now()-t); setTimeout(renderNext,30); }); }
+  if(OAC) setTimeout(()=>{ REN.t0=performance.now(); renderNext(); },60);
 
   /* the mixer: every 40 ms each recording's volume is eased towards where you are (as the live gains were), a recording
      starts when it is wanted and stops once it has faded out, and the two players of each hand over at the seam. An iPhone
@@ -240,7 +242,7 @@ const A=(()=>{
   function go(L){ if(L.priming) return; L.run=true; let any=false;
     for(const e of L.els) if(e.currentTime>0&&e.currentTime<endOf(L)&&!e.ended){ play(L,e); any=true; }
     if(!any){ const e=L.els[L.cur]; e.currentTime=L.H; play(L,e); } }
-  function halt(L){ L.run=false; clearTimeout(L.sched); L.sched=0; for(const e of L.els) if(!e.paused) e.pause(); }
+  function halt(L){ L.run=false; clearTimeout(L.sched); L.sched=0; for(const e of L.els) if(!e.paused) e.pause(); if(L.tails){ for(const e of L.tails) if(!e.paused) e.pause(); L.tails=null; } }
   /* the other player takes over at the seam: from the top, or as far in as the first is already past it, so that a late
      timer never puts the two out of step */
   function hand(L){ let c=L.els[L.cur]; const o0=L.els[1-L.cur];
@@ -248,17 +250,23 @@ const A=(()=>{
     if(c.paused||L.sched) return; const r=c.playbackRate||1, left=(L.P-c.currentTime)/r;
     if(left>.3) return;
     if(left>.03){ L.sched=setTimeout(()=>{ L.sched=0; if(L.run) hand(L); },(left-.02)*1000); return; }
-    const o=L.els[1-L.cur]; if(!o.paused) return;
+    const nx=L.next, o=nx?nx.els[0]:L.els[1-L.cur]; if(!o.paused) return;
     const at=Math.max(0,-left*r); if(Math.abs(o.currentTime-at)>.005) o.currentTime=at;
-    o.volume=c.volume; o.playbackRate=c.playbackRate; play(L,o); L.cur=1-L.cur; }
+    o.volume=c.volume; o.playbackRate=c.playbackRate; play(L,o);
+    if(nx){ L.tails=(L.tails||[]).concat(c); L.els=nx.els; L.P=nx.P; L.H=nx.H; L.rms=nx.rms; L.next=null; L.cur=0; }   // the last of the short one rings out under the whole round's start
+    else L.cur=1-L.cur; }
   function mix(){ const now=performance.now(), dt=Math.min(.25,(now-(MX.t||now))/1000); MX.t=now;
     const up=on&&!document.hidden; MX.v+=((up?1:0)-MX.v)*(1-Math.exp(-dt/MX.tc));
     for(const L of LOOPS){ L.va+=(L.a-L.va)*(1-Math.exp(-dt/L.tc)); L.vb+=(L.b-L.vb)*(1-Math.exp(-dt/L.tc2));
-      if(!L.els) continue;
-      for(const e of L.els) if(!e.paused&&e.currentTime>=endOf(L)){ e.pause(); e.currentTime=0; }   // played out: never play() an ended one, it starts again from 0
+      if(!L.els||L.stage) continue;
+      /* the whole round of the score is ready: it takes over at the next seam, or at once if the score is not playing */
+      const S2=L.name==='music'&&LP.musicAll.els; if(S2&&!L.next){ const A2=LP.musicAll; L.next={els:A2.els,P:A2.P,H:A2.H,rms:A2.rms}; A2.els=null; A2.primed=true; }
+      if(L.next&&!L.run){ for(const e of L.els) if(!e.paused) e.pause(); L.els=L.next.els; L.P=L.next.P; L.H=L.next.H; L.rms=L.next.rms; L.next=null; L.cur=0; }
+      for(const e of L.els) if(!e.paused&&e.currentTime>=(e._end||endOf(L))){ e.pause(); e.currentTime=0; }   // played out: never play() an ended one, it starts again from 0
+      if(L.tails) L.tails=L.tails.filter(e=>{ if(e.paused||e.ended||e.currentTime>=e._end){ if(!e.paused) e.pause(); return false; } return true; });
       const want=L.a*L.b/L.full, v=Math.min(1,L.va*L.vb/L.full)*MX.v;
       if(MX.ios){ if(up&&(want>=.4||L.run&&want>=.3)){ if(!L.run) go(L); } else if(L.run) halt(L); }
-      else if(up&&want>.003||v>.003){ if(!L.run) go(L); for(const e of L.els) if(Math.abs(e.volume-v)>.0005) e.volume=v; }   // (under -50 dB is silence: it stops)
+      else if(up&&want>.003||v>.003){ if(!L.run) go(L); for(const e of L.tails?L.els.concat(L.tails):L.els) if(Math.abs(e.volume-v)>.0005) e.volume=v; }   // (under -50 dB is silence: it stops)
       else if(L.run) halt(L);
       if(L.run&&!L.blocked&&L.els[0].paused&&L.els[1].paused){ L.run=false; go(L); }   // a handover that never came: start it again
       if(L.run) hand(L);
@@ -296,18 +304,24 @@ const A=(()=>{
      the lowest voice already, and a phone or laptop speaker only strains at more */
   const CT=[0,10.4,20,31.2,41.2,52.8,62.2,73];   // when each chord comes in; the whole round is 84 s
   const chordAt=x=>{ let j=CT.length-1; while(j>0&&CT[j]>x) j--; return j; };
-  loop((oc,out,sr,k)=>{ const {g,bq,osc,lfo,t0}=k;
+  const score=nc=>(oc,out,sr,k)=>{ const {g,bq,osc,lfo,t0}=k;
     const lp=bq('lowpass',9000,.5,out); lp.connect(g(.55,k.wet)); const bus=g(1,lp);
     const padF=bq('lowpass',700,.6), padG=g(.085,bus); padF.connect(padG); lfo(.045,260,padF.frequency);
-    const at=(p,f,tc)=>{ p.setValueAtTime(f(0),0); for(let j=1;j<CT.length;j++) p.setTargetAtTime(f(j),t0+CT[j],tc); };
+    const at=(p,f,tc)=>{ p.setValueAtTime(f(0),0); for(let j=1;j<nc;j++) p.setTargetAtTime(f(j),t0+CT[j],tc); };
     CH[0].forEach((_,i)=>{ const vg=g(i===0?.5:.32/(1+i*.15),padF); lfo(.07+i*.031,.12,vg.gain);
       [-7,6].forEach(dt=>{ const o=osc('sawtooth',0,g(.16,vg)); o.detune.value=dt; at(o.frequency,j=>mtof(CH[j][i]),1.6); });
       at(osc('sine',0,g(i<2?.22:.14,vg)).frequency,j=>mtof(CH[j][i])/2,1.6); });
-    at(osc('sine',0,g(.022,bus)).frequency,j=>mtof(ROOT[j]),1.2);
-  },84,{name:'music',full:.9,tc:.9,room:true,H:3,tape:true});
-  /* Aetos: wind high up, and the hum of rotors far above */
+    at(osc('sine',0,g(.022,bus)).frequency,j=>mtof(ROOT[j]),1.2); };
+  /* the score is long to work out, so its first two chords are made first, a moment after the page opens, and play as the
+     score until the whole round is ready: that takes over at the next seam, where the first two would have come round
+     again (the last chord ringing out under the first, as at every seam) */
+  loop(score(2),CT[2],{name:'music',full:.9,tc:.9,room:true,H:3,tape:true});
+  loop(score(CT.length),84,{name:'musicAll',full:.9,tc:.9,room:true,H:3,tape:true,stage:true});
+  /* Aetos: high up, the hum of rotors far above, a low soft wind and a held open fifth under it. (The wind used to be a
+     wide band of bright noise, which read as static) */
   loop((oc,out,sr,k)=>{ const {g,bq,lfo}=k; const hm=g(.05,out); k.noise('white',.71,bq('bandpass',190,2.4,hm)); lfo(.21,.025,hm.gain);
-    const wg=g(.22,out), f=bq('bandpass',700,.45,wg); k.noise('white',1.06,f); lfo(.08,420,f.frequency); lfo(.13,.12,wg.gain);
+    const wg=g(.34,out); k.noise('brown',.6,bq('lowpass',300,.5,wg)); lfo(.08,.12,wg.gain);
+    const dg=g(.016,out); k.drone('sine',mtof(50),dg); lfo(.05,.005,dg.gain); k.drone('sine',mtof(57),g(.01,out));
     k.drone('sine',mtof(86),g(.006,out)); },25,{name:'ae',full:.75});
   /* Pharos: a deep slow tone that swells as the beam comes round; while the drone is unsure where it is, a little air */
   loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.5,k.wet));
