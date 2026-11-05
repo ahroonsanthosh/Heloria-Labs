@@ -227,7 +227,10 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await wait(1500);
   { const id = 'cr';
     { // Earth: click one of us in town; you walk over by yourself and the conversation opens; it ends on the photo and LinkedIn; See you closes it
-      const xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
+      /* the camera comes round from the landing to where you stand over a few frames, and a loaded test browser draws only a
+         frame or two a second: wait until Ahroon is actually on the screen before clicking him */
+      let xy = null; for (let i = 0; i < 80; i++) { xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return v.z < 1 && Math.abs(v.x) < .9 && Math.abs(v.y) < .9 ? [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight] : null; }); if (xy) break; await wait(250); }
+      if (!xy) xy = await H(h => { const v = h.ST.cr._dbg.head(0).project(h.stCam); return [(v.x * .5 + .5) * innerWidth, (-v.y * .5 + .5) * innerHeight]; });
       if (mobile) await page.touchscreen.tap(xy[0], xy[1]); else await page.mouse.click(xy[0], xy[1]);
       await H(h => { const st = h.ST.cr, d = st._dbg; for (let i = 0; i < 240 && !d.talk().p; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } });
       rec(await H(h => { const T = h.ST.cr._dbg.talk(); return !!T.p && T.p.first === 'Ahroon' && T.i === 0; }), 'cr: clicking a person walks you over and starts the conversation');
