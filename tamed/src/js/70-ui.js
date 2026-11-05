@@ -86,7 +86,7 @@ function cueCall(s,dt){
   if(SC.touch||SC.inertia||s>.02||now()-SC.lastIn<1){ UI._idle=Math.min(UI._idle||0,0); return; }
   UI._idle=(UI._idle||0)+dt;
   if(UI._idle>4.5){ UI._idle=-3.5; const c=$('#cue'); c.classList.remove('call'); void c.offsetWidth; c.classList.add('call');
-    SC.glide=null; SC.pin=false; SC.target=.045; SC.lastIn=now(); SC.lastF=S.frame; }
+    SC.glide=null; SC.pin=false; SC.target=SC.turn=.045; SC.dir=-1; SC.lastIn=now(); SC.lastF=S.frame; }   // (and back: it leans the way home)
 }
 UI.firstScroll=()=>{ if(!UI._fs){ UI._fs=1; $('#cue').classList.add('gone'); } };
 UI.jumped=()=>{ TXT.dirty=true; };
