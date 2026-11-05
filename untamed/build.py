@@ -77,7 +77,7 @@ DOC_HEAD = '''<!doctype html>
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs: Untamed">
-<meta property="og:description" content="A software lab in Ireland. Software for problems with physics in them.">
+<meta property="og:description" content="A software lab in Ireland. We build for problems that make a real difference.">
 <meta property="og:image" content="{A}img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="{A}img/favicon.svg" type="image/svg+xml">

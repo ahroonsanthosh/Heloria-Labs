@@ -240,9 +240,12 @@ const A=(()=>{
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
         t+=beat*(k%2?.44:.56); k++; } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); }; setTimeout(go,900); }
+  let making=!!OAC;
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,900); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
+    /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
+    get busy(){ return making&&performance.now()<30000; },
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
@@ -367,6 +370,10 @@ const A=(()=>{
     stretch(){ tone(220,7,.05,'sine',55,0,.8,.8); tone(330,7,.025,'sine',82,.2,.8,.8); },
     /* paper burning away: a soft long crackle */
     burn(){ for(let k=0;k<14;k++) noise(.12+Math.random()*.2,.03+Math.random()*.04,2400+Math.random()*3000,900,'bandpass',3,k*.22+Math.random()*.15,.3); noise(3.2,.05,600,2200,'bandpass',.8,0,.4); },
+    /* the light taking over at the end of the last flight: a rush of air rising, and under it a bright, open chord in the
+       score's key that swells as the screen whitens and holds on into the white page */
+    dawn(){ if(!on||muted||!ctx) return; noise(3.2,.1,300,5200,'bandpass',.7,0,.7);
+      [[note(5),.034],[note(10),.03],[note(13),.022],[note(11),.016],[note(15),.012]].forEach(([f,g],i)=>tone(f,5.8,g,'sine',0,.15+i*.12,.8,1.9)); },
     /* the credits: a few slow notes over the pad, in the score's own key */
     credits(){ [[0,0],[2,1.6],[4,3.2],[7,4.8],[5,6.4],[4,8.6],[2,10.2],[4,11.8],[0,14.4],[7,16.8],[9,18.4],[7,20.6]].forEach(([n,d])=>{ this.chime(10+n,d,.05); }); },
     /* the seal straining before it goes: a low groan that rises */
@@ -477,12 +484,23 @@ function resize(){ const w=innerWidth,h=innerHeight; renderer.setPixelRatio(DPR)
   for(const rt of [rtA,rtB]) if(rt.width>1) rt.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; if(BH.rt.width>2) BH.resize(); }   // (one given back stays so)
 addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResize(); });
 
-/* adaptive quality: watch frame times, trade pixel density and trace resolution for smoothness */
-const QM={buf:[],cool:0,
-  tick(ms,now){ if(window.__TEST) return; this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
-    const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-    if(avg>23){ if(RTS>0){ RTS=0; rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
-    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.9)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
+/* adaptive quality: when frames are steadily slow, one step down a ladder (smoothing off, then the black hole's trace
+   coarser, then fewer pixels); when they are steadily quick, one step back up. It reads the middle of the last second, so
+   one slow frame, a hitch, or the long gap after the tab was away counts for nothing; it does not listen while the sound
+   is being made at the start; it comes back up on an ordinary 60 Hz screen; and a step it has had to leave twice soon
+   after reaching it is not tried again */
+const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
+  tick(ms,now){ if(window.__TEST) return;
+    if(!this.lv){ const L=[], bh0=BH.scale; let r=RTS, b=bh0, d=DPR; L.push([r,b,d]); if(r>0){ r=0; L.push([r,b,d]); }
+      while(b>.321){ b=+(b-.1).toFixed(2); L.push([r,b,d]); } while(d>.751){ d=Math.max(.75,+(d-.25).toFixed(2)); L.push([r,b,d]); } this.lv=L; this.i=0; this.r0=RTS; }
+    if(ms>250||A.busy||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }
+    this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
+    const s=this.buf.slice().sort((a,b)=>a-b), mid=s[30], p75=s[45];
+    const go=i=>{ const [r,b,d]=this.lv[i]; this.i=i; this.buf=[];
+      if(r!==RTS){ RTS=r; rtA.samples=rtB.samples=r; rtA.dispose(); rtB.dispose(); }
+      if(Math.abs(b-BH.scale)>.001){ BH.scale=b; BH.resize(); } if(Math.abs(d-DPR)>.001){ DPR=d; resize(); } };
+    if(mid>22&&this.i<this.lv.length-1){ if(now-this.up<12000) this.bad[this.i]=(this.bad[this.i]||0)+1; go(this.i+1); this.cool=now+2500; }
+    else if(this.i>0&&p75<18.5&&(this.bad[this.i-1]||0)<2){ go(this.i-1); this.up=now; this.cool=now+5000; } }};
 
 /* ---------- particle + material toolkit ---------- */
 const GLH=`vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}
@@ -4929,7 +4947,7 @@ const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=
 /* after the ticks the rocket waits on the pad for you: hold (Space, or press anywhere) and the engines spool up under your
    hand until it lights. F_HELD: seconds of holding to light it; nobody holding, it goes by itself after F_AUTO */
 const F_WAIT=F_IGN-F_HOLD-.001, F_HELD=1.3, F_AUTO=9, HP=$('#holdp'), HPT=$('#holdp span');
-const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.ask&&!FIN.go) FIN.hold=on; else if(!on) FIN.hold=false; };
+const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.ask&&!FIN.go){ if(on&&!FIN.hold){ A.vent(0); if(!FIN.pr){ FIN.pr=true; A.clunk(); } } FIN.hold=on; } else if(!on) FIN.hold=false; };
 addEventListener('keyup',e=>{ if(LKEYS.includes(e.code)) launchHold(false); });
 addEventListener('pointerdown',()=>launchHold(true)); addEventListener('pointerup',()=>launchHold(false)); addEventListener('pointercancel',()=>launchHold(false));
 function launchPrompt(on){ document.documentElement.classList.toggle('launching',on); if(on){ HPT.textContent=FINE?'Hold Space to launch':'Hold anywhere to launch'; HP.style.setProperty('--k','0'); }
@@ -4960,7 +4978,7 @@ function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).tr
         vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
         gl_FragColor=vec4(c,1.); }`});
   LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
-function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
+function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,dawn:false,pr:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
   S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
   people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
   AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
@@ -5003,7 +5021,9 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   // sound, matched to every beat: the drone and the engines spooling up while it shivers, silence, the hit of ignition, the roar
   // and its crackle on the pad, a long push as it leaves, then the roar dulling and thinning to nothing as the air goes
   const air=1-sstep(22,72,alt), spool=c<F_IGN-F_HOLD?sstep(F_IGN-1.9,F_IGN-F_HOLD,c)*(.3+.7*hk):0;
-  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-F_HOLD,c)+.1*spool); A.thrust(.18*spool); A.whine(hold?0:.34*spool); A.roarTone(380); }
+  /* on the pad the engines answer your hand: as you hold they build from a murmur to a roar, the whine climbing with them */
+  const hs=FIN.ask&&!FIN.go?hk*hk:0;
+  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-F_HOLD,c)+.1*spool+.42*hs); A.thrust(.18*spool+.75*hs); A.whine(hold?0:.34*spool+.5*hs); A.roarTone(380+420*hs); }
   else { A.whine(0); A.roar(.8*air); A.thrust(1.1*air); A.roarTone(lerp(240,950,fk)*(1-.65*sstep(8,55,alt)));
     S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt)));
     FIN.ck-=dt; if(air>.04&&FIN.ck<=0){ FIN.ck=.035+Math.random()*.08; A.crackle(.06*air*air*(.4+Math.random()*.8)*(1-.5*sstep(6,30,alt))); } }
@@ -5036,6 +5056,7 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   if(tau>F_SPACE-.5){ const k=sstep(F_SPACE-.5,F_SPACE+2.1,tau), L=post.uniforms.uLight.value;
     /* where the rocket is on the screen: the light opens from it */
     V.copy(FIN.pos).addScaledVector(up,-.5).project(stCam); const vis=V.z<1&&Math.abs(V.x)<1.1&&Math.abs(V.y)<1.1, x=vis?V.x*.5+.5:.5, y=vis?V.y*.5+.5:.5;
+    if(!FIN.dawn){ FIN.dawn=true; A.dawn(); }   // the light's own sound: a rush of air rising into a bright open chord
     if(L.z<=0) L.set(x,y,0); L.x=lerp(L.x,x,1-Math.exp(-4*dt)); L.y=lerp(L.y,y,1-Math.exp(-4*dt)); L.z=k;
     if(k>=1&&!FIN.handed){ FIN.handed=true; if(typeof finaleWhite==='function') setTimeout(finaleWhite,0); } } }   /* (after this frame: Earth is still drawing it) */
 /* when space has taken over completely, Earth puts itself back as it was */

@@ -407,6 +407,8 @@ const A=(()=>{
     loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
       rms:+(L.rms||0).toFixed(5),bytes:L.bytes||0,ms:L.ms||0,P:L.P,H:L.H,t:e?+e.currentTime.toFixed(3):0,rate:e?e.playbackRate:1}; }); },
     get rendered(){ return REN.ms; }, get ios(){ return MX.ios; },
+    /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
+    get busy(){ return !!OAC&&!REN.ms&&performance.now()<30000; },
     _seam(name,before){ const L=LP[name], e=L&&L.els&&L.els[L.cur]; if(e) e.currentTime=Math.max(0,L.P-before); return L&&L.els; },
     /* every frame: where you are decides what you hear */
     update(dt,st){
@@ -2744,10 +2746,20 @@ function resize(){
   TXT.dirty=true;
 }
 let rsT=0; addEventListener('resize',()=>{ clearTimeout(rsT); rsT=setTimeout(resize,60); });
-const QM={buf:[],cool:0,tick(ms){ if(TEST||HQ||!S.ready) return; this.buf.push(ms); if(this.buf.length>90) this.buf.shift(); const t=performance.now(); if(this.buf.length<90||t<this.cool) return;
-  const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-  if(avg>23&&QL.dpr>.6){ QL.dpr=Math.max(.6,QL.dpr-.2); resize(); this.cool=t+3000; this.buf=[]; }
-  else if(avg<13&&QL.dpr<QL.dprMax){ QL.dpr=Math.min(QL.dprMax,QL.dpr+.125); resize(); this.cool=t+6000; this.buf=[]; } }};
+/* the frame timer: pixel density down a step when frames are steadily slow, and back up when they are steadily quick.
+   It reads the middle of the last second and a half, so one slow frame, a hitch, or the long gap after the tab was away
+   counts for nothing; it does not listen while the sound is being made at the start; it comes back up on an ordinary
+   60 Hz screen (above the density it starts at only on a quicker one); and a density it has had to leave twice soon
+   after reaching it is not tried again */
+const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
+  tick(ms){ if(TEST||HQ||!S.ready) return; const t=performance.now();
+    if(!this.lv){ const d0=QL.dpr, L=[d0]; for(let d=d0-.2;d>.61;d-=.2) L.unshift(+d.toFixed(3)); if(d0>.6) L.unshift(.6); for(let d=d0+.15;d<QL.dprMax-.01;d+=.15) L.push(+d.toFixed(3)); if(QL.dprMax>d0) L.push(QL.dprMax); this.lv=L; this.i=this.d0i=L.indexOf(d0); }
+    if(ms>250||A.busy||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,t+1500); return; }
+    this.buf.push(ms); if(this.buf.length>90) this.buf.shift(); if(this.buf.length<90||t<this.cool) return;
+    const s=this.buf.slice().sort((a,b)=>a-b), mid=s[45], p75=s[67];
+    const go=i=>{ this.i=i; QL.dpr=this.lv[i]; resize(); this.buf=[]; };
+    if(mid>22&&this.i>0){ if(t-this.up<12000) this.bad[this.i]=(this.bad[this.i]||0)+1; go(this.i-1); this.cool=t+3000; }
+    else if(this.i<this.lv.length-1&&(this.bad[this.i+1]||0)<2&&p75<(this.i<this.d0i?18.5:12.5)){ go(this.i+1); this.up=t; this.cool=t+6000; } }};
 
 /* ---------- entering ---------- */
 S.enterT=0; S.enterK=0; S.veil=1;

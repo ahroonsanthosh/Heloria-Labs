@@ -336,6 +336,8 @@ const A=(()=>{
     loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
       rms:+(L.rms||0).toFixed(5),bytes:L.bytes||0,ms:L.ms||0,P:L.P,H:L.H,t:e?+e.currentTime.toFixed(3):0,rate:e?e.playbackRate:1}; }); },
     get rendered(){ return REN.ms; }, get ios(){ return MX.ios; },
+    /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
+    get busy(){ return !!OAC&&!REN.ms&&performance.now()<30000; },
     _seam(name,before){ const L=LP[name], e=L&&L.els&&L.els[L.cur]; if(e) e.currentTime=Math.max(0,L.P-before); return L&&L.els; },
     /* every frame: where you are decides what you hear */
     update(dt,st){

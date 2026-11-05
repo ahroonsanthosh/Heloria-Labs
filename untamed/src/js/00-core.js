@@ -237,9 +237,12 @@ const A=(()=>{
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
         t+=beat*(k%2?.44:.56); k++; } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); }; setTimeout(go,900); }
+  let making=!!OAC;
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,900); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
+    /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
+    get busy(){ return making&&performance.now()<30000; },
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
@@ -364,6 +367,10 @@ const A=(()=>{
     stretch(){ tone(220,7,.05,'sine',55,0,.8,.8); tone(330,7,.025,'sine',82,.2,.8,.8); },
     /* paper burning away: a soft long crackle */
     burn(){ for(let k=0;k<14;k++) noise(.12+Math.random()*.2,.03+Math.random()*.04,2400+Math.random()*3000,900,'bandpass',3,k*.22+Math.random()*.15,.3); noise(3.2,.05,600,2200,'bandpass',.8,0,.4); },
+    /* the light taking over at the end of the last flight: a rush of air rising, and under it a bright, open chord in the
+       score's key that swells as the screen whitens and holds on into the white page */
+    dawn(){ if(!on||muted||!ctx) return; noise(3.2,.1,300,5200,'bandpass',.7,0,.7);
+      [[note(5),.034],[note(10),.03],[note(13),.022],[note(11),.016],[note(15),.012]].forEach(([f,g],i)=>tone(f,5.8,g,'sine',0,.15+i*.12,.8,1.9)); },
     /* the credits: a few slow notes over the pad, in the score's own key */
     credits(){ [[0,0],[2,1.6],[4,3.2],[7,4.8],[5,6.4],[4,8.6],[2,10.2],[4,11.8],[0,14.4],[7,16.8],[9,18.4],[7,20.6]].forEach(([n,d])=>{ this.chime(10+n,d,.05); }); },
     /* the seal straining before it goes: a low groan that rises */
@@ -474,12 +481,23 @@ function resize(){ const w=innerWidth,h=innerHeight; renderer.setPixelRatio(DPR)
   for(const rt of [rtA,rtB]) if(rt.width>1) rt.setSize(Math.floor(w*DPR),Math.floor(h*DPR)); G.uAspect.value=w/h; if(BH.rt.width>2) BH.resize(); }   // (one given back stays so)
 addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResize(); });
 
-/* adaptive quality: watch frame times, trade pixel density and trace resolution for smoothness */
-const QM={buf:[],cool:0,
-  tick(ms,now){ if(window.__TEST) return; this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
-    const avg=this.buf.reduce((a,b)=>a+b,0)/this.buf.length;
-    if(avg>23){ if(RTS>0){ RTS=0; rtA.samples=rtB.samples=0; rtA.dispose(); rtB.dispose(); } else if(BH.scale>.32){ BH.scale-=.1; BH.resize(); } else if(DPR>.75){ DPR=Math.max(.75,DPR-.25); resize(); } this.cool=now+2500; this.buf=[]; }
-    else if(avg<13){ if(DPR<DPRMAX){ DPR=Math.min(DPRMAX,DPR+.25); resize(); } else if(BH.scale<(Q<1?.5:.9)){ BH.scale+=.1; BH.resize(); } this.cool=now+4000; this.buf=[]; } }};
+/* adaptive quality: when frames are steadily slow, one step down a ladder (smoothing off, then the black hole's trace
+   coarser, then fewer pixels); when they are steadily quick, one step back up. It reads the middle of the last second, so
+   one slow frame, a hitch, or the long gap after the tab was away counts for nothing; it does not listen while the sound
+   is being made at the start; it comes back up on an ordinary 60 Hz screen; and a step it has had to leave twice soon
+   after reaching it is not tried again */
+const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
+  tick(ms,now){ if(window.__TEST) return;
+    if(!this.lv){ const L=[], bh0=BH.scale; let r=RTS, b=bh0, d=DPR; L.push([r,b,d]); if(r>0){ r=0; L.push([r,b,d]); }
+      while(b>.321){ b=+(b-.1).toFixed(2); L.push([r,b,d]); } while(d>.751){ d=Math.max(.75,+(d-.25).toFixed(2)); L.push([r,b,d]); } this.lv=L; this.i=0; this.r0=RTS; }
+    if(ms>250||A.busy||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }
+    this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
+    const s=this.buf.slice().sort((a,b)=>a-b), mid=s[30], p75=s[45];
+    const go=i=>{ const [r,b,d]=this.lv[i]; this.i=i; this.buf=[];
+      if(r!==RTS){ RTS=r; rtA.samples=rtB.samples=r; rtA.dispose(); rtB.dispose(); }
+      if(Math.abs(b-BH.scale)>.001){ BH.scale=b; BH.resize(); } if(Math.abs(d-DPR)>.001){ DPR=d; resize(); } };
+    if(mid>22&&this.i<this.lv.length-1){ if(now-this.up<12000) this.bad[this.i]=(this.bad[this.i]||0)+1; go(this.i+1); this.cool=now+2500; }
+    else if(this.i>0&&p75<18.5&&(this.bad[this.i-1]||0)<2){ go(this.i-1); this.up=now; this.cool=now+5000; } }};
 
 /* ---------- particle + material toolkit ---------- */
 const GLH=`vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}

@@ -982,7 +982,7 @@ const F_WALK0=.3, F_WALK1=1.9, F_DOOR0=2.0, F_DOOR1=2.55, F_TICK0=2.85, F_TICKI=
 /* after the ticks the rocket waits on the pad for you: hold (Space, or press anywhere) and the engines spool up under your
    hand until it lights. F_HELD: seconds of holding to light it; nobody holding, it goes by itself after F_AUTO */
 const F_WAIT=F_IGN-F_HOLD-.001, F_HELD=1.3, F_AUTO=9, HP=$('#holdp'), HPT=$('#holdp span');
-const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.ask&&!FIN.go) FIN.hold=on; else if(!on) FIN.hold=false; };
+const LKEYS=['Space','Enter','KeyW','ArrowUp'], launchHold=on=>{ if(FIN.on&&FIN.ask&&!FIN.go){ if(on&&!FIN.hold){ A.vent(0); if(!FIN.pr){ FIN.pr=true; A.clunk(); } } FIN.hold=on; } else if(!on) FIN.hold=false; };
 addEventListener('keyup',e=>{ if(LKEYS.includes(e.code)) launchHold(false); });
 addEventListener('pointerdown',()=>launchHold(true)); addEventListener('pointerup',()=>launchHold(false)); addEventListener('pointercancel',()=>launchHold(false));
 function launchPrompt(on){ document.documentElement.classList.toggle('launching',on); if(on){ HPT.textContent=FINE?'Hold Space to launch':'Hold anywhere to launch'; HP.style.setProperty('--k','0'); }
@@ -1013,7 +1013,7 @@ function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).tr
         vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
         gl_FragColor=vec4(c,1.); }`});
   LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
-function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
+function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,dawn:false,pr:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
   S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
   people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
   AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
@@ -1056,7 +1056,9 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   // sound, matched to every beat: the drone and the engines spooling up while it shivers, silence, the hit of ignition, the roar
   // and its crackle on the pad, a long push as it leaves, then the roar dulling and thinning to nothing as the air goes
   const air=1-sstep(22,72,alt), spool=c<F_IGN-F_HOLD?sstep(F_IGN-1.9,F_IGN-F_HOLD,c)*(.3+.7*hk):0;
-  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-F_HOLD,c)+.1*spool); A.thrust(.18*spool); A.whine(hold?0:.34*spool); A.roarTone(380); }
+  /* on the pad the engines answer your hand: as you hold they build from a murmur to a roar, the whine climbing with them */
+  const hs=FIN.ask&&!FIN.go?hk*hk:0;
+  if(c<F_IGN){ A.roar(hold?0:.02+.16*sstep(F_DOOR1,F_IGN-F_HOLD,c)+.1*spool+.42*hs); A.thrust(.18*spool+.75*hs); A.whine(hold?0:.34*spool+.5*hs); A.roarTone(380+420*hs); }
   else { A.whine(0); A.roar(.8*air); A.thrust(1.1*air); A.roarTone(lerp(240,950,fk)*(1-.65*sstep(8,55,alt)));
     S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt)));
     FIN.ck-=dt; if(air>.04&&FIN.ck<=0){ FIN.ck=.035+Math.random()*.08; A.crackle(.06*air*air*(.4+Math.random()*.8)*(1-.5*sstep(6,30,alt))); } }
@@ -1089,6 +1091,7 @@ function finUpdate(dt,t){ const up=PADU, P=player;
   if(tau>F_SPACE-.5){ const k=sstep(F_SPACE-.5,F_SPACE+2.1,tau), L=post.uniforms.uLight.value;
     /* where the rocket is on the screen: the light opens from it */
     V.copy(FIN.pos).addScaledVector(up,-.5).project(stCam); const vis=V.z<1&&Math.abs(V.x)<1.1&&Math.abs(V.y)<1.1, x=vis?V.x*.5+.5:.5, y=vis?V.y*.5+.5:.5;
+    if(!FIN.dawn){ FIN.dawn=true; A.dawn(); }   // the light's own sound: a rush of air rising into a bright open chord
     if(L.z<=0) L.set(x,y,0); L.x=lerp(L.x,x,1-Math.exp(-4*dt)); L.y=lerp(L.y,y,1-Math.exp(-4*dt)); L.z=k;
     if(k>=1&&!FIN.handed){ FIN.handed=true; if(typeof finaleWhite==='function') setTimeout(finaleWhite,0); } } }   /* (after this frame: Earth is still drawing it) */
 /* when space has taken over completely, Earth puts itself back as it was */
