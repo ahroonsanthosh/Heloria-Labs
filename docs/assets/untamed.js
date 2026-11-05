@@ -262,15 +262,17 @@ const A=(()=>{
     stinger(i=0){ tone(note(8+i),2.4,.045,'sine',0,0,.8,.02); tone(note(10+i)*2,1.6,.015,'sine',0,.08,.8,.02); noise(1.4,.06,500,4000,'bandpass',2,0,.5); },
     swell(){ noise(2,.24,160,3400,'bandpass',1.4,0,.5); tone(146.83,2.6,.05,'sine',293.66,0,.6,.3); tone(220,2.4,.035,'sine',440,.15,.6,.3); },
     boom(){ tone(98,3.6,.5,'sine',22); noise(3,.5,3200,40,'lowpass',.8,0,.4); tone(587,2,.04,'sine',146,0,.9); },
-    wind(v){ v=Math.max(0,v||0); const L=Math.min(.26,v), x=clamp((400+v*2200-650)/1050,0,1); WL.want=L*Math.cos(x*Math.PI/2); WH.want=L*Math.sin(x*Math.PI/2); },
+    wind(v){ v=Math.max(0,v||0); const L=Math.min(.26,v*1.4), x=clamp((400+v*2200-650)/1050,0,1); WL.want=L*Math.cos(x*Math.PI/2); WH.want=L*Math.sin(x*Math.PI/2); },
     thrust(v){ TH.want=Math.max(0,v||0)*.18; },
-    roar(v){ RR.lvl=Math.max(0,v||0)*.7; roarMix(); },
+    /* the roar eases off as it grows: the live sound went through one compressor with everything else, which held its
+       loudest moments down; a recording is made on its own, so that holding back is done here */
+    roar(v){ const L=Math.max(0,v||0)*.7; RR.lvl=L/(1+1.2*L); roarMix(); },
     hiss(v){ HS.want=Math.max(0,v||0)*.08; },
     /* the engine's whine: a rising saw, made live (it follows the spool from moment to moment), and only while it sounds */
     whine(v){ if(!ctx) return;
       if(v>.001&&on&&!muted){ if(!n.ten){ n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=50+v*800; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700;
           n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start(); }
-        set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); }
+        set(n.teng.gain,v*.05); set(n.ten.frequency,50+v*800); }
       else if(n.ten){ const t0=ctx.currentTime; n.teng.gain.cancelScheduledValues(t0); n.teng.gain.setTargetAtTime(0,t0,.08); try{ n.ten.stop(t0+.7); }catch(e){} n.ten=null; } },
     /* a station's own air under its screen, so docking never drops you into silence: Kríos a low murmur of voices in a
        room, Aetos the hum of its radar and a slow sweep, Pharos the sea against the rocks, Ogive a hangar's hum and the hiss

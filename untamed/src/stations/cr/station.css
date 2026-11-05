@@ -8,6 +8,9 @@ html.earth #back{transition:opacity .6s var(--ease)}
 .st-cr .card{bottom:auto;top:calc(var(--gt) + 96px);transition:opacity 1.2s var(--ease),transform .8s var(--ease)}
 .st-cr .card h2{font-size:clamp(36px,4vw,68px);color:var(--ink)}
 .st-cr .card .lede{color:var(--ink2)}
+/* the town is busy behind the words (a telegraph pole, a dish): a soft wash of paper under them keeps them readable */
+.st-cr .card{isolation:isolate}
+.st-cr .card::before{content:'';position:absolute;inset:-16px -34px -20px -26px;z-index:-1;pointer-events:none;background:rgba(251,246,236,.8);border-radius:40px;filter:blur(16px)}
 .st-cr.walked .card{opacity:0;transform:translateY(-8px)}
 #crLabels{position:absolute;inset:0;pointer-events:none}
 .st-cr .crl{position:absolute;left:0;top:0;padding:5px 9px 4px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;white-space:nowrap;opacity:0;transition:opacity .4s;will-change:transform}
