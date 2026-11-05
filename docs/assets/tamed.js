@@ -1774,12 +1774,13 @@ function buildAetos(W,zc,AP,k){
     void main(){ vec3 C=cameraPosition, rd=vWP-C; float tE=length(rd); rd/=tE; float seg=min(tE,9.), t0=tE-seg, dt=seg/6., acc=0.;
       for(int i=0;i<6;i++){ vec3 p=C+rd*(t0+(float(i)+.5)*dt); float d=dens(p); if(d>.001){ float n=vnoise(p.xz*.8+vec2(p.y*.35-uTime*.05,uTime*.03)); acc+=d*(.5+.8*n)*dt; } }
       gl_FragColor=vec4(mix(uSky,uCol,.55)*acc*.075*uK,1.); }`});
-  const pour=new T.Mesh(boxGeo(-AP*1.45,AP*1.45,0,ROOM.H,zc-AP*1.45,zc+AP*1.45),pourM); pour.renderOrder=950; g.add(pour);
+  /* (its top sits just inside the ceiling's slab, not on the ceiling's face: two surfaces at one depth flicker on a real graphics card) */
+  const pour=new T.Mesh(boxGeo(-AP*1.45,AP*1.45,0,ROOM.H+.03,zc-AP*1.45,zc+AP*1.45),pourM); pour.renderOrder=950; g.add(pour);
   const poolM=new T.ShaderMaterial({uniforms:pourU,...ADD,
     vertexShader:`varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`uniform vec3 uCol,uSky; uniform float uK,uA; varying vec2 vP; void main(){ vec2 q=abs(vP)/(uA*1.4); float e=max(q.x,q.y);
       float a=(1.-smoothstep(.62,1.,e))*(.7+.3*(1.-length(vP)/(uA*1.9))); gl_FragColor=vec4(mix(uSky,uCol,.6)*a*.36*uK,1.); }`});
-  const poolL=new T.Mesh(new T.PlaneGeometry(AP*3.2,AP*3.2),poolM); poolL.rotation.x=-Math.PI/2; poolL.position.set(0,.004,zc); poolL.renderOrder=6; g.add(poolL);
+  const poolL=new T.Mesh(new T.PlaneGeometry(AP*3.2,AP*3.2),poolM); poolL.rotation.x=-Math.PI/2; poolL.position.set(0,.012,zc); poolL.renderOrder=6; g.add(poolL);
   W.aetosPour=pourU;
   /* the patch of sky the opening shows: about 34 m up, some 21 m beyond the room's middle */
   const BZ=zc-21, CAM0=v3(0,1.38,-27.9), RC=CAM0.clone().addScaledVector(v3(0,ROOM.H,zc).sub(CAM0).normalize(),36);
