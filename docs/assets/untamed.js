@@ -1852,7 +1852,7 @@ const SITES=[
 const brg=(x,z)=>{ const b=Math.atan2(x,-z); return b<0?b+TAU:b; };   // compass bearing, clockwise from north (-z)
 const id3=n=>'T-'+String(n%1000).padStart(3,'0');
 
-let clk=0, sw=0, game=null, nextId=1, tblT=0, attractT=2, lastIdS=0, layoutKey='', menuDemo=null, aimOn=false, hintT=0;
+let clk=0, sw=0, game=null, nextId=1, tblT=0, attractT=2, lastIdS=0, layoutKey='', menuDemo=null, aimOn=false, hintT=0, bigK=1.12;
 const V=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3(), V5=new T.Vector3();
 const M4=new T.Matrix4(), M5=new T.Matrix4(), Qn=new T.Quaternion(), EU=new T.Euler(), SCL=new T.Vector3(), ZF=new T.Vector3(0,0,1), TC=new T.Color();
 
@@ -2170,6 +2170,7 @@ function spawnSwarm(){ let g=null; for(const x of GP) if(!x.on){ g=x; break; } i
   g.tk=takeTK(false,true);
   for(let k=0;k<5;k++){ const d=freeD(); if(!d) break; resetD(d,'swarm'); d.grp=g; d.site=si; d.id=g.id; const a=k/4*TAU+.4, rr=k===0?0:.25;
     d.off.set(Math.cos(a)*rr,k%2?.05:-.04,Math.sin(a)*rr); d.p.copy(g.c).add(d.off); d.cruise=g.alt+d.off.y; d.yaw=Math.atan2(-g.c.x,-g.c.z); d.tk=takeTK(true,false); g.n++; if(game&&!d.demo) game.hostiles++; }
+  if(!g.n){ g.on=false; dropTK(g.tk); g.tk=null; return null; }   // no airframe was free: no empty swarm left on the table
   return g; }
 function release(d){ if(!d.on) return; d.on=false; if(d.tk){ dropTK(d.tk); d.tk=null; } const g=d.grp; d.grp=null;
   if(g&&g.on){ g.n--; if(g.n<=0){ g.on=false; dropTK(g.tk); g.tk=null; } } if(hovD===d) hovD=null; }
@@ -2329,7 +2330,8 @@ function engage(d){
   if(d.cls==='hos'&&!d.reacted&&d.idT>=0){ d.reacted=true; game.rs+=clk-d.idT; game.rc++; }
   hideHint(); return true;
 }
-function rowEngage(r){ if(!game||st.state!=='play') return; const d=r.g?(r.g.on?groupLead(r.g):null):r.d; if(d&&d.on) engage(d); else A.beep(220); }
+// the pools are reused: a row fires only at the track it shows, never at whatever took its slot since the table was drawn
+function rowEngage(r){ if(!game||st.state!=='play') return; const d=r.g?(r.g.on&&r.g.id===r.id?groupLead(r.g):null):(r.d&&r.d.id===r.id?r.d:null); if(d&&d.on) engage(d); else A.beep(220); }
 st.onPointer=function(e){
   if(st.state!=='play'||!game) return;
   const d=pick(e.clientX,e.clientY,e.pointerType==='mouse'?64:92);
@@ -2449,7 +2451,7 @@ function sitesStep(dt){
 
 /* ---------- write instances, lights, stalks, interceptors, trails ---------- */
 function writeScene(){
-  let n=0; const big=innerWidth<=820?1.35:1.12;
+  let n=0; const big=bigK;
   for(const d of D){ if(!d.on) continue; const i=n++;
     const s=TYPES[d.type].sc*big; SCL.set(s,s,s); M4.compose(d.p,d.q,SCL); inst.setMatrixAt(i,M4);
     const c=d.cls==='hos'?COL.hos:d.cls==='fri'?COL.fri:COL.unk; d.flash=Math.max(0,d.flash-.04);
@@ -2510,7 +2512,7 @@ function buildTable(){
   for(const g of GP){ if(!g.on) continue; const e=ENT[n++]; e.d=null; e.g=g; e.r=Math.hypot(g.c.x,g.c.z); e.tti=g.tti; e.key=g.tti; ENTS.push(e); }
   ENTS.sort((a,b)=>a.key-b.key);
   ROWS.forEach((r,k)=>{ const e=ENTS[k]; if(!e){ if(!r.b.hidden){ r.b.hidden=true; r.d=r.g=null; r.k=''; } return; }
-    r.d=e.d; r.g=e.g; const d=e.d||groupLead(e.g)||null, cls=e.g?e.g.cls:e.d.cls, eng=d&&d.eng>0, jm=d&&d.jam>0;
+    r.d=e.d; r.g=e.g; r.id=e.g?e.g.id:e.d.id; const d=e.d||groupLead(e.g)||null, cls=e.g?e.g.cls:e.d.cls, eng=d&&d.eng>0, jm=d&&d.jam>0;
     const id=id3(e.g?e.g.id:e.d.id), cl=cls==='unk'?'Unknown':cls==='fri'?'Friend':e.g?'Swarm '+e.g.n:TYPES[e.d.type].name;
     const x=eng?'Engaged':jm?'Jammed':cls==='fri'?'Transit':e.tti<99?Math.max(1,Math.ceil(e.tti))+' s':'Tracking';
     const key=id+cl+x+(e.r/KM).toFixed(1), rc='ae-row '+cls+(eng?' eng':'')+(e.tti<4&&cls!=='fri'&&!eng?' urg':'');
@@ -2558,21 +2560,25 @@ function writeHUD(dt,playing){
 /* ---------- camera: solve a framing for the scope in a screen rectangle, then drift ---------- */
 const FC=new T.PerspectiveCamera(36,1,.1,900), FV=new T.Vector3(), FR={play:{D:18,tx:0,tz:0,el:.8},menu:{D:12,tx:0,tz:0,el:.5}};
 function solveFrame(o,el,R,rect){
-  const W=innerWidth, H=innerHeight; FC.fov=stCam.fov; FC.aspect=W/H; FC.updateProjectionMatrix();
+  const W=innerWidth, H=innerHeight, rw=Math.max(60,rect[2]-rect[0]), rh=Math.max(60,rect[3]-rect[1]); FC.fov=stCam.fov; FC.aspect=W/H; FC.updateProjectionMatrix();
   let Dd=18, tx=0, tz=0;
   for(let it=0;it<60;it++){
     FC.position.set(tx,Math.sin(el)*Dd,tz+Math.cos(el)*Dd); FC.lookAt(tx,0,tz); FC.updateMatrixWorld();
     let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
     for(let k=0;k<40;k++){ const a=k/40*TAU; FV.set(Math.cos(a)*R,0,Math.sin(a)*R).project(FC); const sx=(FV.x*.5+.5)*W, sy=(-FV.y*.5+.5)*H; x0=Math.min(x0,sx); x1=Math.max(x1,sx); y0=Math.min(y0,sy); y1=Math.max(y1,sy); }
-    const bw=x1-x0, bh=y1-y0; Dd*=Math.pow(Math.max(bw/(rect[2]-rect[0]),bh/(rect[3]-rect[1])),.6);
+    const bw=x1-x0, bh=y1-y0; Dd*=Math.pow(Math.max(bw/rw,bh/rh),.6);
     tx+=((x0+x1)/2-(rect[0]+rect[2])/2)/(bw/(2*R))*.6; tz+=((y0+y1)/2-(rect[1]+rect[3])/2)/(bh/(2*R))*.6;
   }
   o.D=Dd; o.tx=tx; o.tz=tz; o.el=el;
 }
 function layout(){
-  const W=innerWidth, H=innerHeight, mob=W<=820, key=W+'x'+H; if(key===layoutKey) return; layoutKey=key;
-  drawLabels(mob); GU.uLab.value=mob?.62:.5;
-  if(mob){ solveFrame(FR.play,1.22,RS+.3,[8,H*.2,W-8,H-292]); solveFrame(FR.menu,.74,3.9,[0,H*.46,W,H-110]); }
+  const W=innerWidth, H=innerHeight, key=W+'x'+H; if(key===layoutKey) return; layoutKey=key;
+  /* the stylesheet's three shapes: a short screen held sideways, a narrow or upright one, and the rest. Sideways the table
+     and the arm stand in a column on the right and the scope takes what is left, below the Orbit button */
+  const side=H<=520&&W/H>=.9, mob=!side&&(W<=820||W/H<.9);
+  drawLabels(mob||side); GU.uLab.value=mob||side?.62:.5; bigK=mob||side?1.35:1.12;
+  if(side){ const r=[30,112,W-350,H-10]; solveFrame(FR.play,clamp(Math.asin(Math.min(1,(r[3]-r[1])/(r[2]-r[0]))),.8,1.22),RS+.3,r); solveFrame(FR.menu,.5,3.6,[W*.3,50,W-24,H-70]); }
+  else if(mob){ solveFrame(FR.play,1.22,RS+.3,[8,H*.2,W-8,H-292]); solveFrame(FR.menu,.74,3.9,[0,H*.46,W,H-110]); }
   else { solveFrame(FR.play,.8,RS+.62,[40,112,W-372,H-30]); solveFrame(FR.menu,.5,3.6,[W*.25,90,W-370,H-120]); }
 }
 function cam(t){
@@ -2599,7 +2605,8 @@ st.update=function(dt,t){
   if(playing&&FINE) cursorAim(true);   // setState clears it on leaving play; toggling an existing class is a no-op
   if(st.state==='menu'){ AN[0].set(.06,.6,-.04); if(menuDemo) AN[1].copy(menuDemo.p); else AN[1].set(2.55,1.05,.3); AN[2].copy(SITES[0].p).setY(.3); st.anchors=AN; notesUpdate(st); }
 };
-st._dbg={get game(){return game}, D, GP, MS, SITES, engage, jam, end, pick, rowEngage, ROWS, flow, get clk(){return clk}, pause(v){ paused=!!v; }};
+st._dbg={get game(){return game}, D, GP, MS, SITES, engage, jam, end, pick, rowEngage, ROWS, flow, get clk(){return clk}, pause(v){ paused=!!v; },
+  K:{JAMR,JAMCD,AMMO,RELOAD,RS,SPAWN,SWEEP,WAVES,TYPES}};
 })();
 
 /* ===== station ph ===== */

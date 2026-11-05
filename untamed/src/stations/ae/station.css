@@ -136,3 +136,40 @@ html.firstdock #station>#back{display:none}
   .st-ae .ae-ammo{justify-items:start}
   .st-ae .ae-trk .lb{font-size:8px}
 }
+/* phones held sideways, and any short window: the table and the arm stand in a column on the right, the wave and the
+   threat sit at the top beside the name, and the scope takes the rest (station.js frames it to match) */
+@media (max-height:520px) and (min-aspect-ratio:9/10){
+  .st-ae .ae-top{left:calc(var(--gl) + 150px);top:var(--gt);transform:none;justify-items:start;text-align:left;gap:6px}
+  .st-ae .ae-meter{width:150px}
+  .st-ae .ae-hint{font-size:9px}
+  .st-ae .ae-warn{left:calc(var(--gl) + 150px);right:auto;top:calc(var(--gt) + 40px);transform:none;padding:5px 10px}
+  .st-ae .ae-score{top:var(--gt);gap:4px}
+  .st-ae .ae-score .num{font-size:28px}
+  .st-ae .ae-tbl{left:auto;right:calc(var(--gr) + 6px);width:290px;top:calc(var(--gt) + 58px);bottom:auto}
+  .st-ae .ae-th{padding:7px 10px}
+  .st-ae .ae-cols,.st-ae .ae-key{display:none}
+  .st-ae .ae-row{grid-template-columns:48px 78px 56px minmax(0,1fr);padding:0 10px;height:26px}
+  .st-ae #aeRows .ae-row:nth-child(n+5){display:none}
+  .st-ae .ae-arm{left:auto;right:calc(var(--gr) + 6px);bottom:var(--gb);justify-content:flex-end;gap:18px}
+  .st-ae .ae-ammo{justify-items:end}
+  .st-ae .ae-jam{width:72px;height:72px}
+  /* the title: no side notes, a smaller name, and the first visit's three choices in one row */
+  .st-ae .notes{display:none}
+  .st-ae .card{gap:10px}
+  .st-ae .card h2{font-size:44px}
+  .st-ae .card .lede{font-size:12px;line-height:1.5}
+  .st-ae.first .go .first{flex-wrap:nowrap}
+  .st-ae .first .code{flex:1 1 0;min-height:66px}
+  /* the report in two columns and small enough that its buttons show without scrolling */
+  .st-ae .res{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);top:50%;max-height:calc(100% - 16px);padding:14px 20px;gap:10px 26px}
+  .st-ae .res .l{gap:8px}
+  .st-ae .res .r{gap:10px}
+  .st-ae .res .grade{font-size:28px}
+  .st-ae .res .score{font-size:52px}
+  .st-ae .res .stats div{padding:6px 0 5px;gap:3px}
+  .st-ae .res .stats b{font-size:15px}
+  .st-ae .res p{font-size:11.5px;line-height:1.5}
+  .st-ae .res .acts{padding-top:4px}
+}
+/* the first visit's three choices are wide: where they would run over the words of the title, the words step up above them */
+@media (min-width:821px) and (max-width:1239px) and (min-aspect-ratio:9/10){.st-ae.first .card{bottom:calc(var(--gb) + 92px)}}
