@@ -194,8 +194,9 @@ const A=(()=>{
     CH[0].forEach((_,i)=>[-6,5].forEach(dt=>{ const o=oc.createOscillator(); o.type=i<1?'sine':'sawtooth'; o.detune.value=dt; o.frequency.setValueAtTime(CH[0][i],0);
       for(let k=1;k<4;k++) o.frequency.setTargetAtTime(CH[k][i],t0+k*12,2.2);
       const vg=oc.createGain(); vg.gain.value=i<1?.9:.22/(1+i*.3); o.connect(vg); vg.connect(f); o.start(0); })); }});
-  /* (the hole had a deep rumble of its own under the story and the orbit: on a laptop or a phone it only ever sounded like
-     static, or a rocket going over, so there is none) */
+  /* the hole itself: a deep rumble */
+  const SUB=loop({name:'sub',sr:8000,P:14,H:2,ref:.26,ios:.13,gate:.3,tc:.4,make(oc){ const b=bus(oc), s=noiseSrc(oc), f=oc.createBiquadFilter(); f.type='lowpass'; f.frequency.value=46; f.Q.value=1.2;
+    const g=oc.createGain(); g.gain.value=this.ref*nb(oc,46,1.2,true); s.connect(f); f.connect(g); g.connect(b.in); }});
   /* wind, the thruster, the roar and the hiss: bands of noise. The wind and the roar each come as two, a duller and a
      brighter, and the mix between them stands in for a filter that opens */
   const nz=(name,sr,P,type,f,q,ref,tc,ios)=>loop({name,sr,P,ref,tc,ios,gate:.3,make(oc){ const b=bus(oc), s=noiseSrc(oc), fl=oc.createBiquadFilter(); fl.type=type; fl.frequency.value=f; fl.Q.value=q;
@@ -240,7 +241,7 @@ const A=(()=>{
         t+=beat*(k%2?.44:.56); k++; } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   let making=!!OAC;
-  { const Q=[MUS,PAD,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -249,15 +250,15 @@ const A=(()=>{
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
-    _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:0,wind:r(WL.vol+WH.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),hiss:r(HS.vol),whine:n.ten?r(n.teng.gain.value):0,
+    _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:r(SUB.vol),wind:r(WL.vol+WH.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),hiss:r(HS.vol),whine:n.ten?r(n.teng.gain.value):0,
       mus:r(MUS.vol),musPlaying:MUS.els.some(e=>!e.paused&&!e.muted),bed:r(Object.values(BEDL).reduce((a,b)=>a+b.vol,0)),cb:r(CF.vol+CN.vol)}; }, // test hook: current levels
     /* test hooks: every recording (ready, its player's volume, how loud it is at full volume, playing), and how loud the
        recordings playing now are together */
     _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
     _loopRms(){ let q=0; for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
-    /* the orbit's score: p {pad} its level (sub and bright are what the old live sound took, not needed now) */
-    update(t,p){ if(!p) return; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045*(muf?.5:1); },
+    /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
+    update(t,p){ if(!p) return; if(p.sub!=null) SUB.want=Math.max(0,p.sub)*.26; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045*(muf?.5:1); },
     tick(){ tone(2600*vr(),.02,.01,'square'); },
     click(){ const v=vr(); tone(1200*v,.06,.03,'triangle',600*v); },
     whoosh(up=true,dur=1,g=.2){ noise(dur,g,up?220:2400,up?2400:220,'bandpass',1.1,0,.3); },
