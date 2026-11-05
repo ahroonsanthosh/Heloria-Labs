@@ -61,9 +61,18 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   /* and the rocket from the far shore, heard a couple of seconds after it rises */
   await page.waitForFunction(() => window.__tamed.LAUNCH.heard > .3, null, { timeout: 150000, polling: 250 }).catch(() => {});
   await stage('contact, a rocket going up far off', ['music', 'waterOpen', 'wind', 'rkFar'], [], 15000);
-  /* tab hidden: everything stops; back: it comes back */
-  await T(t => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
-  await wait(600); { const L = await loops(); check(L.every(l => !l.playing), 'a hidden tab plays nothing (' + L.filter(l => l.playing).map(l => l.name).join(', ') + ')'); }
+  /* tab hidden, another app, the phone locked: everything stops in that same moment (a phone may freeze the page next, and
+     would play its recordings on in the background); back: it comes back */
+  { const on = await T(t => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange'));
+      return t.A.loops().filter(l => l.playing).map(l => l.name); });
+    check(!on.length, 'a hidden tab stops every recording at once (' + on.join(', ') + ')'); }
+  await wait(600); { const L = await loops(), st = await T(t => t.A.ctx.state); check(L.every(l => !l.playing) && st !== 'running', 'a hidden tab plays nothing and the live sound is put to sleep (' + st + ')'); }
   await T(t => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
   await stage('back in front, it plays again', ['music', 'waterOpen', 'wind'], ['rkFar']);
+  /* on a computer, another window in front (the page is still showing): it all fades away; back to the page, it returns */
+  await T(t => window.dispatchEvent(new Event('blur')));
+  await stage('another window in front: every recording fades out and stops', [], [], 15000);
+  { await wait(1500); const m = await T(t => t.A.meter()); check(m.peak < .002, 'another window in front: the live sound is silent too (peak ' + m.peak + ')'); }
+  await T(t => window.dispatchEvent(new Event('focus')));
+  await stage('back to the page, it plays again', ['music', 'waterOpen', 'wind'], ['rkFar']);
 };

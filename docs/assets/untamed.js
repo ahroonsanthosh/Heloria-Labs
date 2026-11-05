@@ -33,7 +33,7 @@ const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Mat
 
 /* ---------- sound: a generative score, not beeps ---------- */
 const A=(()=>{
-  let ctx=null,out,comp,rev,revIn,on=false,muted=false,muf=false; const n={};
+  let ctx=null,out,comp,rev,revIn,on=false,muted=false,muf=false,away=false; const n={};   // away: you have left the page (see leave())
   const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
   /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
      sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
@@ -43,8 +43,8 @@ const A=(()=>{
      tap) the whole sound is built again on a fresh context: everything in it is made from n, so nothing is lost */
   let wdT=-1, wdC=-1, wdBad=0, downAt=0;
   function rebuild(){ const old=ctx; if(!old) return; for(const k in n) delete n[k];
-    ctx=null; init(); try{ old.close(); }catch(e){} set(out.gain,muted?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
-  function watch(){ if(!ctx||!on||document.hidden){ wdT=-1; return; }
+    ctx=null; init(); try{ old.close(); }catch(e){} set(out.gain,muted||away?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
+  function watch(){ if(!ctx||!on||document.hidden||away){ wdT=-1; return; }
     const now=performance.now();
     if(ctx.state!=='running'){ if(!downAt) downAt=now; ctx.resume().catch(()=>{}); wdT=-1; return; }
     downAt=0; const c=ctx.currentTime;
@@ -105,8 +105,9 @@ const A=(()=>{
   }
   /* each station's air: f/q the noise band, g its level, hz/h the hum, wob a slow drift of the band, sea a slow swell, ping a
      soft return every so many seconds at pf */
-  const BEDS={kr:{f:700,q:.7,g:.21,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.22,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.3,hz:55,h:0,sea:1},
-    og:{f:1900,q:.9,g:.07,hz:41,h:.045},be:{f:3400,q:.5,g:.04,hz:880,h:.02,wob:.06},
+  /* (the noise in each is some 8 dB under where it was: at that level it stood over the station's music and read as static) */
+  const BEDS={kr:{f:700,q:.7,g:.085,hz:98,h:.012,wob:.22},ae:{f:340,q:.6,g:.09,hz:49,h:.03,ping:2.6,pf:1568},ph:{f:420,q:.45,g:.12,hz:55,h:0,sea:1},
+    og:{f:1900,q:.9,g:.03,hz:41,h:.045},be:{f:3400,q:.5,g:.016,hz:880,h:.02,wob:.06},
     cr:{f:560,q:.6,g:0,hz:55,h:0,type:'lowpass',send:0}};   /* Earth has no air of its own: the town's music, the birds, footsteps and voices carry it,
        and nothing there is noise, so nothing can hiss, crackle or phase */
   /* the town's key on Earth: C major pentatonic. inKey snaps a pitch to its nearest note there */
@@ -154,7 +155,7 @@ const A=(()=>{
   /* the mixer: every recording follows the level asked of it, and the two players hand over */
   let mixT=0;
   function mix(){ const now=performance.now(), dt=mixT?Math.min(.25,(now-mixT)/1000):0; mixT=now;
-    for(const r of LOOPS){ if(!r.url) continue; const w=on&&!muted?r.want:0;
+    for(const r of LOOPS){ if(!r.url) continue; const w=on&&!muted&&!away?r.want:0;
       r.vol+=(w-r.vol)*(1-Math.exp(-dt/(w<r.vol&&r.tcOut?r.tcOut:r.tc))); if(w===0&&r.vol<r.ref*.002) r.vol=0;
       if(!(IOS?w>r.ref*r.gate:r.vol>0)){ for(const el of r.els) if(!el.paused) el.pause(); continue; }
       for(const el of r.els) if(el._on&&(el.ended||el.currentTime>=r.P+r.H-.03)){ el._on=false; if(!el.paused) el.pause(); }   // a player whose part is over stops there
@@ -165,6 +166,16 @@ const A=(()=>{
       for(const el of r.els){ if(!el._on) continue; if(el.playbackRate!==r.rate) el.playbackRate=r.rate; if(!IOS&&Math.abs(el.volume-v)>1e-4) el.volume=v;
         if(el.paused&&!el.ended&&!r.blocked) el.play().catch(()=>{ r.blocked=true; }); } } }
   setInterval(mix,20);
+  /* leaving the page: another tab or app, the phone locked, or on a computer another window in front. The sound goes with
+     you: at once when the page is hidden (a phone may freeze the page next, and would play its recordings on in the
+     background), faded out by the mixer when it is only behind another window; and it comes back when you do */
+  function leave(){ const hid=document.hidden; away=true;
+    if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
+    if(ctx){ set(out.gain,0,hid?.01:.15); if(hid) ctx.suspend().catch(()=>{}); } }
+  function back(){ if(!away||document.hidden) return; away=false; wdT=-1; if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
+  document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
+  addEventListener('pagehide',leave); addEventListener('blur',leave); addEventListener('focus',back);
+  ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
   /* inside a click, a tap or a key a browser always lets a recording start: each player is started there once, silently,
      and stopped again, so a phone that only lets a page start sound inside a gesture lets it start later by itself */
   function prime(){ for(const r of LOOPS){ r.blocked=false;
@@ -247,8 +258,8 @@ const A=(()=>{
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
     get busy(){ return making&&performance.now()<30000; },
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
-    async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
-    toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
+    async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted||away?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
+    toggle(){ muted=!muted; if(ctx) set(out.gain,muted||away?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
     _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:r(SUB.vol),wind:r(WL.vol+WH.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),hiss:r(HS.vol),whine:n.ten?r(n.teng.gain.value):0,
       mus:r(MUS.vol),musPlaying:MUS.els.some(e=>!e.paused&&!e.muted),bed:r(Object.values(BEDL).reduce((a,b)=>a+b.vol,0)),cb:r(CF.vol+CN.vol)}; }, // test hook: current levels

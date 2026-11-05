@@ -146,7 +146,6 @@ function audioState(s,inside){
     wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(R('krios')), ae:prox(R('aetos')), ph:prox(R('pharos')), og:prox(R('ogive')), beam, rise:sstep(R('ogive')-.3,R('ogive')+.4,s),
     warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
-document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
 /* the sound is tried the moment the page opens: a browser that allows it (one that knows you have played sound here before)
    plays the score at once; any other wakes it on the first click, tap or key (see gateWake) */
 A.start().catch(()=>{});
