@@ -282,7 +282,8 @@ const A=(()=>{
   function leave(){ const hid=document.hidden; away=true; if(!ctx) return;
     set(n.master.gain,0,hid?.01:.15); MX.tc=.25;
     if(hid){ for(const L of LOOPS) if(L.run) halt(L); MX.v=0; ctx.suspend().catch(()=>{}); } }
-  function back(){ if(!away||document.hidden) return; away=false; if(!ctx||!on) return; MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); }
+  function back(){ if(!away||document.hidden) return; away=false; for(const L of LOOPS) L.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
+    if(!ctx||!on) return; MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); }
   document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
   addEventListener('pagehide',leave); addEventListener('blur',leave); addEventListener('focus',back);
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
@@ -466,7 +467,7 @@ const A=(()=>{
          closed at 320 Hz (inside), all open from 1500 Hz up */
       const W=st.water*.62, wo=Math.pow(clamp(Math.log(st.waterF/320)/Math.log(1500/320),0,1),1.5);
       lv('waterOpen',W,Math.sqrt(wo)); lv('waterClosed',W,Math.sqrt(1-wo));
-      lv('music',st.music*.9); lv('wind',st.wind*.06);
+      lv('music',st.music*.9); lv('wind',0);   // no wind: on a phone's speaker, which plays little of the score's low notes, its band of noise was the static
       lv('kr',st.kr*.55); lv('ae',st.ae*.75);
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air, brighter the less sure */
       const f=st.beam||0; lv('phTone',st.ph*.36,.35+.65*f); lv('phAir',st.ph*.36,(1-f)*.1*Math.sqrt((300+(1-f)*900)/1200));

@@ -35,17 +35,17 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
     await T(t => t.hover(null));
     await stage('the gate at rest: the score from the first moment, and the lake', ['music', 'waterOpen', 'waterClosed']);
     await T(t => t.hover('walk')); await stage('the gate showing Walk: the warm light and the lake, the score under them', ['warm', 'waterOpen', 'music']);
-    await T(t => t.hover('land')); await stage('the gate showing Land: open air, the score under it', ['wind', 'music']);
+    await T(t => t.hover('land')); await stage('the gate showing Land: the score (no wind: it was the static on a phone)', ['music']);
     await T(t => t.hover('fly')); await stage('the gate showing Fly: the dark, the score under it', ['dark', 'music']);
     await T(t => t.hover(null));
   }
   await T(t => t.enter()); await wait(3500); await settle(3);
-  await stage('home: the score, open water and air in the grass', ['music', 'waterOpen', 'wind']);
+  await stage('home: the score and open water', ['music', 'waterOpen']);
   /* in a doorway the water is half muffled: both its recordings play, crossed */
   const v = await T(t => { let a = 0, b = 1; for (let i = 0; i < 30; i++) { const m = (a + b) / 2; if (t.walkAt(m).s < .51) a = m; else b = m; } return (a + b) / 2; });
   await T((t, v) => t.setV(v), v); await settle(3);
   const s = await T(t => t.S.s); log('  doorway at s=' + s.toFixed(3));
-  await stage('the front doorway: the water half muffled, both recordings crossed', ['music', 'waterOpen', 'waterClosed'], ['wind', 'ae']);
+  await stage('the front doorway: the water half muffled, both recordings crossed', ['music', 'waterOpen', 'waterClosed'], ['ae']);
   for (const [id, own, opt] of [['aetos', ['ae'], []], ['pharos', ['phTone'], ['phAir']], ['ogive', ['og', 'ogHiss'], []], ['krios', ['kr'], []]]) {
     await T((t, id) => { const p = t.PLACES.find(p => p.id === id); t.jump(p.s); }, id); await settle(3);
     await stage(id + ': its own sound, the score, the water muffled', ['music', 'waterClosed'].concat(own), opt);
@@ -55,12 +55,12 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
     const L = await loops(), by = Object.fromEntries(L.map(l => [l.name, l])), lock = await T(t => t.GAL.room('pharos').lock);
     check(Math.abs(by.phAir.want - (1 - lock) * Math.sqrt((300 + (1 - lock) * 900) / 1200)) < .15 && by.phTone.want > .3, 'Pharos follows the drone: lock ' + lock.toFixed(2) + ', tone ' + by.phTone.want + ', air ' + by.phAir.want); }
   await T(t => { const p = t.PLACES.find(p => p.id === 'team'); t.jump(p.s); }); await settle(3);
-  await stage('team: the score, open water, a little air', ['music', 'waterOpen', 'wind']);
+  await stage('team: the score and open water', ['music', 'waterOpen']);
   await T(t => { const p = t.PLACES.find(p => p.id === 'contact'); t.jump(p.s); }); await settle(3);
-  await stage('contact: the score, open water, air in the grass', ['music', 'waterOpen', 'wind'], ['rkFar']);
+  await stage('contact: the score and open water', ['music', 'waterOpen'], ['rkFar']);
   /* and the rocket from the far shore, heard a couple of seconds after it rises */
   await page.waitForFunction(() => window.__tamed.LAUNCH.heard > .3, null, { timeout: 150000, polling: 250 }).catch(() => {});
-  await stage('contact, a rocket going up far off', ['music', 'waterOpen', 'wind', 'rkFar'], [], 15000);
+  await stage('contact, a rocket going up far off', ['music', 'waterOpen', 'rkFar'], [], 15000);
   /* tab hidden, another app, the phone locked: everything stops in that same moment (a phone may freeze the page next, and
      would play its recordings on in the background); back: it comes back */
   { const on = await T(t => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange'));
@@ -68,11 +68,11 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
     check(!on.length, 'a hidden tab stops every recording at once (' + on.join(', ') + ')'); }
   await wait(600); { const L = await loops(), st = await T(t => t.A.ctx.state); check(L.every(l => !l.playing) && st !== 'running', 'a hidden tab plays nothing and the live sound is put to sleep (' + st + ')'); }
   await T(t => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
-  await stage('back in front, it plays again', ['music', 'waterOpen', 'wind'], ['rkFar']);
+  await stage('back in front, it plays again', ['music', 'waterOpen'], ['rkFar']);
   /* on a computer, another window in front (the page is still showing): it all fades away; back to the page, it returns */
   await T(t => window.dispatchEvent(new Event('blur')));
   await stage('another window in front: every recording fades out and stops', [], [], 15000);
   { await wait(1500); const m = await T(t => t.A.meter()); check(m.peak < .002, 'another window in front: the live sound is silent too (peak ' + m.peak + ')'); }
   await T(t => window.dispatchEvent(new Event('focus')));
-  await stage('back to the page, it plays again', ['music', 'waterOpen', 'wind'], ['rkFar']);
+  await stage('back to the page, it plays again', ['music', 'waterOpen'], ['rkFar']);
 };

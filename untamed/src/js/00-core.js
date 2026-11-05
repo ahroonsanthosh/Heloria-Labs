@@ -169,7 +169,8 @@ const A=(()=>{
   function leave(){ const hid=document.hidden; away=true;
     if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
     if(ctx){ set(out.gain,0,hid?.01:.15); if(hid) ctx.suspend().catch(()=>{}); } }
-  function back(){ if(!away||document.hidden) return; away=false; wdT=-1; if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
+  function back(){ if(!away||document.hidden) return; away=false; wdT=-1; for(const r of LOOPS) r.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
+    if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
   document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
   addEventListener('pagehide',leave); addEventListener('blur',leave); addEventListener('focus',back);
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
@@ -273,12 +274,14 @@ const A=(()=>{
     stinger(i=0){ tone(note(8+i),2.4,.045,'sine',0,0,.8,.02); tone(note(10+i)*2,1.6,.015,'sine',0,.08,.8,.02); noise(1.4,.06,500,4000,'bandpass',2,0,.5); },
     swell(){ noise(2,.24,160,3400,'bandpass',1.4,0,.5); tone(146.83,2.6,.05,'sine',293.66,0,.6,.3); tone(220,2.4,.035,'sine',440,.15,.6,.3); },
     boom(){ tone(98,3.6,.5,'sine',22); noise(3,.5,3200,40,'lowpass',.8,0,.4); tone(587,2,.04,'sine',146,0,.9); },
-    wind(v){ v=Math.max(0,v||0); const L=Math.min(.26,v*1.4), x=clamp((400+v*2200-650)/1050,0,1); WL.want=L*Math.cos(x*Math.PI/2); WH.want=L*Math.sin(x*Math.PI/2); },
-    thrust(v){ TH.want=Math.max(0,v||0)*.18; },
+    /* no wind: a phone's speaker plays little of the score's low notes and all of a band of noise, so the wind, always there
+       in orbit, was the static heard over everything */
+    wind(){ WL.want=WH.want=0; },
+    thrust(v){ TH.want=Math.max(0,v||0)*.09; },
     /* the roar eases off as it grows: the live sound went through one compressor with everything else, which held its
        loudest moments down; a recording is made on its own, so that holding back is done here */
     roar(v){ const L=Math.max(0,v||0)*.7; RR.lvl=L/(1+1.2*L); roarMix(); },
-    hiss(v){ HS.want=Math.max(0,v||0)*.08; },
+    hiss(v){ HS.want=Math.max(0,v||0)*.03; },
     /* the engine's whine: a rising saw, made live (it follows the spool from moment to moment), and only while it sounds */
     whine(v){ if(!ctx) return;
       if(v>.001&&on&&!muted){ if(!n.ten){ n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=50+v*800; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700;
