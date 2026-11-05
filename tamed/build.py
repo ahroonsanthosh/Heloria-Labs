@@ -129,7 +129,8 @@ def write_site(out):
     page = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
             + head + '\n' + meta + '<link rel="stylesheet" href="assets/tamed.css?v=' + vc + '">\n</head>\n<body>\n' + html + '\n'
-            '<script src="assets/vendor/three.min.js"></script>\n<script src="assets/tamed.js?v=' + vj + '"></script>\n</body>\n</html>\n')
+            '<script src="assets/vendor/three.min.js?v=' + pfp(os.path.join(ROOT, 'untamed', 'src', 'assets', 'vendor', 'three.min.js'))
+            + '"></script>\n<script src="assets/tamed.js?v=' + vj + '"></script>\n</body>\n</html>\n')
     os.makedirs(os.path.join(out, 'assets', 'img'), exist_ok=True)
     open(os.path.join(out, 'index.html'), 'w', encoding='utf-8').write(page)
     open(os.path.join(out, 'assets', 'tamed.css'), 'w', encoding='utf-8').write(css)

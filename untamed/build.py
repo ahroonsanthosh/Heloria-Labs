@@ -110,7 +110,8 @@ def write_site(out, only=None):
     # the moment the page changes, instead of running yesterday's code for an hour
     fp = lambda t: hashlib.sha1(t.encode('utf-8')).hexdigest()[:10]
     page = (DOC_HEAD.replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A).replace('{F}', FONTS_CSS) + html
-            + '\n<script src="%svendor/three.min.js"></script>\n<script src="%suntamed.js?v=%s"></script>\n</body>\n</html>\n' % (A, A, fp(js)))
+            + '\n<script src="%svendor/three.min.js?v=%s"></script>\n<script src="%suntamed.js?v=%s"></script>\n</body>\n</html>\n'
+            % (A, hashlib.sha1(open(os.path.join(SRC, 'assets', 'vendor', 'three.min.js'), 'rb').read()).hexdigest()[:10], A, fp(js)))
     open(os.path.join(out, 'untamed', 'index.html'), 'w', encoding='utf-8').write(page)
     nf = os.path.join(SRC, '404.html')
     if os.path.exists(nf): shutil.copy(nf, os.path.join(out, '404.html'))

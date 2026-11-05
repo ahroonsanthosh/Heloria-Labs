@@ -27,22 +27,39 @@ def load(name, path):
 # Cloudflare reads this from the site's root. Pages and their code can change at any deploy, so they are checked
 # again within the hour; three.js is a fixed version and kept for a year. Rules for a folder add to those of the folders
 # round it, so the inner ones drop the outer Cache-Control (the ! lines) before setting their own
+# The rest is security: the browser keeps to https, a page loads nothing but its own files, the fonts and the sound it makes
+# itself (blob:), no other site can frame it, and it asks for none of the device's sensors (tested with no violations on
+# every page and station)
 HEADERS = """/*
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: SAMEORIGIN
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Frame-Options: DENY
+  Permissions-Policy: accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
 
 /assets/*
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 
 /assets/img/*
   ! Cache-Control
+  ! Cross-Origin-Resource-Policy
   Cache-Control: public, max-age=604800
+  Cross-Origin-Resource-Policy: cross-origin
 
 /assets/vendor/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
+"""
+
+
+# where someone who finds a security problem in the site can tell us (RFC 9116); renew Expires before it lapses
+SECURITY_TXT = """Contact: mailto:contact@helorialabs.com
+Expires: 2027-11-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://helorialabs.com/.well-known/security.txt
 """
 
 
@@ -82,6 +99,8 @@ def main():
     open(os.path.join(out, '.nojekyll'), 'w').write('')
     open(os.path.join(out, '_headers'), 'w').write(HEADERS)
     open(os.path.join(out, '_redirects'), 'w').write(REDIRECTS)
+    os.makedirs(os.path.join(out, '.well-known'), exist_ok=True)
+    open(os.path.join(out, '.well-known', 'security.txt'), 'w').write(SECURITY_TXT)
     print('site     ->', out)
     for root, _, files in sorted(os.walk(out)):
         for f in sorted(files):
