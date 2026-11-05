@@ -52,7 +52,7 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly='', pretty=False):
     return ids, css, html, js
 
 # Earth's café board, "book a chat with us": in the previews and the tests, and on the live site only once this is True
-CAFE_LIVE = False
+CAFE_LIVE = True
 
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
 

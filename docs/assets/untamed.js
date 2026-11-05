@@ -4245,7 +4245,7 @@ const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the
   be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us'],
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
     'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
-const CAFE_ON=false;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
+const CAFE_ON=true;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
 const CAFE_B=[-2.5,2.35,.4];   // where the café's board stands: its front corner on the side you come from the landing, turned to the street
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
