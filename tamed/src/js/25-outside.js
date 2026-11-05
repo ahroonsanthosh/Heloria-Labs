@@ -282,7 +282,7 @@ function buildOutside(){
   /* the three of us: framed portraits on stone plinths at the east end of the pool. The water shows them first,
      though nothing stands there yet; then each one rises out of it, wet, and its reflection has something to reflect */
   const FP={ph:1.62, mat:.09, fr:.075, fd:.08, pw:1.96, pd:.54, phh:.58};
-  FP.pw2=FP.ph*360/468; FP.iw=FP.pw2+FP.mat*2; FP.ih=FP.ph+FP.mat*2; FP.ow=FP.iw+FP.fr*2; FP.oh=FP.ih+FP.fr*2; FP.top=FP.phh+FP.oh;
+  FP.pw2=FP.ph*3/4; FP.iw=FP.pw2+FP.mat*2; FP.ih=FP.ph+FP.mat*2; FP.ow=FP.iw+FP.fr*2; FP.oh=FP.ih+FP.fr*2; FP.top=FP.phh+FP.oh;
   const frameGeo=(()=>{ const s=new T.Shape(), w=FP.ow/2, h=FP.oh; s.moveTo(-w,0); s.lineTo(w,0); s.lineTo(w,h); s.lineTo(-w,h); s.lineTo(-w,0);
     const p=new T.Path(), iw=FP.iw/2; p.moveTo(-iw,FP.fr); p.lineTo(-iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr+FP.ih); p.lineTo(iw,FP.fr); p.lineTo(-iw,FP.fr); s.holes.push(p);
     const g=new T.ExtrudeGeometry(s,{depth:FP.fd-.02,bevelEnabled:true,bevelThickness:.01,bevelSize:.012,bevelSegments:2}); g.translate(0,FP.phh,-FP.fd/2+.01); return g; })();
@@ -332,10 +332,7 @@ function buildOutside(){
     const pm=new T.ShaderMaterial({uniforms:Object.assign({tPhoto:{value:tex},uTintP:{value:new T.Color(1,1,1)},uWet:{value:0},uRefl:GU.uRefl},W.U),
       vertexShader:`varying vec2 vUv; varying vec3 vWP; void main(){ vUv=uv; vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader:`uniform sampler2D tPhoto; uniform float uWet,uRefl; uniform vec3 uTintP; varying vec2 vUv; varying vec3 vWP; ${GLSL.haze}
-      void main(){ vec4 tx=texture2D(tPhoto,vUv);
-        /* the cutout stands in front of a soft studio backdrop, lighter behind the head */
-        vec3 bg=mix(vec3(.62,.57,.52),vec3(.86,.81,.75),smoothstep(.05,.95,vUv.y))*(1.-.22*length((vUv-vec2(.5,.62))*vec2(1.3,1.)));
-        vec3 c=mix(bg,tx.rgb,smoothstep(.04,.96,tx.a))*uTintP;
+      void main(){ vec3 c=texture2D(tPhoto,vUv).rgb*uTintP;   /* the whole photograph, its own room behind each of us */
         float sh=smoothstep(.35,1.,vUv.y+vUv.x*.35)*.06+uWet*.1*smoothstep(.2,1.,vUv.y); c+=vec3(1.,.93,.85)*sh;
         if(uRefl>.5) c*=vec3(.86,.88,.9);
         gl_FragColor=vec4(haze(c,vWP),1.); }`});

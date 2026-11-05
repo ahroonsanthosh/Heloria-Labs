@@ -110,23 +110,6 @@ function drawPeers(){
 })();
 window.__onResize=()=>{ window.__crLayout&&window.__crLayout(); };
 
-/* ---------- ?debug: a small panel for finding out what the sound needs on a given device ----------
-   It shows how fast the page draws, the sound's state and the browser's own count of sound underruns, and lets you, while
-   listening, stop the 3D drawing (2), draw at half rate (3), or at half resolution (4); 1 puts everything back */
-const DBG={on:/[?&]debug\b/.test(location.search),mode:0,n:0,drawn:0,frames:0,maxMs:0,lastT:0,u0:null,
-  draws(){ this.frames++; if(!this.on) { this.drawn++; return true; } const d=this.mode!==2&&!(this.mode===3&&(this.n++&1)); if(d) this.drawn++; return d; },
-  set(m){ if(this.mode===4&&m!==4){ DPR=this.dpr0; resize(); } if(m===4&&this.mode!==4){ this.dpr0=DPR; DPR=Math.max(.5,DPR/2); resize(); } this.mode=m; this.paint(); },
-  paint(){ if(!this.el) return; const c=A.ctx, ps=c&&c.playbackStats, now=performance.now(), sec=Math.max(.001,(now-this.lastT)/1000);
-    const u=ps?ps.underrunEvents:null, ud=ps?ps.underrunDuration:null; const du=this.u0&&u!=null?u-this.u0[0]:null, dud=this.u0&&ud!=null?(ud-this.u0[1])*1000:null; if(u!=null) this.u0=[u,ud];
-    const E=A._em, mus=E&&E.el?(E.el.paused?'recording, paused':'recording, playing'):'live';
-    this.el.innerHTML=`<b>Heloria sound check</b><br>drawing: ${['every frame','stopped','half rate','half resolution'][this.mode===4?3:this.mode===3?2:this.mode===2?1:0]}<br>frames drawn ${Math.round(this.drawn/sec)}/s of ${Math.round(this.frames/sec)}/s, slowest ${Math.round(this.maxMs)} ms<br>sound ${c?c.state:'not started'}${c?`, ${c.sampleRate} Hz, buffer ${Math.round((c.baseLatency||0)*1000)}+${Math.round((c.outputLatency||0)*1000)} ms`:''}<br>${ps?`underruns ${du==null?'-':du}/s (${dud==null?'-':Math.round(dud)} ms), total ${u}`:'underrun count: not available in this browser'}<br>music: ${mus}<br><span style="opacity:.7">1 all on · 2 stop drawing · 3 half rate · 4 half resolution</span>`;
-    this.drawn=0; this.frames=0; this.maxMs=0; this.lastT=now; },
-  init(){ if(!this.on) return; const el=this.el=document.createElement('div'); el.id='dbg'; el.style.cssText='position:fixed;left:10px;bottom:10px;z-index:99;padding:10px 12px;background:rgba(0,0,0,.78);color:#fff;font:12px/1.5 ui-monospace,monospace;border-radius:6px;pointer-events:auto;max-width:360px';
-    document.body.appendChild(el); addEventListener('keydown',e=>{ const m={Digit1:0,Digit2:2,Digit3:3,Digit4:4}[e.code]; if(m!=null) this.set(m); },true);
-    el.addEventListener('click',e=>{ e.stopPropagation(); this.set((this.mode===0?2:this.mode===2?3:this.mode===3?4:0)); });   // on a phone: tap the panel to step through the four
-    let pt=performance.now(); const tick=()=>{ const t=performance.now(); this.maxMs=Math.max(this.maxMs,t-pt); pt=t; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
-    this.lastT=performance.now(); setInterval(()=>this.paint(),1000); } };
-DBG.init();
 
 /* ---------- main loop ---------- */
 const stPos=new T.Vector3(), stLook=new T.Vector3();
@@ -197,12 +180,11 @@ function frame(now){
   }
   A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
-  if(DBG.draws()){
   { const tn=performance.now()/1000; rtLive(rtA,needA,tn,RTS); rtLive(rtB,needB,tn,S.st&&S.st.render?0:RTS); bhLive(needA,tn); }
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;
-  renderer.setRenderTarget(null); renderer.render(postScene,ortho); }
+  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   requestAnimationFrame(frame);
 }
 hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0);

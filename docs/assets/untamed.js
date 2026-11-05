@@ -4757,18 +4757,25 @@ addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelS
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
 
 /* ---------- talking ---------- */
-const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
+const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
+/* the words typed so far, and the rest of the line held in place unseen, so the box is the size of the whole line from the first letter */
+const tkT=$('#crTkT',el), tkS=$('#crTkS',el), tkR=$('#crTkR',el), say=n=>{ tkS.textContent=TALK.txt.slice(0,n); tkR.textContent=TALK.txt.slice(n); };
+/* and the box hugs the words: the narrowest width that still takes no more lines than the line needs at full width */
+function hug(){ tkT.style.width=''; const h=tkT.offsetHeight, w=tkT.offsetWidth; if(!w||!h) return; let lo=w*.35, hi=w;
+  for(let k=0;k<9;k++){ const m=(lo+hi)/2; tkT.style.width=m+'px'; if(tkT.offsetHeight>h) lo=m; else hi=m; } tkT.style.width=Math.ceil(hi)+1+'px'; }
+addEventListener('resize',()=>{ if(TALK.p) hug(); });
 const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null,want:null,dw:0};
 PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
-function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent='';
+function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; say(0);
   tk.classList.toggle('last',last&&!TALK.ask); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
-  if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
+  if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); }
+  hug(); }
 function openTalk(p,i=0,L=null){ TALK.ask=!!L; TALK.walkT=0; TALK.held='?'; TALK.p=p; player.path=null; player.speed=0; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
   tkN.textContent=!TALK.ask&&TALK.i>=TALK.L.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
   player.tgt=null; A.chime(5+p.i*2,0,.035); began(); }
-function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; tkT.textContent=TALK.txt; tk.classList.remove('typing'); return; }
+function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; say(TALK.shown); tk.classList.remove('typing'); return; }
   if(TALK.i<TALK.L.length-1){ TALK.i++; if(TALK.i>=TALK.L.length-1&&!TALK.ask) tkN.textContent=TALK.p.name; page(); A.tick(); } else if(!TALK.ask) closeTalk(true); }
 /* closing a conversation: if someone is still to meet, the camera turns gently toward them; once all three are met, Ahroon comes over */
 function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.ask; if(!ask&&!MET.has(was.i)) was.resume=TALK.i;
@@ -5120,7 +5127,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
   }
   // talking: the words type out with a little voice
-  if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; tkT.textContent=TALK.txt.slice(0,n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
+  if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; say(n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
   // things that move: the radar, the lighthouse, the voice inside Kríos, the birds
   if(AE){ AE.hd.matrix.copy(AE.M).multiply(Mf.makeRotationY(t*.8)); AE.hd.matrixWorldNeedsUpdate=true; }
   const quiet=TALK.p||CUT.on||FIN.on, near=q=>q?Math.hypot(P.x-q.x,P.z-q.z):99;
@@ -5424,23 +5431,6 @@ function drawPeers(){
 })();
 window.__onResize=()=>{ window.__crLayout&&window.__crLayout(); };
 
-/* ---------- ?debug: a small panel for finding out what the sound needs on a given device ----------
-   It shows how fast the page draws, the sound's state and the browser's own count of sound underruns, and lets you, while
-   listening, stop the 3D drawing (2), draw at half rate (3), or at half resolution (4); 1 puts everything back */
-const DBG={on:/[?&]debug\b/.test(location.search),mode:0,n:0,drawn:0,frames:0,maxMs:0,lastT:0,u0:null,
-  draws(){ this.frames++; if(!this.on) { this.drawn++; return true; } const d=this.mode!==2&&!(this.mode===3&&(this.n++&1)); if(d) this.drawn++; return d; },
-  set(m){ if(this.mode===4&&m!==4){ DPR=this.dpr0; resize(); } if(m===4&&this.mode!==4){ this.dpr0=DPR; DPR=Math.max(.5,DPR/2); resize(); } this.mode=m; this.paint(); },
-  paint(){ if(!this.el) return; const c=A.ctx, ps=c&&c.playbackStats, now=performance.now(), sec=Math.max(.001,(now-this.lastT)/1000);
-    const u=ps?ps.underrunEvents:null, ud=ps?ps.underrunDuration:null; const du=this.u0&&u!=null?u-this.u0[0]:null, dud=this.u0&&ud!=null?(ud-this.u0[1])*1000:null; if(u!=null) this.u0=[u,ud];
-    const E=A._em, mus=E&&E.el?(E.el.paused?'recording, paused':'recording, playing'):'live';
-    this.el.innerHTML=`<b>Heloria sound check</b><br>drawing: ${['every frame','stopped','half rate','half resolution'][this.mode===4?3:this.mode===3?2:this.mode===2?1:0]}<br>frames drawn ${Math.round(this.drawn/sec)}/s of ${Math.round(this.frames/sec)}/s, slowest ${Math.round(this.maxMs)} ms<br>sound ${c?c.state:'not started'}${c?`, ${c.sampleRate} Hz, buffer ${Math.round((c.baseLatency||0)*1000)}+${Math.round((c.outputLatency||0)*1000)} ms`:''}<br>${ps?`underruns ${du==null?'-':du}/s (${dud==null?'-':Math.round(dud)} ms), total ${u}`:'underrun count: not available in this browser'}<br>music: ${mus}<br><span style="opacity:.7">1 all on · 2 stop drawing · 3 half rate · 4 half resolution</span>`;
-    this.drawn=0; this.frames=0; this.maxMs=0; this.lastT=now; },
-  init(){ if(!this.on) return; const el=this.el=document.createElement('div'); el.id='dbg'; el.style.cssText='position:fixed;left:10px;bottom:10px;z-index:99;padding:10px 12px;background:rgba(0,0,0,.78);color:#fff;font:12px/1.5 ui-monospace,monospace;border-radius:6px;pointer-events:auto;max-width:360px';
-    document.body.appendChild(el); addEventListener('keydown',e=>{ const m={Digit1:0,Digit2:2,Digit3:3,Digit4:4}[e.code]; if(m!=null) this.set(m); },true);
-    el.addEventListener('click',e=>{ e.stopPropagation(); this.set((this.mode===0?2:this.mode===2?3:this.mode===3?4:0)); });   // on a phone: tap the panel to step through the four
-    let pt=performance.now(); const tick=()=>{ const t=performance.now(); this.maxMs=Math.max(this.maxMs,t-pt); pt=t; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
-    this.lastT=performance.now(); setInterval(()=>this.paint(),1000); } };
-DBG.init();
 
 /* ---------- main loop ---------- */
 const stPos=new T.Vector3(), stLook=new T.Vector3();
@@ -5511,12 +5501,11 @@ function frame(now){
   }
   A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
-  if(DBG.draws()){
   { const tn=performance.now()/1000; rtLive(rtA,needA,tn,RTS); rtLive(rtB,needB,tn,S.st&&S.st.render?0:RTS); bhLive(needA,tn); }
   if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;
-  renderer.setRenderTarget(null); renderer.render(postScene,ortho); }
+  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   requestAnimationFrame(frame);
 }
 hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0);

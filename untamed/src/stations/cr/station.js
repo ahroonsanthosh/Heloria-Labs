@@ -855,18 +855,25 @@ addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelS
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
 
 /* ---------- talking ---------- */
-const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkT=$('#crTkT',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
+const tk=$('#crTalk',el), tkN=$('#crTkN',el), tkImg=$('#crImg',el), tkLink=$('#crLink',el), goBtn=$('#crGo',el);
+/* the words typed so far, and the rest of the line held in place unseen, so the box is the size of the whole line from the first letter */
+const tkT=$('#crTkT',el), tkS=$('#crTkS',el), tkR=$('#crTkR',el), say=n=>{ tkS.textContent=TALK.txt.slice(0,n); tkR.textContent=TALK.txt.slice(n); };
+/* and the box hugs the words: the narrowest width that still takes no more lines than the line needs at full width */
+function hug(){ tkT.style.width=''; const h=tkT.offsetHeight, w=tkT.offsetWidth; if(!w||!h) return; let lo=w*.35, hi=w;
+  for(let k=0;k<9;k++){ const m=(lo+hi)/2; tkT.style.width=m+'px'; if(tkT.offsetHeight>h) lo=m; else hi=m; } tkT.style.width=Math.ceil(hi)+1+'px'; }
+addEventListener('resize',()=>{ if(TALK.p) hug(); });
 const PJ={el:$('#crProj',el),n:$('#crProj .crpj-n',el),k:$('#crProj .crpj-k',el),t:$('#crProj .crpj-t',el),l:$('#crProj .crpj-l',el),id:null,want:null,dw:0};
 PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
-function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; tkT.textContent='';
+function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; say(0);
   tk.classList.toggle('last',last&&!TALK.ask); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
-  if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); } }
+  if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); }
+  hug(); }
 function openTalk(p,i=0,L=null){ TALK.ask=!!L; TALK.walkT=0; TALK.held='?'; TALK.p=p; player.path=null; player.speed=0; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
   tkN.textContent=!TALK.ask&&TALK.i>=TALK.L.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
   player.tgt=null; A.chime(5+p.i*2,0,.035); began(); }
-function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; tkT.textContent=TALK.txt; tk.classList.remove('typing'); return; }
+function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.shown=TALK.txt.length; say(TALK.shown); tk.classList.remove('typing'); return; }
   if(TALK.i<TALK.L.length-1){ TALK.i++; if(TALK.i>=TALK.L.length-1&&!TALK.ask) tkN.textContent=TALK.p.name; page(); A.tick(); } else if(!TALK.ask) closeTalk(true); }
 /* closing a conversation: if someone is still to meet, the camera turns gently toward them; once all three are met, Ahroon comes over */
 function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.ask; if(!ask&&!MET.has(was.i)) was.resume=TALK.i;
@@ -1218,7 +1225,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
   }
   // talking: the words type out with a little voice
-  if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; tkT.textContent=TALK.txt.slice(0,n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
+  if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; say(n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }
   // things that move: the radar, the lighthouse, the voice inside Kríos, the birds
   if(AE){ AE.hd.matrix.copy(AE.M).multiply(Mf.makeRotationY(t*.8)); AE.hd.matrixWorldNeedsUpdate=true; }
   const quiet=TALK.p||CUT.on||FIN.on, near=q=>q?Math.hypot(P.x-q.x,P.z-q.z):99;

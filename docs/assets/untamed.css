@@ -912,18 +912,20 @@ html.earth #back{transition:opacity .6s var(--ease)}
 .st-cr .crl.can::after{content:'E';display:inline-block;margin-left:8px;padding:1px 5px 0;background:#2a241d;color:#fbf6ec}
 @media (pointer:coarse){.st-cr .crl.can::after{content:'Tap'}}
 /* talking: a printed paper box with a name tab, words typed out as they are said; the last page shows the photograph and LinkedIn */
-.st-cr .crtalk{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);width:min(760px,calc(100vw - 32px));opacity:0;transform:translate(-50%,18px);pointer-events:none;transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.st-cr .crtalk{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);width:max-content;min-width:min(340px,calc(100vw - 32px));max-width:min(720px,calc(100vw - 32px));opacity:0;transform:translate(-50%,18px);pointer-events:none;transition:opacity .35s var(--ease),transform .5s var(--ease)}
 .st-cr .crtalk.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .st-cr .crtalk:not(.on) .hit{pointer-events:none!important}
 .st-cr .crtk-n{position:absolute;left:20px;top:-15px;z-index:1;background:#ef8a3c;color:#2a241d;border:2px solid #2a241d;padding:6px 12px 5px;letter-spacing:.08em}
-.st-cr .crtk-b{position:relative;display:grid;grid-template-columns:1fr;gap:22px;align-items:end;padding:26px 64px 22px 26px;min-height:112px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:6px 6px 0 #2a241d;cursor:pointer}
-.st-cr .crtk-t{margin:0;font-size:clamp(15px,1.45vw,19px);line-height:1.5;min-height:3em;color:#2a241d}
-.st-cr .crtk-ph{display:none;width:150px;aspect-ratio:4/5;border:2px solid #2a241d;background:linear-gradient(#e9dcc7,#d8c6aa);overflow:hidden}
-.st-cr .crtk-ph img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
+.st-cr .crtk-b{position:relative;display:grid;grid-template-columns:1fr;gap:22px;align-items:end;padding:26px 64px 22px 26px;min-height:96px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:6px 6px 0 #2a241d;cursor:pointer}
+.st-cr .crtk-t{margin:0;font-size:clamp(15px,1.45vw,19px);line-height:1.5;color:#2a241d}
+.st-cr .crtk-r{visibility:hidden}
+.st-cr .crtk-ph{display:none;width:140px;aspect-ratio:3/4;border:2px solid #2a241d;background:linear-gradient(#e9dcc7,#d8c6aa);overflow:hidden}
+.st-cr .crtk-ph img{width:100%;height:100%;object-fit:cover;display:block}
 .st-cr .crtk-a{display:none;gap:10px;flex-wrap:wrap;margin-top:14px}
 .st-cr .crtk-a .btn{color:#2a241d;border-color:rgba(42,36,29,.4)}
 .st-cr .crtk-a .btn.pri{background:#2a241d;color:#fff8ee;border-color:#2a241d}
-.st-cr .crtalk.last .crtk-b{grid-template-columns:auto 1fr;cursor:default}
+.st-cr .crtalk.last .crtk-b{grid-template-columns:auto 1fr;align-items:center;padding-right:30px;cursor:default}
+.st-cr .crtalk.last .crtk-t{max-width:17em}
 .st-cr .crtalk.last .crtk-ph{display:block}
 .st-cr .crtalk.last .crtk-a{display:flex}
 .st-cr .crtalk.last .crtk-go{display:none}
@@ -978,9 +980,13 @@ html.earth #back{transition:opacity .6s var(--ease)}
 @media (max-width:820px),(max-aspect-ratio:9/10){
   .st-cr .card h2{font-size:30px}
   .st-cr .crtalk{bottom:calc(var(--gb) + 14px)}
-  .st-cr .crtk-b{padding:24px 54px 18px 18px;min-height:96px;box-shadow:4px 4px 0 #2a241d}
-  .st-cr .crtalk.last .crtk-b{gap:14px;align-items:start}
-  .st-cr .crtk-ph{width:96px}
+  .st-cr .crtk-b{padding:24px 54px 18px 18px;min-height:84px;box-shadow:4px 4px 0 #2a241d}
+  .st-cr .crtalk.last .crtk-b{gap:12px 14px;align-items:center;padding-right:18px}
+  .st-cr .crtk-ph{width:84px}
+  /* on a phone the last page is the photograph and the words side by side, the two buttons in a row under both */
+  .st-cr .crtalk.last .crtk-m{display:contents}
+  .st-cr .crtalk.last .crtk-t{max-width:none}
+  .st-cr .crtalk.last .crtk-a{grid-column:1/-1;margin-top:0}
   .st-cr .crhint{white-space:normal;width:calc(100vw - 48px);text-align:center}
   .st-cr .crpj{left:16px;right:16px;top:calc(var(--gt) + 104px);width:auto;max-width:none;transform:translateY(-8px)}
   .st-cr .crpj-t{max-width:none}
