@@ -408,6 +408,13 @@ function sndUI(){}
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');
+/* every shader compiled on this page takes pow() of a number never below zero. pow() of a negative number is not a number on
+   Windows (where the browser draws through Direct3D) and on many phones' graphics chips, and there the checks that would
+   catch it are compiled away: one such pixel spreads through the glow into black squares across the screen */
+{ const DEF='#define pow(a,b) pow(max(a,0.),b)\n';
+  for(const C of [window.WebGLRenderingContext,window.WebGL2RenderingContext]){ const P=C&&C.prototype; if(!P||P.__safePow) continue;
+    const ss=P.shaderSource; P.shaderSource=function(sh,src){ if(typeof src==='string'&&src.indexOf('#define pow(')<0){ const m=src.match(/^\s*#version[^\n]*\n/); src=m?m[0]+DEF+src.slice(m[0].length):DEF+src; } return ss.call(this,sh,src); };
+    P.__safePow=true; } }
 let renderer; try{ renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'}); }catch(e){ noGL(); }
 const DPRMAX=Math.min(devicePixelRatio||1, Q<1?1.5:1.6);
 let DPR=window.__TEST?1:DPRMAX;
@@ -4860,6 +4867,7 @@ function goTalk(p){ if(FIN.on||CUT.on||TALK.p||GLN.t>=0) return; const P=player,
   walkTo(p); TALK.goal=p; P.stuck=0; P.tries=0; began(); A.tick(); }
 labels.forEach((lb,i)=>lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }));
 $('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,button')) return; nextTalk(); });
+$('#crNext',el).addEventListener('click',e=>{ e.stopPropagation(); nextTalk(); });   // the arrow: the next line (it is a button, so the box's own click leaves it alone)
 $('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(true); });
 $('#crFly',el).addEventListener('click',e=>{ e.stopPropagation(); if(TALK.ask) startFinale(); });
 $('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });

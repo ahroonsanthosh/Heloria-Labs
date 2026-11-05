@@ -506,6 +506,13 @@ const A=(()=>{
 /* ================= RENDERER, QUALITY, SHARED SHADER CODE ================= */
 const canvas=$('#gl');
 let renderer=null;
+/* every shader compiled on this page takes pow() of a number never below zero. pow() of a negative number is not a number on
+   Windows (where the browser draws through Direct3D) and on many phones' graphics chips, and there the checks that would
+   catch it are compiled away: one such pixel spreads through the glow into black squares across the screen */
+{ const DEF='#define pow(a,b) pow(max(a,0.),b)\n';
+  for(const C of [window.WebGLRenderingContext,window.WebGL2RenderingContext]){ const P=C&&C.prototype; if(!P||P.__safePow) continue;
+    const ss=P.shaderSource; P.shaderSource=function(sh,src){ if(typeof src==='string'&&src.indexOf('#define pow(')<0){ const m=src.match(/^\s*#version[^\n]*\n/); src=m?m[0]+DEF+src.slice(m[0].length):DEF+src; } return ss.call(this,sh,src); };
+    P.__safePow=true; } }
 const GL_OK=(()=>{
   if(!T) return false;
   try{ renderer=new T.WebGLRenderer({canvas,antialias:false,alpha:false,stencil:false,depth:true,powerPreference:'high-performance'}); }catch(e){ return false; }
