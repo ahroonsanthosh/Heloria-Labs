@@ -894,6 +894,7 @@ function goTalk(p){ if(FIN.on||CUT.on||TALK.p||GLN.t>=0) return; const P=player,
   walkTo(p); TALK.goal=p; P.stuck=0; P.tries=0; began(); A.tick(); }
 labels.forEach((lb,i)=>lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }));
 $('#crTkB',el).addEventListener('click',e=>{ if(e.target.closest('a,button')) return; nextTalk(); });
+$('#crNext',el).addEventListener('click',e=>{ e.stopPropagation(); nextTalk(); });   // the arrow: the next line (it is a button, so the box's own click leaves it alone)
 $('#crClose',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(true); });
 $('#crFly',el).addEventListener('click',e=>{ e.stopPropagation(); if(TALK.ask) startFinale(); });
 $('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
