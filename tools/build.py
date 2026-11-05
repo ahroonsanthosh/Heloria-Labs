@@ -78,6 +78,7 @@ def main():
     os.makedirs(out)
     untamed.write_site(out)   # first: it also lays down the shared files in assets/
     tamed.write_site(out)
+    shutil.copy(os.path.join(ROOT, 'untamed', 'src', 'assets', 'favicon.ico'), os.path.join(out, 'favicon.ico'))   # where browsers and search engines look first
     open(os.path.join(out, '.nojekyll'), 'w').write('')
     open(os.path.join(out, '_headers'), 'w').write(HEADERS)
     open(os.path.join(out, '_redirects'), 'w').write(REDIRECTS)

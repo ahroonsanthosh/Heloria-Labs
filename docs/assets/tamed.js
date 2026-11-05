@@ -260,7 +260,7 @@ const A=(()=>{
     for(const L of LOOPS){ L.va+=(L.a-L.va)*(1-Math.exp(-dt/L.tc)); L.vb+=(L.b-L.vb)*(1-Math.exp(-dt/L.tc2));
       if(!L.els||L.stage) continue;
       /* the whole round of the score is ready: it takes over at the next seam, or at once if the score is not playing */
-      const S2=L.name==='music'&&LP.musicAll.els; if(S2&&!L.next){ const A2=LP.musicAll; L.next={els:A2.els,P:A2.P,H:A2.H,rms:A2.rms}; A2.els=null; A2.primed=true; }
+      const S2=L.name==='music'&&LP.musicAll.els; if(S2&&!L.next){ const A2=LP.musicAll; L.next={els:A2.els,P:A2.P,H:A2.H,rms:A2.rms}; A2.els=null; A2.primed=true; A2.moved=true; }
       if(L.next&&!L.run){ for(const e of L.els) if(!e.paused) e.pause(); L.els=L.next.els; L.P=L.next.P; L.H=L.next.H; L.rms=L.next.rms; L.next=null; L.cur=0; }
       for(const e of L.els) if(!e.paused&&e.currentTime>=(e._end||endOf(L))){ e.pause(); e.currentTime=0; }   // played out: never play() an ended one, it starts again from 0
       if(L.tails) L.tails=L.tails.filter(e=>{ if(e.paused||e.ended||e.currentTime>=e._end){ if(!e.paused) e.pause(); return false; } return true; });
@@ -418,7 +418,7 @@ const A=(()=>{
     levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+LP.kr.va.toFixed(3),ae:+LP.ae.va.toFixed(3),ph:+LP.phTone.va.toFixed(3),og:+LP.og.va.toFixed(3),state:ctx.state}:null; },
     /* test hooks: each recording (made yet, playing, its volume, the volume it is heading for, its level at full volume, its
        size, how long it took); and a jump to just before a recording's seam, which hands back its two players */
-    loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
+    loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els||!!L.moved,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
       rms:+(L.rms||0).toFixed(5),bytes:L.bytes||0,ms:L.ms||0,P:L.P,H:L.H,t:e?+e.currentTime.toFixed(3):0,rate:e?e.playbackRate:1}; }); },
     get rendered(){ return REN.ms; }, get ios(){ return MX.ios; },
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
