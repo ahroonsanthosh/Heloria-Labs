@@ -30,7 +30,7 @@ The site has three ways in. Point at one on the front door and you see where it 
 </table>
 
 Every way in leads to the three of us. On the walk we stand in frames on plinths in the water; on Earth each
-conversation finishes with a photo and a link.
+conversation finishes with a photo and a link, and a board outside the café books a chat with us.
 
 <table>
 <tr>
@@ -44,10 +44,10 @@ conversation finishes with a photo and a link.
 - The black hole is ray-traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler
   beaming and gravitational redshift. Every colour in it comes from one blackbody scale.
 - Every sound is made in the browser with the Web Audio API, and not one audio file ships with the site. The long
-  layers (the music, the water and the wind, the engine, each room's and station's air) are rendered once at load with
-  an OfflineAudioContext into recordings that play through audio elements, so they hold up while the graphics card is
+  layers (the music, the water, the engine, each room's and station's air) are rendered once at load with an
+  OfflineAudioContext into recordings that play through audio elements, so they hold up while the graphics card is
   busy. A browser pauses for a moment each time it loops a file, so two players take turns on every recording and
-  overlap across the seam.
+  overlap across the seam. Leave the page and the sound stops; come back and it picks up again.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
@@ -90,7 +90,8 @@ node tools/site-smoke.cjs docs
 ```
 
 Add `--mobile` to any of them for a phone. `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`)
-listen to every stage and report how loud it is.
+listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
+page. Each game has its own full check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 </details>
 
 <br>
