@@ -32,10 +32,10 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   await page.waitForFunction(() => window.__tamed.A.on && window.__tamed.A.ctx.state === 'running', null, { timeout: 30000 });
   if (!mobile) {
     await T(t => t.hover(null));
-    await stage('the gate at rest: the score far off and the lake, half muffled', ['music', 'waterOpen', 'waterClosed']);
-    await T(t => t.hover('walk')); await stage('the gate showing Walk: the warm light and the lake', ['warm', 'waterOpen']);
-    await T(t => t.hover('land')); await stage('the gate showing Land: open air', ['wind']);
-    await T(t => t.hover('fly')); await stage('the gate showing Fly: the dark', ['dark']);
+    await stage('the gate at rest: the score from the first moment, and the lake', ['music', 'waterOpen', 'waterClosed']);
+    await T(t => t.hover('walk')); await stage('the gate showing Walk: the warm light and the lake, the score under them', ['warm', 'waterOpen', 'music']);
+    await T(t => t.hover('land')); await stage('the gate showing Land: open air, the score under it', ['wind', 'music']);
+    await T(t => t.hover('fly')); await stage('the gate showing Fly: the dark, the score under it', ['dark', 'music']);
     await T(t => t.hover(null));
   }
   await T(t => t.enter()); await wait(3500); await settle(3);

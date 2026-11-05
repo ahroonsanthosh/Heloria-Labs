@@ -163,7 +163,7 @@ const A=(()=>{
   /* the mixer: every 40 ms each recording's volume is eased towards where you are (as the live gains were), a recording
      starts when it is wanted and stops once it has faded out, and the two players of each hand over at the seam. An iPhone
      will not let a page set a recording's volume: there each plays at the level it was made at, or not at all */
-  const MX={v:0,tc:1.2,t:0,ios:false};
+  const MX={v:0,tc:.5,t:0,ios:false};
   try{ const e=new Audio(); e.volume=.5; MX.ios=Math.abs(e.volume-.5)>.01; }catch(e){}
   const endOf=L=>L.P+L.H-.03;
   function play(L,e){ try{ const p=e.play(); if(p&&p.catch) p.catch(()=>{ L.blocked=true; }); }catch(err){ L.blocked=true; } }
@@ -224,7 +224,9 @@ const A=(()=>{
   /* the gate: warm light on one side, the dark on the other */
   loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.7,k.wet));
     [62,69,74,78].forEach((m,i)=>k.drone('sine',mtof(m)*Math.pow(2,(i-1.5)*3/1200),k.g(.25/(1+i*.4),bus))); },12,{name:'warm',full:.09,tc:.35,room:true,H:3});
-  loop((oc,out,sr,k)=>{ k.noise('brown',.77,k.bq('lowpass',110,null,out)); const sg=k.g(.6,out); k.drone('sine',34,sg); k.lfo(6.5,.35,sg.gain); },10,{name:'dark',full:.3,tc:.25});
+  /* the dark under Fly at the gate: a deep, soft open fifth swelling slowly, and no noise (a low rumble of noise here was the
+     loudest sound on the walk, and sounded like a rocket going over) */
+  loop((oc,out,sr,k)=>{ const dg=k.g(.12,out); k.drone('sine',mtof(38),dg); k.lfo(.2,.04,dg.gain); k.drone('sine',mtof(45),k.g(.07,out)); k.drone('sine',mtof(50),k.g(.03,out)); },10,{name:'dark',full:.3,tc:.25});
   /* air in the grass */
   loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',900,.5,out); k.noise('white',.94,f); k.lfo(.06,500,f.frequency); },16,{name:'wind',full:.06,tc:.8});
   /* the score: for each of five voices two detuned saws and a sine an octave down, through a slowly breathing low-pass,
@@ -246,11 +248,10 @@ const A=(()=>{
      again (the last chord ringing out under the first, as at every seam) */
   loop(score(2),CT[2],{name:'music',full:.9,tc:.9,room:true,H:3,tape:true});
   loop(score(CT.length),84,{name:'musicAll',full:.9,tc:.9,room:true,H:3,tape:true,stage:true});
-  /* Aetos: high up, the hum of rotors far above, a low soft wind and a held open fifth under it. (The wind used to be a
-     wide band of bright noise, which read as static) */
-  loop((oc,out,sr,k)=>{ const {g,bq,lfo}=k; const hm=g(.05,out); k.noise('white',.71,bq('bandpass',190,2.4,hm)); lfo(.21,.025,hm.gain);
-    const wg=g(.34,out); k.noise('brown',.6,bq('lowpass',300,.5,wg)); lfo(.08,.12,wg.gain);
-    const dg=g(.016,out); k.drone('sine',mtof(50),dg); lfo(.05,.005,dg.gain); k.drone('sine',mtof(57),g(.01,out));
+  /* Aetos: high and still. A held open fifth that breathes slowly, an octave over it, and a thin high tone far above; no noise
+     at all (a band of noise up here read as static, and a low one as a rocket going over) */
+  loop((oc,out,sr,k)=>{ const {g,lfo}=k; const dg=g(.05,out); k.drone('sine',mtof(50),dg); lfo(.05,.016,dg.gain);
+    const fg=g(.034,out); k.drone('sine',mtof(57),fg); lfo(.07,.01,fg.gain); k.drone('sine',mtof(62),g(.014,out));
     k.drone('sine',mtof(86),g(.006,out)); },25,{name:'ae',full:.75});
   /* Pharos: a deep slow tone that swells as the beam comes round; while the drone is unsure where it is, a little air */
   loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.5,k.wet));
