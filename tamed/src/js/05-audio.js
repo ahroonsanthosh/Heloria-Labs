@@ -1,7 +1,9 @@
 /* ================= SOUND =================
    Everything is synthesized. A slow warm score in D (pads, a soft bass, a distant glass piano),
    water that is close by the lake and muffled inside the rooms, one droplet when the cursor breaks
-   the surface, a tonal colour for each room, and quiet sounds for the hand. Never harsh, never loud. */
+   the surface, a tonal colour for each room, and quiet sounds for the hand. Never harsh, never loud.
+   What sounds all the time is worked out once, as the page loads, and played back as recordings (see LOOPS below); what
+   happens in a moment (each note of the glass piano, a drop, a bird, the hand) is made live as it happens. */
 const A=(()=>{
   let ctx=null, on=false; const n={};
   const mtof=m=>440*Math.pow(2,(m-69)/12);
@@ -16,6 +18,7 @@ const A=(()=>{
     for(let c=0;c<2;c++){ const d=b.getChannelData(c); let lp=0; for(let i=0;i<L;i++){ const t=i/L; const k=.35+.6*(1-t); lp=lp+(Math.random()*2-1-lp)*k; d[i]=lp*Math.pow(1-t,decay)*(i<ctx.sampleRate*.012?.3:1); } }
     return b; }
   const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
+  const LEVEL=.5;   /* the whole walk's level: a little under full, so phones and laptops have room */
   /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
      sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
      else. So: lighter work on a phone (LITE), the playback audio session on iOS, and a watchdog once a second that wakes
@@ -29,6 +32,7 @@ const A=(()=>{
   setInterval(watch,1000);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); });
   ['touchend','pointerup','keydown'].forEach(ev=>addEventListener(ev,()=>{ if(ctx&&on&&ctx.state!=='running') ctx.resume().catch(()=>{}); },{capture:true,passive:true}));
+  /* the live part: only the sounds of a moment pass through it now, so it has little to do between them */
   function init(){
     if(ctx) return;
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
@@ -46,59 +50,217 @@ const A=(()=>{
     n.meter=ctx.createAnalyser(); n.meter.fftSize=4096; lim.connect(n.meter);
     n.rev=ctx.createConvolver(); n.rev.buffer=ir(Math.min(.25,12000/ctx.sampleRate),1.4);   /* a short room, worked out on the sound's own thread: a long one is worked out on an ordinary thread that a busy page starves, and the sound crackles and cuts out while the page is in front */ n.revG=ctx.createGain(); n.revG.gain.value=.62; n.rev.connect(n.revG); n.revG.connect(n.comp);
     n.revIn=ctx.createGain(); n.revIn.connect(n.rev);
-    /* nine seconds of each noise, read by every layer at its own speed (src): no two layers line up, so nothing phases */
+    /* nine seconds of noise, for the sounds of a moment */
     const nb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1; n.noise=nb;
-    const bb=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), bd=bb.getChannelData(0); let br=0; for(let i=0;i<bd.length;i++){ br=(br+.02*(Math.random()*2-1))/1.02; bd[i]=br*3.5; } n.brown=bb;
-    /* music bus: everything musical passes one low-pass that closes when you are inside */
+    /* music bus: the glass piano passes one low-pass that closes when you are inside. (The score under it needs none: all of
+       it lies below the lowest that low-pass ever goes) */
     n.mus=ctx.createGain(); n.mus.gain.value=0; n.musLP=ctx.createBiquadFilter(); n.musLP.type='lowpass'; n.musLP.frequency.value=9000; n.musLP.Q.value=.5;
     n.mus.connect(n.musLP); n.musLP.connect(n.comp); const ms=ctx.createGain(); ms.gain.value=.55; n.musLP.connect(ms); ms.connect(n.revIn);
-    /* pad: two detuned saws and a sine an octave down for each of five voices, through a slowly breathing filter. The low
-       end is kept light: the root sits under the lowest voice already, and a phone or laptop speaker only strains at more */
-    n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=700; n.padF.Q.value=.6;
-    n.padG=ctx.createGain(); n.padG.gain.value=.085; n.padF.connect(n.padG); n.padG.connect(n.mus);
-    const lfo=ctx.createOscillator(); lfo.frequency.value=.045; const lg=ctx.createGain(); lg.gain.value=260; lfo.connect(lg); lg.connect(n.padF.frequency); lfo.start();
-    n.voices=CH[0].map((m,i)=>{ const f=mtof(m); const vg=ctx.createGain(); vg.gain.value=i===0?.5:.32/(1+i*.15); vg.connect(n.padF);
-      const os=[-7,6].map(dt=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.detune.value=dt; const g=ctx.createGain(); g.gain.value=.16; o.connect(g); g.connect(vg); o.start(); return o; });
-      const s=ctx.createOscillator(); s.type='sine'; s.frequency.value=f/2; const sg=ctx.createGain(); sg.gain.value=i<2?.22:.14; s.connect(sg); sg.connect(vg); s.start(); os.push(s);
-      const am=ctx.createOscillator(); am.frequency.value=.07+i*.031; const ag=ctx.createGain(); ag.gain.value=.12; am.connect(ag); ag.connect(vg.gain); am.start();
-      return {os,ratio:[1,1,.5]}; });
-    n.bass=ctx.createOscillator(); n.bass.type='sine'; n.bass.frequency.value=mtof(ROOT[0]); n.bassG=ctx.createGain(); n.bassG.gain.value=.022; n.bass.connect(n.bassG); n.bassG.connect(n.mus); n.bass.start();
     n.ci=0; n.nextChord=ctx.currentTime+9; n.nextNote=ctx.currentTime+2.5;
-    /* water: lapping close by, a trickle above it, small plips */
+    /* water bus: the small plips on the lake, close by outside and muffled inside like the water under them */
     n.water=ctx.createGain(); n.water.gain.value=0; n.waterLP=ctx.createBiquadFilter(); n.waterLP.type='lowpass'; n.waterLP.frequency.value=2400; n.waterLP.Q.value=.4;
     n.water.connect(n.waterLP); n.waterLP.connect(n.comp); const ws=ctx.createGain(); ws.gain.value=.25; n.waterLP.connect(ws); ws.connect(n.revIn);
-    const lap=src(n.brown), lapF=ctx.createBiquadFilter(); lapF.type='lowpass'; lapF.frequency.value=420; const lapH=ctx.createBiquadFilter(); lapH.type='highpass'; lapH.frequency.value=120; lapH.Q.value=.6;   // the lapping, without the rumble under it no small speaker can play
-    const lapG=ctx.createGain(); lapG.gain.value=.62; lap.connect(lapH); lapH.connect(lapF); lapF.connect(lapG); lapG.connect(n.water);
-    [[.11,.22],[.27,.14],[.53,.07]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.frequency.value=f; const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(lapG.gain); o.start(); });
-    const tr=src(n.noise), trF=ctx.createBiquadFilter(); trF.type='bandpass'; trF.frequency.value=1300; trF.Q.value=.9; const trG=ctx.createGain(); trG.gain.value=.035; tr.connect(trF); trF.connect(trG); trG.connect(n.water);
-    const to=ctx.createOscillator(); to.frequency.value=.37; const tg=ctx.createGain(); tg.gain.value=.025; to.connect(tg); tg.connect(trG.gain); to.start();
-    n.nextPlip=ctx.currentTime+1;
-    /* air in the grass */
-    n.wind=ctx.createGain(); n.wind.gain.value=0; const wi=src(n.noise), wf=ctx.createBiquadFilter(); wf.type='bandpass'; wf.frequency.value=900; wf.Q.value=.5; wi.connect(wf); wf.connect(n.wind); n.wind.connect(n.comp);
-    const wl=ctx.createOscillator(); wl.frequency.value=.06; const wlg=ctx.createGain(); wlg.gain.value=500; wl.connect(wlg); wlg.connect(wf.frequency); wl.start(); n.windF=wf;
-    n.nextBird=ctx.currentTime+6;
-    /* the rooms */
-    roomKrios(); roomAetos(); roomPharos(); roomOgive();
-    /* the gate: warm light on one side, the dark on the other */
-    n.warm=ctx.createGain(); n.warm.gain.value=0; n.warm.connect(n.comp); const wr=ctx.createGain(); wr.gain.value=.7; n.warm.connect(wr); wr.connect(n.revIn);
-    [62,69,74,78].forEach((m,i)=>{ const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=mtof(m); o.detune.value=(i-1.5)*3; const g=ctx.createGain(); g.gain.value=.25/(1+i*.4); o.connect(g); g.connect(n.warm); o.start(); });
-    n.dark=ctx.createGain(); n.dark.gain.value=0; n.dark.connect(n.comp);
-    const rb=src(n.brown), rf=ctx.createBiquadFilter(); rf.type='lowpass'; rf.frequency.value=110; rb.connect(rf); rf.connect(n.dark);
-    const sub=ctx.createOscillator(); sub.type='sine'; sub.frequency.value=34; const sg2=ctx.createGain(); sg2.gain.value=.6; sub.connect(sg2); sg2.connect(n.dark); sub.start();
-    const trm=ctx.createOscillator(); trm.frequency.value=6.5; const trmG=ctx.createGain(); trmG.gain.value=.35; trm.connect(trmG); trmG.connect(sg2.gain); trm.start();
-    n.nextPing=0; n.nextGateBird=0;
-    /* a rocket going up from the far shore: a low, uneven rumble that comes in late and far; it opens up and comes close
-       when you catch it */
-    n.rk=ctx.createGain(); n.rk.gain.value=0; n.rkF=ctx.createBiquadFilter(); n.rkF.type='lowpass'; n.rkF.frequency.value=150; n.rkF.Q.value=.7;
-    const rks=src(n.brown), rkA=ctx.createGain(); rkA.gain.value=.75; rks.connect(n.rkF); n.rkF.connect(rkA); rkA.connect(n.rk); n.rk.connect(n.comp);
-    const rkr=ctx.createGain(); rkr.gain.value=.8; n.rk.connect(rkr); rkr.connect(n.revIn);
-    const crk=ctx.createOscillator(); crk.type='sawtooth'; crk.frequency.value=7.3; const crkG=ctx.createGain(); crkG.gain.value=.28; crk.connect(crkG); crkG.connect(rkA.gain); crk.start();
+    n.nextPlip=ctx.currentTime+1; n.nextBird=ctx.currentTime+6; n.nextPing=0; n.nextGateBird=0;
   }
-  const RATES=[.83,1.17,.94,1.29,.71,1.06,.88,1.23,.77,1.12,.97,1.34]; let srcK=0;
-  const LEVEL=.5;   /* the whole walk's level: a little under full, so phones and laptops have room */
-  function src(buf){ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=RATES[srcK++%RATES.length]; s.start(0,Math.random()*8); return s; }
   const last=new WeakMap();
   const set=(p,v,tc=.15)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
+
+  /* ---------- what sounds all the time, as recordings ----------
+     Sound made live has only a few hundredths of a second in hand, and a page busy drawing a 3D world in front of you
+     leaves holes in it: on real laptops and phones the walk jittered, turned to static and cut out while its tab was in
+     front, and played clean in a background tab. A browser plays a recording through its media path, which keeps a long
+     reserve ahead of the speaker. So each layer that sounds all the time (the score's pads and bass, the water, the air in
+     the grass, the four rooms, the gate's warm light and its dark, the rocket's rumble) is worked out once, out of sight, a
+     moment after the page loads, from the same nodes as before, and played as an audio file; where you are sets each
+     file's volume.
+     A browser does not loop a file without a break (Chromium leaves a hole of a hundredth of a second or more at the wrap),
+     so each recording is a clip of P seconds and H more, faded in over its first H and out over its last H, and two
+     players take turns: as one reaches P the other starts from the top, and for H seconds they overlap. What overlaps is
+     never a copy of itself, or the two could cancel: the noise is fresh noise, the score changes chord there, and a held
+     tone drifts up by half a hertz over the clip, so that at the overlap it only beats softly against itself.
+     A filter cannot move on a recording. The water is worked out twice, open (as outside) and through the low-pass of the
+     inside, and the two are crossed by volume; the rocket the same, far and close. The score needs no second version (see
+     the music bus above), and the Pharos air is worked out at its brightest and follows the beam by volume. */
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const LOOPS=[], LP={};
+  /* the walk's own room, as long as it was before the live one had to be cut to a quarter of a second: a long tail costs
+     nothing worked out ahead of time */
+  const ROOM=5.2;
+  function loop(build,seconds,o){ const L=Object.assign({build,P:seconds,H:2.5,sr:22050,tc:.5,tc2:.2,room:false,pre:0,full:1,a:0,b:1,va:0,vb:1,els:null,cur:0,run:false,sched:0,rate:1},o);
+    if(!L.pre) L.pre=L.room?6:.6; LOOPS.push(L); LP[L.name]=L; return L; }
+  /* the room, made as the live one was, at the clip's own sample rate */
+  const IRS={};
+  function room(oc,sec,decay){ const sr=oc.sampleRate, q=48000/sr, key=sec+'@'+sr;
+    const d=IRS[key]||(IRS[key]=[0,1].map(()=>{ const N=Math.floor(sr*sec), a=new Float32Array(N); let lp=0;
+      for(let i=0;i<N;i++){ const t=i/N; lp+=(Math.random()*2-1-lp)*(1-Math.pow(.05+.6*t,q)); a[i]=lp*Math.pow(1-t,decay)*(i<sr*.012?.3:1); } return a; }));
+    const b=oc.createBuffer(2,d[0].length,sr); b.getChannelData(0).set(d[0]); b.getChannelData(1).set(d[1]); return b; }
+  /* what a layer is built from, inside its own offline context */
+  function kit(oc,L,len){ const sr=oc.sampleRate, t0=L.pre, P=L.P;
+    const g=(v,to)=>{ const x=oc.createGain(); x.gain.value=v; if(to) x.connect(to); return x; };
+    const bq=(type,f,q,to)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=f; if(q!=null) x.Q.value=q; if(to) x.connect(to); return x; };
+    const osc=(type,f,to)=>{ const x=oc.createOscillator(); x.type=type; x.frequency.value=f; if(to) x.connect(to); x.start(0); return x; };
+    return {t0,P,end:len/sr,g,bq,osc,
+      /* a slow swing, made to go round a whole number of times in the clip, so the clip is as loud on average as the layer */
+      lfo:(f,depth,param)=>{ const d=g(depth); osc('sine',Math.max(1,Math.round(f*P))/P,d); d.connect(param); },
+      /* a held tone, drifting up by half a hertz between the start of the clip and its seam */
+      drone:(type,f,to)=>{ const x=osc(type,f-.25,to); x.frequency.setValueAtTime(f-.25,t0); x.frequency.linearRampToValueAtTime(f+.25,t0+P); return x; },
+      /* fresh noise for the whole clip, as the walk made it and read it (at the speed rate): brown, a leaky sum of white; or
+         white, as dense in each band as it was at 48 kHz (at a lower sample rate the same noise crowds into fewer hertz) */
+      noise:(kind,rate,to)=>{ const b=oc.createBuffer(1,len,sr), d=b.getChannelData(0);
+        if(kind==='brown'){ const c=Math.exp(-2*Math.PI*151*rate/sr); let y=0, sq=0; for(let i=0;i<len;i++){ y=c*y+(1-c)*(Math.random()*2-1); d[i]=y; sq+=y*y; } const s=.2/Math.sqrt(sq/len||1); for(let i=0;i<len;i++) d[i]*=s; }
+        else { const w=Math.sqrt(sr/(48000*rate)); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*w; }
+        const s=oc.createBufferSource(); s.buffer=b; s.connect(to); s.start(0); }};
+  }
+  function render(L,next){
+    const sr=L.sr, len=Math.ceil((L.pre+L.P+L.H)*sr)+256; let oc;
+    try{ oc=new OAC(2,len,sr); }catch(e){ return next(); }
+    /* two channels: the first is the recording; the second only measures by, the layer as the live chain heard it (at its
+       full level, or at the level it mostly plays at, with the live quarter-second room, into the same compressor), and the
+       recording is set as loud as that. Under 40 Hz goes from both */
+    const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=40; hp.Q.value=.6; hp.connect(oc.destination);
+    const mg=oc.createChannelMerger(2); mg.connect(hp);
+    const out=oc.createGain(), ref=oc.createGain(), cp=oc.createDynamicsCompressor(), k=kit(oc,L,len);
+    cp.threshold.value=-20; cp.knee.value=14; cp.ratio.value=3; cp.attack.value=.02; cp.release.value=.5;
+    ref.gain.value=L.at||L.full; ref.connect(cp); cp.connect(mg,0,1); out.connect(ref); out.connect(mg,0,0);
+    if(L.room){ k.wet=oc.createGain();
+      /* the long room into the recording, the live one into the measure. (A room is scaled by its length in samples, so at
+         this sample rate it would come out louder than at a speaker's 48 kHz; the square root of the ratio puts that right) */
+      [[ROOM,2.6,mg],[.25,1.4,ref]].forEach(([s,dk,to])=>{ const cv=oc.createConvolver(); cv.buffer=room(oc,s,dk); const r=oc.createGain(); r.gain.value=.62*Math.sqrt(sr/48000);
+        k.wet.connect(cv); cv.connect(r); if(to===mg) r.connect(mg,0,0); else r.connect(to); }); }
+    try{ L.build(oc,out,sr,k); }catch(e){ return next(); }
+    const done=b=>finish(L,b,next);
+    try{ const p=oc.startRendering(); if(p&&p.then) p.then(done,()=>next()); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ next(); }
+  }
+  /* the work on the page's own thread is done a slice at a time, so no frame waits on it */
+  const slices=(N,fn,done)=>{ let i=0; const go=()=>{ const e=Math.min(N,i+65536); fn(i,e); i=e; if(i<N) setTimeout(go,0); else done(); }; go(); };
+  const LE=new Uint8Array(new Uint16Array([1]).buffer)[0]===1;
+  function finish(L,buf,next){
+    const sr=L.sr, NP=Math.round(L.P*sr), NH=Math.round(L.H*sr), N=NP+NH, i0=Math.round(L.pre*sr), a=buf.getChannelData(0), b=buf.getChannelData(1);
+    let s0=0, s1=0, sq=0;
+    slices(N,(p,q)=>{ for(let i=p;i<q;i++){ const x=a[i0+i], y=b[i0+i]; s0+=x*x; s1+=y*y; } },()=>{
+      const k=(s0>0?Math.sqrt(s1/s0):0)*LEVEL*L.full/(L.at||L.full), ab=new ArrayBuffer(44+N*2), v=new DataView(ab), pcm=LE?new Int16Array(ab,44,N):null;
+      const str=(o,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(o+i,x.charCodeAt(i)); };
+      str(0,'RIFF'); v.setUint32(4,36+N*2,true); str(8,'WAVE'); str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+      v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); str(36,'data'); v.setUint32(40,N*2,true);
+      /* faded in over the first H and out over the last, equal power: what overlaps there is never the same sound twice */
+      slices(N,(p,q)=>{ for(let i=p;i<q;i++){ let x=a[i0+i]*k; if(i<NH) x*=Math.sin(i/NH*Math.PI/2); else if(i>=NP) x*=Math.cos((i-NP)/NH*Math.PI/2); else sq+=x*x;
+          const m=x<0?-x:x; if(m>.7) x=(x<0?-1:1)*(.7+.28*Math.tanh((m-.7)/.28)); const s=Math.round(x*32767); if(pcm) pcm[i]=s; else v.setInt16(44+i*2,s,true); } },()=>{
+        L.rms=Math.sqrt(sq/Math.max(1,NP-NH)); L.bytes=ab.byteLength;
+        const url=URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
+        L.els=[0,1].map(()=>{ const e=new Audio(); e.preload='auto'; e.src=url; e.loop=false; e.volume=0;
+          if(L.tape){ e.preservesPitch=e.mozPreservesPitch=e.webkitPreservesPitch=false; L.canRate=('preservesPitch' in e)||('webkitPreservesPitch' in e)||('mozPreservesPitch' in e); }
+          e.addEventListener('ended',()=>{ e.currentTime=0; }); return e; });
+        next(); }); });
+  }
+  /* worked out one after another, a moment after the page loads: first what the gate needs, then the walk in order */
+  let qi=0; const REN={t0:0,ms:0};
+  function renderNext(){ if(qi>=LOOPS.length){ for(const k in IRS) delete IRS[k]; REN.ms=Math.round(performance.now()-REN.t0); return; }
+    const L=LOOPS[qi++], t=performance.now(); render(L,()=>{ L.ms=Math.round(performance.now()-t); setTimeout(renderNext,30); }); }
+  if(OAC) setTimeout(()=>{ REN.t0=performance.now(); renderNext(); },900);
+
+  /* the mixer: every 40 ms each recording's volume is eased towards where you are (as the live gains were), a recording
+     starts when it is wanted and stops once it has faded out, and the two players of each hand over at the seam. An iPhone
+     will not let a page set a recording's volume: there each plays at the level it was made at, or not at all */
+  const MX={v:0,tc:1.2,t:0,ios:false};
+  try{ const e=new Audio(); e.volume=.5; MX.ios=Math.abs(e.volume-.5)>.01; }catch(e){}
+  const endOf=L=>L.P+L.H-.03;
+  function play(L,e){ try{ const p=e.play(); if(p&&p.catch) p.catch(()=>{ L.blocked=true; }); }catch(err){ L.blocked=true; } }
+  /* on again: whatever was part way through goes on; from silence, a recording starts at H, at full strength */
+  function go(L){ if(L.priming) return; L.run=true; let any=false;
+    for(const e of L.els) if(e.currentTime>0&&e.currentTime<endOf(L)&&!e.ended){ play(L,e); any=true; }
+    if(!any){ const e=L.els[L.cur]; e.currentTime=L.H; play(L,e); } }
+  function halt(L){ L.run=false; clearTimeout(L.sched); L.sched=0; for(const e of L.els) if(!e.paused) e.pause(); }
+  /* the other player takes over at the seam: from the top, or as far in as the first is already past it, so that a late
+     timer never puts the two out of step */
+  function hand(L){ let c=L.els[L.cur]; const o0=L.els[1-L.cur];
+    if(c.paused&&!o0.paused){ L.cur=1-L.cur; c=o0; }
+    if(c.paused||L.sched) return; const r=c.playbackRate||1, left=(L.P-c.currentTime)/r;
+    if(left>.3) return;
+    if(left>.03){ L.sched=setTimeout(()=>{ L.sched=0; if(L.run) hand(L); },(left-.02)*1000); return; }
+    const o=L.els[1-L.cur]; if(!o.paused) return;
+    const at=Math.max(0,-left*r); if(Math.abs(o.currentTime-at)>.005) o.currentTime=at;
+    o.volume=c.volume; o.playbackRate=c.playbackRate; play(L,o); L.cur=1-L.cur; }
+  function mix(){ const now=performance.now(), dt=Math.min(.25,(now-(MX.t||now))/1000); MX.t=now;
+    const up=on&&!document.hidden; MX.v+=((up?1:0)-MX.v)*(1-Math.exp(-dt/MX.tc));
+    for(const L of LOOPS){ L.va+=(L.a-L.va)*(1-Math.exp(-dt/L.tc)); L.vb+=(L.b-L.vb)*(1-Math.exp(-dt/L.tc2));
+      if(!L.els) continue;
+      for(const e of L.els) if(!e.paused&&e.currentTime>=endOf(L)){ e.pause(); e.currentTime=0; }   // played out: never play() an ended one, it starts again from 0
+      const want=L.a*L.b/L.full, v=Math.min(1,L.va*L.vb/L.full)*MX.v;
+      if(MX.ios){ if(up&&(want>=.4||L.run&&want>=.3)){ if(!L.run) go(L); } else if(L.run) halt(L); }
+      else if(up&&want>.003||v>.003){ if(!L.run) go(L); for(const e of L.els) if(Math.abs(e.volume-v)>.0005) e.volume=v; }   // (under -50 dB is silence: it stops)
+      else if(L.run) halt(L);
+      if(L.run&&!L.blocked&&L.els[0].paused&&L.els[1].paused){ L.run=false; go(L); }   // a handover that never came: start it again
+      if(L.run) hand(L);
+      /* the score as tape, slowing to half speed and an octave down under the rocket you caught, and back */
+      if(L.tape){ const r=n.tape&&now>n.tapeAt?.5:1; L.rate+=(r-L.rate)*(1-Math.exp(-dt/(r<1?.75:.8)));
+        if(L.canRate) for(const e of L.els) if(Math.abs(e.playbackRate-L.rate)>.002) e.playbackRate=L.rate; }
+    } }
+  setInterval(mix,40);
+  /* inside a click, a tap or a key a browser lets a recording start: each one is started there for a moment, silently, and
+     stopped, so that a phone which only lets a page start sound inside a gesture lets it start later by itself */
+  function kick(){ for(const L of LOOPS){ if(!L.els) continue;
+      if(L.run&&L.blocked){ L.blocked=false; halt(L); go(L); continue; }
+      if(L.run||L.primed) continue; L.primed=true; L.priming=L.els.length;
+      for(const e of L.els){ e.muted=true; const fin=()=>{ if(!e.paused) e.pause(); e.currentTime=0; e.muted=false; L.priming--; };
+        try{ const p=e.play(); if(p&&p.then) p.then(fin,()=>{ e.muted=false; L.priming--; L.primed=false; }); else fin(); }catch(err){ e.muted=false; L.priming--; L.primed=false; } } } }
+  ['pointerdown','pointerup','touchend','click','keydown'].forEach(ev=>addEventListener(ev,kick,{capture:true,passive:true}));
+  const lv=(k,a,b=1)=>{ const L=LP[k]; L.a=a; L.b=b; };
+
+  /* the water: lapping close by and a trickle above it, through the lake's low-pass, closed (as inside) and open (as outside) */
+  const water=f=>(oc,out,sr,k)=>{ const lp=k.bq('lowpass',f,.4,out); lp.connect(k.g(.25,k.wet));
+    const lapG=k.g(.62,lp); k.noise('brown',.83,k.bq('highpass',120,.6,k.bq('lowpass',420,null,lapG)));   // the lapping, without the rumble under it no small speaker can play
+    [[.11,.22],[.27,.14],[.53,.07]].forEach(([f,d])=>k.lfo(f,d,lapG.gain));
+    const trG=k.g(.035,lp); k.noise('white',1.17,k.bq('bandpass',1300,.9,trG)); k.lfo(.37,.025,trG.gain); };
+  loop(water(320),19,{name:'waterClosed',full:.62*.36,tc:.7,tc2:.5,room:true});
+  loop(water(2400),19,{name:'waterOpen',full:.62,tc:.7,tc2:.5,room:true});
+  /* the gate: warm light on one side, the dark on the other */
+  loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.7,k.wet));
+    [62,69,74,78].forEach((m,i)=>k.drone('sine',mtof(m)*Math.pow(2,(i-1.5)*3/1200),k.g(.25/(1+i*.4),bus))); },12,{name:'warm',full:.09,tc:.35,room:true,H:3});
+  loop((oc,out,sr,k)=>{ k.noise('brown',.77,k.bq('lowpass',110,null,out)); const sg=k.g(.6,out); k.drone('sine',34,sg); k.lfo(6.5,.35,sg.gain); },10,{name:'dark',full:.3,tc:.25});
+  /* air in the grass */
+  loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',900,.5,out); k.noise('white',.94,f); k.lfo(.06,500,f.frequency); },16,{name:'wind',full:.06,tc:.8});
+  /* the score: for each of five voices two detuned saws and a sine an octave down, through a slowly breathing low-pass,
+     and a soft bass. The eight chords come at the pace they always had (nine to twelve seconds each) and glide into each
+     other; at the seam the last is let ring out under the first coming in. The low end is kept light: the root sits under
+     the lowest voice already, and a phone or laptop speaker only strains at more */
+  const CT=[0,10.4,20,31.2,41.2,52.8,62.2,73];   // when each chord comes in; the whole round is 84 s
+  const chordAt=x=>{ let j=CT.length-1; while(j>0&&CT[j]>x) j--; return j; };
+  loop((oc,out,sr,k)=>{ const {g,bq,osc,lfo,t0}=k;
+    const lp=bq('lowpass',9000,.5,out); lp.connect(g(.55,k.wet)); const bus=g(1,lp);
+    const padF=bq('lowpass',700,.6), padG=g(.085,bus); padF.connect(padG); lfo(.045,260,padF.frequency);
+    const at=(p,f,tc)=>{ p.setValueAtTime(f(0),0); for(let j=1;j<CT.length;j++) p.setTargetAtTime(f(j),t0+CT[j],tc); };
+    CH[0].forEach((_,i)=>{ const vg=g(i===0?.5:.32/(1+i*.15),padF); lfo(.07+i*.031,.12,vg.gain);
+      [-7,6].forEach(dt=>{ const o=osc('sawtooth',0,g(.16,vg)); o.detune.value=dt; at(o.frequency,j=>mtof(CH[j][i]),1.6); });
+      at(osc('sine',0,g(i<2?.22:.14,vg)).frequency,j=>mtof(CH[j][i])/2,1.6); });
+    at(osc('sine',0,g(.022,bus)).frequency,j=>mtof(ROOT[j]),1.2);
+  },84,{name:'music',full:.9,tc:.9,room:true,H:3,tape:true});
+  /* Aetos: wind high up, and the hum of rotors far above */
+  loop((oc,out,sr,k)=>{ const {g,bq,lfo}=k; const hm=g(.05,out); k.noise('white',.71,bq('bandpass',190,2.4,hm)); lfo(.21,.025,hm.gain);
+    const wg=g(.22,out), f=bq('bandpass',700,.45,wg); k.noise('white',1.06,f); lfo(.08,420,f.frequency); lfo(.13,.12,wg.gain);
+    k.drone('sine',mtof(86),g(.006,out)); },25,{name:'ae',full:.75});
+  /* Pharos: a deep slow tone that swells as the beam comes round; while the drone is unsure where it is, a little air */
+  loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.5,k.wet));
+    [[38,.32,'sine'],[45,.3,'sine'],[50,.15,'triangle'],[57,.07,'sine']].forEach(([m,v,t])=>k.drone(t,mtof(m),k.g(v,bus))); },20,{name:'phTone',full:.36,at:.36*.6,tc2:.2,room:true,H:3});
+  loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.5,k.wet)); k.noise('white',.88,k.bq('bandpass',1200,1.2,bus)); },12,{name:'phAir',full:.36*.1,tc2:.15,room:true});
+  /* Ogive: a shimmer that keeps rising and never arrives (six tones, each sweeping up two and a half octaves in eleven
+     seconds and fading as it goes, a sixth of a sweep apart), and a hiss that grows as you go on. The clip is 15.6 s, so at
+     its seam the sweeps stand half a step apart from where they started, never on the same notes. Each tone was panned a
+     little left or right, which leaves it at the level a mono recording gives it with 0.7 */
+  loop((oc,out,sr,k)=>{ const hp=k.bq('highpass',300,null,out); hp.connect(k.g(.9,k.wet)); const bus=k.g(.7,hp);
+    const c=new Float32Array(64); for(let j=0;j<64;j++) c[j]=Math.sin(Math.PI*j/63)*.05;
+    for(let i=0;i<6;i++) for(let m=-2;;m++){ const s=k.t0+(m-i/6)*11; if(s<0) continue; if(s>=k.end) break;
+      const a=k.g(0,bus), o=oc.createOscillator(); o.connect(a); o.frequency.setValueAtTime(520,s); o.frequency.exponentialRampToValueAtTime(520*Math.pow(2,2.5),s+11);
+      a.gain.setValueCurveAtTime(c,s,11); o.start(s); o.stop(s+11); } },15.6,{name:'og',full:.45,room:true,H:3,pre:17});
+  loop((oc,out,sr,k)=>{ const hp=k.bq('highpass',300,null,out); hp.connect(k.g(.9,k.wet)); k.noise('white',1.23,k.bq('bandpass',6500,.7,hp)); },10,{name:'ogHiss',full:.45*.065,tc2:.3,room:true,sr:32000});
+  /* Kríos: no voices. A quiet room with a lamp on: a little air, and a low D under the conversation */
+  loop((oc,out,sr,k)=>{ const {g,bq,lfo}=k; k.noise('white',1.29,bq('lowpass',520,.5,g(.05,out))); const og=g(.045,out); k.drone('sine',mtof(38),og); lfo(.07,.015,og.gain); },15,{name:'kr',full:.55});
+  /* a rocket going up from the far shore: a low, uneven rumble that comes in late and far; it opens up and comes close when
+     you catch it */
+  const rocket=f=>(oc,out,sr,k)=>{ const {g,bq,osc}=k; const bus=g(1,out); bus.connect(g(.8,k.wet)); const a=g(.75,bus); k.noise('brown',1.12,bq('lowpass',f,.7,a));
+    const cr=g(.28); osc('sawtooth',7.3,cr); cr.connect(a.gain); };
+  loop(rocket(150),10,{name:'rkFar',full:.16,tc:.45,tc2:.5,room:true});
+  loop(rocket(1250),10,{name:'rkNear',full:.78,tc:.45,tc2:.5,room:true});
+
   function pan(p,dest){ if(ctx.createStereoPanner){ const s=ctx.createStereoPanner(); s.pan.value=clamp(p,-1,1); s.connect(dest); return s; } return dest; }
   /* a glass piano note: a sine with a few soft partials and a long fading tail */
   function glass(m,t0,g,p=0,dest){ const f=mtof(m), out=pan(p,dest||n.mus);
@@ -120,11 +282,6 @@ const A=(()=>{
   function plip(g,delay=0){ const t0=ctx.currentTime+delay, f=1100+Math.random()*1400, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
     o.frequency.setValueAtTime(f,t0); o.frequency.exponentialRampToValueAtTime(f*1.9,t0+.035);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.07); o.connect(a); a.connect(pan(Math.random()*1.4-.7,n.water)); o.start(t0); o.stop(t0+.1); }
-  /* Kríos: no voices. A quiet room with a lamp on: a little air, and a low D under the conversation */
-  function roomKrios(){ const R=n.kr={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp);
-    const a=src(n.noise), f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=520; f.Q.value=.5; const ag=ctx.createGain(); ag.gain.value=.05; a.connect(f); f.connect(ag); ag.connect(R.g);
-    const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=mtof(38); const og=ctx.createGain(); og.gain.value=.045; o.connect(og); og.connect(R.g); o.start();
-    const l=ctx.createOscillator(); l.frequency.value=.07; const lg=ctx.createGain(); lg.gain.value=.015; l.connect(lg); lg.connect(og.gain); l.start(); }
   /* a soft mallet, for the rep's side of the call: a round note and a short bright partial */
   function mallet(m,t0,g,p){ const f=mtof(m), out=pan(p,n.comp);
     const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t0);
@@ -138,25 +295,6 @@ const A=(()=>{
     [[71,0],[69,.22],[66,.42],[69,.66]],[[64,0],[66,.18],[69,.4],[74,.68]],[[69,0],[71,.2],[74,.42],[69,.68]]];
   const KR_THEM=[[[83,0],[81,.24],[76,.52]],[[76,0],[78,.22],[83,.5]],[[78,0],[76,.24],[78,.52]],
     [[81,0],[78,.22],[76,.46],[78,.72]],[[83,0],[81,.2],[78,.44],[81,.7]],[[81,0],[78,.22],[76,.44],[74,.74]]];
-  /* Aetos: wind high up, and the hum of rotors far above */
-  function roomAetos(){ const R=n.ae={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp);
-    const hm=src(n.noise), hmf=ctx.createBiquadFilter(); hmf.type='bandpass'; hmf.frequency.value=190; hmf.Q.value=2.4; const hmg=ctx.createGain(); hmg.gain.value=.05; hm.connect(hmf); hmf.connect(hmg); hmg.connect(R.g);
-    const hl=ctx.createOscillator(); hl.frequency.value=.21; const hlg=ctx.createGain(); hlg.gain.value=.025; hl.connect(hlg); hlg.connect(hmg.gain); hl.start();
-    const w=src(n.noise), f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=700; f.Q.value=.45; const wg=ctx.createGain(); wg.gain.value=.22; w.connect(f); f.connect(wg); wg.connect(R.g);
-    const l=ctx.createOscillator(); l.frequency.value=.08; const lg=ctx.createGain(); lg.gain.value=420; l.connect(lg); lg.connect(f.frequency); l.start();
-    const l2=ctx.createOscillator(); l2.frequency.value=.13; const l2g=ctx.createGain(); l2g.gain.value=.12; l2.connect(l2g); l2g.connect(wg.gain); l2.start();
-    const hi=ctx.createOscillator(); hi.type='sine'; hi.frequency.value=mtof(86); const hg=ctx.createGain(); hg.gain.value=.006; hi.connect(hg); hg.connect(R.g); hi.start();
-    R.next=0; }
-  /* Pharos: a deep slow tone that swells as the beam comes round */
-  function roomPharos(){ const R=n.ph={}; R.g=ctx.createGain(); R.g.gain.value=0; R.g.connect(n.comp); const s=ctx.createGain(); s.gain.value=.5; R.g.connect(s); s.connect(n.revIn);
-    R.sw=ctx.createGain(); R.sw.gain.value=.6; R.sw.connect(R.g);
-    [[38,.32,'sine'],[45,.3,'sine'],[50,.15,'triangle'],[57,.07,'sine']].forEach(([m,k,t])=>{ const o=ctx.createOscillator(); o.type=t; o.frequency.value=mtof(m); const g=ctx.createGain(); g.gain.value=k; o.connect(g); g.connect(R.sw); o.start(); });
-    const w=src(n.noise), f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=400; f.Q.value=1.2; R.air=ctx.createGain(); R.air.gain.value=0; w.connect(f); f.connect(R.air); R.air.connect(R.g); R.airF=f; }
-  /* Ogive: a shimmer that keeps rising and never arrives */
-  function roomOgive(){ const R=n.og={}; R.g=ctx.createGain(); R.g.gain.value=0; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=300; R.g.connect(hp); hp.connect(n.comp);
-    const s=ctx.createGain(); s.gain.value=.9; hp.connect(s); s.connect(n.revIn);
-    R.os=[]; for(let i=0;i<6;i++){ const o=ctx.createOscillator(); o.type='sine'; const g=ctx.createGain(); g.gain.value=0; o.connect(g); g.connect(pan((i%2?.3:-.3),R.g)); o.start(); R.os.push({o,g,ph:i/6}); }
-    const h=src(n.noise), hf=ctx.createBiquadFilter(); hf.type='bandpass'; hf.frequency.value=6500; hf.Q.value=.7; R.hiss=ctx.createGain(); R.hiss.gain.value=0; h.connect(hf); hf.connect(R.hiss); R.hiss.connect(R.g); }
 
   /* what just happened in a room: the radar coming round, a threat picked out, locked and taken; the drone finding itself;
      each design the rocket tries, the one that gets there, the flight, the chute and the landing */
@@ -177,22 +315,36 @@ const A=(()=>{
     else if(nm==='og-chute'){ if(og>.05) noise(.35,.04*og,900,300,'bandpass',1.2,0,.4); }
     else if(nm==='og-land'){ if(og>.05) tone(220,.25,.02*og,'sine',160,0,.3,.004); }
   }
+  /* a new chord in the score: every second one, the phrase on the glass piano over it */
+  function chord(st,t){ n.cc=(n.cc||0)+1;
+    if(n.cc%2===0&&st.music>.3&&!n.tape){ const M=MOTIF[n.cc%8===0?0:Math.floor(Math.random()*MOTIF.length)], g=.034*st.music, t0=t+1.2; M.forEach(([m,dt],i)=>glass(m,t0+dt+(Math.random()-.5)*.06,g*(1-i*.08),(i%2?.18:-.18))); n.nextNote=Math.max(n.nextNote,t0+4.5); } }
 
-  const L={music:0,water:0,waterF:2400,mus:9000,kr:0,ae:0,ph:0,og:0,wind:0};
   return {
     get on(){ return on; }, get ctx(){ return ctx; },
-    async start(){ try{ init(); on=true; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
-    suspend(v){ if(!ctx) return; if(v){ set(n.master.gain,0,.15); setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); } else { ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); } },
+    async start(){ try{ init(); on=true; MX.tc=1.2; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
+    suspend(v){ if(!ctx) return;
+      if(v){ set(n.master.gain,0,.15); for(const L of LOOPS) if(L.run) halt(L); MX.v=0; setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); }
+      else { MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); } },
+    /* what the live part sends to the speakers; and, worked out, what the recordings add to it (the meter cannot hear them) */
     meter(){ if(!ctx) return null; const b=new Float32Array(n.meter.fftSize); n.meter.getFloatTimeDomainData(b); let pk=0,sq=0; for(const v of b){ pk=Math.max(pk,Math.abs(v)); sq+=v*v; }
-      const rms=Math.sqrt(sq/b.length); return {peak:+pk.toFixed(3),rmsDb:+(20*Math.log10(rms+1e-9)).toFixed(1)}; },
-    levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+n.kr.g.gain.value.toFixed(3),ae:+n.ae.g.gain.value.toFixed(3),ph:+n.ph.g.gain.value.toFixed(3),og:+n.og.g.gain.value.toFixed(3),state:ctx.state}:null; },
+      const rms=Math.sqrt(sq/b.length); let lp=0; for(const L of LOOPS) if(L.els&&L.els.some(e=>!e.paused)){ const x=L.rms*(MX.ios?1:L.els[L.cur].volume); lp+=x*x; }
+      const db=x=>+(10*Math.log10(x+1e-18)).toFixed(1);
+      return {peak:+pk.toFixed(3),rmsDb:+(20*Math.log10(rms+1e-9)).toFixed(1),loopsDb:db(lp),allDb:db(rms*rms+lp)}; },
+    levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+LP.kr.va.toFixed(3),ae:+LP.ae.va.toFixed(3),ph:+LP.phTone.va.toFixed(3),og:+LP.og.va.toFixed(3),state:ctx.state}:null; },
+    /* test hooks: each recording (made yet, playing, its volume, the volume it is heading for, its level at full volume, its
+       size, how long it took); and a jump to just before a recording's seam, which hands back its two players */
+    loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
+      rms:+(L.rms||0).toFixed(5),bytes:L.bytes||0,ms:L.ms||0,P:L.P,H:L.H,t:e?+e.currentTime.toFixed(3):0,rate:e?e.playbackRate:1}; }); },
+    get rendered(){ return REN.ms; }, get ios(){ return MX.ios; },
+    _seam(name,before){ const L=LP[name], e=L&&L.els&&L.els[L.cur]; if(e) e.currentTime=Math.max(0,L.P-before); return L&&L.els; },
     /* every frame: where you are decides what you hear */
     update(dt,st){
       if(!ctx||!on) return;
       const t=ctx.currentTime;
-      if(t>n.nextChord&&!n.tape){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; const C=CH[n.ci]; n.cc=(n.cc||0)+1;
-        if(n.cc%2===0&&st.music>.3){ const M=MOTIF[n.cc%8===0?0:Math.floor(Math.random()*MOTIF.length)], g=.034*st.music, t0=t+1.2; M.forEach(([m,dt],i)=>glass(m,t0+dt+(Math.random()-.5)*.06,g*(1-i*.08),(i%2?.18:-.18))); n.nextNote=Math.max(n.nextNote,t0+4.5); }
-        n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,1.6))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,1.2); }
+      /* the score's chords are in its recording: the glass piano follows them by where the recording has got to */
+      const ml=LP.music, me=ml.els&&ml.run?ml.els[ml.cur]:null;
+      if(me){ const ci=chordAt(me.currentTime); if(ci!==n.ci){ n.ci=ci; chord(st,t); } }
+      else if(t>n.nextChord&&!n.tape){ n.ci=(n.ci+1)%CH.length; n.nextChord=t+9+Math.random()*3; chord(st,t); }
       if(t>n.nextNote){ const C=CH[n.ci]; const pick=()=>{ let m=PENTA[Math.floor(Math.random()*PENTA.length)]; return m; };
         const g=.03+Math.random()*.025*st.music, m=pick(); glass(m,t+.02,g,Math.random()*.8-.4);
         if(Math.random()<.35) glass(pick(),t+.32+Math.random()*.3,g*.7,Math.random()*.8-.4);
@@ -200,21 +352,24 @@ const A=(()=>{
         n.nextNote=t+3.4+Math.random()*5; }
       set(n.mus.gain,st.music*.9,.9); set(n.musLP.frequency,st.musF,.6);
       set(n.water.gain,st.water*.62,.7); set(n.waterLP.frequency,st.waterF,.5);
-      set(n.wind.gain,st.wind*.06,.8);
       if(st.water>.3&&t>n.nextPlip){ plip(.018*st.water*(st.waterF>1500?1:.4)); n.nextPlip=t+.35+Math.random()*2.4; }
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
-      /* rooms */
-      set(n.kr.g.gain,st.kr*.55,.5); set(n.ae.g.gain,st.ae*.75,.5); set(n.ph.g.gain,st.ph*.36,.5); set(n.og.g.gain,st.og*.45,.5);
       for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
-      /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air */
-      if(st.ph>.01){ const f=st.beam||0; set(n.ph.sw.gain,.35+.65*f,.2); set(n.ph.air.gain,(1-f)*.1,.15); set(n.ph.airF.frequency,300+(1-f)*900,.2); }
-      if(st.og>.01){ for(const v of n.og.os){ v.ph=(v.ph+dt/11)%1; const f=520*Math.pow(2,v.ph*2.5); v.o.frequency.setTargetAtTime(f,t,.05); v.g.gain.setTargetAtTime(Math.sin(v.ph*Math.PI)*.05,t,.05); } set(n.og.hiss.gain,.025+st.rise*.04,.3); }
-      set(n.warm.gain,st.warm*.09,.35); set(n.dark.gain,st.dark*.3,.25);
       /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
       if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
       if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
-      set(n.rk.gain,(st.rocket||0)*.16+(st.rocketNear||0)*.62,.45); set(n.rkF.frequency,150+(st.rocketNear||0)*1100,.5);
-      if(n.tape&&(st.rocketNear||0)<.05){ n.tape=false; const C=CH[n.ci]; n.voices.forEach((v,i)=>v.os.forEach((o,j)=>o.frequency.setTargetAtTime(mtof(C[i])*v.ratio[j],t,.8))); n.bass.frequency.setTargetAtTime(mtof(ROOT[n.ci]),t,.8); }
+      if(n.tape&&(st.rocketNear||0)<.05) n.tape=false;
+      /* and each recording's level, as the live gains were set. The water's two are crossed by where its low-pass is: all
+         closed at 320 Hz (inside), all open from 1500 Hz up */
+      const W=st.water*.62, wo=Math.pow(clamp(Math.log(st.waterF/320)/Math.log(1500/320),0,1),1.5);
+      lv('waterOpen',W,Math.sqrt(wo)); lv('waterClosed',W,Math.sqrt(1-wo));
+      lv('music',st.music*.9); lv('wind',st.wind*.06);
+      lv('kr',st.kr*.55); lv('ae',st.ae*.75);
+      /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air, brighter the less sure */
+      const f=st.beam||0; lv('phTone',st.ph*.36,.35+.65*f); lv('phAir',st.ph*.36,(1-f)*.1*Math.sqrt((300+(1-f)*900)/1200));
+      lv('og',st.og*.45); lv('ogHiss',st.og*.45,.025+(st.rise||0)*.04);
+      lv('warm',st.warm*.09); lv('dark',st.dark*.3);
+      const G=(st.rocket||0)*.16+(st.rocketNear||0)*.62, nr=st.rocketNear||0; lv('rkFar',G,Math.sqrt(1-nr)); lv('rkNear',G,Math.sqrt(nr));
     },
     /* the gate: a way being shown, and a way being taken */
     preview(v){ if(!on) return; const t=ctx.currentTime;
@@ -227,8 +382,8 @@ const A=(()=>{
       if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
       else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
     /* the rocket at the end of the walk, caught: it roars in close, a long rise, and the walk falls quiet under it */
-    rocketGo(){ if(!on) return; const t=ctx.currentTime; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
-      n.tape=true; n.voices.forEach(v=>v.os.forEach(o=>o.frequency.setTargetAtTime(o.frequency.value*.5,t+.3,.75))); n.bass.frequency.setTargetAtTime(n.bass.frequency.value*.5,t+.3,.75); },
+    rocketGo(){ if(!on) return; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
+      n.tape=true; n.tapeAt=performance.now()+300; },
     /* the hand */
     hover(){ if(!on) return; const m=PENTA[3+Math.floor(Math.random()*5)]; tone(mtof(m),.32,.016,'sine',0,0,.35,.004); tone(mtof(m)*2,.12,.004,'sine',0,0,0,.002); },
     click(){ if(!on) return; tone(560,.09,.05,'triangle',260,0,.15,.003); noise(.03,.03,2400,1800,'bandpass',2,0,.05); },

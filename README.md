@@ -43,9 +43,11 @@ conversation finishes with a photo and a link.
 
 - The black hole is ray-traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler
   beaming and gravitational redshift. Every colour in it comes from one blackbody scale.
-- Every sound is made in the browser with the Web Audio API, and not one audio file ships with the site. In Fly and
-  Land the long layers (the music, the wind, the engine, each station's air) are rendered once at load with an
-  OfflineAudioContext into loops that play through audio elements, so they hold up while the graphics card is busy.
+- Every sound is made in the browser with the Web Audio API, and not one audio file ships with the site. The long
+  layers (the music, the water and the wind, the engine, each room's and station's air) are rendered once at load with
+  an OfflineAudioContext into recordings that play through audio elements, so they hold up while the graphics card is
+  busy. A browser pauses for a moment each time it loops a file, so two players take turns on every recording and
+  overlap across the seam.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
