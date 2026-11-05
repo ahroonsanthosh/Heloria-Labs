@@ -97,7 +97,9 @@ def write_site(out, only=None):
     os.makedirs(os.path.join(out, 'untamed'), exist_ok=True); os.makedirs(os.path.join(out, 'assets', 'vendor'), exist_ok=True)
     shutil.copytree(os.path.join(SRC, 'assets', 'img'), os.path.join(out, 'assets', 'img'), dirs_exist_ok=True)
     for f in ('three.min.js', 'three.LICENSE.txt'): shutil.copy(os.path.join(SRC, 'assets', 'vendor', f), os.path.join(out, 'assets', 'vendor', f))
-    js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp' % n for n in CREW]))
+    # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
+    pfp = lambda n: hashlib.sha1(open(os.path.join(SRC, 'assets', 'img', n + '.webp'), 'rb').read()).hexdigest()[:10]
+    js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW]))
     js = wrap_js(js)
     open(os.path.join(out, 'assets', 'untamed.css'), 'w', encoding='utf-8').write(css)
     open(os.path.join(out, 'assets', 'untamed.js'), 'w', encoding='utf-8').write(js)

@@ -113,7 +113,11 @@ def fingerprint(text):
 def write_site(out):
     """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
     out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
-    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp' % n for n in PEOPLE], 'assets/img/land.webp')
+    # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
+    import hashlib
+    pfp = lambda p: hashlib.sha1(open(p, 'rb').read()).hexdigest()[:10]
+    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp?v=%s' % (n, pfp(os.path.join(PHOTO_DIR, n + '.webp'))) for n in PEOPLE],
+                           'assets/img/land.webp?v=' + pfp(os.path.join(SRC, 'assets', 'land.webp')))
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
     og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'

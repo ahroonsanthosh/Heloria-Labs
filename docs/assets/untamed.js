@@ -2,7 +2,7 @@
 'use strict';
 const DATA={};
 /* ================= CORE ================= */
-const PHOTOS = ["../assets/img/ahroon.webp", "../assets/img/michael.webp", "../assets/img/abraham.webp"];
+const PHOTOS = ["../assets/img/ahroon.webp?v=f12e410264", "../assets/img/michael.webp?v=f21826f8f3", "../assets/img/abraham.webp?v=2dece95d7a"];
 const T = window.THREE;
 /* without three.js or WebGL there is no universe: show the plain page and stop */
 function noGL(){ document.documentElement.classList.add('nogl'); throw new Error('Heloria: WebGL unavailable, showing the plain page'); }
@@ -486,21 +486,22 @@ addEventListener('resize',()=>{ resize(); if(window.__onResize) window.__onResiz
 
 /* adaptive quality: when frames are steadily slow, one step down a ladder (smoothing off, then the black hole's trace
    coarser, then fewer pixels); when they are steadily quick, one step back up. It reads the middle of the last second, so
-   one slow frame, a hitch, or the long gap after the tab was away counts for nothing; it does not listen while the sound
-   is being made at the start; it comes back up on an ordinary 60 Hz screen; and a step it has had to leave twice soon
+   one slow frame, a hitch, or the long gap after the tab was away counts for nothing; while the sound is being made at
+   the start only a really slow device steps down; it comes back up on an ordinary 60 Hz screen; and a step it has had to leave twice soon
    after reaching it is not tried again */
 const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
   tick(ms,now){ if(window.__TEST) return;
     if(!this.lv){ const L=[], bh0=BH.scale; let r=RTS, b=bh0, d=DPR; L.push([r,b,d]); if(r>0){ r=0; L.push([r,b,d]); }
       while(b>.321){ b=+(b-.1).toFixed(2); L.push([r,b,d]); } while(d>.751){ d=Math.max(.75,+(d-.25).toFixed(2)); L.push([r,b,d]); } this.lv=L; this.i=0; this.r0=RTS; }
-    if(ms>250||A.busy||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }
+    if(ms>250||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }
+    const busy=A.busy;   // while the sound is being made only a really slow device steps down, and nothing steps up
     this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
     const s=this.buf.slice().sort((a,b)=>a-b), mid=s[30], p75=s[45];
     const go=i=>{ const [r,b,d]=this.lv[i]; this.i=i; this.buf=[];
       if(r!==RTS){ RTS=r; rtA.samples=rtB.samples=r; rtA.dispose(); rtB.dispose(); }
       if(Math.abs(b-BH.scale)>.001){ BH.scale=b; BH.resize(); } if(Math.abs(d-DPR)>.001){ DPR=d; resize(); } };
-    if(mid>22&&this.i<this.lv.length-1){ if(now-this.up<12000) this.bad[this.i]=(this.bad[this.i]||0)+1; go(this.i+1); this.cool=now+2500; }
-    else if(this.i>0&&p75<18.5&&(this.bad[this.i-1]||0)<2){ go(this.i-1); this.up=now; this.cool=now+5000; } }};
+    if(mid>(busy?40:22)&&this.i<this.lv.length-1){ if(now-this.up<12000) this.bad[this.i]=(this.bad[this.i]||0)+1; go(this.i+1); this.cool=now+2500; }
+    else if(!busy&&this.i>0&&p75<18.5&&(this.bad[this.i-1]||0)<2){ go(this.i-1); this.up=now; this.cool=now+5000; } }};
 
 /* ---------- particle + material toolkit ---------- */
 const GLH=`vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}
