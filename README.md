@@ -19,7 +19,7 @@ The site has three ways in. Point at one on the front door and you see where it 
 <table>
 <tr>
 <td width="33%"><img src=".github/media/walk.jpg" alt="Walk: the pavilion in still water at golden hour"></td>
-<td width="33%"><img src=".github/media/land.jpg" alt="Land: the drawn town on Earth"></td>
+<td width="33%"><img src=".github/media/land.jpg" alt="Land: the drawn town on Earth, just after the rocket comes down"></td>
 <td width="33%"><img src=".github/media/fly.jpg" alt="Fly: the system in orbit round the black hole"></td>
 </tr>
 <tr>
@@ -29,16 +29,28 @@ The site has three ways in. Point at one on the front door and you see where it 
 </tr>
 </table>
 
+Every way in leads to the three of us. On the walk we stand in frames on plinths in the water; on Earth each
+conversation finishes with a photo and a link.
+
+<table>
+<tr>
+<td width="50%"><img src=".github/media/team.jpg" alt="The walk: the three of us in bronze frames on stone plinths in the pool"></td>
+<td width="50%"><img src=".github/media/talk.jpg" alt="Earth: the last card of my conversation, with my photo and a LinkedIn link"></td>
+</tr>
+</table>
+
 ## How it works
 
 - The black hole is ray-traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler
   beaming and gravitational redshift. Every colour in it comes from one blackbody scale.
-- Every sound is made live in the browser with the Web Audio API. There isn't a single audio file in here.
+- Every sound is made in the browser with the Web Audio API, and not one audio file ships with the site. In Fly and
+  Land the long layers (the music, the wind, the engine, each station's air) are rendered once at load with an
+  OfflineAudioContext into loops that play through audio elements, so they hold up while the graphics card is busy.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
   dark to a sales call that rises over a table as lines of light.
-- No framework. Plain JavaScript and three.js, built by a short Python script into a static site under 2 MB.
+- No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
 
 ## Running it
 
