@@ -6,7 +6,8 @@
 module.exports = async ({ page, wait, H, log, mobile }) => {
   const rows = [];
   const listen = async (label, ms = 3200) => { let mx = -200, pk = 0, sum = 0, n = 0; const t0 = Date.now();
-    while (Date.now() - t0 < ms) { const m = await page.evaluate(() => window.__meter()); mx = Math.max(mx, m.db); pk = Math.max(pk, m.pk); sum += Math.max(m.db, -90); n++; await wait(120); }
+    while (Date.now() - t0 < ms) { const m = await page.evaluate(() => { const m = window.__meter(), A = window.__heloria && window.__heloria.A, lr = A && A._loopRms ? A._loopRms() : 0;   /* the recordings play outside the meter: their part is added */
+      const r = Math.sqrt(Math.pow(10, m.db / 10) + lr * lr); return { ...m, db: r > 0 ? +(20 * Math.log10(r)).toFixed(1) : -200 }; }); mx = Math.max(mx, m.db); pk = Math.max(pk, m.pk); sum += Math.max(m.db, -90); n++; await wait(120); }
     const r = { label, max: mx, avg: +(sum / n).toFixed(1), peak: pk }; rows.push(r); log(('  ' + label).padEnd(46), String(mx).padStart(7), 'dB  peak', pk); return r; };
   const until = async (fn, ms = 120000, arg) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await H(fn, arg)) return true; await wait(200); } return false; };
   const step = (n, id) => H((h, [n, id]) => { const st = h.ST[id]; for (let i = 0; i < n; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } }, [n, id]);

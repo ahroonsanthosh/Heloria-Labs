@@ -33,7 +33,7 @@ const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Mat
 
 /* ---------- sound: a generative score, not beeps ---------- */
 const A=(()=>{
-  let ctx=null,out,comp,rev,revIn,on=false,muted=false; const n={};
+  let ctx=null,out,comp,rev,revIn,on=false,muted=false,muf=false; const n={};
   const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
   /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
      sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
@@ -42,7 +42,7 @@ const A=(()=>{
   /* and if waking it does not work (a clock still stopped after a restart, or a context that will not come back even on a
      tap) the whole sound is built again on a fresh context: everything in it is made from n, so nothing is lost */
   let wdT=-1, wdC=-1, wdBad=0, downAt=0;
-  function rebuild(){ const old=ctx; if(!old) return; if(n.musClock) clearInterval(n.musClock); for(const k in n) delete n[k];
+  function rebuild(){ const old=ctx; if(!old) return; for(const k in n) delete n[k];
     ctx=null; init(); try{ old.close(); }catch(e){} set(out.gain,muted?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
   function watch(){ if(!ctx||!on||document.hidden){ wdT=-1; return; }
     const now=performance.now();
@@ -84,27 +84,9 @@ const A=(()=>{
     rev=ctx.createConvolver(); const L=Math.min(12000,Math.floor(ctx.sampleRate*.25)), ir=ctx.createBuffer(2,L,ctx.sampleRate);
     for(let c=0;c<2;c++){const d=ir.getChannelData(c); for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,1.4);}
     rev.buffer=ir; const rg=ctx.createGain(); rg.gain.value=.65; rev.connect(rg); rg.connect(comp); revIn=ctx.createGain(); revIn.connect(rev);
-    // pad: five detuned voices per chord tone through a breathing low-pass
-    n.padF=ctx.createBiquadFilter(); n.padF.type='lowpass'; n.padF.frequency.value=520; n.padF.Q.value=.7;
-    n.padG=ctx.createGain(); n.padG.gain.value=.05; n.padF.connect(n.padG); n.padG.connect(comp); n.padG.connect(revIn);
-    n.voices=CH[0].map((f,i)=>{ const os=[-6,5].map(dt=>{ const o=ctx.createOscillator(); o.type=i<1?'sine':'sawtooth'; o.frequency.value=f; o.detune.value=dt; o._dt=dt; const g=ctx.createGain(); g.gain.value=i<1?.9:.22/(1+i*.3); o.connect(g); g.connect(n.padF); o.start(); return o; }); return os; });
-    const lfo=ctx.createOscillator(); lfo.frequency.value=.07; const lg=ctx.createGain(); lg.gain.value=220; lfo.connect(lg); lg.connect(n.padF.frequency); lfo.start();
-    n.chord=0; n.nextChord=ctx.currentTime+9;
-    // sub: the hole itself
-    n.sub=ctx.createOscillator(); n.sub.type='sine'; n.sub.frequency.value=34; n.subG=ctx.createGain(); n.subG.gain.value=0; n.sub.connect(n.subG); n.subG.connect(comp); n.sub.start();
-    /* the noise everything is made of: one long stretch, nine seconds. Every layer reads it at its own speed and from its own
-       place, so no two layers are ever copies of each other (copies a moment apart cancel and reinforce: that is phasing)
-       and none of them comes round again on a loop short enough to hear */
-    const buf=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; n.buf=buf;
-    const RATES=[.83,1.17,.94,1.29,.71,1.06], nsrc=k=>{ const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=RATES[k]; s.start(0,Math.random()*8); return s; };
-    let nk=0; const mk=(type,f,q)=>{const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; b.Q.value=q||.7; const g=ctx.createGain(); g.gain.value=0; nsrc(nk++).connect(b); b.connect(g); g.connect(comp); return {b,g};};
-    n.wind=mk('bandpass',700,.8); n.thrust=mk('bandpass',240,1.1); n.roar=mk('lowpass',380,.9); n.hiss=mk('highpass',3000,.5);
-    n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=40; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700; n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start();
-    // each station's own air, under its screen: a bed of filtered noise and a low hum, shaped per station by A.bed
-    { const s=nsrc(5); n.bedF=ctx.createBiquadFilter(); n.bedF.type='bandpass'; n.bedF.Q.value=.8; n.bedF.frequency.value=600;
-      n.bedG=ctx.createGain(); n.bedG.gain.value=0; s.connect(n.bedF); n.bedF.connect(n.bedG); n.bedG.connect(comp); const bs=ctx.createGain(); bs.gain.value=.35; n.bedG.connect(bs); bs.connect(revIn); n.bedS=bs;
-      n.hum=ctx.createOscillator(); n.hum.type='triangle'; n.hum.frequency.value=55; const hf=ctx.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=420;
-      n.humG=ctx.createGain(); n.humG.gain.value=0; n.hum.connect(hf); hf.connect(n.humG); n.humG.connect(comp); n.hum.start(); n.bedT=0; }
+    /* the noise the short sounds are made of: one long stretch, nine seconds, each sound reading it at its own speed and
+       from its own place, so no two are ever copies of each other */
+    const buf=ctx.createBuffer(1,ctx.sampleRate*9,ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; n.buf=buf; n.bedT=0;
   }
   const last=new WeakMap();
   const set=(p,v,tc=.08)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
@@ -134,17 +116,115 @@ const A=(()=>{
   /* the untamed plays at the walk's level, and a sound you hear again and again is never quite the same twice */
   const LOUD=.5, vr=(k=.04)=>1+(Math.random()*2-1)*k;
   const note=i=>146.83*Math.pow(2,(PEN[((i%5)+5)%5]+12*Math.floor(i/5))/12);
-  /* ---------- Earth's music, as a recording ----------
-     A slow, warm loop of chords, a soft bass, a held chord under them and a plucked melody: every note one tone with its
-     harmonics in exact tune (nothing detuned, so nothing beats against anything), voiced where a phone or a laptop speaker
-     can play it, no kick and no noise in it. It is worked out once, out of sight, a moment after the page loads, into a
-     seamless loop of eight bars, and played as an audio file. A browser plays a recording through its media path, which
-     keeps a long reserve of sound ahead of the speaker; sound made live has only a few hundredths of a second in hand, and
-     a page busy drawing a 3D world in front of you leaves holes in it (the jitter, the static, the cutting out). */
-  const EM={el:null,vol:0,t:0,ios:false,blocked:false,fading:0,want:0,
-    render(){ const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext; if(!OAC||EM.el||EM.busy) return; EM.busy=true;
-      const sr=32000, beat=60/72, bars=8, L=bars*4*beat, N=Math.round(sr*L); let oc;
-      try{ oc=new OAC(1,Math.ceil(sr*(L+3)),sr); }catch(e){ EM.busy=false; return; }
+  /* ---------- the long sounds, as recordings ----------
+     Everything that sounds for more than a moment (the orbit's score, the hole's rumble, the wind, the engine and its roar,
+     each station's air, the contact's pulse, Earth's music) is worked out once, out of sight, a moment after the page
+     loads, and played as an audio file. A browser plays a recording through its media path, which keeps a long reserve of
+     sound ahead of the speaker; sound made live has only a few hundredths of a second in hand, and a page busy drawing a
+     3D world in front of you leaves holes in it (the jitter, the static, the cutting out). Only the short sounds on top
+     (clicks, bells, steps, voices) are still made live.
+     A browser's own looping stops for a moment at the seam (about a seventh of a second), so each recording is played by
+     two players in turn: as one reaches the end of its period the other starts from the top, and for a moment both play,
+     one fading out while the other fades in (the fades are in the recording) or, for the music, while the last notes ring
+     on. Every overlap is of sounds that are not copies of each other (fresh noise, another chord), so nothing phases */
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const IOS=(()=>{ try{ const a=new Audio(); a.volume=.5; return Math.abs(a.volume-.5)>.01; }catch(e){ return false; } })();   // an iPhone will not let a page set a recording's volume: there each one plays or pauses
+  const wav=(d,o,N,sr)=>{ const ab=new ArrayBuffer(44+N*2), v=new DataView(ab), str=(p,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(p+i,x.charCodeAt(i)); };
+    str(0,'RIFF'); v.setUint32(4,36+N*2,true); str(8,'WAVE'); str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+    v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); str(36,'data'); v.setUint32(40,N*2,true);
+    let sq=0; for(let i=0;i<N;i++){ let x=d[o+i]; if(!(x>-1)) x=x!==x?0:-1; else if(x>1) x=1; sq+=x*x; v.setInt16(44+i*2,x*32767,true); }
+    return {url:URL.createObjectURL(new Blob([ab],{type:'audio/wav'})),rms:Math.sqrt(sq/Math.max(1,N))}; };
+  /* a recording: P its period in seconds, H the overlap, R a second of run-in that is thrown away (so every filter and
+     the room have settled where the recording begins), ref the level the recording is made at (a player's volume is the
+     level asked for over ref), tc how quickly it follows (tcOut going down). On an iPhone, where a player is only on or
+     off, it is made at ios, its usual level, and plays while the level asked for is above gate times that */
+  const LOOPS=[];
+  const loop=o=>{ const r=Object.assign({els:[],cur:0,url:null,rms:0,want:0,vol:0,ref:1,tc:.3,tcOut:0,gate:.04,rate:1,busy:false,blocked:false,R:1,H:2,fade:true,sr:22050},o); if(IOS&&r.ios) r.ref=r.ios; LOOPS.push(r); return r; };
+  const player=r=>{ const el=new Audio(); el.preload='auto'; el.src=r.url; el._on=false; el._primed=false;
+    try{ el.preservesPitch=false; el.mozPreservesPitch=false; el.webkitPreservesPitch=false; }catch(e){}   // so a slower rate is a lower pitch, as on tape
+    el.addEventListener('ended',()=>{ el._on=false; }); return el; };
+  function render(r,next){ const fin=()=>{ r.busy=false; if(next) setTimeout(next,120); };
+    if(!OAC||r.url||r.busy) return fin(); r.busy=true;
+    const sr=r.sr, R=Math.round(sr*r.R), P=Math.round(sr*r.P), H=Math.round(sr*r.H), N=P+H; let oc;
+    try{ oc=new OAC(1,R+N,sr); r.make(oc,r.R); }catch(e){ console.warn('sound',r.name,e); return fin(); }
+    const done=b=>{ const d=b.getChannelData(0);
+      if(r.fade) for(let i=0;i<H;i++){ const k=i/H*Math.PI/2; d[R+i]*=Math.sin(k); d[R+P+i]*=Math.cos(k); }   // in at the top, out over the overlap
+      const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; r.els=[player(r),player(r)]; fin(); };
+    try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,fin); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ fin(); } }
+  /* the mixer: every recording follows the level asked of it, and the two players hand over */
+  let mixT=0;
+  function mix(){ const now=performance.now(), dt=mixT?Math.min(.25,(now-mixT)/1000):0; mixT=now;
+    for(const r of LOOPS){ if(!r.url) continue; const w=on&&!muted?r.want:0;
+      r.vol+=(w-r.vol)*(1-Math.exp(-dt/(w<r.vol&&r.tcOut?r.tcOut:r.tc))); if(w===0&&r.vol<r.ref*.002) r.vol=0;
+      if(!(IOS?w>r.ref*r.gate:r.vol>0)){ for(const el of r.els) if(!el.paused) el.pause(); continue; }
+      for(const el of r.els) if(el._on&&(el.ended||el.currentTime>=r.P+r.H-.03)){ el._on=false; if(!el.paused) el.pause(); }   // a player whose part is over stops there
+      let a=r.els[r.cur]; const b=r.els[1-r.cur];
+      if(!a._on){ a._on=true; try{ a.currentTime=r.fade&&!b._on?r.H:0; }catch(e){} }   // from silence a sound starts at full strength, past its fade in
+      if(!a.paused&&a.currentTime>=r.P-.04&&!b._on){ b._on=true; try{ b.currentTime=0; }catch(e){} r.cur=1-r.cur; }
+      const v=clamp(r.vol/r.ref,0,1);
+      for(const el of r.els){ if(!el._on) continue; if(el.playbackRate!==r.rate) el.playbackRate=r.rate; if(!IOS&&Math.abs(el.volume-v)>1e-4) el.volume=v;
+        if(el.paused&&!el.ended&&!r.blocked) el.play().catch(()=>{ r.blocked=true; }); } } }
+  setInterval(mix,20);
+  /* inside a click, a tap or a key a browser always lets a recording start: each player is started there once, silently,
+     and stopped again, so a phone that only lets a page start sound inside a gesture lets it start later by itself */
+  function prime(){ for(const r of LOOPS){ r.blocked=false;
+      for(const el of r.els){ if(el._primed||!el.paused) continue; el._primed=true; el.muted=true; const p=el.play();
+        const back=()=>{ if(!(el._on&&on&&!muted&&r.want>0)) el.pause(); el.muted=false; };
+        if(p&&p.then) p.then(back,()=>{ el.muted=false; el._primed=false; }); else back(); } } }
+  ['touchend','pointerup','click','keydown'].forEach(ev=>addEventListener(ev,prime,{capture:true,passive:true}));
+  /* what every recording goes through, as the live sound does: the same compressor, the master level, nothing below 40 Hz;
+     and a room for those that are sent to one */
+  function bus(oc,wet=0,room=.45){ const comp=oc.createDynamicsCompressor(); comp.threshold.value=-20; comp.ratio.value=3;
+    const m=oc.createGain(); m.gain.value=LOUD; const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=40; hp.Q.value=.6;
+    comp.connect(m); m.connect(hp); hp.connect(oc.destination);
+    let rv=null; if(wet){ rv=oc.createConvolver(); const L=Math.floor(oc.sampleRate*room), ir=oc.createBuffer(1,L,oc.sampleRate), d=ir.getChannelData(0);
+      for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/L,1.4); rv.buffer=ir; const rg=oc.createGain(); rg.gain.value=.65*wet; rv.connect(rg); rg.connect(comp); }
+    return {in:comp,rv}; };
+  /* fresh noise for each recording, so no two are alike; nb is how loud a band of it is, so a band of noise can stand in
+     at the same strength for a steady tone (a tone made twice and overlapped could cancel itself; noise never does) */
+  const noiseSrc=oc=>{ const b=oc.createBuffer(1,oc.length,oc.sampleRate), d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; const s=oc.createBufferSource(); s.buffer=b; s.start(0); return s; };
+  const nb=(oc,f,q,lp)=>Math.sqrt(.5/((1/3)*(Math.PI*f*(lp?q:1/q)/2)/(oc.sampleRate/2)));
+  const curve=(oc,fn)=>{ const n=Math.ceil(oc.length/oc.sampleRate*20)+1, c=new Float32Array(n); for(let i=0;i<n;i++) c[i]=fn(i/20); return c; };
+
+  /* the orbit's score: five tones per chord, each two voices a few cents apart, through a breathing low-pass; four chords
+     a period, gliding from one to the next, the last handing over to the first in the overlap */
+  const PAD=loop({name:'pad',sr:22050,P:48,H:3,ref:.045*1.3,ios:.045,gate:.3,tc:.8,tcOut:.5,make(oc,t0){ const b=bus(oc,1), f=oc.createBiquadFilter(); f.type='lowpass'; f.frequency.value=740; f.Q.value=.7;
+    const lfo=oc.createOscillator(); lfo.frequency.value=1/16; const lg=oc.createGain(); lg.gain.value=220; lfo.connect(lg); lg.connect(f.frequency); lfo.start(0);   // three slow breaths a period
+    const g=oc.createGain(); g.gain.value=this.ref; f.connect(g); g.connect(b.in); g.connect(b.rv);
+    CH[0].forEach((_,i)=>[-6,5].forEach(dt=>{ const o=oc.createOscillator(); o.type=i<1?'sine':'sawtooth'; o.detune.value=dt; o.frequency.setValueAtTime(CH[0][i],0);
+      for(let k=1;k<4;k++) o.frequency.setTargetAtTime(CH[k][i],t0+k*12,2.2);
+      const vg=oc.createGain(); vg.gain.value=i<1?.9:.22/(1+i*.3); o.connect(vg); vg.connect(f); o.start(0); })); }});
+  /* the hole itself: a deep rumble */
+  const SUB=loop({name:'sub',sr:8000,P:14,H:2,ref:.26,ios:.13,gate:.3,tc:.4,make(oc){ const b=bus(oc), s=noiseSrc(oc), f=oc.createBiquadFilter(); f.type='lowpass'; f.frequency.value=46; f.Q.value=1.2;
+    const g=oc.createGain(); g.gain.value=this.ref*nb(oc,46,1.2,true); s.connect(f); f.connect(g); g.connect(b.in); }});
+  /* wind, the thruster, the roar and the hiss: bands of noise. The wind and the roar each come as two, a duller and a
+     brighter, and the mix between them stands in for a filter that opens */
+  const nz=(name,sr,P,type,f,q,ref,tc,ios)=>loop({name,sr,P,ref,tc,ios,gate:.3,make(oc){ const b=bus(oc), s=noiseSrc(oc), fl=oc.createBiquadFilter(); fl.type=type; fl.frequency.value=f; fl.Q.value=q;
+    const g=oc.createGain(); g.gain.value=this.ref; s.connect(fl); fl.connect(g); g.connect(b.in); }});
+  const WL=nz('wind-low',22050,11,'bandpass',650,.8,.26,.08,.09), WH=nz('wind-high',32000,13,'bandpass',1700,.8,.26,.08,.09), TH=nz('thrust',16000,9,'bandpass',240,1.1,.2,.05,.14),
+    RD=nz('roar-dull',16000,10,'lowpass',300,.9,.8,.04,.3), RO=nz('roar-open',22050,12,'lowpass',900,.9,.8,.04,.3), HS=nz('hiss',32000,9,'highpass',3000,.5,.08,.1,.02);
+  const RR={lvl:0,x:.13}, roarMix=()=>{ RD.want=RR.lvl*Math.cos(RR.x*Math.PI/2); RO.want=RR.lvl*Math.sin(RR.x*Math.PI/2); };
+  /* the unidentified contact inside the horizon: a low, slow pulse you feel as much as hear; nearer, it drops and quickens */
+  const cb=(name,f1,f2,lr,ref,ios)=>loop({name,sr:8000,P:20,H:2,ref,ios,gate:.3,tc:.5,make(oc){ const b=bus(oc,.45), trem=oc.createGain(); trem.gain.value=.7;
+    const lfo=oc.createOscillator(); lfo.frequency.value=lr; const lg=oc.createGain(); lg.gain.value=.3; lfo.connect(lg); lg.connect(trem.gain); lfo.start(0);
+    [[f1,1],[f2,.22]].forEach(([f,a])=>{ const s=noiseSrc(oc), fl=oc.createBiquadFilter(); fl.type='bandpass'; fl.frequency.value=f; fl.Q.value=8; const g=oc.createGain(); g.gain.value=a*nb(oc,f,8); s.connect(fl); fl.connect(g); g.connect(trem); });
+    const lv=oc.createGain(); lv.gain.value=this.ref; trem.connect(lv); lv.connect(b.in); lv.connect(b.rv); }});
+  const CF=cb('contact-far',62,93,.2,.05,.02), CN=cb('contact-near',41,61.5,.7,.09,.06);
+  /* each station's air: a band of noise drifting (wob) or swelling like the sea (sea), and a low hum, at its own pitch */
+  const BEDL={};
+  for(const id in BEDS){ const B=BEDS[id]; if(!B.g) continue;
+    BEDL[id]=loop({name:'air-'+id,sr:22050,P:24,H:2,ref:B.g,tc:.9,tcOut:.5,make(oc,t0){ const b=bus(oc,B.send??.35), s=noiseSrc(oc), fl=oc.createBiquadFilter(); fl.type=B.type||'bandpass'; fl.Q.value=B.q; fl.frequency.value=B.f;
+      if(B.wob) fl.frequency.setValueCurveAtTime(curve(oc,t=>B.f*(1+B.wob*Math.sin(TAU*(t-t0)/24))),0,oc.length/oc.sampleRate);
+      const g=oc.createGain(); g.gain.value=B.g; if(B.sea) g.gain.setValueCurveAtTime(curve(oc,t=>B.g*(.55+.45*Math.sin(TAU*(t-t0)/12)*Math.sin(TAU*(t-t0)/24+1))),0,oc.length/oc.sampleRate);
+      s.connect(fl); fl.connect(g); g.connect(b.in); g.connect(b.rv);
+      if(B.h){ const hs=noiseSrc(oc), hf=oc.createBiquadFilter(); hf.type='bandpass'; hf.frequency.value=B.hz; hf.Q.value=12; const hg=oc.createGain();
+        hg.gain.value=B.h*.8*Math.min(1,(420/B.hz)**2)*nb(oc,B.hz,12); hs.connect(hf); hf.connect(hg); hg.connect(b.in); } }}); }
+  /* Earth's music: a slow, warm loop of chords, a soft bass, a held chord under them and a plucked melody: every note one
+     tone with its harmonics in exact tune (nothing detuned, so nothing beats against anything), voiced where a phone or a
+     laptop speaker can play it, no kick and no noise in it. Eight bars, and the notes still ringing after the last one
+     ring on under the next time round */
+  const MUS=loop({name:'music',sr:32000,P:8*4*60/72,H:3,R:0,fade:false,ref:1,tc:.35,tcOut:.15,gate:.02,make(oc){
+      const beat=60/72, L=8*4*beat;
       const ep=oc.createPeriodicWave(new Float32Array([0,0,0,0,0,0]),new Float32Array([0,1,.34,.14,.06,.03]));
       const bus=oc.createGain(); bus.gain.value=.55*3.4*LOUD; const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=4200; lp.Q.value=.5; bus.connect(lp); lp.connect(oc.destination);
       const mf=m=>440*Math.pow(2,(m-69)/12), osc=(f,t0)=>{ const o=oc.createOscillator(); o.setPeriodicWave(ep); o.frequency.setValueAtTime(f,t0); return o; };
@@ -158,80 +238,50 @@ const A=(()=>{
         if(pos===0){ [ch[0],ch[2],ch[4]].forEach((m,i)=>hold(mf(m),t,beat*4,i?.009:.012)); ch.forEach((m,i)=>play(mf(m),t+i*.012,beat*3.2,.017,.03)); play(mf(BASS[bar%4]),t,beat*1.8,.05,.02); }
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t+i*.01,beat*1.3,.011,.02)); play(mf(BASS[bar%4]+7),t,beat*.9,.035,.02); }
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
-        t+=beat*(k%2?.44:.56); k++; }
-      const done=buf=>{ const d=buf.getChannelData(0); for(let i=N;i<d.length;i++) d[i-N]+=d[i];   // what rings on past the end comes round to the start: a seamless loop
-        const ab=new ArrayBuffer(44+N*2), v=new DataView(ab), str=(o,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(o+i,x.charCodeAt(i)); };
-        str(0,'RIFF'); v.setUint32(4,36+N*2,true); str(8,'WAVE'); str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
-        v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); str(36,'data'); v.setUint32(40,N*2,true);
-        for(let i=0;i<N;i++){ const x=d[i]<-1?-1:d[i]>1?1:d[i]; v.setInt16(44+i*2,x*32767,true); }
-        const el=new Audio(); el.src=URL.createObjectURL(new Blob([ab],{type:'audio/wav'})); el.loop=true; el.preload='auto';
-        el.volume=.5; EM.ios=Math.abs(el.volume-.5)>.01; el.volume=0; EM.el=el; EM.busy=false; };
-      try{ const p=oc.startRendering(); if(p&&p.then) p.then(done,()=>{ EM.busy=false; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ EM.busy=false; } },
-    /* the level, eased; a phone whose browser will not let a page set a recording's volume (iPhone) plays it or pauses it */
-    level(v){ EM.want=on&&!muted?clamp(v/.55,0,1):0; const el=EM.el; if(!el) return;
-      const now=performance.now(), dt=Math.min(.1,(now-(EM.t||now))/1000); EM.t=now;
-      EM.vol+=(EM.want-EM.vol)*(1-Math.exp(-dt/.35)); if(EM.want>0&&EM.vol<.002) EM.vol=.002;
-      if(EM.want===0){ EM.fade(); return; }
-      clearInterval(EM.fading); EM.fading=0;
-      if(el.paused&&!EM.blocked) el.play().catch(()=>{ EM.blocked=true; });
-      if(!EM.ios) el.volume=clamp(EM.vol,0,1); },
-    /* out: a short fade that runs by itself, since whoever stopped calling for music may not call again */
-    fade(){ const el=EM.el; if(!el||el.paused||EM.fading) return; if(EM.ios){ el.pause(); EM.vol=0; return; }
-      EM.fading=setInterval(()=>{ EM.vol*=.7; if(EM.vol<.01||EM.want>0){ if(EM.want===0){ EM.vol=0; el.pause(); } clearInterval(EM.fading); EM.fading=0; return; } el.volume=EM.vol; },50); },
-    /* inside a click, a tap or a key a browser always lets a recording start */
-    kick(){ const el=EM.el; if(!el) return;
-      if(EM.want>0&&el.paused){ EM.blocked=false; el.play().catch(()=>{ EM.blocked=true; }); return; }
-      /* not wanted yet (on Land it comes in a few seconds after the swipe): start it for a moment inside this gesture and
-         pause it, so a phone that only lets a page start sound inside a gesture lets it start later by itself. The loop opens
-         on a slow swell, so the moment is silent */
-      if(!EM.primed&&el.paused){ EM.primed=true; if(!EM.ios) el.volume=0; el.play().then(()=>{ if(EM.want===0) el.pause(); EM.blocked=false; }).catch(()=>{}); } } };
-  setTimeout(()=>EM.render(),900);
-  ['touchend','pointerup','click','keydown'].forEach(ev=>addEventListener(ev,()=>EM.kick(),{capture:true,passive:true}));
+        t+=beat*(k%2?.44:.56); k++; } }});
+  /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); }; setTimeout(go,900); }
   return {
-    get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild, _em:EM,
+    get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
     async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
-    _lv(){ if(!ctx) return null; const r=x=>+x.value.toFixed(4); return {pad:r(n.padG.gain),sub:r(n.subG.gain),wind:r(n.wind.g.gain),thrust:r(n.thrust.g.gain),roar:r(n.roar.g.gain),hiss:r(n.hiss.g.gain),whine:r(n.teng.gain),beacons:n.beacons?n.beacons.map(b=>r(b.lvl.gain)):null,pans:n.beacons?n.beacons.map(b=>b.pan?r(b.pan.pan):0):null,mus:+EM.vol.toFixed(4),musPlaying:!!(EM.el&&!EM.el.paused),bed:n.bedG?r(n.bedG.gain):0,hum:n.humG?r(n.humG.gain):0,cb:n.cb?r(n.cb.lvl.gain):0}; }, // test hook: current levels
-    update(t,p){ // p: {sub, wind, pad}
-      if(!ctx) return;
-      if(ctx.currentTime>n.nextChord){ n.chord=(n.chord+1)%CH.length; n.nextChord=ctx.currentTime+10+Math.random()*4; CH[n.chord].forEach((f,i)=>n.voices[i].forEach(o=>o.frequency.setTargetAtTime(f,ctx.currentTime,2.2))); }
-      if(p){ if(p.sub!=null) set(n.subG.gain,p.sub*.26,.4); if(p.pad!=null) set(n.padG.gain,p.pad*.045,.8);   /* (orbit was the loudest steady part: a little under it now) */ if(p.bright!=null) set(n.padF.frequency,(380+p.bright*900)*(n.muf?.42:1),n.muf?.08:.6); }
-    },
+    _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:r(SUB.vol),wind:r(WL.vol+WH.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),hiss:r(HS.vol),whine:n.ten?r(n.teng.gain.value):0,
+      mus:r(MUS.vol),musPlaying:MUS.els.some(e=>!e.paused&&!e.muted),bed:r(Object.values(BEDL).reduce((a,b)=>a+b.vol,0)),cb:r(CF.vol+CN.vol)}; }, // test hook: current levels
+    /* test hooks: every recording (ready, its player's volume, how loud it is at full volume, playing), and how loud the
+       recordings playing now are together */
+    _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
+    _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
+    _loopRms(){ let q=0; for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
+    /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
+    update(t,p){ if(!p) return; if(p.sub!=null) SUB.want=Math.max(0,p.sub)*.26; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045*(muf?.5:1); },
     tick(){ tone(2600*vr(),.02,.01,'square'); },
     click(){ const v=vr(); tone(1200*v,.06,.03,'triangle',600*v); },
     whoosh(up=true,dur=1,g=.2){ noise(dur,g,up?220:2400,up?2400:220,'bandpass',1.1,0,.3); },
     stinger(i=0){ tone(note(8+i),2.4,.045,'sine',0,0,.8,.02); tone(note(10+i)*2,1.6,.015,'sine',0,.08,.8,.02); noise(1.4,.06,500,4000,'bandpass',2,0,.5); },
     swell(){ noise(2,.24,160,3400,'bandpass',1.4,0,.5); tone(146.83,2.6,.05,'sine',293.66,0,.6,.3); tone(220,2.4,.035,'sine',440,.15,.6,.3); },
     boom(){ tone(98,3.6,.5,'sine',22); noise(3,.5,3200,40,'lowpass',.8,0,.4); tone(587,2,.04,'sine',146,0,.9); },
-    wind(v){ if(!ctx) return; set(n.wind.g.gain,Math.min(.26,v)); set(n.wind.b.frequency,400+v*2200); },
-    thrust(v){ if(!ctx) return; set(n.thrust.g.gain,v*.18,.05); },
-    roar(v){ if(!ctx) return; set(n.roar.g.gain,v*.7,.04); },
-    hiss(v){ if(!ctx) return; set(n.hiss.g.gain,v*.08,.1); },
-    whine(v){ if(!ctx) return; set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); },
-    /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    wind(v){ v=Math.max(0,v||0); const L=Math.min(.26,v), x=clamp((400+v*2200-650)/1050,0,1); WL.want=L*Math.cos(x*Math.PI/2); WH.want=L*Math.sin(x*Math.PI/2); },
+    thrust(v){ TH.want=Math.max(0,v||0)*.18; },
+    roar(v){ RR.lvl=Math.max(0,v||0)*.7; roarMix(); },
+    hiss(v){ HS.want=Math.max(0,v||0)*.08; },
+    /* the engine's whine: a rising saw, made live (it follows the spool from moment to moment), and only while it sounds */
+    whine(v){ if(!ctx) return;
+      if(v>.001&&on&&!muted){ if(!n.ten){ n.ten=ctx.createOscillator(); n.ten.type='sawtooth'; n.ten.frequency.value=50+v*800; const tf=ctx.createBiquadFilter(); tf.type='lowpass'; tf.frequency.value=700;
+          n.teng=ctx.createGain(); n.teng.gain.value=0; n.ten.connect(tf); tf.connect(n.teng); n.teng.connect(comp); n.ten.start(); }
+        set(n.teng.gain,v*.07); set(n.ten.frequency,50+v*800); }
+      else if(n.ten){ const t0=ctx.currentTime; n.teng.gain.cancelScheduledValues(t0); n.teng.gain.setTargetAtTime(0,t0,.08); try{ n.ten.stop(t0+.7); }catch(e){} n.ten=null; } },
     /* a station's own air under its screen, so docking never drops you into silence: Kríos a low murmur of voices in a
        room, Aetos the hum of its radar and a slow sweep, Pharos the sea against the rocks, Ogive a hangar's hum and the hiss
        of a vent, Beacon the static and the carrier of a radio mast. id null: the air goes */
-    bed(id,t){ if(!ctx) return; const B=BEDS[id];
-      if(B){ const ty=B.type||'bandpass'; if(n.bedF.type!==ty) n.bedF.type=ty; set(n.bedS.gain,B.send??.35,.6);
-        set(n.bedF.frequency,B.f*(1+(B.wob||0)*Math.sin(t*.17)),.6); set(n.bedF.Q,B.q,.6); set(n.hum.frequency,B.hz,.8); }
-      const sw=B&&B.sea?.55+.45*Math.sin(t*.42)*Math.sin(t*.13+1):1;
-      set(n.bedG.gain,B?B.g*sw:0,B?.9:.5); set(n.humG.gain,B?B.h:0,B?.9:.5);
-      if(B&&B.ping&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
-    muffle(v){ n.muf=!!v; },
-    hush(){ if(!ctx) return; set(n.wind.g.gain,0,.15); set(n.thrust.g.gain,0,.1); set(n.roar.g.gain,0,.1); set(n.hiss.g.gain,0,.1); set(n.teng.gain,0,.2); if(n.cb) set(n.cb.lvl.gain,0,.2); if(n.beacons) n.beacons.forEach(b=>set(b.lvl.gain,0,.2)); EM.want=0; EM.fade(); if(n.bedG){ set(n.bedG.gain,0,.3); set(n.humG.gain,0,.3); } },
-    /* station beacons: a soft glass tone per station in the score's key, each with its own slow pulse,
-       louder as you approach and panned to where the station is */
-    beacons(notes){ if(!ctx||n.beacons) return;
-      n.beacons=notes.map((ni,k)=>{ const f=note(ni), o=ctx.createOscillator(), o2=ctx.createOscillator(), g2=ctx.createGain(), trem=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain(), lvl=ctx.createGain();
-        o.type='sine'; o.frequency.value=f; o2.type='sine'; o2.frequency.value=f*2.003; g2.gain.value=.16; o2.connect(g2);
-        trem.gain.value=.55; lfo.frequency.value=.28+k*.11; lg.gain.value=.45; lfo.connect(lg); lg.connect(trem.gain);
-        o.connect(trem); g2.connect(trem); lvl.gain.value=0; trem.connect(lvl);
-        let pan=null; if(ctx.createStereoPanner){ pan=ctx.createStereoPanner(); lvl.connect(pan); pan.connect(comp); const sg=ctx.createGain(); sg.gain.value=.6; pan.connect(sg); sg.connect(revIn); } else lvl.connect(comp);
-        o.start(); o2.start(); lfo.start(); return {lvl,pan}; }); },
-    beacon(i,g,p){ if(!ctx||!n.beacons||!n.beacons[i]) return; const b=n.beacons[i]; set(b.lvl.gain,g,.3); if(b.pan) set(b.pan.pan,p,.12); },
+    bed(id,t){ const B=BEDS[id], L=B&&BEDL[id];
+      for(const k in BEDL) if(BEDL[k]!==L) BEDL[k].want=0;
+      if(L){ if(!L.url&&!L.busy) render(L); L.want=L.ref; }
+      if(B&&B.ping&&ctx&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
+    muffle(v){ muf=!!v; },
+    /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
+    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=0; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
     /* a grain of rock against the hull: a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
@@ -255,8 +305,8 @@ const A=(()=>{
        own notes; one phrase each turn, so it is a conversation you can follow, not a murmur */
     phrase(who,g=.012){ if(!on||muted||!ctx) return; const M=who?[67,64,62]:[72,76,79];
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
-    /* Earth's music (see EM above): music(v) sets its level; call it every frame while it should play */
-    music(v){ EM.level(v); },
+    /* Earth's music (see MUS above): music(v) sets its level; call it every frame while it should play */
+    music(v){ MUS.want=clamp((v||0)/.55,0,1); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
@@ -268,13 +318,7 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.01); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+d+.05); }); },
     /* the unidentified contact inside the horizon: a low, slow pulse you feel as much as hear, and a moment after it
        the thin return of a radar finding it. Placed on the side where the hole is; the only call in the system */
-    contactBed(g,near=0,p=0){ if(!ctx) return;
-      if(!n.cb){ const o=ctx.createOscillator(), o2=ctx.createOscillator(), g2=ctx.createGain(), lp=ctx.createBiquadFilter(), lvl=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain(), trem=ctx.createGain();
-        o.type='sine'; o2.type='triangle'; o.frequency.value=62; o2.frequency.value=93; g2.gain.value=.22; lp.type='lowpass'; lp.frequency.value=260; o2.connect(g2); g2.connect(lp);
-        trem.gain.value=.7; lfo.frequency.value=.21; lg.gain.value=.3; lfo.connect(lg); lg.connect(trem.gain); o.connect(trem); lp.connect(trem); trem.connect(lvl); lvl.gain.value=0;
-        let pn=null; if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); lvl.connect(pn); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.45; pn.connect(sg); sg.connect(revIn); } else lvl.connect(comp);
-        o.start(); o2.start(); lfo.start(); n.cb={o,o2,lvl,pn,lfo}; }
-      const c=n.cb, k=clamp(near,0,1); set(c.lvl.gain,g,.5); set(c.o.frequency,62-21*k,.6); set(c.o2.frequency,93-31.5*k,.6); set(c.lfo.frequency,.21+.5*k,.6); if(c.pn) set(c.pn.pan,clamp(p,-1,1),.2); },
+    contactBed(g,near=0){ const k=clamp(near,0,1); g=Math.max(0,g||0); CF.want=g*Math.cos(k*Math.PI/2); CN.want=g*Math.sin(k*Math.PI/2); },
     contact(p,g=.05,pf=1){ if(!on||muted||!ctx) return; const t0=ctx.currentTime; let pn=null;
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.85; pn.connect(sg); sg.connect(revIn); }
       const dst=pn||comp;
@@ -293,9 +337,8 @@ const A=(()=>{
       const s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=6; b.frequency.setValueAtTime(3600,t0+.3); b.frequency.exponentialRampToValueAtTime(700,t0+1.1);
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0+.3); a.gain.linearRampToValueAtTime(g*.5,t0+.36); a.gain.exponentialRampToValueAtTime(.0001,t0+1.15); s.connect(b); b.connect(a); a.connect(pn||comp); s.start(t0+.3,Math.random()); s.stop(t0+1.2); },
     /* the orbit's bed running down like a tape stopping, while it fades: the way out of one world into the next */
-    tapeStop(d=2){ if(!ctx) return; const t0=ctx.currentTime;
-      n.voices.forEach(os=>os.forEach(o=>{ o.detune.cancelScheduledValues(t0); o.detune.setValueAtTime(o._dt||0,t0); o.detune.linearRampToValueAtTime((o._dt||0)-1200,t0+d); o.detune.setValueAtTime(o._dt||0,t0+d+1.5); }));
-      if(n.cb){ const f=n.cb.o.frequency, v0=f.value; f.cancelScheduledValues(t0); f.setValueAtTime(v0,t0); f.linearRampToValueAtTime(Math.max(20,v0*.5),t0+d); f.setValueAtTime(v0,t0+d+1.5); } },
+    tapeStop(d=2){ const t0=performance.now(), rs=[PAD,CF,CN]; const iv=setInterval(()=>{ const k=(performance.now()-t0)/1000;
+      if(k>d+1.5){ rs.forEach(r=>r.rate=1); clearInterval(iv); return; } const rt=k<d?1-.5*k/d:.5; rs.forEach(r=>r.rate=rt); },40); },
     /* the seal breaking: a glassy snap, then the pieces falling away */
     crack(){ noise(.35,.32,7000,1400,'highpass',.7,0,.5); noise(1.8,.28,1600,50,'lowpass',.9,.03,.6); tone(1760,1.1,.03,'triangle',820,0,.8); tone(2637,.8,.018,'sine',1240,.05,.8); },
     /* the last flight. The hatch: a heavy seal shutting */
@@ -315,7 +358,7 @@ const A=(()=>{
       const a=ctx.createGain(), d=.02+Math.random()*.05; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
       s.connect(b); b.connect(a); if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=Math.random()*.8-.4; a.connect(pn); pn.connect(comp); } else a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+d+.02); },
     /* the roar's colour: open and rough at full thrust in thick air, dull and far as the air thins */
-    roarTone(f=380){ if(!ctx) return; set(n.roar.b.frequency,f,.25); },
+    roarTone(f=380){ RR.x=clamp((f-300)/600,0,1); roarMix(); },
     /* leaving the pad: a long low push under everything */
     liftoff(){ tone(36,3,.22,'sine',24); noise(2.4,.16,1100,140,'lowpass',.8,0,.3); },
     /* the bottom of the well: a long falling tone, as if time were slowing */
