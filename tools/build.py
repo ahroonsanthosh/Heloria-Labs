@@ -28,11 +28,11 @@ def load(name, path):
 # again within the hour; three.js is a fixed version and kept for a year. Rules for a folder add to those of the folders
 # round it, so the inner ones drop the outer Cache-Control (the ! lines) before setting their own
 # The rest is security: the browser keeps to https, a page loads nothing but its own files, the fonts and the sound it makes
-# itself (blob:), no other site can frame it, and it asks for none of the device's sensors (tested with no violations on
-# every page and station)
+# itself (blob:), and Cloudflare's visitor count (its beacon script and where it reports), no other site can frame it, and
+# it asks for none of the device's sensors (tested with no violations on every page and station)
 HEADERS = """/*
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; connect-src https://cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
