@@ -287,8 +287,10 @@ const A=(()=>{
 
   /* the water: lapping close by and a trickle above it, through the lake's low-pass, closed (as inside) and open (as outside) */
   const water=f=>(oc,out,sr,k)=>{ const lp=k.bq('lowpass',f,.4,out); lp.connect(k.g(.25,k.wet));
-    const lapG=k.g(.62,lp); k.noise('brown',.83,k.bq('highpass',120,.6,k.bq('lowpass',420,null,lapG)));   // the lapping, without the rumble under it no small speaker can play
-    [[.11,.22],[.27,.14],[.53,.07]].forEach(([f,d])=>k.lfo(f,d,lapG.gain));
+    /* the lapping, without the rumble under it no small speaker can play, and well down: a steady band of it read as static,
+       or a rocket going over, and buried the score. It comes and goes in soft swells now, under the music */
+    const lapG=k.g(.2,lp); k.noise('brown',.83,k.bq('highpass',120,.6,k.bq('lowpass',420,null,lapG)));
+    [[.11,.11],[.27,.06],[.53,.03]].forEach(([f,d])=>k.lfo(f,d,lapG.gain));
     const trG=k.g(.035,lp); k.noise('white',1.17,k.bq('bandpass',1300,.9,trG)); k.lfo(.37,.025,trG.gain); };
   loop(water(320),19,{name:'waterClosed',full:.62*.36,tc:.7,tc2:.5,room:true});
   loop(water(2400),19,{name:'waterOpen',full:.62,tc:.7,tc2:.5,room:true});
@@ -299,7 +301,8 @@ const A=(()=>{
      loudest sound on the walk, and sounded like a rocket going over) */
   loop((oc,out,sr,k)=>{ const dg=k.g(.12,out); k.drone('sine',mtof(38),dg); k.lfo(.2,.04,dg.gain); k.drone('sine',mtof(45),k.g(.07,out)); k.drone('sine',mtof(50),k.g(.03,out)); },10,{name:'dark',full:.3,tc:.25});
   /* air in the grass */
-  loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',900,.5,out); k.noise('white',.94,f); k.lfo(.06,500,f.frequency); },16,{name:'wind',full:.06,tc:.8});
+  /* the air in the grass: a soft breath of it, well under the water and the score (it was far too loud, and too bright) */
+  loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',750,.6,k.g(.25,out)); k.noise('white',.94,f); k.lfo(.06,330,f.frequency); },16,{name:'wind',full:.06,tc:.8});
   /* the score: for each of five voices two detuned saws and a sine an octave down, through a slowly breathing low-pass,
      and a soft bass. The eight chords come at the pace they always had (nine to twelve seconds each) and glide into each
      other; at the seam the last is let ring out under the first coming in. The low end is kept light: the root sits under
@@ -352,15 +355,17 @@ const A=(()=>{
   function glass(m,t0,g,p=0,dest){ const f=mtof(m), out=pan(p,dest||n.mus);
     [[1,1,3.2],[2.005,.22,1.4],[3.01,.07,.7],[4.2,.025,.35]].forEach(([r,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*r;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+d*(1.2-r*.05)); o.connect(a); a.connect(out); o.start(t0); o.stop(t0+d*1.3+.1); }); }
-  function tone(f,dur,g,type='sine',f2=0,delay=0,send=.2,atk=.008,dest){ if(!on) return; const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain();
+  /* a short sound only once the sound is running: before the browser lets it, it would wait and come all at once */
+  const live=()=>on&&ctx&&ctx.state==='running';
+  function tone(f,dur,g,type='sine',f2=0,delay=0,send=.2,atk=.008,dest){ if(!live()) return; const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain();
     o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.8);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(dest||n.comp);
     if(send){ const s=ctx.createGain(); s.gain.value=send; a.connect(s); s.connect(n.revIn); } o.start(t0); o.stop(t0+dur+.05); }
-  function noise(dur,g,f0,f1,type='bandpass',q=.8,delay=0,send=.3,dest){ if(!on) return; const t0=ctx.currentTime+delay, s=ctx.createBufferSource(); s.buffer=n.noise; s.loop=true; s.playbackRate.value=.86+Math.random()*.3;
+  function noise(dur,g,f0,f1,type='bandpass',q=.8,delay=0,send=.3,dest){ if(!live()) return; const t0=ctx.currentTime+delay, s=ctx.createBufferSource(); s.buffer=n.noise; s.loop=true; s.playbackRate.value=.86+Math.random()*.3;
     const b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t0+dur);
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+Math.min(.25,dur*.35)); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
     s.connect(b); b.connect(a); a.connect(dest||n.comp); if(send){ const x=ctx.createGain(); x.gain.value=send; a.connect(x); x.connect(n.revIn); } s.start(t0,Math.random()*2); s.stop(t0+dur+.1); }
-  function chirp(p,g=.012,dest){ if(!on) return; const k=2+Math.floor(Math.random()*3), base=2600+Math.random()*1800, out=pan(p,dest||n.comp);
+  function chirp(p,g=.012,dest){ if(!live()) return; const k=2+Math.floor(Math.random()*3), base=2600+Math.random()*1800, out=pan(p,dest||n.comp);
     for(let i=0;i<k;i++){ const t0=ctx.currentTime+i*(.07+Math.random()*.06), o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
       o.frequency.setValueAtTime(base*(1+i*.06),t0); o.frequency.exponentialRampToValueAtTime(base*(1.3+Math.random()*.25),t0+.05);
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.085); o.connect(a); a.connect(out);
@@ -407,7 +412,7 @@ const A=(()=>{
 
   return {
     get on(){ return on; }, get ctx(){ return ctx; },
-    async start(){ try{ init(); on=true; MX.tc=1.2; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
+    async start(){ try{ init(); on=true; MX.tc=.5; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
     suspend(v){ if(!ctx) return;
       if(v){ set(n.master.gain,0,.15); for(const L of LOOPS) if(L.run) halt(L); MX.v=0; setTimeout(()=>{ if(document.hidden&&ctx) ctx.suspend().catch(()=>{}); },400); }
       else { MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); } },
@@ -460,40 +465,40 @@ const A=(()=>{
       const G=(st.rocket||0)*.16+(st.rocketNear||0)*.62, nr=st.rocketNear||0; lv('rkFar',G,Math.sqrt(1-nr)); lv('rkNear',G,Math.sqrt(nr));
     },
     /* the gate: a way being shown, and a way being taken */
-    preview(v){ if(!on) return; const t=ctx.currentTime;
+    preview(v){ if(!live()) return; const t=ctx.currentTime;
       if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
       else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air you fall through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
         setTimeout(()=>{ if(S.gateHover!=='land'||!on) return;
           glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
       else if(v==='fly'){ tone(mtof(26),2.6,.028,'sine',mtof(24),0,.5,.5); noise(2.4,.024,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
-    leave(v){ if(!on) return; const t=ctx.currentTime;
+    leave(v){ if(!live()) return; const t=ctx.currentTime;
       if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
       else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
     /* the rocket at the end of the walk, caught: it roars in close, a long rise, and the walk falls quiet under it */
-    rocketGo(){ if(!on) return; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
+    rocketGo(){ if(!live()) return; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
       n.tape=true; n.tapeAt=performance.now()+300; },
     /* the hand */
-    hover(){ if(!on) return; const m=PENTA[3+Math.floor(Math.random()*5)]; tone(mtof(m),.32,.016,'sine',0,0,.35,.004); tone(mtof(m)*2,.12,.004,'sine',0,0,0,.002); },
-    click(){ if(!on) return; tone(560,.09,.05,'triangle',260,0,.15,.003); noise(.03,.03,2400,1800,'bandpass',2,0,.05); },
-    drop(g=1){ if(!on) return; const t0=ctx.currentTime, f=620+Math.random()*180, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
+    hover(){ if(!live()) return; const m=PENTA[3+Math.floor(Math.random()*5)]; tone(mtof(m),.32,.016,'sine',0,0,.35,.004); tone(mtof(m)*2,.12,.004,'sine',0,0,0,.002); },
+    click(){ if(!live()) return; tone(560,.09,.05,'triangle',260,0,.15,.003); noise(.03,.03,2400,1800,'bandpass',2,0,.05); },
+    drop(g=1){ if(!live()) return; const t0=ctx.currentTime, f=620+Math.random()*180, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine';
       o.frequency.setValueAtTime(f,t0); o.frequency.exponentialRampToValueAtTime(f*2.3,t0+.05);
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.075*g,t0+.004); a.gain.exponentialRampToValueAtTime(.0001,t0+.16);
       o.connect(a); a.connect(n.comp); const s=ctx.createGain(); s.gain.value=.65; a.connect(s); s.connect(n.revIn); o.start(t0); o.stop(t0+.2);
       tone(f*3.1,.06,.008*g,'sine',f*4,.012,.4,.002); },
     /* a hand moving through the water: a soft swish, longer and darker when slow, quicker and brighter when fast, from the
        side of the screen the hand is on, and now and then a drop flicked off */
-    swish(k=.5,p=0){ if(!on) return; const out=pan(p*.7,n.comp), d=.5+.3*(1-k);
+    swish(k=.5,p=0){ if(!live()) return; const out=pan(p*.7,n.comp), d=.5+.3*(1-k);
       noise(d,.06+.09*k,700+1500*k,260+200*k,'bandpass',1.3,0,.35,out);
       noise(d*.6,.012+.02*k,3400+900*k,1800,'bandpass',1.6,.03,.25,out);
       if(k>.45&&Math.random()<.5) plip(.008+.01*k,.12+Math.random()*.2); },
     whoosh(up=true,dur=1.4,g=.07){ noise(dur,g,up?260:2600,up?2600:260,'bandpass',1,0,.5); },
-    swell(){ if(!on) return; [62,66,69,74].forEach((m,i)=>tone(mtof(m),3.2,.03,'sine',0,i*.06,.8,.6)); noise(2.2,.05,200,2600,'lowpass',.7,0,.6); },
-    open(){ if(!on) return; [57,62,66,69].forEach((m,i)=>tone(mtof(m),2.6,.028,'sine',mtof(m)*1.003,i*.05,.8,.35)); noise(1.4,.06,300,4200,'lowpass',.6,0,.6); },
-    close(){ if(!on) return; noise(1.1,.05,3000,300,'lowpass',.6,0,.5); tone(mtof(62),1.6,.025,'sine',0,0,.7,.2); },
-    index(){ if(!on) return; noise(.7,.04,600,2400,'bandpass',1.2,0,.4); tone(mtof(74),1.2,.02,'sine',0,.05,.7,.02); },
-    tick(i){ if(!on) return; tone(mtof(PENTA[(i||0)%PENTA.length]),.25,.014,'sine',0,0,.4,.003); },
-    pick(){ if(!on) return; glass(74,ctx.currentTime,.05,0,n.comp); glass(81,ctx.currentTime+.09,.03,0,n.comp); },
-    rise(){ if(!on) return; noise(1.6,.05,180,1500,'bandpass',1.4,0,.6); for(let i=0;i<9;i++) plip(.012+Math.random()*.012,.5+i*.22+Math.random()*.35); glass(69,ctx.currentTime+.1,.03,-.2,n.comp); },
+    swell(){ if(!live()) return; [62,66,69,74].forEach((m,i)=>tone(mtof(m),3.2,.03,'sine',0,i*.06,.8,.6)); noise(2.2,.05,200,2600,'lowpass',.7,0,.6); },
+    open(){ if(!live()) return; [57,62,66,69].forEach((m,i)=>tone(mtof(m),2.6,.028,'sine',mtof(m)*1.003,i*.05,.8,.35)); noise(1.4,.06,300,4200,'lowpass',.6,0,.6); },
+    close(){ if(!live()) return; noise(1.1,.05,3000,300,'lowpass',.6,0,.5); tone(mtof(62),1.6,.025,'sine',0,0,.7,.2); },
+    index(){ if(!live()) return; noise(.7,.04,600,2400,'bandpass',1.2,0,.4); tone(mtof(74),1.2,.02,'sine',0,.05,.7,.02); },
+    tick(i){ if(!live()) return; tone(mtof(PENTA[(i||0)%PENTA.length]),.25,.014,'sine',0,0,.4,.003); },
+    pick(){ if(!live()) return; glass(74,ctx.currentTime,.05,0,n.comp); glass(81,ctx.currentTime+.09,.03,0,n.comp); },
+    rise(){ if(!live()) return; noise(1.6,.05,180,1500,'bandpass',1.4,0,.6); for(let i=0;i<9;i++) plip(.012+Math.random()*.012,.5+i*.22+Math.random()*.35); glass(69,ctx.currentTime+.1,.03,-.2,n.comp); },
   };
 })();
 
@@ -2864,6 +2869,9 @@ function audioState(s,inside){
     warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
+/* the sound is tried the moment the page opens: a browser that allows it (one that knows you have played sound here before)
+   plays the score at once; any other wakes it on the first click, tap or key (see gateWake) */
+A.start().catch(()=>{});
 
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
 async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }

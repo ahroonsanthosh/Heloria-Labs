@@ -27,7 +27,8 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   check(made.every(l => l.ready && l.bytes > 0), 'every recording is made: ' + made.map(l => l.name + ' ' + (l.bytes / 1024).toFixed(0) + ' KB').join(', '));
   log('  recordings: ' + (made.reduce((a, l) => a + l.bytes, 0) / 1048576).toFixed(2) + ' MB, worked out in ' + (await T(t => t.A.rendered)) + ' ms');
   /* nothing plays before the sound is woken */
-  await stage('before any click, nothing plays', [], [], 3000);
+  /* the sound is tried as the page opens (this browser lets it start): the score and the lake are already there */
+  await stage('before any click, where the browser allows it: the score (and the lake, and on a phone whichever way the gate is showing)', ['music'], ['waterOpen', 'waterClosed', 'warm', 'wind', 'dark'], 15000);
   if (!mobile) await page.mouse.click(8, 8); else await page.touchscreen.tap(8, 8);   // the first touch of the gate wakes the sound
   await page.waitForFunction(() => window.__tamed.A.on && window.__tamed.A.ctx.state === 'running', null, { timeout: 30000 });
   if (!mobile) {

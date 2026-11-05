@@ -147,6 +147,9 @@ function audioState(s,inside){
     warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 document.addEventListener('visibilitychange',()=>A.suspend(document.hidden));
+/* the sound is tried the moment the page opens: a browser that allows it (one that knows you have played sound here before)
+   plays the score at once; any other wakes it on the first click, tap or key (see gateWake) */
+A.start().catch(()=>{});
 
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
 async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
