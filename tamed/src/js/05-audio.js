@@ -231,7 +231,7 @@ const A=(()=>{
   loop((oc,out,sr,k)=>{ const dg=k.g(.12,out); k.drone('sine',mtof(38),dg); k.lfo(.2,.04,dg.gain); k.drone('sine',mtof(45),k.g(.07,out)); k.drone('sine',mtof(50),k.g(.03,out)); },10,{name:'dark',full:.3,tc:.25});
   /* air in the grass */
   /* the air in the grass: a soft breath of it, well under the water and the score (it was far too loud, and too bright) */
-  loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',750,.6,k.g(.25,out)); k.noise('white',.94,f); k.lfo(.06,330,f.frequency); },16,{name:'wind',full:.06,tc:.8});
+  loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',750,.6,k.g(.16,out)); k.noise('white',.94,f); k.lfo(.06,330,f.frequency); },16,{name:'wind',full:.06,tc:.8});
   /* the score: for each of five voices two detuned saws and a sine an octave down, through a slowly breathing low-pass,
      and a soft bass. The eight chords come at the pace they always had (nine to twelve seconds each) and glide into each
      other; at the seam the last is let ring out under the first coming in. The low end is kept light: the root sits under
