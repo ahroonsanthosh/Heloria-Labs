@@ -4925,7 +4925,7 @@ function skyApply(){ sunDir(SKY.h,SKY.doy,SUND,false); sunDir(SKY.h,SKY.doy,MOON
   const night=1-sstep(-8,-1,ed), dusk=sstep(-8,0,ed)*(1-sstep(4,16,ed)), sunOn=ed>-2.5;
   SKY.night=night; SKY.dusk=dusk;
   /* the light that casts: the sun, or the moon once the sun is well down; how strong it is fades to nothing at the hand-over */
-  SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed); direct*=1-.7*SKY.over-.4*WX.fog;
+  if(!SKY.hold) SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed);   // (hold: a test moving the light by hand) direct*=1-.7*SKY.over-.4*WX.fog;
   const K=['la','lb','sh','sky','fog'], out={};
   for(const k of K){ mixV(cA,SKYC.day[k],SKYC.gold[k],dusk); mixV(cB,[cA.x,cA.y,cA.z],SKYC.night[k],night); out[k]=cB.clone(); }
   LU.uShdC.value.copy(out.sh); LU.uLitA.value.copy(out.sh).lerp(out.la,direct); LU.uLitB.value.copy(out.sh).lerp(out.lb,direct);
@@ -6184,7 +6184,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   /* walk up to a landmark and it says what it is, and where to find it */
   /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
      it for a moment, so passing one on your way somewhere does not flash it up */
-  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ if(id===PJ.left) continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+    /* walking away from the landmark whose card is up puts the card away at once, not only once you are out of its reach;
+       it stays away until you are out of reach, or stop and stand for a moment */
+    if(PJ.id&&near===PJ.id){ const q=INST[PJ.id], d=Math.hypot(P.x-q.x,P.z-q.z); PJ.away=PJ.ld!=null&&d>PJ.ld+1e-4&&P.speed>.35?(PJ.away||0)+dt:0; PJ.ld=d; if(PJ.away>.2){ PJ.left=PJ.id; near=null; PJ.away=0; } } else { PJ.ld=null; PJ.away=0; }
+    if(PJ.left){ const q=INST[PJ.left], d=q?Math.hypot(P.x-q.x,P.z-q.z)/q.r:9; if(d>1){ PJ.left=null; PJ.still=0; } else if(P.speed<.1){ PJ.still=(PJ.still||0)+dt; if(PJ.still>.8){ PJ.left=null; PJ.still=0; } } else PJ.still=0; }
     if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
     const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
@@ -6498,7 +6502,7 @@ function cliffUpdate(dt,t){ if(!CLM) return; dt=Math.min(dt,.05); const P=player
   if(CL.ws>0){ seatCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.ws); st.camL.lerp(cvL,CL.ws); LU.uPly.value.lerp(st.camP,CL.ws);   // (nothing stands between: nothing is cut away)
     stCam.fov+=6*CL.ws; stCam.updateProjectionMatrix();   // and a little wider (the town sets it back each frame)
     if(CL.ws>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }   // the town's camera, out of sight, turns to look the same way, so giving it back is a short move
-  if(CL.wk>0){ kiteCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.wk); st.camL.lerp(cvL,CL.wk); if(CL.wk>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }
+  if(CL.wk>0){ kiteCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.wk); st.camL.lerp(cvL,CL.wk); LU.uPly.value.lerp(st.camP,CL.wk);   /* (as on the bench: nothing cut away, so no speckled ring round you) */ if(CL.wk>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }
   if(CLM.str.visible) stringMesh();
   if(CL.hov&&(CL.st!=='idle'||CL.k!=='home')) clHover(null);   // the cursor's word goes once the bench or the kite is in use
   const vw=CL.ws>.5; if(vw!==CL.view){ CL.view=vw; el.classList.toggle('clview',vw); }   // while you take in the view, the name tags step aside

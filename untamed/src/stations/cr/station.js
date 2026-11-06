@@ -2060,7 +2060,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   /* walk up to a landmark and it says what it is, and where to find it */
   /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
      it for a moment, so passing one on your way somewhere does not flash it up */
-  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ if(id===PJ.left) continue; const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+    /* walking away from the landmark whose card is up puts the card away at once, not only once you are out of its reach;
+       it stays away until you are out of reach, or stop and stand for a moment */
+    if(PJ.id&&near===PJ.id){ const q=INST[PJ.id], d=Math.hypot(P.x-q.x,P.z-q.z); PJ.away=PJ.ld!=null&&d>PJ.ld+1e-4&&P.speed>.35?(PJ.away||0)+dt:0; PJ.ld=d; if(PJ.away>.2){ PJ.left=PJ.id; near=null; PJ.away=0; } } else { PJ.ld=null; PJ.away=0; }
+    if(PJ.left){ const q=INST[PJ.left], d=q?Math.hypot(P.x-q.x,P.z-q.z)/q.r:9; if(d>1){ PJ.left=null; PJ.still=0; } else if(P.speed<.1){ PJ.still=(PJ.still||0)+dt; if(PJ.still>.8){ PJ.left=null; PJ.still=0; } } else PJ.still=0; }
     if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
     const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }

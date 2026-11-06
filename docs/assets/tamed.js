@@ -1125,8 +1125,8 @@ function buildOutside(){
     sh.lineTo(-w/2+r,d/2); sh.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r); sh.lineTo(-w/2,-d/2+r); sh.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
     const g=new T.ExtrudeGeometry(sh,{depth:th,bevelEnabled:true,bevelThickness:.014,bevelSize:.02,bevelSegments:2,curveSegments:6}); g.rotateX(-Math.PI/2); g.translate(0,top-th-.014,0); return g; };
   const rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
-  /* the path curves in from the right, where the walk begins, and straightens onto the axis at the steps */
-  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([21*Math.pow(t,1.32)+.8*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
+  /* the path runs straight up the middle to the steps, from where the walk begins, with an easy meander */
+  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([.7*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
   homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22, top=.03+rnd()*.02, ry=(rnd()-.5)*.36; const g=slab(w,d,top); g.rotateY(ry); g.translate(x,0,z); stones.push(g);
     POND.addSlab(x,z,w,d,ry); });   // these answer the hand (see 26-pond.js)
   for(let i=0;i<16;i++){ const x=-17.6-i*3.0-i*i*.07, z=FAR_ARCH.z+Math.sin(i*.6)*.45-i*.08; const w=1.0+rnd()*.25, d=.78+rnd()*.2;
@@ -1471,10 +1471,9 @@ const POND=(()=>{
   const R=(()=>{let s=41;return()=>(s=(s*16807)%2147483647)/2147483647;})();
   for(let i=0;i<KN;i++) P.koi.push({i, x:0, z:0, h:0, v:.12, w:0, ph:R()*TAU, amp:.06, bend:0, depth:.24, L:LEN[i], kind:KIND[i], seed:R()*40,
     ox:R()*TAU, oy:R()*TAU, cool:-99});
-  /* where they live: in the water just by the first stones, where the walk begins. A phone held upright starts the walk
-     further out on the lake, where the first stones are off to the side of the view: there they keep to the water at
-     your feet, which is where the walk begins for you */
-  const HOME={land:[20.4,85.2,3.8], port:[3.2,71.8,2.4]}, REACH=7.5, FAR=17;
+  /* where they live: in the water just by the first stones, where the walk begins, a little to the side of the path
+     (a phone held upright starts the walk a little nearer, so there they are nearer too) */
+  const HOME={land:[1.6,85.2,3.8], port:[1.2,71.8,2.4]}, REACH=7.5, FAR=17;
   const home=()=>HOME[P.layout];
   function settle(){ const [hx,hz]=home(); P.koi.forEach((k,i)=>{ const a=i/KN*TAU+.4; k.x=hx+Math.cos(a)*(1+i%3*.6); k.z=hz+Math.sin(a)*(1.2+i%2*.7); k.h=a+1.9+R()*.6; k.v=.12; k.w=0; }); }
   const gA=V4(NG), gB=V4(NG);
@@ -2591,10 +2590,10 @@ const POST={};
 const K=(s,p,t,f)=>({s,p,t,f});
 const TRACK={
   out:[ /* across the water on the stepping stones, up the steps, into the portal */
-    K(0,   [21,1.5,94],[1.6,5.2,3],29),
-    K(.12, [14.6,1.52,71],[1.2,4.5,2],32),
-    K(.26, [7.6,1.58,47],[.6,3.5,2],36),
-    K(.38, [2.2,1.66,27],[0,3,4],40),
+    K(0,   [.3,1.5,94],[0,5.2,3],29),
+    K(.12, [.25,1.52,71],[0,4.5,2],32),
+    K(.26, [.15,1.58,47],[0,3.5,2],36),
+    K(.38, [.05,1.66,27],[0,3,4],40),
     K(.46, [.2,1.76,15.4],[0,2.9,0],44),
     K(.5,  [0,2.3,12.2],[0,2.9,-4],46),
     K(.54, [0,2.8,9.4],[0,2.85,-6],47),
@@ -2618,7 +2617,7 @@ const TRACK={
 };
 /* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one */
 const TRACK_P={
-  out:{0:K(0,[3.4,1.5,80],[.6,4.1,2],52), .12:K(.12,[2.8,1.55,61],[.5,3.6,1],52), .26:K(.26,[2.2,1.6,43],[.3,3.1,2],52)},
+  out:{0:K(0,[.3,1.5,80],[0,4.1,2],52), .12:K(.12,[.25,1.55,61],[0,3.6,1],52), .26:K(.26,[.15,1.6,43],[0,3.1,2],52)},
   out2:{5:K(5,[1.2,1.45,-10.2],[7.6,1.2,-10.2],46), 5.1:K(5.22,[.6,1.5,-6.2],[.9,1.4,5.8],50), 5.2:K(5.3,[-.6,1.56,-8.6],[-12.6,1.7,-9.8],52), 5.32:K(5.38,[-6,1.64,-10],[-30,2.2,-10.4],52), 6:K(6,[-24.5,1.42,-9.7],[-200,12,-11.5],56), 6.5:K(6.5,[-30,1.42,-9.7],[-200,12,-11.5],56)},
   outAdd:[K(4.86,[1.2,1.45,-14.4],[7.6,1.2,-14.4],46), K(5.14,[1.2,1.45,-6],[7.6,1.2,-6],46)],
 };

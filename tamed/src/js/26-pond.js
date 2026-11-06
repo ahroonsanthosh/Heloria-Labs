@@ -49,10 +49,9 @@ const POND=(()=>{
   const R=(()=>{let s=41;return()=>(s=(s*16807)%2147483647)/2147483647;})();
   for(let i=0;i<KN;i++) P.koi.push({i, x:0, z:0, h:0, v:.12, w:0, ph:R()*TAU, amp:.06, bend:0, depth:.24, L:LEN[i], kind:KIND[i], seed:R()*40,
     ox:R()*TAU, oy:R()*TAU, cool:-99});
-  /* where they live: in the water just by the first stones, where the walk begins. A phone held upright starts the walk
-     further out on the lake, where the first stones are off to the side of the view: there they keep to the water at
-     your feet, which is where the walk begins for you */
-  const HOME={land:[20.4,85.2,3.8], port:[3.2,71.8,2.4]}, REACH=7.5, FAR=17;
+  /* where they live: in the water just by the first stones, where the walk begins, a little to the side of the path
+     (a phone held upright starts the walk a little nearer, so there they are nearer too) */
+  const HOME={land:[1.6,85.2,3.8], port:[1.2,71.8,2.4]}, REACH=7.5, FAR=17;
   const home=()=>HOME[P.layout];
   function settle(){ const [hx,hz]=home(); P.koi.forEach((k,i)=>{ const a=i/KN*TAU+.4; k.x=hx+Math.cos(a)*(1+i%3*.6); k.z=hz+Math.sin(a)*(1.2+i%2*.7); k.h=a+1.9+R()*.6; k.v=.12; k.w=0; }); }
   const gA=V4(NG), gB=V4(NG);

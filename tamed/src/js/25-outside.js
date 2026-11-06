@@ -206,8 +206,8 @@ function buildOutside(){
     sh.lineTo(-w/2+r,d/2); sh.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r); sh.lineTo(-w/2,-d/2+r); sh.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
     const g=new T.ExtrudeGeometry(sh,{depth:th,bevelEnabled:true,bevelThickness:.014,bevelSize:.02,bevelSegments:2,curveSegments:6}); g.rotateX(-Math.PI/2); g.translate(0,top-th-.014,0); return g; };
   const rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
-  /* the path curves in from the right, where the walk begins, and straightens onto the axis at the steps */
-  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([21*Math.pow(t,1.32)+.8*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
+  /* the path runs straight up the middle to the steps, from where the walk begins, with an easy meander */
+  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([.7*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
   homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22, top=.03+rnd()*.02, ry=(rnd()-.5)*.36; const g=slab(w,d,top); g.rotateY(ry); g.translate(x,0,z); stones.push(g);
     POND.addSlab(x,z,w,d,ry); });   // these answer the hand (see 26-pond.js)
   for(let i=0;i<16;i++){ const x=-17.6-i*3.0-i*i*.07, z=FAR_ARCH.z+Math.sin(i*.6)*.45-i*.08; const w=1.0+rnd()*.25, d=.78+rnd()*.2;
