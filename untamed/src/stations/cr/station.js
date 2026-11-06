@@ -1893,6 +1893,7 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down&&!CAFE.on){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
 addEventListener('pointerup',e=>{ if(PHS.drag&&e.pointerId===PHS.drag.id){ PHS.drag=null; return; } if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+  if(CL.tap&&CL.tap.id===e.pointerId&&CL.tap.stood) return;   // (the tap that stands you up from the bench does only that: it does not also send you off to the café, him, or one of us)
   if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
   const p=pickPerson(e); if(buskTap(e,p)) return; if(p) goTalk(p); else cafeTap(e); });
 addEventListener('pointercancel',()=>{ down=null; look=null; PHS.drag=null; stickOff(); });
