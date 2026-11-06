@@ -251,17 +251,28 @@ const A=(()=>{
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t+i*.01,beat*1.3,.011,.02)); play(mf(BASS[bar%4]+7),t,beat*.9,.035,.02); }
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
         t+=beat*(k%2?.44:.56); k++; } }});
-  /* light rain on Earth: not a hiss (on a phone that is static) but a recording of separate drops, small bright plinks
-     and soft taps on roofs and leaves, spread out so you hear each one */
-  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.3), L=oc.length/oc.sampleRate;
-      const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=5600; lp.Q.value=.5; lp.connect(b.in);
+  /* rain on Earth: not a hiss (on a phone that is static) and not a scatter of little tones (those are bleeps), but rain:
+     a few hundred small soft hits a second, each a short burst rung through a band in the middle of the range, so you hear
+     a patter and not a wash; duller taps on wood and roofs nearby; now and then a drop into a puddle; and under it, dark
+     and quiet, the rain further off, rising and falling with the gusts. Nothing above about 4 kHz, where hiss lives. It is
+     worked out sample by sample here and only played through the bus */
+  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.25), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0), L=n/sr;
       let seed=97; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
-      const nb0=oc.createBuffer(1,Math.floor(oc.sampleRate*.05),oc.sampleRate), nd=nb0.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=(rnd()*2-1)*Math.pow(1-i/nd.length,3);
-      for(let t=.02;t<L;t+=.01+rnd()*.032){ if(rnd()<.7){ const o=oc.createOscillator(), a=oc.createGain(), f=1700+rnd()*3600;
-          o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*(.68+rnd()*.2),t+.03);
-          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.034+rnd()*.06,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
-        else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.22+rnd()*.26;
-          s.connect(bp); bp.connect(a); a.connect(lp); s.start(t); } } }});
+      /* one hit: a short burst of decaying noise rung through a band-pass at f (Q q), about tau seconds long, at level g */
+      const hit=(t,f,q,tau,g)=>{ const i0=Math.floor(t*sr); if(i0>=n) return; const w=2*Math.PI*Math.min(f,sr*.45)/sr, al=Math.sin(w)/(2*q), a0=1+al, b0=al/a0, a1=-2*Math.cos(w)/a0, a2=(1-al)/a0;
+        const N=Math.min(n-i0,Math.floor(sr*(tau*7+.004))), at=Math.max(1,Math.floor(sr*.0007)); let x1=0,x2=0,y1=0,y2=0;
+        for(let k=0;k<N;k++){ const e=(k<at?k/at:1)*Math.exp(-k/(tau*sr)), x=(rnd()*2-1)*e, y=b0*x-b0*x2-a1*y1-a2*y2; x2=x1; x1=x; y2=y1; y1=y; d[i0+k]+=y*g; } };
+      /* a drop into a puddle: a little bubble that rings and rises in pitch as it closes */
+      const plip=(t,f0,g)=>{ const i0=Math.floor(t*sr), N=Math.min(n-i0,Math.floor(sr*.06)); let ph=0;
+        for(let k=0;k<N;k++){ const u=k/sr, f=f0*(1+u*38), e=(u<.0015?u/.0015:1)*Math.exp(-u/.012); ph+=2*Math.PI*f/sr; d[i0+k]+=Math.sin(ph)*e*g; } };
+      for(let t=.005;t<L;t+=.0012+rnd()*.0055){ const r=rnd(); hit(t,900+2600*Math.pow(rnd(),1.3),.8+rnd()*.9,.0016+rnd()*.004,.07+.7*Math.pow(r,5)); }   // the patter, mostly very soft, a few nearer
+      for(let t=.05;t<L;t+=.09+rnd()*.32) hit(t,380+rnd()*520,2.4+rnd()*1.5,.005+rnd()*.007,.16+rnd()*.2);   // on wood and roofs
+      for(let t=.1;t<L;t+=.22+rnd()*.7) plip(t,520+rnd()*620,.045+rnd()*.05);   // into puddles
+      { let l1=0,l2=0,h1=0,g=.7,gt=.7; const c=Math.exp(-2*Math.PI*1300/sr), ch=Math.exp(-2*Math.PI*380/sr);   // further off: a dark band, in gusts
+        for(let i=0;i<n;i++){ if(i%2048===0) gt=.45+.55*rnd(); g+=(gt-g)*.00004; const x=rnd()*2-1; l1=l1*c+x*(1-c); l2=l2*c+l1*(1-c); h1=h1*ch+l2*(1-ch); d[i]+=(l2-h1)*g*.5; } }
+      for(let i=0;i<n;i++) d[i]*=.33;   // (as loud as the rain was before)
+      const s=oc.createBufferSource(); s.buffer=buf; const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=180; hp.Q.value=.6;
+      const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3800; lp.Q.value=.6; s.connect(hp); hp.connect(lp); lp.connect(b.in); s.start(0); }});
   /* ---------- Diarmuid's guitar, outside the café on Earth ----------
      An electric guitar made here, string by string. Each note is a plucked string (Karplus-Strong): a short burst of soft
      noise, one period long, goes round a delay line one period long and loses a little of its top each time round, so it
@@ -4440,7 +4451,6 @@ const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
     'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
 const CAFE_ON=true;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
-const CAFE_B=[-2.5,2.35,.4];   // where the café's board stands: its front corner on the side you come from the landing, turned to the street
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
   g.add(new T.Mesh(new T.BoxGeometry(.22,.07,.22),dk));
@@ -4485,8 +4495,7 @@ function buildTown(){
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
         [[-1.15,1.85],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
-        /* a board out on the pavement: this is where you book a chat with the three of us */
-        if(CAFE_ON) sign(sub(M,CAFE_B[0],0,CAFE_B[1],CAFE_B[2]),'BOOK A CHAT',{sub:'with the three of us',w:1.4,h:.62,y:.8,legs:true,bg:'#34423b',fg:'#f3ead8',board:'#6d5544'}); } });
+        } });
     obs(3-1.15,-13.4+1.85,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
@@ -4883,6 +4892,7 @@ const DM={x:4.42,z:-10.28,face:[.8,-4.6],lamp:[3.8,-11.2],pole:[5.75,-9.75],g:nu
   obs:[],pick:[],ev:null,sev:null,rh:new T.Vector3(),lh:new T.Vector3(),hy:0,nk:0};
 const dmM=new T.Matrix4(), dmM2=new T.Matrix4(), dmQ=new T.Quaternion(), dmE=new T.Euler(), dmV=new T.Vector3(), dmW=new T.Vector3(), DOWN=new T.Vector3(0,-1,0);
 /* the guitar's frets: where along the neck (from the nut, toward the bridge) the n-th one is */
+const NOTE_N=8, NOTE_L=2.4;
 const NUT=.452, SCALE=.567, fretX=n=>NUT-SCALE*(1-Math.pow(2,-n/12));
 function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,DM.z,DM.face[0],DM.face[1]);
   const spot=new T.Group(); spot.matrixAutoUpdate=false; spot.matrix.copy(frameAt(DM.x,DM.z,yaw,standH(DM.x,DM.z))); sc.add(spot); DM.spot=spot; DM.dir=at(DM.x,DM.z);
@@ -4962,6 +4972,25 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
       vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
       fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.66,.34)*vK*vK*(3.-2.*vK)*uK*.3,1.); }`}));
     pool.layers.set(1); pool.renderOrder=2; pool.frustumCulled=false; sc.add(pool); DM.pool=pool; }
+  /* when he plays for you: notes rise from his amp, drift and fade, drawn like everything else, in ink on paper */
+  { const N=NOTE_N, ng=new T.BufferGeometry(); ng.setAttribute('position',new T.BufferAttribute(new Float32Array(N*3),3)); ng.setAttribute('aA',new T.BufferAttribute(new Float32Array(N*3),3));
+    const nm=new T.ShaderMaterial({uniforms:{uH:{value:800},uDim:{value:1}},transparent:true,depthWrite:false,
+      vertexShader:`attribute vec3 aA; uniform float uH; varying vec3 vA; varying float vPx; void main(){ vA=aA; vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv;
+        gl_PointSize=aA.z*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); vPx=max(gl_PointSize,1.); if(aA.x<.003) gl_Position=vec4(2.,2.,2.,1.); }`,
+      fragmentShader:`uniform float uDim; varying vec3 vA; varying float vPx;
+        float seg(vec2 p,vec2 a,vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.); return length(pa-ba*h); }
+        void main(){ vec2 q=vec2(gl_PointCoord.x*2.-1.,1.-gl_PointCoord.y*2.); float c=cos(vA.y), s=sin(vA.y); q=mat2(c,s,-s,c)*q*1.12;
+          vec2 h=q-vec2(-.2,-.5); float hc=cos(.42), hs=sin(.42); h=mat2(hc,-hs,hs,hc)*h; float dh=(length(h/vec2(.3,.21))-1.)*.21;
+          float ds=seg(q,vec2(.07,-.48),vec2(.07,.72))-.055;
+          float df=seg(q,vec2(.07,.7),vec2(.38,.38))-.07; df=min(df,seg(q,vec2(.38,.38),vec2(.36,.12))-.06);
+          float d=min(dh,min(ds,df)), aa=2.4/vPx, o=.1;
+          float a=1.-smoothstep(o-aa,o+aa,d); if(a*vA.x<.004) discard;
+          vec3 col=mix(vec3(.17,.14,.11),vec3(.985,.965,.925)*uDim,smoothstep(-aa,aa,d));
+          gl_FragColor=vec4(col,a*vA.x); }`});
+    const notes=new T.Points(ng,nm); notes.layers.set(1); notes.renderOrder=8; notes.frustumCulled=false; notes.visible=false; sc.add(notes); DM.notes=notes;
+    DM.nt=Array.from({length:N},()=>({t:9,x:0,y:0,s:0,r:0})); DM.nk2=0;
+    const o=gw.clone(), u=o.clone().normalize(), t1=new T.Vector3().crossVectors(u,Math.abs(u.y)<.9?UPY:new T.Vector3(1,0,0)).normalize();
+    DM.nO=o.addScaledVector(u,.12); DM.nU=u; DM.nS=t1; DM.nF=new T.Vector3().crossVectors(u,t1); }
   if(NAV.free) for(const o of DM.obs){ const m=o.r+.3, N=NAV.N; for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
     if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2<m*m) NAV.free[j*N+i]=0; } }
   /* the houses near him, to know when you are inside one (where you do not hear him) */
@@ -5030,10 +5059,23 @@ function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM
   if(DM.halo.visible){ DM.halo.material.uniforms.uK.value=nk*(.92+.08*Math.sin(t*2.3)); DM.halo.material.uniforms.uH.value=colRT.height||innerHeight; }
   /* his name tag: when you point at him, or are near */
   const lb=DM.lb, hw=dmW.copy(DM.dir).multiplyScalar(R+standH(DM.x,DM.z)+1.82).project(stCam), quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GLN.t>=0||PHS.on;
-  lb.classList.toggle('on',(DM.hov||d<5.5)&&hw.z<1&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  /* asked, he is the one you are going to; nodding he says so; and while he plays for you his tag stays lit */
+  const forYou=DM.goal||DM.st==='nod'||DM.st==='solo', txt=DM.st==='nod'||(DM.st==='solo'&&DM.sct<3.2)?'Diarmuid: "This one\'s for you"':'Diarmuid';
+  if(txt!==DM.lbT){ DM.lbT=txt; lb.textContent=txt; }
+  lb.classList.toggle('on',(DM.hov||d<5.5||forYou)&&hw.z<1&&!quiet); lb.classList.toggle('ask',forYou&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  buskNotes(dt,vis&&!quiet&&(DM.st==='solo'||(DM.st==='nod'&&DM.stT>.5)),nk);
   lb.style.transform=`translate(${((hw.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hw.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
   if(!vis) return;
   buskPose(dt,t,P); }
+/* the notes over his amp: a new one every half second or so while he plays for you, each rising a metre, swaying, and
+   fading over a couple of seconds; the last ones finish their rise after he stops */
+function buskNotes(dt,on,nk){ const N=DM.notes; if(!N) return; let live=false;
+  DM.nk2-=dt; if(on&&DM.nk2<=0){ const n=DM.nt.find(q=>q.t>=NOTE_L); if(n){ n.t=0; n.x=(Math.random()-.5)*.5; n.y=(Math.random()-.5)*.3; n.s=.17+Math.random()*.07; n.r=(Math.random()-.5)*.5; } DM.nk2=.42+Math.random()*.3; }
+  const P=N.geometry.attributes.position, Aa=N.geometry.attributes.aA;
+  DM.nt.forEach((n,i)=>{ if(n.t<NOTE_L){ n.t+=dt; live=true; } const k=Math.min(1,n.t/NOTE_L), a=n.t>=NOTE_L?0:sstep(0,.25,n.t)*(1-sstep(NOTE_L-.9,NOTE_L,n.t));
+    dmV.copy(DM.nO).addScaledVector(DM.nU,k*1.05).addScaledVector(DM.nS,n.x+Math.sin(n.t*2.4+i)*.1*k).addScaledVector(DM.nF,n.y);
+    P.setXYZ(i,dmV.x,dmV.y,dmV.z); Aa.setXYZ(i,a,n.r+Math.sin(n.t*1.9+i*2.1)*.22,n.s*(.75+.25*sstep(0,.5,n.t))); });
+  N.visible=live; if(live){ P.needsUpdate=true; Aa.needsUpdate=true; N.material.uniforms.uH.value=colRT.height||innerHeight; N.material.uniforms.uDim.value=1-.3*nk; } }
 /* an arm reaching a point (in his body's frame): the elbow out toward pole, the upper arm and forearm laid along the two halves */
 const rU=new T.Vector3(), rN=new T.Vector3(), rE=new T.Vector3(), rF=new T.Vector3(), rQ=new T.Quaternion();
 function reach(arm,fore,H,pole){ const S=arm.position, a=DM.ua, b=DM.fa; rU.subVectors(H,S); const D0=rU.length()||1, D=clamp(D0,Math.abs(a-b)+.002,a+b-.002); rU.divideScalar(D0);

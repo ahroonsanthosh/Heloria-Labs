@@ -175,6 +175,19 @@ const POND=(()=>{
     fish(dt,H,tn);
   };
 
+  /* a click or a tap on a stone presses it: it dips and tips toward where you touched it, with a knock, a ring and its light,
+     even when the hand is already resting on it, and even for a tap too quick for any frame to see the finger */
+  const _pr=v3();
+  P.press=(x,y)=>{ if(!P.slabs.length) return false; CAM.out.updateMatrixWorld(); _n.set(x/innerWidth*2-1,-(y/innerHeight)*2+1); ray.setFromCamera(_n,CAM.out);
+    const o=ray.ray.origin, d=ray.ray.direction; if(d.y>-1e-4) return false; const t1=(.04-o.y)/d.y; if(t1>150) return false; _pr.set(o.x+d.x*t1,0,o.z+d.z*t1);
+    let best=null, be=.06; for(const sl of P.slabs){ const dx=_pr.x-sl.x, dz=_pr.z-sl.z; if(dx*dx+dz*dz>4) continue;
+      const ux=Math.abs(sl.c*dx-sl.s*dz)-(sl.hw-sl.r), uz=Math.abs(sl.s*dx+sl.c*dz)-(sl.hd-sl.r), e=Math.hypot(Math.max(ux,0),Math.max(uz,0))+Math.min(Math.max(ux,uz),0)-sl.r;
+      if(e<be){ be=e; best=sl; } }
+    if(!best) return false; const sl=best, tn=now(), dx=_pr.x-sl.x, dz=_pr.z-sl.z, dd=Math.hypot(dx,dz)||1, lean=Math.min(1,dd/(.55*Math.max(sl.hw,sl.hd)));
+    sl.vx+=dx/dd*lean*A0*3.2; sl.vz+=dz/dd*lean*A0*3.2; sl.vy-=.075; sl.g=1; sl.in=true; sl.t=tn;
+    const p=pan(sl.x,sl.z), sz=(sl.hw+sl.hd)*.5; OUT.sim.drop(sl.x,sl.z,.48*sz+.26,1.25); P.count.ring++;
+    if(tn-(P.knT||0)>.08){ P.knT=tn; A.knock(1.15,p,sz/.5); A.plink(.9,p,.07); P.count.knock++; } P.count.press=(P.count.press||0)+1; return true; };
+
   function stones(dt,H,tn){
     for(const sl of P.slabs){
       let f=0, lx=0, lz=0, lean=0, e=9;

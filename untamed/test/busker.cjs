@@ -89,12 +89,16 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const s1 = await B((e, d) => ({ ...d.busk.state, talk: e.talk(), met: d.MET.size }));
   rec(s1.st === 'nod' && !s1.talk && s1.met === met0, (mobile ? 'a tap' : 'a click') + ' on him: he looks up and nods, and nobody talks', JSON.stringify({ scr: scr.map(v => +v.toFixed(1)), s1 }));
   /* (headless frames are slow and each is at most a twentieth of a second of his time: his nod is stepped through by hand) */
+  const said = await B((e, d) => { const L = d.busk.DM.lb; return { t: L.textContent, ask: L.classList.contains('ask'), on: L.classList.contains('on') }; });
+  rec(/for you/.test(said.t) && said.ask && said.on, 'his tag lights up and he says the next one is for you', JSON.stringify(said));
   /* the solo is caught as soon as the sound starts it (the sound keeps its own time, frames or no frames) */
   await B(e => { e.run(32); }); let s2 = null;
   for (let i = 0; i < 100; i++) { s2 = await B((e, d) => ({ st: d.busk.state.st, solo: e.loops()['busk-solo'], busk: e.loops().busk.vol, at: +window.__heloria.A.buskAt().solo.toFixed(2) })); if (s2.solo.playing && s2.solo.vol > .5) break; await wait(150); }
   rec(s2.st === 'solo' && s2.solo.playing && s2.solo.vol > .5 && s2.at >= 0 && s2.at < 6, 'and plays you his solo, from its beginning', JSON.stringify(s2));
   let s2b = null; for (let i = 0; i < 40; i++) { s2b = await B((e, d) => ({ st: d.busk.state.st, busk: e.loops().busk })); if (s2b.busk.vol < .1) break; await wait(150); }
-  rec(s2b.busk.vol < .1, 'his piece waits while he plays the solo', JSON.stringify(s2b)); await shot(pre + 'busker-solo');
+  rec(s2b.busk.vol < .1, 'his piece waits while he plays the solo', JSON.stringify(s2b));
+  const nt = await B((e, d) => { e.run(45); const D = d.busk.DM; return { vis: D.notes.visible, live: D.nt.filter(n => n.t < 2.4).length, ask: D.lb.classList.contains('ask') }; });
+  rec(nt.vis && nt.live >= 2 && nt.ask, 'while he plays for you notes rise from his amp, and his tag stays lit', JSON.stringify(nt)); await frames(3); await shot(pre + 'busker-solo');
   let back = null; for (let i = 0; i < 40; i++) { await wait(1000); const st = await B((e, d) => d.busk.state.st); if (st === 'play') { back = i; break; } }
   await wait(2500); const s3 = await B(e => e.loops());
   rec(back !== null && s3.busk.playing && s3.busk.vol > .5 && !s3['busk-solo'].playing, 'after the solo he goes back to his piece', JSON.stringify({ back, busk: s3.busk, solo: s3['busk-solo'] }));

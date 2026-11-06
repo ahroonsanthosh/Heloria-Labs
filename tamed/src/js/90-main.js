@@ -3,6 +3,7 @@ const CAM={out:new T.PerspectiveCamera(40,1,.1,3000), gal:new T.PerspectiveCamer
 const G={px:600};
 let OUT=null, GAL=null, rtA=null, rtB=null;
 const WORLD={onWater:false,offT:0,tap(x,y){ if(!OUT||!(S.mode==='world')) return; HAND.tapT=now(); const mx=sceneMix(S.s); if(mx.a!=='out'&&mx.b!=='out') return;
+  if(POND.press&&POND.press(x,y)) return;   // a stone under the hand is pressed, rather than the water beside it
   if(waterAt(x,y,CAM.out,_hit)){ OUT.sim.drop(_hit.x,_hit.z,.8,2.4); A.drop(1.1); } }};
 const _ray=new T.Raycaster(), _nd=new T.Vector2(), _hit=v3(), _lastHit=v3(), _plane=new T.Plane(v3(0,1,0),0), _hd=v3(), _hp=v3(), _cp=v3(), _ct=v3();
 function waterAt(x,y,cam,out){

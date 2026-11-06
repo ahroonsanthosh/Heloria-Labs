@@ -1125,9 +1125,9 @@ function buildOutside(){
     sh.lineTo(-w/2+r,d/2); sh.quadraticCurveTo(-w/2,d/2,-w/2,d/2-r); sh.lineTo(-w/2,-d/2+r); sh.quadraticCurveTo(-w/2,-d/2,-w/2+r,-d/2);
     const g=new T.ExtrudeGeometry(sh,{depth:th,bevelEnabled:true,bevelThickness:.014,bevelSize:.02,bevelSegments:2,curveSegments:6}); g.rotateX(-Math.PI/2); g.translate(0,top-th-.014,0); return g; };
   const rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
-  /* the path runs straight up the middle to the steps, from where the walk begins, with an easy meander */
-  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([.7*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
-  homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22, top=.03+rnd()*.02, ry=(rnd()-.5)*.36; const g=slab(w,d,top); g.rotateY(ry); g.translate(x,0,z); stones.push(g);
+  /* the path runs dead straight up the middle, from where the walk begins to the foot of the steps, in line with the door */
+  const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76; homePath.push([(rnd()-.5)*.06,z]); }
+  homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22, top=.03+rnd()*.02, ry=(rnd()-.5)*.14; const g=slab(w,d,top); g.rotateY(ry); g.translate(x,0,z); stones.push(g);
     POND.addSlab(x,z,w,d,ry); });   // these answer the hand (see 26-pond.js)
   for(let i=0;i<16;i++){ const x=-17.6-i*3.0-i*i*.07, z=FAR_ARCH.z+Math.sin(i*.6)*.45-i*.08; const w=1.0+rnd()*.25, d=.78+rnd()*.2;
     const g=slab(w,d,.03+rnd()*.02); g.rotateY((rnd()-.5)*.36); g.translate(x,0,z); stones.push(g); }
@@ -1171,7 +1171,7 @@ function buildOutside(){
 
   /* tall grass at the edges */
   W.grass=makeGrass(W.U,[
-    {x:-11.5,z:84,rx:4.6,rz:5.4,n:1050,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:23,z:72,rx:5,rz:6,n:1100,h:1.6},{x:8.5,z:73,rx:4,rz:5,n:900,h:1.8},{x:-1.5,z:56,rx:2.6,rz:3,n:420,h:1.3},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
+    {x:-11.5,z:84,rx:4.6,rz:5.4,n:1050,h:2.1},{x:-21,z:66,rx:6,rz:6,n:1300,h:1.5},{x:23,z:72,rx:5,rz:6,n:1100,h:1.6},{x:8.5,z:73,rx:4,rz:5,n:900,h:1.8},{x:-4.4,z:56,rx:2,rz:3,n:380,h:1.3},{x:4.5,z:90,rx:1.4,rz:1.6,n:220,h:1.2},{x:-26,z:46,rx:5,rz:6,n:700},{x:19,z:42,rx:5,rz:6,n:700},{x:-21,z:26,rx:4,rz:5,n:500},{x:17,z:22,rx:4,rz:5,n:500},{x:-16.5,z:9,rx:2.8,rz:4.5,n:420},{x:16.2,z:7,rx:2.6,rz:5,n:420},
     {x:-35,z:2,rx:6,rz:4.5,n:900},{x:-36,z:-19,rx:6.5,rz:4.5,n:900},{x:-58,z:-2,rx:3.5,rz:2.5,n:300},{x:-62,z:-15,rx:4,rz:2.5,n:320},
     {x:-10.2,z:-19.6,rx:.8,rz:.7,n:70,h:.7},{x:10.3,z:-19.7,rx:.7,rz:.7,n:60,h:.6},{x:-10.2,z:-.4,rx:.8,rz:.6,n:60,h:.7},{x:10.3,z:-.3,rx:.7,rz:.6,n:60,h:.6},
     {x:24,z:-6,rx:4,rz:7,n:500},{x:-25,z:-30,rx:5,rz:4,n:400}]);
@@ -1596,6 +1596,19 @@ const POND=(()=>{
     stones(dt,H,tn);
     fish(dt,H,tn);
   };
+
+  /* a click or a tap on a stone presses it: it dips and tips toward where you touched it, with a knock, a ring and its light,
+     even when the hand is already resting on it, and even for a tap too quick for any frame to see the finger */
+  const _pr=v3();
+  P.press=(x,y)=>{ if(!P.slabs.length) return false; CAM.out.updateMatrixWorld(); _n.set(x/innerWidth*2-1,-(y/innerHeight)*2+1); ray.setFromCamera(_n,CAM.out);
+    const o=ray.ray.origin, d=ray.ray.direction; if(d.y>-1e-4) return false; const t1=(.04-o.y)/d.y; if(t1>150) return false; _pr.set(o.x+d.x*t1,0,o.z+d.z*t1);
+    let best=null, be=.06; for(const sl of P.slabs){ const dx=_pr.x-sl.x, dz=_pr.z-sl.z; if(dx*dx+dz*dz>4) continue;
+      const ux=Math.abs(sl.c*dx-sl.s*dz)-(sl.hw-sl.r), uz=Math.abs(sl.s*dx+sl.c*dz)-(sl.hd-sl.r), e=Math.hypot(Math.max(ux,0),Math.max(uz,0))+Math.min(Math.max(ux,uz),0)-sl.r;
+      if(e<be){ be=e; best=sl; } }
+    if(!best) return false; const sl=best, tn=now(), dx=_pr.x-sl.x, dz=_pr.z-sl.z, dd=Math.hypot(dx,dz)||1, lean=Math.min(1,dd/(.55*Math.max(sl.hw,sl.hd)));
+    sl.vx+=dx/dd*lean*A0*3.2; sl.vz+=dz/dd*lean*A0*3.2; sl.vy-=.075; sl.g=1; sl.in=true; sl.t=tn;
+    const p=pan(sl.x,sl.z), sz=(sl.hw+sl.hd)*.5; OUT.sim.drop(sl.x,sl.z,.48*sz+.26,1.25); P.count.ring++;
+    if(tn-(P.knT||0)>.08){ P.knT=tn; A.knock(1.15,p,sz/.5); A.plink(.9,p,.07); P.count.knock++; } P.count.press=(P.count.press||0)+1; return true; };
 
   function stones(dt,H,tn){
     for(const sl of P.slabs){
@@ -2590,11 +2603,11 @@ const POST={};
 const K=(s,p,t,f)=>({s,p,t,f});
 const TRACK={
   out:[ /* across the water on the stepping stones, up the steps, into the portal */
-    K(0,   [.3,1.5,94],[0,5.2,3],29),
-    K(.12, [.25,1.52,71],[0,4.5,2],32),
-    K(.26, [.15,1.58,47],[0,3.5,2],36),
-    K(.38, [.05,1.66,27],[0,3,4],40),
-    K(.46, [.2,1.76,15.4],[0,2.9,0],44),
+    K(0,   [0,1.5,94],[0,5.2,3],29),
+    K(.12, [0,1.52,71],[0,4.5,2],32),
+    K(.26, [0,1.58,47],[0,3.5,2],36),
+    K(.38, [0,1.66,27],[0,3,4],40),
+    K(.46, [0,1.76,15.4],[0,2.9,0],44),
     K(.5,  [0,2.3,12.2],[0,2.9,-4],46),
     K(.54, [0,2.8,9.4],[0,2.85,-6],47),
     K(.6,  [0,2.85,5.6],[0,2.7,-8],50)],
@@ -2617,7 +2630,7 @@ const TRACK={
 };
 /* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one */
 const TRACK_P={
-  out:{0:K(0,[.3,1.5,80],[0,4.1,2],52), .12:K(.12,[.25,1.55,61],[0,3.6,1],52), .26:K(.26,[.15,1.6,43],[0,3.1,2],52)},
+  out:{0:K(0,[0,1.5,80],[0,4.1,2],52), .12:K(.12,[0,1.55,61],[0,3.6,1],52), .26:K(.26,[0,1.6,43],[0,3.1,2],52)},
   out2:{5:K(5,[1.2,1.45,-10.2],[7.6,1.2,-10.2],46), 5.1:K(5.22,[.6,1.5,-6.2],[.9,1.4,5.8],50), 5.2:K(5.3,[-.6,1.56,-8.6],[-12.6,1.7,-9.8],52), 5.32:K(5.38,[-6,1.64,-10],[-30,2.2,-10.4],52), 6:K(6,[-24.5,1.42,-9.7],[-200,12,-11.5],56), 6.5:K(6.5,[-30,1.42,-9.7],[-200,12,-11.5],56)},
   outAdd:[K(4.86,[1.2,1.45,-14.4],[7.6,1.2,-14.4],46), K(5.14,[1.2,1.45,-6],[7.6,1.2,-6],46)],
 };
@@ -3089,6 +3102,7 @@ const CAM={out:new T.PerspectiveCamera(40,1,.1,3000), gal:new T.PerspectiveCamer
 const G={px:600};
 let OUT=null, GAL=null, rtA=null, rtB=null;
 const WORLD={onWater:false,offT:0,tap(x,y){ if(!OUT||!(S.mode==='world')) return; HAND.tapT=now(); const mx=sceneMix(S.s); if(mx.a!=='out'&&mx.b!=='out') return;
+  if(POND.press&&POND.press(x,y)) return;   // a stone under the hand is pressed, rather than the water beside it
   if(waterAt(x,y,CAM.out,_hit)){ OUT.sim.drop(_hit.x,_hit.z,.8,2.4); A.drop(1.1); } }};
 const _ray=new T.Raycaster(), _nd=new T.Vector2(), _hit=v3(), _lastHit=v3(), _plane=new T.Plane(v3(0,1,0),0), _hd=v3(), _hp=v3(), _cp=v3(), _ct=v3();
 function waterAt(x,y,cam,out){

@@ -61,6 +61,18 @@ module.exports = async ({ page, wait, T, frames, log, mobile, vp, check, ctx }) 
     check(k1 - k0 <= Math.ceil(secs / .11) + 1, 'a fast sweep over ' + pts.length + ' stones knocks at most every 0.11 s (' + (k1 - k0) + ' knocks in ' + secs.toFixed(1) + ' s)');
   }
 
+  /* ---- a tap or a click on a stone presses it: even one the hand already rests on, and even a tap quicker than a frame ---- */
+  {
+    await T(t => { t.jump(0); t.POND.reset && t.POND.reset(); }); await frames(2);
+    const st = await nearest(); check(!!st, 'a stone to tap is on the screen'); if (st) {
+      const S0 = st.s, o = st.o; await wait(400);
+      if (!mobile) { await aim(S0.x, S0.z, .04, 3); await sim(1.2); }   // (the pointer already resting on it)
+      const c0 = await P(t => ({ ...t.POND.count })), h0 = await P(t => ({ ...t.A.pondHeard }));
+      if (mobile) { await touch('touchStart', [[o.x, o.y]]); await touch('touchEnd', [[o.x, o.y]]); } else await page.mouse.click(o.x, o.y);
+      await frames(2); const b = await slab(S0.i), c1 = await P(t => ({ ...t.POND.count })), h1 = await P(t => ({ ...t.A.pondHeard }));
+      check((c1.press || 0) > (c0.press || 0) && c1.ring > c0.ring && h1.knock > h0.knock && b.g > .5, (mobile ? 'a quick tap' : 'a click') + ' on a stone presses it: a knock, a ring and its light (' + JSON.stringify({ press: c1.press, ring: c1.ring, knock: h1.knock, g: +b.g.toFixed(2) }) + ')');
+      const s1 = await P(t => t.S.s); check(Math.abs(s1) < .01, 'and the walk does not move for it (s ' + s1.toFixed(3) + ')'); } }
+
   /* ---- the koi: called to the hand ---- */
   {
     await T(t => { t.jump(0); t.POND.reset(); }); await frames(2);

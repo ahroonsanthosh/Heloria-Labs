@@ -248,17 +248,28 @@ const A=(()=>{
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t+i*.01,beat*1.3,.011,.02)); play(mf(BASS[bar%4]+7),t,beat*.9,.035,.02); }
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
         t+=beat*(k%2?.44:.56); k++; } }});
-  /* light rain on Earth: not a hiss (on a phone that is static) but a recording of separate drops, small bright plinks
-     and soft taps on roofs and leaves, spread out so you hear each one */
-  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.3), L=oc.length/oc.sampleRate;
-      const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=5600; lp.Q.value=.5; lp.connect(b.in);
+  /* rain on Earth: not a hiss (on a phone that is static) and not a scatter of little tones (those are bleeps), but rain:
+     a few hundred small soft hits a second, each a short burst rung through a band in the middle of the range, so you hear
+     a patter and not a wash; duller taps on wood and roofs nearby; now and then a drop into a puddle; and under it, dark
+     and quiet, the rain further off, rising and falling with the gusts. Nothing above about 4 kHz, where hiss lives. It is
+     worked out sample by sample here and only played through the bus */
+  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.25), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0), L=n/sr;
       let seed=97; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
-      const nb0=oc.createBuffer(1,Math.floor(oc.sampleRate*.05),oc.sampleRate), nd=nb0.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=(rnd()*2-1)*Math.pow(1-i/nd.length,3);
-      for(let t=.02;t<L;t+=.01+rnd()*.032){ if(rnd()<.7){ const o=oc.createOscillator(), a=oc.createGain(), f=1700+rnd()*3600;
-          o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*(.68+rnd()*.2),t+.03);
-          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.034+rnd()*.06,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
-        else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.22+rnd()*.26;
-          s.connect(bp); bp.connect(a); a.connect(lp); s.start(t); } } }});
+      /* one hit: a short burst of decaying noise rung through a band-pass at f (Q q), about tau seconds long, at level g */
+      const hit=(t,f,q,tau,g)=>{ const i0=Math.floor(t*sr); if(i0>=n) return; const w=2*Math.PI*Math.min(f,sr*.45)/sr, al=Math.sin(w)/(2*q), a0=1+al, b0=al/a0, a1=-2*Math.cos(w)/a0, a2=(1-al)/a0;
+        const N=Math.min(n-i0,Math.floor(sr*(tau*7+.004))), at=Math.max(1,Math.floor(sr*.0007)); let x1=0,x2=0,y1=0,y2=0;
+        for(let k=0;k<N;k++){ const e=(k<at?k/at:1)*Math.exp(-k/(tau*sr)), x=(rnd()*2-1)*e, y=b0*x-b0*x2-a1*y1-a2*y2; x2=x1; x1=x; y2=y1; y1=y; d[i0+k]+=y*g; } };
+      /* a drop into a puddle: a little bubble that rings and rises in pitch as it closes */
+      const plip=(t,f0,g)=>{ const i0=Math.floor(t*sr), N=Math.min(n-i0,Math.floor(sr*.06)); let ph=0;
+        for(let k=0;k<N;k++){ const u=k/sr, f=f0*(1+u*38), e=(u<.0015?u/.0015:1)*Math.exp(-u/.012); ph+=2*Math.PI*f/sr; d[i0+k]+=Math.sin(ph)*e*g; } };
+      for(let t=.005;t<L;t+=.0012+rnd()*.0055){ const r=rnd(); hit(t,900+2600*Math.pow(rnd(),1.3),.8+rnd()*.9,.0016+rnd()*.004,.07+.7*Math.pow(r,5)); }   // the patter, mostly very soft, a few nearer
+      for(let t=.05;t<L;t+=.09+rnd()*.32) hit(t,380+rnd()*520,2.4+rnd()*1.5,.005+rnd()*.007,.16+rnd()*.2);   // on wood and roofs
+      for(let t=.1;t<L;t+=.22+rnd()*.7) plip(t,520+rnd()*620,.045+rnd()*.05);   // into puddles
+      { let l1=0,l2=0,h1=0,g=.7,gt=.7; const c=Math.exp(-2*Math.PI*1300/sr), ch=Math.exp(-2*Math.PI*380/sr);   // further off: a dark band, in gusts
+        for(let i=0;i<n;i++){ if(i%2048===0) gt=.45+.55*rnd(); g+=(gt-g)*.00004; const x=rnd()*2-1; l1=l1*c+x*(1-c); l2=l2*c+l1*(1-c); h1=h1*ch+l2*(1-ch); d[i]+=(l2-h1)*g*.5; } }
+      for(let i=0;i<n;i++) d[i]*=.33;   // (as loud as the rain was before)
+      const s=oc.createBufferSource(); s.buffer=buf; const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=180; hp.Q.value=.6;
+      const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3800; lp.Q.value=.6; s.connect(hp); hp.connect(lp); lp.connect(b.in); s.start(0); }});
   /* ---------- Diarmuid's guitar, outside the café on Earth ----------
      An electric guitar made here, string by string. Each note is a plucked string (Karplus-Strong): a short burst of soft
      noise, one period long, goes round a delay line one period long and loses a little of its top each time round, so it

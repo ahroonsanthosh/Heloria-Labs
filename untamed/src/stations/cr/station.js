@@ -227,7 +227,6 @@ const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
     'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
 const CAFE_ON=__CAFE__;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
-const CAFE_B=[-2.5,2.35,.4];   // where the café's board stands: its front corner on the side you come from the landing, turned to the street
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
   g.add(new T.Mesh(new T.BoxGeometry(.22,.07,.22),dk));
@@ -272,8 +271,7 @@ function buildTown(){
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
         [[-1.15,1.85],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
-        /* a board out on the pavement: this is where you book a chat with the three of us */
-        if(CAFE_ON) sign(sub(M,CAFE_B[0],0,CAFE_B[1],CAFE_B[2]),'BOOK A CHAT',{sub:'with the three of us',w:1.4,h:.62,y:.8,legs:true,bg:'#34423b',fg:'#f3ead8',board:'#6d5544'}); } });
+        } });
     obs(3-1.15,-13.4+1.85,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
@@ -670,6 +668,7 @@ const DM={x:4.42,z:-10.28,face:[.8,-4.6],lamp:[3.8,-11.2],pole:[5.75,-9.75],g:nu
   obs:[],pick:[],ev:null,sev:null,rh:new T.Vector3(),lh:new T.Vector3(),hy:0,nk:0};
 const dmM=new T.Matrix4(), dmM2=new T.Matrix4(), dmQ=new T.Quaternion(), dmE=new T.Euler(), dmV=new T.Vector3(), dmW=new T.Vector3(), DOWN=new T.Vector3(0,-1,0);
 /* the guitar's frets: where along the neck (from the nut, toward the bridge) the n-th one is */
+const NOTE_N=8, NOTE_L=2.4;
 const NUT=.452, SCALE=.567, fretX=n=>NUT-SCALE*(1-Math.pow(2,-n/12));
 function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,DM.z,DM.face[0],DM.face[1]);
   const spot=new T.Group(); spot.matrixAutoUpdate=false; spot.matrix.copy(frameAt(DM.x,DM.z,yaw,standH(DM.x,DM.z))); sc.add(spot); DM.spot=spot; DM.dir=at(DM.x,DM.z);
@@ -749,6 +748,25 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
       vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
       fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.66,.34)*vK*vK*(3.-2.*vK)*uK*.3,1.); }`}));
     pool.layers.set(1); pool.renderOrder=2; pool.frustumCulled=false; sc.add(pool); DM.pool=pool; }
+  /* when he plays for you: notes rise from his amp, drift and fade, drawn like everything else, in ink on paper */
+  { const N=NOTE_N, ng=new T.BufferGeometry(); ng.setAttribute('position',new T.BufferAttribute(new Float32Array(N*3),3)); ng.setAttribute('aA',new T.BufferAttribute(new Float32Array(N*3),3));
+    const nm=new T.ShaderMaterial({uniforms:{uH:{value:800},uDim:{value:1}},transparent:true,depthWrite:false,
+      vertexShader:`attribute vec3 aA; uniform float uH; varying vec3 vA; varying float vPx; void main(){ vA=aA; vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv;
+        gl_PointSize=aA.z*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); vPx=max(gl_PointSize,1.); if(aA.x<.003) gl_Position=vec4(2.,2.,2.,1.); }`,
+      fragmentShader:`uniform float uDim; varying vec3 vA; varying float vPx;
+        float seg(vec2 p,vec2 a,vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.); return length(pa-ba*h); }
+        void main(){ vec2 q=vec2(gl_PointCoord.x*2.-1.,1.-gl_PointCoord.y*2.); float c=cos(vA.y), s=sin(vA.y); q=mat2(c,s,-s,c)*q*1.12;
+          vec2 h=q-vec2(-.2,-.5); float hc=cos(.42), hs=sin(.42); h=mat2(hc,-hs,hs,hc)*h; float dh=(length(h/vec2(.3,.21))-1.)*.21;
+          float ds=seg(q,vec2(.07,-.48),vec2(.07,.72))-.055;
+          float df=seg(q,vec2(.07,.7),vec2(.38,.38))-.07; df=min(df,seg(q,vec2(.38,.38),vec2(.36,.12))-.06);
+          float d=min(dh,min(ds,df)), aa=2.4/vPx, o=.1;
+          float a=1.-smoothstep(o-aa,o+aa,d); if(a*vA.x<.004) discard;
+          vec3 col=mix(vec3(.17,.14,.11),vec3(.985,.965,.925)*uDim,smoothstep(-aa,aa,d));
+          gl_FragColor=vec4(col,a*vA.x); }`});
+    const notes=new T.Points(ng,nm); notes.layers.set(1); notes.renderOrder=8; notes.frustumCulled=false; notes.visible=false; sc.add(notes); DM.notes=notes;
+    DM.nt=Array.from({length:N},()=>({t:9,x:0,y:0,s:0,r:0})); DM.nk2=0;
+    const o=gw.clone(), u=o.clone().normalize(), t1=new T.Vector3().crossVectors(u,Math.abs(u.y)<.9?UPY:new T.Vector3(1,0,0)).normalize();
+    DM.nO=o.addScaledVector(u,.12); DM.nU=u; DM.nS=t1; DM.nF=new T.Vector3().crossVectors(u,t1); }
   if(NAV.free) for(const o of DM.obs){ const m=o.r+.3, N=NAV.N; for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
     if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2<m*m) NAV.free[j*N+i]=0; } }
   /* the houses near him, to know when you are inside one (where you do not hear him) */
@@ -817,10 +835,23 @@ function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM
   if(DM.halo.visible){ DM.halo.material.uniforms.uK.value=nk*(.92+.08*Math.sin(t*2.3)); DM.halo.material.uniforms.uH.value=colRT.height||innerHeight; }
   /* his name tag: when you point at him, or are near */
   const lb=DM.lb, hw=dmW.copy(DM.dir).multiplyScalar(R+standH(DM.x,DM.z)+1.82).project(stCam), quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GLN.t>=0||PHS.on;
-  lb.classList.toggle('on',(DM.hov||d<5.5)&&hw.z<1&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  /* asked, he is the one you are going to; nodding he says so; and while he plays for you his tag stays lit */
+  const forYou=DM.goal||DM.st==='nod'||DM.st==='solo', txt=DM.st==='nod'||(DM.st==='solo'&&DM.sct<3.2)?'Diarmuid: "This one\'s for you"':'Diarmuid';
+  if(txt!==DM.lbT){ DM.lbT=txt; lb.textContent=txt; }
+  lb.classList.toggle('on',(DM.hov||d<5.5||forYou)&&hw.z<1&&!quiet); lb.classList.toggle('ask',forYou&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  buskNotes(dt,vis&&!quiet&&(DM.st==='solo'||(DM.st==='nod'&&DM.stT>.5)),nk);
   lb.style.transform=`translate(${((hw.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hw.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
   if(!vis) return;
   buskPose(dt,t,P); }
+/* the notes over his amp: a new one every half second or so while he plays for you, each rising a metre, swaying, and
+   fading over a couple of seconds; the last ones finish their rise after he stops */
+function buskNotes(dt,on,nk){ const N=DM.notes; if(!N) return; let live=false;
+  DM.nk2-=dt; if(on&&DM.nk2<=0){ const n=DM.nt.find(q=>q.t>=NOTE_L); if(n){ n.t=0; n.x=(Math.random()-.5)*.5; n.y=(Math.random()-.5)*.3; n.s=.17+Math.random()*.07; n.r=(Math.random()-.5)*.5; } DM.nk2=.42+Math.random()*.3; }
+  const P=N.geometry.attributes.position, Aa=N.geometry.attributes.aA;
+  DM.nt.forEach((n,i)=>{ if(n.t<NOTE_L){ n.t+=dt; live=true; } const k=Math.min(1,n.t/NOTE_L), a=n.t>=NOTE_L?0:sstep(0,.25,n.t)*(1-sstep(NOTE_L-.9,NOTE_L,n.t));
+    dmV.copy(DM.nO).addScaledVector(DM.nU,k*1.05).addScaledVector(DM.nS,n.x+Math.sin(n.t*2.4+i)*.1*k).addScaledVector(DM.nF,n.y);
+    P.setXYZ(i,dmV.x,dmV.y,dmV.z); Aa.setXYZ(i,a,n.r+Math.sin(n.t*1.9+i*2.1)*.22,n.s*(.75+.25*sstep(0,.5,n.t))); });
+  N.visible=live; if(live){ P.needsUpdate=true; Aa.needsUpdate=true; N.material.uniforms.uH.value=colRT.height||innerHeight; N.material.uniforms.uDim.value=1-.3*nk; } }
 /* an arm reaching a point (in his body's frame): the elbow out toward pole, the upper arm and forearm laid along the two halves */
 const rU=new T.Vector3(), rN=new T.Vector3(), rE=new T.Vector3(), rF=new T.Vector3(), rQ=new T.Quaternion();
 function reach(arm,fore,H,pole){ const S=arm.position, a=DM.ua, b=DM.fa; rU.subVectors(H,S); const D0=rU.length()||1, D=clamp(D0,Math.abs(a-b)+.002,a+b-.002); rU.divideScalar(D0);
