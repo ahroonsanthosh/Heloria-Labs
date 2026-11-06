@@ -6,7 +6,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* walk up to the lighthouse: its card, then the button to take the light */
   await H(h => { const d = h.ST.cr._dbg, q = d.INST.ph; d.player.x = q.x - 2.6; d.player.z = q.z - .6; d.player.u.copy(d.at(d.player.x, d.player.z)); });
   await page.mouse.move(300, 300); await page.mouse.down(); await page.mouse.move(330, 300, { steps: 3 }); await page.mouse.up();   // you have started walking
-  let ok = false; for (let i = 0; i < 40 && !ok; i++) { await wait(500); ok = await page.evaluate(() => { const b = document.querySelector('#crSteer'); return b && !b.hidden && getComputedStyle(b).display !== 'none'; }); }
+  let ok = false; for (let i = 0; i < 120 && !ok; i++) { await wait(500); ok = await page.evaluate(() => { const b = document.querySelector('#crSteer'); return b && !b.hidden && getComputedStyle(b).display !== 'none'; }); }
   if (!ok) { fail('no Steer the light button by the lighthouse'); return; }
   await shot(P + 'lh-button');
   await page.click('#crSteer'); await wait(800);

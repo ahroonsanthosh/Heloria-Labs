@@ -330,6 +330,48 @@ const A=(()=>{
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.3); a.gain.setValueAtTime(g,t0+1.5); a.gain.exponentialRampToValueAtTime(.0001,t0+2.4);
       [[98,1],[147,.55],[196,.3]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(f*.96,t0); o.frequency.linearRampToValueAtTime(f,t0+.25); const kg=ctx.createGain(); kg.gain.value=k; o.connect(kg); kg.connect(lp); o.start(t0); o.stop(t0+2.5); });
       lp.connect(a); a.connect(comp); const sg=ctx.createGain(); sg.gain.value=.7; a.connect(sg); sg.connect(revIn); },
+    /* ---------- the café on Earth: its door and the bell over it, the barista's voice, the grinder, the tamp, the shot, the
+       steam wand, a cup on its saucer. Every one is short and made live; the grinder and the steam are narrow bands of noise that last
+       a second or so, never a bed under anything ---------- */
+    /* the little shop bell over the door: a few bright strikes as it swings, each fainter */
+    cafeBell(g=.026){ if(!on||!ctx) return; const f0=1760*vr(.02);
+      [0,.085,.2,.34].forEach((dl,j)=>{ const k=[1,.66,.44,.24][j]; [[1,1,1.1],[2.41,.32,.5],[4.13,.14,.26]].forEach(([m,a,d])=>tone(f0*m*(j%2?1.006:1),d,g*k*a,'sine',0,dl,.35,.003)); }); },
+    /* the door: its latch, then a soft creak as it swings open, or a knock against the frame as it shuts; and the bell */
+    cafeDoor(open=true){ if(!on||!ctx) return; const v=vr(.05);
+      noise(.035,.045,3800*v,2400,'bandpass',2.5); tone(1250*v,.03,.012,'triangle');
+      if(open){ const t0=ctx.currentTime+.05, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), l=ctx.createOscillator(), lg=ctx.createGain();
+        o.type='sawtooth'; o.frequency.setValueAtTime(118*v,t0); o.frequency.linearRampToValueAtTime(92*v,t0+.42); l.frequency.value=23; lg.gain.value=9; l.connect(lg); lg.connect(o.frequency);
+        b.type='bandpass'; b.frequency.value=1150; b.Q.value=5; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.014,t0+.06); a.gain.exponentialRampToValueAtTime(.0001,t0+.46);
+        o.connect(b); b.connect(a); a.connect(comp); o.start(t0); l.start(t0); o.stop(t0+.5); l.stop(t0+.5); }
+      else { tone(96*v,.22,.07,'sine',58*v); noise(.14,.05,520,120,'lowpass',.9); }
+      this.cafeBell(open?.026:.017); },
+    /* the barista talking: a few soft syllables on the town's notes (the sense of it is on the screen) */
+    murmur(f=540,n=5){ if(!on||!ctx) return; for(let k=0;k<n;k++) tone(inKey(f*(.86+Math.random()*.3)),.075,.014,'triangle',0,k*.088+Math.random()*.02,.15,.006); },
+    /* the coffee tamped into the basket and the handle knocked home: two firm, short knocks */
+    tamp(){ const v=vr(.05); tone(150*v,.08,.045,'sine',95*v); noise(.04,.03,1600*v,500,'bandpass',1.4); tone(210*v,.06,.03,'triangle',120*v,.28); noise(.03,.025,2200*v,800,'bandpass',1.6,.28); },
+    /* the grinder: burrs (a band of noise, chattering with the motor) over the motor spinning up and down */
+    grind(dur=1){ if(!on||!ctx) return; const t0=ctx.currentTime, s=shot(), b=ctx.createBiquadFilter(), hp=ctx.createBiquadFilter(), am=ctx.createGain(), a=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain();
+      b.type='bandpass'; b.frequency.setValueAtTime(1100,t0); b.frequency.linearRampToValueAtTime(1500,t0+dur*.3); b.Q.value=1.8; hp.type='highpass'; hp.frequency.value=380;
+      lfo.frequency.value=31; lg.gain.value=.45; am.gain.value=.55; lfo.connect(lg); lg.connect(am.gain);
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.04,t0+.08); a.gain.setValueAtTime(.04,t0+dur-.15); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+      s.connect(b); b.connect(hp); hp.connect(am); am.connect(a); a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); lfo.start(t0); lfo.stop(t0+dur+.05);
+      const o=ctx.createOscillator(), lp=ctx.createBiquadFilter(), og=ctx.createGain(); o.type='sawtooth'; o.frequency.setValueAtTime(70,t0); o.frequency.linearRampToValueAtTime(124,t0+.18); o.frequency.setValueAtTime(124,t0+dur-.2); o.frequency.linearRampToValueAtTime(80,t0+dur);
+      lp.type='lowpass'; lp.frequency.value=520; og.gain.setValueAtTime(0,t0); og.gain.linearRampToValueAtTime(.022,t0+.1); og.gain.setValueAtTime(.022,t0+dur-.15); og.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+      o.connect(lp); lp.connect(og); og.connect(comp); o.start(t0); o.stop(t0+dur+.05); },
+    /* the shot running into the cup: small rising bubbles over a quiet trickle */
+    pour(dur=1){ if(!on||!ctx) return; for(let t=.04;t<dur;t+=.045+Math.random()*.07){ const f=260+Math.random()*320; tone(f,.05+Math.random()*.04,.011+Math.random()*.009,'sine',f*1.5,t,.15,.004); }
+      noise(dur,.011,700,380,'lowpass',.7); },
+    /* the steam wand stretching the milk: a filtered hiss, the milk's thin whistle, and a little gurgle at the end */
+    steam(dur=.8){ if(!on||!ctx) return; const t0=ctx.currentTime, s=shot(), b=ctx.createBiquadFilter(), lp=ctx.createBiquadFilter(), a=ctx.createGain();
+      b.type='bandpass'; b.frequency.setValueAtTime(2600,t0); b.frequency.linearRampToValueAtTime(3600,t0+dur); b.Q.value=1.3; lp.type='lowpass'; lp.frequency.value=6000;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.026,t0+.07); a.gain.setValueAtTime(.022,t0+dur-.2); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+      s.connect(b); b.connect(lp); lp.connect(a); a.connect(comp); s.start(t0,Math.random()*8); s.stop(t0+dur+.05);
+      tone(1480,dur*.8,.004,'sine',1320,.1,.2,.1);
+      for(let k=0;k<5;k++) tone(170+Math.random()*120,.05,.009,'sine',260,dur*.45+k*.08+Math.random()*.04,0,.004); },
+    /* porcelain: a cup touching its saucer or the counter, bright and short */
+    clink(g=.026){ const v=vr(.04); tone(2350*v,.22,g,'sine',0,0,.3,.002); tone(3710*v,.14,g*.55,'sine',0,0,.3,.002); tone(5480*v,.07,g*.3,'sine',0,0,0,.001); noise(.02,g*.8,6000,3000,'highpass',.7); },
+    /* the cup set down in front of you: the clink and a soft knock of the saucer on the wood */
+    cupDown(){ this.clink(.024); tone(150*vr(.05),.09,.028,'sine',95); },
     /* a footstep: 0 a soft brush on grass, 1 a tap on the pavement, 2 a hollow knock on wooden boards */
     step(kind=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter();
       if(kind===1){ b.type='bandpass'; b.frequency.value=1500+Math.random()*700; b.Q.value=1.3; } else if(kind===2){ b.type='bandpass'; b.frequency.value=420+Math.random()*120; b.Q.value=2.2; tone(150+Math.random()*30,.09,.03,'sine',90); }

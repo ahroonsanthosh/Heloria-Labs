@@ -269,7 +269,7 @@ function buildTown(){
         for(let k=0;k<6;k++) cyl(B,'#8c9599',0,.4+k*.45,0,.16-k*.018,.03,'cyl8'); kitTo();
         const lt=new T.Mesh(new T.SphereGeometry(.1,12,8),flatMat('#ff8a2a')); lt.matrixAutoUpdate=false; lt.matrix.copy(sub(B,0,3.08,0)); mk.g.add(lt); BE={lt}; } }); INST.be={x,z,h:4.6,r:5.6}; }
   // the café
-  { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); house(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
+  { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
         [[-1.15,1.85],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
         /* a board out on the pavement: this is where you book a chat with the three of us */
@@ -1011,6 +1011,523 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
 function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on)) pcOpen(false); }
+/* ---------- inside the café ----------
+   The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
+   open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.
+   Inside there is a counter, an espresso machine and its grinder, cups on the back bar, a few tables and stools, lamps
+   over the bar, and the menu on a chalkboard. Behind the counter is the barista, who waves when you come in and wipes the
+   counter while nobody is ordering. Order a drink (on the board or from the menu) and they say it back, take a cup, grind,
+   tamp, pull the shot, steam the milk and set it down in front of you on its saucer. Each drink has its sign drawn in the
+   foam. Look into the cup and the camera sinks into it, the foam swirls over the screen, and in the foam is where the
+   drink leads, as a real link (a browser lets a page open a link only inside the visitor's own click). Then you rise back
+   out of the cup, still in the café. Leave by the door, the Leave button or Escape.
+   The room has its own warm light (lamps over the bar, and by day the sun through the windows), and the town's music is
+   a little quieter in here. */
+/* the menu: each drink, what it is for, its sign in the foam, and where it takes you. The links are all here */
+const cafeMail=(s,b)=>'mailto:contact@helorialabs.com?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b);
+const MENU=[
+  {name:'Founders\' Flat White',what:'A coffee chat with the three of us',art:'heart',go:'Book the chat',head:'A coffee chat',
+    href:cafeMail('Booking a coffee chat','Hi Ahroon, Michael and Abraham,\n\nI would like a coffee chat about:\n\nA few times that suit me:\n'),
+    text:'Pull up a stool with Ahroon, Michael and Abraham. Tell us what you are working on and we will find a time.'},
+  {name:'Kríos Cortado',what:'Book a Kríos demo',art:'krios',go:'See Kríos',head:'A Kríos demo',href:'https://krios.ie',
+    text:'Voice practice for sales teams: rehearse the call out loud and a buyer answers back. Book a demo on krios.ie.'},
+  {name:'New Hire Americano',what:'Join the team',art:'rocket',go:'Write to us',head:'Join the team',
+    href:cafeMail('Joining Heloria Labs','Hi Ahroon, Michael and Abraham,\n\nI would like to join Heloria Labs. A little about me:\n\nWhat I would love to build:\n'),
+    text:'Three builders with more hard problems than hands. Tell us who you are and what you want to build.'}];
+/* the barista: everything about how they look is here (the same builder as the three of us, see figure; apron and ties are
+   the café's own), and how their voice sounds. Not one of us: they have no name tag, no conversation, and they stay behind the counter */
+const BARISTA={shirt:'#f3efe6',short:true,pants:'#3b3f4a',shoes:'#2e2b29',sole:'#d8d1c4',skin:'#c48a63',hair:'short',hairC:'#3a2a1e',
+  head:[.15,.172,.158,.14,.024],face:{bw:.012,arch:.009},mouth:'smile',cheeks:true,build:1,apron:'#2f5a4a',ties:'#efe7da',cloth:'#9fc3d6',pitch:540};
+/* st: out, go (walking to the door), enter, in, exit. ph, once in: menu, brew, served, dive, card, rise */
+const CAFE={st:'out',on:false,k:0,M:null,Mi:null,x:3,z:-13.4,w:4,d:2.8,h:2.95,ph:'menu',t:0,pt:0,dr:0,yaw:0,pitch:.1,lean:0,dragT:9,drag:null,hov:-1,kb:false,go:0,cur:false,
+  cp:new T.Vector3(),cl:new T.Vector3(),cu:new T.Vector3(0,1,0),up:new T.Vector3(),pl:new T.Vector3(),curve:null,lcurve:null,y0:0,p0:0,
+  fig:[0,0],fh:0,fph:0,fstep:0,door:0,doorV:0,doorT:0,bell:0,bellV:0,dv:0,sw:0,swT:0,card:0,d0p:new T.Vector3(),d0l:new T.Vector3(),d0u:new T.Vector3(),
+  cup:{at:'stack',p:new T.Vector3(),from:new T.Vector3(),k:1,fill:0,art:0,drain:0},
+  /* the barista: where they stand and which way they face (0 to you, PI to the back bar), where they are walking from and to,
+     each arm's pose, and the wave, nod and voice */
+  bar:{x:.3,z:-.74,yaw:0,fx:.3,fz:-.74,sp:0,ph:0,step:0,R:'wipe',L:'rest',arm:[[0,0,-.12],[0,0,-.12]],wave:0,nod:0,blink:2,say:0,cloth:1,fig:null},
+  beats:[],beat:0,bt:0,shake:0,steam:0,wisp:0,g:null,meshes:[],m:{},warm:true};
+const CFL=.22, CEY=1.15, CDW=.8, CDT=1.84, CWIN=[1.13,1.69];   // the floor (the plinth's top), eye height over it, the door's width and head, the windows' sill and head
+/* where things are, in the café's own frame (x across, y up, z out to the street): the cups on the back bar, the machine's drip
+   tray, the steam wand's tip, the spout, the place on the counter where your cup is set down, the grinder, the door's bell;
+   and where the barista stands to do each thing (their right hand reaches the cups, the tray and your place, the left the
+   grinder and the wand) */
+const CP={stack:[.45,.94,-1.06],brew:[-.38,.97,-.93],steam:[-.85,1.0,-.95],spout:[-.38,1.115,-.93],serve:[0,1.005,-.24],grind:[-1.08,.94,-1.1],bell:[.3,1.98,1.24]};
+const BP={home:[.22,-.74],stack:[.25,-.72],machine:[-.58,-.7],grind:[-.88,-.7],serve:[.2,-.6]};
+const cV=new T.Vector3(), cV2=new T.Vector3(), cV3=new T.Vector3(), cV4=new T.Vector3(), cM=new T.Matrix4(), cM2=new T.Matrix4(), cI=new T.Matrix4(), cRay=new T.Raycaster(), cNdc=new T.Vector2();
+const cw=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(CAFE.M);
+const cdir=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(CAFE.M);
+const clocal=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(CAFE.Mi);
+const cxz=(x,z)=>loc(cw(x,0,z,cV4).normalize());   // a point in the café's frame, on the town's map
+const cport=()=>innerHeight>innerWidth;
+const sag=(x,z)=>(x*x+z*z)/(2*R);   // how far the ground curves away below the café's flat frame, this far from its middle
+
+/* a wall along x (at z=off) or along z (at x=off), L long and t thick, from y0 to y1, with openings [middle, width, sill, head] */
+function slab(M,c,ax,off,L,t,y0,y1,holes){ const b=(u0,u1,a,z)=>{ if(u1-u0<1e-3||z-a<1e-3) return; if(ax==='x') box(M,c,(u0+u1)/2,a,off,u1-u0,z-a,t); else box(M,c,off,a,(u0+u1)/2,t,z-a,u1-u0); };
+  let u=-L/2; for(const [m,w,a,z] of holes.slice().sort((p,q)=>p[0]-q[0])){ b(u,m-w/2,y0,y1); b(m-w/2,m+w/2,y0,Math.max(y0,a)); b(m-w/2,m+w/2,Math.min(y1,z),y1); u=m+w/2; } b(u,L/2,y0,y1); }
+/* the café's own house: like every other (see house), but its walls are walls, with a real door and real windows */
+function cafeHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w, d=o.d, h=o.h, tr=o.trim||'#f6f1e7', t=.08, rh=o.rh||1.3;
+  Object.assign(CAFE,{M,Mi:M.clone().invert(),x,z,w,d,h}); HOUSES.push({M,w,d,h,dx:0,flat:false});
+  box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18);
+  const front=[[0,CDW,.2,CDT],[-1.25,.58,...CWIN],[1.25,.58,...CWIN]], end=[[0,.58,...CWIN]];
+  slab(M,o.wall,'x',d/2-t/2,w,t,.2,h,front); slab(M,o.wall,'x',-d/2+t/2,w,t,.2,h,[]); slab(M,o.wall,'z',w/2-t/2,d-2*t,t,.2,h,end); slab(M,o.wall,'z',-w/2+t/2,d-2*t,t,.2,h,end);
+  put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,d/2+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-d/2-.04,w+.1,.12,.05); box(M,'#b07a5e',w*.28,h+.25,-d*.16,.34,rh*.95,.34);
+  /* the windows' frames, as windowAt draws them but open in the middle (the glass is its own: see buildCafe) */
+  const win=W=>{ box(W,tr,-.335,-.36,.02,.09,.72,.06); box(W,tr,.335,-.36,.02,.09,.72,.06); box(W,tr,0,.27,.02,.76,.09,.06); box(W,tr,0,-.36,.02,.76,.07,.06);
+    box(W,tr,0,-.29,.05,.04,.56,.04); box(W,tr,0,-.03,.05,.58,.04,.04); box(W,tr,0,-.42,.06,.88,.06,.16); };
+  [-1.25,1.25].forEach(wx=>win(sub(M,wx,1.42,d/2))); win(sub(M,w/2,1.42,0,Math.PI/2)); win(sub(M,-w/2,1.42,0,-Math.PI/2));
+  /* the door's frame and its step (the door itself swings: see buildCafe) */
+  [-1,1].forEach(s=>box(M,tr,s*(CDW/2+.045),.2,d/2+.02,.09,CDT-.2+.09,.06)); box(M,tr,0,CDT,d/2+.02,CDW+.18,.09,.06); box(M,'#bdb6aa',0,0,d/2+.32,1.04,.16,.56);
+  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+rh+.3); return M; }
+
+/* ---------- the café's light: its own, warm. The lamps over the bar (uCL: where each is, how bright), a little more from
+   above, and by day the sun where it comes in at the windows and the door (the sun's shadow map already knows where the
+   walls are). Everything in here is inked like the town, but cut away only right at the lens, so the counter in front of
+   you and the cup you look into stay whole ---------- */
+const CU={uCL:{value:[0,1,2,3].map(()=>new T.Vector4())},uCU:{value:new T.Vector3(0,1,0)},uNr:{value:.12},uDim:{value:1}}, CDIN={value:0};
+const CDITH=`float cdith(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715)))); }`;
+const CAFE_L=`uniform vec4 uCL[4]; uniform vec3 uCU; uniform float uNr,uDim; ${CDITH}
+  void cnear(vec3 w){ if(smoothstep(uNr*.4,uNr,distance(cameraPosition,w))<cdith()) discard; }
+  vec3 cafe(vec3 base,vec3 n,vec3 w){ float l=0.;
+    for(int i=0;i<4;i++){ vec3 d=uCL[i].xyz-w; float r=length(d); l+=uCL[i].w*(.35+.65*max(dot(n,d/max(r,1e-3)),0.))/(1.+r*r*1.1); }
+    /* by day the windows fill the room; at night it is the lamps alone, so the corners go dark and warm and their pools of light hotter */
+    float nt=uNight, f=l+.14*dot(n,uCU)+.2*(1.-nt), e=.3*nt, k=smoothstep(.44+e,.5+e,f), hi=smoothstep(.9+e*.5,.96+e*.5,f);
+    vec3 c=mix(base*mix(vec3(.62,.52,.47),vec3(.36,.26,.23),nt),mix(base*mix(vec3(.95,.86,.73),vec3(.86,.66,.46),nt),base*mix(vec3(1.06,.99,.87),vec3(1.16,.94,.66),nt),hi),k);
+    float sd=dot(n,uSun); if(sd>0.){ float sh=shadowAt(w,.0006+.0024*(1.-sd)); c+=base*uLitA*smoothstep(.35,.65,sh)*smoothstep(0.,.12,sd)*.45*clamp((uLitA.g-uShdC.g)*2.4,0.,1.); }
+    return c*uDim; }`;
+/* a bulb (the colour of the street lamps' glass) shines by itself; uIn mixes in the town's own light, for the door, which is outside as much as in */
+const CAFE_F=`uniform vec3 uC; uniform float uIn; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${CAFE_L}
+  void main(){ cnear(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC;
+    if(distance(vC,vec3(1.,.949,.769))<.012){ gl_FragColor=vec4(1.,.93,.74,1.); return; }
+    vec3 c=cafe(b,n,vW); if(uIn<.999) c=mix(toon(b,n,vW),c,uIn); gl_FragColor=vec4(c,1.); }`;
+const cafeMat=(o={})=>new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(o.c||'#ffffff')},uIn:o.uIn||{value:1}},LU,CU),vertexShader:TOON_V(),fragmentShader:CAFE_F,vertexColors:o.vc!==false,side:T.DoubleSide});
+const CINK=new T.ShaderMaterial({uniforms:CU,vertexShader:TOON_V(),side:T.DoubleSide,
+  fragmentShader:`uniform float uNr; varying vec3 vN; varying vec3 vW; ${CDITH}
+    void main(){ if(smoothstep(uNr*.4,uNr,distance(cameraPosition,vW))<cdith()) discard; vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`});
+/* the menu on the board, in chalk, half lit by the room and half by itself so it always reads */
+const BOARD_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${CAFE_L}
+  void main(){ cnear(vW); vec3 t=texture2D(uMap,vUv).rgb; gl_FragColor=vec4(mix(cafe(t,normalize(vN),vW),t,.45),1.); }`;
+/* the coffee: dark while the shot runs in, then crema, then the drink's sign in the milk, spreading out from the middle. uSw
+   twists it round, most in the middle, for the dive into the cup */
+const FOAM_F=`uniform sampler2D uMap; uniform float uSw,uArt,uFill,uTime; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${CAFE_L}
+  void main(){ cnear(vW); vec2 p=vUv-.5; float r=length(p)*2., a=atan(p.y,p.x+1e-5);
+    a+=uSw*(2.4*(1.-r)*(1.-r)+.35)*3.+uSw*uTime*.45;
+    vec3 art=texture2D(uMap,vec2(cos(a),sin(a))*r*.5+.5).rgb;
+    vec3 crema=mix(vec3(.74,.5,.3),vec3(.46,.27,.15),smoothstep(.3,1.,r)), c=mix(vec3(.21,.12,.07),crema,smoothstep(.2,.9,uFill));
+    c=mix(c,art,smoothstep(uArt*1.45,uArt*1.45-.3,r));
+    gl_FragColor=vec4(mix(cafe(c,normalize(vN),vW),c,.35+.65*clamp(uSw,0.,1.)),1.); }`;
+/* glass: a faint tint and a glint, drawn with the colour only (it has no ink, so what is behind it keeps its lines) */
+const CGLASS=new T.ShaderMaterial({uniforms:{uNight:LU.uNight},transparent:true,depthWrite:false,side:T.DoubleSide,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`uniform float uNight; varying vec2 vUv; void main(){ float g=fract((vUv.x+vUv.y)*.9+.15), s=step(abs(g-.5),.06)+step(abs(g-.3),.02);
+    gl_FragColor=vec4(mix(vec3(.74,.88,.92),vec3(.42,.52,.68),uNight),.13+.22*s*(1.-.6*uNight)); }`});
+const STEAM_F=`uniform float uA; varying vec3 vN; varying vec3 vW; void main(){ float f=abs(dot(normalize(vN),normalize(cameraPosition-vW))); gl_FragColor=vec4(.98,.97,.95,uA*f*f*.6); }`;
+
+/* ---------- the drink's sign, drawn in the milk on a canvas: a heart, the K of Kríos with its voice, a small rocket ---------- */
+function cafeArt(cv,kind){ const c=cv.getContext('2d'), S=cv.width, m=S/2, F='#f8f1e6';
+  const g=c.createRadialGradient(m,m,0,m,m,m); g.addColorStop(0,'#c58d5c'); g.addColorStop(.62,'#a9693d'); g.addColorStop(1,'#6e4024'); c.fillStyle=g; c.fillRect(0,0,S,S);
+  c.save(); c.fillStyle=c.strokeStyle=F; c.shadowColor=F; c.shadowBlur=S*.014; c.lineCap=c.lineJoin='round';
+  c.lineWidth=S*.03; c.globalAlpha=.5; c.beginPath(); c.arc(m,m,S*.45,0,TAU); c.stroke(); c.globalAlpha=1;   // the white edge of the foam
+  if(kind==='heart'){ const s=S*.44, y=m+S*.02; c.beginPath(); c.moveTo(m,y+s*.42); c.bezierCurveTo(m-s*.98,y-s*.1,m-s*.42,y-s*.8,m,y-s*.27); c.bezierCurveTo(m+s*.42,y-s*.8,m+s*.98,y-s*.1,m,y+s*.42); c.fill();
+    c.shadowBlur=0; c.strokeStyle='#b47848'; c.lineWidth=S*.011; c.beginPath(); c.moveTo(m,y-s*.2); c.quadraticCurveTo(m+S*.012,y,m,y+s*.5); c.stroke(); }   // the line the pour draws through it
+  else if(kind==='krios'){ c.lineWidth=S*.085; c.beginPath(); c.moveTo(m-S*.16,m-S*.21); c.lineTo(m-S*.16,m+S*.21); c.moveTo(m+S*.1,m-S*.21); c.lineTo(m-S*.13,m+S*.01); c.lineTo(m+S*.11,m+S*.21); c.stroke();
+    c.lineWidth=S*.032; [.2,.29].forEach((r,i)=>{ c.globalAlpha=1-i*.3; c.beginPath(); c.arc(m+S*.06,m,S*r,-.55,.55); c.stroke(); }); c.globalAlpha=1; }   // and its voice going out
+  else { const y=m-S*.02; c.beginPath(); c.moveTo(m,y-S*.28); c.bezierCurveTo(m+S*.12,y-S*.15,m+S*.11,y+S*.08,m+S*.075,y+S*.15); c.lineTo(m-S*.075,y+S*.15); c.bezierCurveTo(m-S*.11,y+S*.08,m-S*.12,y-S*.15,m,y-S*.28); c.fill();
+    [-1,1].forEach(s=>{ c.beginPath(); c.moveTo(m+s*S*.07,y+S*.02); c.lineTo(m+s*S*.17,y+S*.17); c.lineTo(m+s*S*.06,y+S*.15); c.fill(); });
+    [[0,.24,.055],[-.045,.3,.035],[.045,.31,.032]].forEach(([dx,dy,r])=>{ c.beginPath(); c.arc(m+S*dx,y+S*dy,S*r,0,TAU); c.fill(); });   // the flame, in puffs of milk
+    c.shadowBlur=0; c.fillStyle='#a9693d'; c.beginPath(); c.arc(m,y-S*.06,S*.035,0,TAU); c.fill(); }   // its window
+  c.restore(); }
+/* the menu board, in chalk. hov: the drink the pointer is on (ringed); mark: the one being made or served (ticked) */
+function cafeBoard(cv,hov,mark){ const c=cv.getContext('2d'), W=cv.width, H=cv.height, ch='#f1ede2', r=seeded(5);
+  c.fillStyle='#2f3d36'; c.fillRect(0,0,W,H); c.fillStyle='rgba(240,236,226,.035)'; for(let i=0;i<150;i++){ c.beginPath(); c.ellipse(r()*W,r()*H,10+r()*60,4+r()*14,r()*3,0,TAU); c.fill(); }   // old chalk, rubbed out
+  c.fillStyle=c.strokeStyle=ch; c.lineCap=c.lineJoin='round'; c.textBaseline='middle';
+  const fit=(t,f,max,wt=900)=>{ c.font=`${wt} ${f}px Doto, monospace`; const w=c.measureText(t).width; if(w>max){ f*=max/w; c.font=`${wt} ${f}px Doto, monospace`; } return f; };
+  c.textAlign='center'; fit('MENU',H*.13,W*.5); c.fillText('MENU',W/2,H*.12); c.lineWidth=4; c.beginPath(); c.moveTo(W*.39,H*.21); c.quadraticCurveTo(W*.5,H*.225,W*.61,H*.205); c.stroke();
+  c.textAlign='left';
+  MENU.forEach((d,i)=>{ const y=H*(.37+i*.215), ix=W*.1, s=H*.055; c.lineWidth=5;
+    if(d.art==='heart'){ c.beginPath(); c.moveTo(ix,y+s*.8); c.bezierCurveTo(ix-s*1.6,y-s*.2,ix-s*.6,y-s*1.3,ix,y-s*.45); c.bezierCurveTo(ix+s*.6,y-s*1.3,ix+s*1.6,y-s*.2,ix,y+s*.8); c.stroke(); }
+    else if(d.art==='krios'){ c.beginPath(); c.moveTo(ix-s*.5,y-s); c.lineTo(ix-s*.5,y+s); c.moveTo(ix+s*.6,y-s); c.lineTo(ix-s*.35,y); c.lineTo(ix+s*.6,y+s); c.stroke(); }
+    else { c.beginPath(); c.moveTo(ix,y-s*1.1); c.quadraticCurveTo(ix+s*.6,y-s*.3,ix+s*.4,y+s*.6); c.lineTo(ix-s*.4,y+s*.6); c.quadraticCurveTo(ix-s*.6,y-s*.3,ix,y-s*1.1); c.stroke();
+      c.beginPath(); c.moveTo(ix-s*.4,y+s*.2); c.lineTo(ix-s*.8,y+s*.9); c.moveTo(ix+s*.4,y+s*.2); c.lineTo(ix+s*.8,y+s*.9); c.moveTo(ix,y+s*.9); c.lineTo(ix,y+s*1.2); c.stroke(); }
+    fit(d.name.toUpperCase(),H*.075,W*.72); c.fillText(d.name.toUpperCase(),W*.18,y-H*.03);
+    c.globalAlpha=.78; fit(d.what.toLowerCase(),H*.045,W*.72,800); c.fillText(d.what.toLowerCase(),W*.18,y+H*.05); c.globalAlpha=1;
+    if(i===hov){ c.lineWidth=3.5; c.beginPath(); c.ellipse(W*.5,y+H*.005,W*.47,H*.095,-.012,0,TAU); c.stroke(); }
+    if(i===mark){ c.lineWidth=6; c.beginPath(); c.moveTo(W*.925,y-H*.005); c.lineTo(W*.945,y+H*.035); c.lineTo(W*.975,y-H*.05); c.stroke(); } });
+  c.textAlign='center'; c.globalAlpha=.7; fit('made to order, right here',H*.04,W*.6,800); c.fillText('made to order, right here',W/2,H*.95); c.globalAlpha=1; }
+
+/* ---------- building it: the room, its glass, the board, the door and its bell, the grinder, the barista, the cup ---------- */
+function kgeo(id){ const k=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); g.setAttribute('color',new T.Float32BufferAttribute(k.C,3)); k.P.length=k.N.length=k.C.length=0; return g; }
+function buildCafe(){ if(!CAFE.M||!CAFE_ON) return; const M=CAFE.M, w=CAFE.w, d=CAFE.d, h=CAFE.h, t=.08, iw=w/2-t, id=d/2-t, F=CFL, top=h-.04, I=cI.identity();
+  CAFE.up.copy(cdir(0,1,0)); CU.uCU.value.copy(CAFE.up); CAFE.c0=cw(0,1.4,0);
+  const g=CAFE.g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g);
+  const add=(m,ink=true)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); CAFE.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=CINK; m.userData.shdM=m.material; INK.push(m); } return m; };
+  /* the room: tiles, panelling and plaster round the walls (open where the door and the windows are), a planked ceiling */
+  kitTo('cafein'); const up=cdir(0,1,0);
+  for(let i=0;i<12;i++) for(let j=0;j<9;j++){ const x0=-iw+i*2*iw/12, x1=x0+2*iw/12, z0=-id+j*2*id/9, z1=z0+2*id/9; kquad(cw(x0,F+.004,z0),cw(x1,F+.004,z0),cw(x1,F+.004,z1),cw(x0,F+.004,z1),up,(i+j)%2?'#ecdfc6':'#c98e66'); }
+  const fh=[[0,CDW,0,CDT],[-1.25,.58,...CWIN],[1.25,.58,...CWIN]], eh=[[0,.58,...CWIN]], li=(c,y0,y1,th,o=0)=>{
+    slab(M,c,'x',id-th/2-o,2*iw,th,y0,y1,fh); slab(M,c,'x',-id+th/2+o,2*iw,th,y0,y1,[]); slab(M,c,'z',iw-th/2-o,2*id-2*(th+o),th,y0,y1,eh); slab(M,c,'z',-iw+th/2+o,2*id-2*(th+o),th,y0,y1,eh); };
+  li('#3e5d4f',F,F+.56,.025); li('#f2e3c6',F+.56,top,.025); li('#8a6448',F+.54,F+.6,.05,.01); li('#2f4a3e',F,F+.05,.04,.01);   // panelling, plaster, the rail between them, a skirting board
+  box(M,'#d8bb94',0,top,0,2*iw,.04,2*id); for(let k=-3;k<=3;k++) box(M,'#8f6a4c',k*.55,top-.07,0,.07,.07,2*id);
+  [-1.25,1.25].forEach(x=>box(M,'#8a6448',x,1.07,id-.06,.72,.04,.12)); [-1,1].forEach(s=>box(M,'#8a6448',s*(iw-.06),1.07,0,.12,.04,.72));   // sills inside
+  [-1,1].forEach(s=>box(M,'#8a6448',s*(CDW/2+.035),F,id-.03,.07,CDT-F+.07,.04)); box(M,'#8a6448',0,CDT,id-.03,CDW+.14,.07,.04);   // the door's frame inside
+  box(M,'#5b4636',0,F,id-.32,.72,.012,.38);   // a mat at the door
+  /* the back bar: cupboards along the back wall with a pale top, the espresso machine on it, cups by it, shelves above */
+  box(M,'#6b4a36',0,F,-id+.17,2*iw,.68,.34); for(let k=0;k<6;k++) box(M,'#5a3d2c',-iw+.32+k*(2*iw-.64)/5,F+.08,-id+.345,.5,.5,.012); box(M,'#e8e0d2',0,F+.68,-id+.17,2*iw,.04,.38);
+  { const x=-.5, z=-1.12;   // the machine: red, with a chrome top, two group heads with their handles, a drip tray, a gauge, a steam wand
+    box(M,'#c8473a',x,.94,z,.6,.42,.28); box(M,'#d9dbd6',x,1.36,z,.63,.035,.31); box(M,'#bfc3c2',x,1.25,-.975,.6,.05,.012);
+    [-.62,-.38].forEach(gx=>{ cyl(M,'#bfc3c2',gx,1.17,-.93,.045,.07); cyl(M,'#9fa3a2',gx,1.13,-.93,.05,.04); box(M,'#2c2b2a',gx+.06,1.135,-.86,.025,.025,.13,-.6); cyl(M,'#9fa3a2',gx,1.115,-.93,.012,.015,'cyl8'); });
+    box(M,'#9fa3a2',x,.94,-.93,.58,.03,.15); put(M,'cyl','#f4efe6',x,1.3,-.97,.04,.012,.04,0,Math.PI/2); put(M,'cyl','#2a2624',x,1.3,-.975,.044,.008,.044,0,Math.PI/2);
+    cyl(M,'#bfc3c2',-.84,1.0,-.96,.008,.28,'cyl8'); put(M,'sph','#2a2624',-.84,1.3,-.96,.02,.02,.02);   // the steam wand, on the left
+    for(let k=0;k<4;k++) cyl(M,'#f6f1e8',x-.2+k*.13,1.395,z,.035,.05); }   // cups warming on top
+  for(let k=0;k<3;k++){ const x=.62+k*.17; cyl(M,'#f6f1e8',x,.94,-1.06,.085,.01); cyl(M,'#f6f1e8',x,.95,-1.06,.056,.062); cyl(M,'#f6f1e8',x,1.012,-1.06,.085,.01); cyl(M,'#f6f1e8',x,1.022,-1.06,.056,.062); }   // cups on saucers, stacked two high
+  cyl(M,'#d7c9b4',-1.4,.94,-1.08,.08,.22); cyl(M,'#5a3826',-1.4,1.16,-1.08,.082,.03); cyl(M,'#7a5a42',-1.65,.94,-1.06,.11,.16); for(let k=0;k<5;k++) put(M,'blob',LEAF[1+(k%3)],-1.65+Math.cos(k*1.3)*.08,1.2+(k%2)*.08,-1.06+Math.sin(k*1.3)*.07,.11,.1,.11);   // a jar of beans, a plant
+  [[.85,1.85,1.52],[.85,1.85,1.92],[-1.85,-.85,1.62],[-1.85,-.85,2.02]].forEach(([a,b,y])=>{ box(M,'#8a6448',(a+b)/2,y,-id+.1,b-a,.035,.2); box(M,'#6b4a36',a+.08,y-.12,-id+.03,.03,.12,.05); box(M,'#6b4a36',b-.08,y-.12,-id+.03,.03,.12,.05); });
+  [1.0,1.2,1.4,1.6].forEach((x,k)=>{ cyl(M,['#f6f1e8','#ef8a3c','#f6f1e8','#5d7f6a'][k],x,1.555,-1.2,.05,.11); });   // mugs
+  [1.05,1.35,1.65].forEach((x,k)=>{ cyl(M,'#dfe9ea',x,1.955,-1.2,.07,.2); cyl(M,['#5a3826','#7a5238','#3e2a1c'][k],x,1.955,-1.2,.062,.12); cyl(M,'#8a6448',x,2.155,-1.2,.074,.025); });   // jars of beans
+  [-1.7,-1.45,-1.2,-.98].forEach((x,k)=>{ box(M,'#b8956a',x,1.655,-1.2,.17,.24-(k%2)*.04,.1); box(M,'#ef8a3c',x,1.73-(k%2)*.04,-1.147,.12,.05,.006); });   // bags of coffee
+  [-1.6,-1.35,-1.1].forEach((x,k)=>cyl(M,['#cf4a36','#f6f1e8','#3f6fd0'][k],x,2.055,-1.2,.055,.1));
+  box(M,'#7a5238',0,1.5,-id+.04,1.42,.9,.05);   // the board's frame
+  /* the counter: panelled front, a pale top, a brass foot rail; a cake stand and a jar for tips on it */
+  box(M,'#7a5238',0,F,-.23,2.3,.74,.46); for(let k=0;k<23;k++) box(M,k%2?'#835a3f':'#734d35',-1.1+k*.1,F+.05,.005,.1,.62,.012); box(M,'#a8714a',0,F+.74,-.23,2.42,.045,.56); box(M,'#8a5a3a',0,F+.74,.05,2.42,.045,.012);
+  box(M,'#c9a24a',0,F+.12,.1,2.2,.025,.025); [-1,0,1].forEach(s=>box(M,'#c9a24a',s*1.05,F,.08,.025,.12,.025));
+  cyl(M,'#f4efe6',-.98,1.005,-.36,.03,.05,'cyl8'); cyl(M,'#f4efe6',-.98,1.055,-.36,.11,.01); cyl(M,'#f1c9b0',-.98,1.065,-.36,.075,.055); cyl(M,'#fbf6ec',-.98,1.12,-.36,.075,.012); put(M,'sph','#d84a4a',-.98,1.145,-.36,.014,.014,.014);
+  cyl(M,'#dfe9ea',.95,1.005,-.34,.04,.1); cyl(M,'#e7c36a',.95,1.005,-.34,.035,.035);
+  /* lamps: three over the bar, a globe over the room */
+  [-.8,0,.8].forEach(x=>{ cyl(M,'#2a2624',x,2.22,-.3,.006,top-2.22,'cyl8'); put(M,'cone','#2f4d42',x,2.2,-.3,.13,.12,.13); put(M,'sph','#fff2c4',x,2.135,-.3,.045,.05,.045); });
+  cyl(M,'#2a2624',0,2.18,.78,.006,top-2.18,'cyl8'); put(M,'sph','#fff2c4',0,2.12,.78,.075,.075,.075);
+  /* stools at the bar, two tables by the front windows with their stools, a vase on each */
+  [-.75,.75].forEach(x=>{ cyl(M,'#3b3836',x,F,.32,.12,.02); cyl(M,'#3b3836',x,F,.32,.025,.52,'cyl8'); cyl(M,'#b8834f',x,F+.52,.32,.13,.05); });
+  [-1.28,1.28].forEach(x=>{ const z=.82; cyl(M,'#3b3836',x,F,z,.15,.02); cyl(M,'#3b3836',x,F,z,.03,.5,'cyl8'); cyl(M,'#f3ede2',x,F+.5,z,.27,.035);
+    [-.43,.43].forEach(s=>{ if(Math.abs(x+s)<1.82) cyl(M,'#b8834f',x+s,F,z,.12,.34,'cyl8'); });
+    cyl(M,'#5d7f6a',x+.06,F+.535,z-.05,.025,.08,'cyl8'); put(M,'sph',x<0?'#f19bb0':'#f6d26b',x+.06,F+.64,z-.05,.035,.035,.035); });
+  cyl(M,'#f6f1e8',1.2,F+.535,.75,.06,.01); cyl(M,'#f6f1e8',1.2,F+.545,.75,.04,.05);   // somebody's cup
+  /* on the walls: the hole as a print (the dark disk and its ring of light), and the bell's bracket over the door */
+  box(M,'#2a241d',-iw+.015,1.2,.45,.03,.6,.6); box(M,'#0d0d10',-iw+.03,1.25,.45,.01,.5,.5); put(M,'cyl','#ef8a3c',-iw+.04,1.5,.45,.16,.006,.16,0,0,Math.PI/2); put(M,'cyl','#0d0d10',-iw+.045,1.5,.45,.11,.006,.11,0,0,Math.PI/2);
+  box(M,'#c9a24a',CP.bell[0],CP.bell[1],id-.06,.02,.02,.12);
+  kitTo(); add(new T.Mesh(kgeo('cafein'),cafeMat()));
+  /* the glass in the windows: one mesh, drawn with the colour only */
+  { const P=[], U=[], pane=(W,x,y,z,sw,sh)=>{ const q=[[-1,-1,0,0],[1,-1,1,0],[1,1,1,1],[-1,-1,0,0],[1,1,1,1],[-1,1,0,1]]; for(const [a,b,u,v] of q){ const p=new T.Vector3(x+a*sw/2,y+b*sh/2,z).applyMatrix4(W); P.push(p.x,p.y,p.z); U.push(u,v); } };
+    [-1.25,1.25].forEach(x=>pane(M,x,1.41,d/2-t/2,.58,.56)); [-1,1].forEach(s=>pane(new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeRotationY(s*Math.PI/2)),0,1.41,w/2-t/2,.58,.56));
+    const gg=new T.BufferGeometry(); gg.setAttribute('position',new T.Float32BufferAttribute(P,3)); gg.setAttribute('uv',new T.Float32BufferAttribute(U,2));
+    const gm=add(new T.Mesh(gg,CGLASS),false); gm.layers.set(1); gm.renderOrder=4; }
+  /* the board */
+  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=640; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; CAFE.bcv=cv; CAFE.btx=tx;
+    const draw=()=>{ cafeBoard(cv,CAFE.hov,CAFE.ph==='brew'||CAFE.ph==='served'?CAFE.dr:-1); tx.needsUpdate=true; }; CAFE.bdraw=draw; draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    const b=add(new T.Mesh(new T.PlaneGeometry(1.3,.81),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx}},LU,CU),vertexShader:TOON_V(true),fragmentShader:BOARD_F})));
+    b.matrix.copy(sub(M,0,1.95,-id+.07)); b.matrixWorldNeedsUpdate=true; CAFE.m.board=b; }
+  /* the door, on its hinge at the left of the opening, with a glass panel; it is lit as the town lights it from outside and
+     as the room lights it from in (uIn) */
+  { kitTo('cafedoor'); const c='#6e4a3a';
+    box(I,c,.4,.2,0,.8,.8,.05); box(I,c,.4,1.68,0,.8,.16,.05); box(I,c,.075,1.0,0,.15,.68,.05); box(I,c,.725,1.0,0,.15,.68,.05); box(I,'#5d3e30',.4,.3,0,.6,.58,.066);
+    box(I,'#c9a24a',.4,.21,0,.76,.09,.058); [-1,1].forEach(s=>{ box(I,'#e7c36a',.69,.86,s*.045,.025,.3,.02); box(I,'#e7c36a',.69,.9,s*.032,.02,.02,.03); box(I,'#e7c36a',.69,1.12,s*.032,.02,.02,.03); });
+    kitTo(); const dm=add(new T.Mesh(kgeo('cafedoor'),cafeMat({uIn:CDIN}))); CAFE.m.door=dm;
+    const gp=new T.Mesh(new T.PlaneGeometry(.5,.68),CGLASS); gp.position.set(.4,1.34,0); gp.layers.set(1); gp.renderOrder=4; dm.add(gp); gp.matrixAutoUpdate=true; }
+  { kitTo('cafebell'); put(I,'cone','#d9b45a',0,-.07,0,.035,.055,.035); put(I,'sph','#b8933f',0,-.1,0,.012,.012,.012); cyl(I,'#c9a24a',0,-.045,0,.004,.045,'cyl8'); kitTo(); CAFE.m.bell=add(new T.Mesh(kgeo('cafebell'),cafeMat())); }
+  /* the grinder: a hopper of beans on a dark body; it shakes while it grinds */
+  { kitTo('cafegr'); box(I,'#3a3634',0,0,0,.17,.22,.19); box(I,'#9fa3a2',0,.09,.1,.05,.04,.04); cyl(I,'#9fa3a2',0,.22,0,.06,.03); put(I,'cone','#e4d8c4',0,.33,0,.085,.18,.085,0,Math.PI); put(I,'cone','#4a2c1b',0,.34,0,.068,.13,.068,0,Math.PI); cyl(I,'#3a3634',0,.42,0,.088,.025);
+    kitTo(); CAFE.m.grind=add(new T.Mesh(kgeo('cafegr'),cafeMat())); }
+  /* the barista: a person, drawn by the same hand as the three of us (figure, from BARISTA), in an apron tied at the waist and
+     round the neck, with a cloth for the counter; lit by the room like everything in it */
+  { const B=BARISTA, f=figure(B), d=f.userData, W=B.build||1, ap=part(), up=v3(0,1,0);
+    ap.grid(tube([[.34,.172*W,.136,0],[.46,.158*W,.12,0],[.58,.146*W,.108,0]],14,-1.2,1.2),B.apron,false);   // the skirt, over the hips
+    ap.grid(tube([[.58,.146*W,.108,0],[.7,.144*W,.106,0],[.8,.16*W,.117,0],[.875,.168*W,.118,0]],12,-.8,.8),B.apron,false);   // the bib
+    ap.grid(tube([[.565,.149*W,.111],[.6,.149*W,.111]],22),B.ties,true);   // the tie round the waist, and its bow at the back
+    [-1,1].forEach(s=>{ ap.put(FG.sph,B.ties,s*.03,.585,-.112,.03,.018,.012,0,0,s*.5); const a=v3(s*.11,.87,.105), b=v3(s*.06,.99,-.01), L=b.clone().sub(a);
+      ap.along(FG.box,B.ties,a.clone().add(b).multiplyScalar(.5),L,v3().crossVectors(L,up).normalize().multiplyScalar(.012),v3().crossVectors(L,v3(1,0,0)).normalize().multiplyScalar(.006)); });   // the straps round the neck
+    ap.put(FG.box,tint(B.apron,-.2),.06*W,.62,.118,.08,.07,.01);   // a pocket
+    d.body.add(ap.mesh());
+    const cl=new T.Mesh(new T.BoxGeometry(.075,.012,.055),cafeMat({c:B.cloth,vc:false})); cl.position.set(0,-.205,.02); d.fore[0].add(cl); CAFE.m.cloth=cl;
+    const mat=cafeMat(); f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; if(o!==cl) o.material=mat; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=CINK; o.userData.shdM=o.material; INK.push(o); CAFE.meshes.push(o); });
+    g.add(f); CAFE.bar.fig=f; }
+  /* the cup: a saucer, the cup with an orange band and its handle; the coffee in it is a disc of its own */
+  { kitTo('cafecup'); const pc='#f6f1e8', ka=(geo,col,mx)=>kadd(geo.toNonIndexed(),col,mx||I);
+    cyl(I,pc,0,0,0,.062,.006); cyl(I,pc,0,.004,0,.088,.008); ka(new T.CylinderGeometry(.056,.04,.062,22,1,true),pc,cM.makeTranslation(0,.043,0)); ka(new T.CylinderGeometry(.052,.036,.058,22,1,true),pc,cM.makeTranslation(0,.045,0));
+    cyl(I,pc,0,.012,0,.04,.004); ka(new T.TorusGeometry(.054,.0042,6,26).rotateX(Math.PI/2),pc,cM.makeTranslation(0,.074,0)); ka(new T.CylinderGeometry(.0566,.0538,.013,22,1,true),'#ef8a3c',cM.makeTranslation(0,.056,0));
+    ka(new T.TorusGeometry(.02,.0058,6,14,Math.PI*1.25).rotateZ(-Math.PI*.62),pc,cM.makeTranslation(.064,.046,0));
+    kitTo(); CAFE.m.cup=add(new T.Mesh(kgeo('cafecup'),cafeMat()));
+    const cv=document.createElement('canvas'); cv.width=cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; CAFE.acv=cv; CAFE.atx=tx; cafeArt(cv,MENU[0].art); tx.needsUpdate=true;
+    CAFE.fu={uMap:{value:tx},uSw:{value:0},uArt:{value:0},uFill:{value:0},uTime:{value:0}};
+    CAFE.m.foam=add(new T.Mesh(new T.CircleGeometry(.051,40).rotateX(-Math.PI/2),new T.ShaderMaterial({uniforms:Object.assign(CAFE.fu,LU,CU),vertexShader:TOON_V(true),fragmentShader:FOAM_F})));
+    CAFE.m.pour=add(new T.Mesh(new T.CylinderGeometry(.006,.005,1,8).translate(0,-.5,0),cafeMat({c:'#4a2c1b',vc:false}))); }
+  /* steam: a few soft puffs, colour only */
+  CAFE.wisps=[]; for(let i=0;i<7;i++){ const m=add(new T.Mesh(GEO.blob,new T.ShaderMaterial({uniforms:{uA:{value:0}},vertexShader:TOON_V(),fragmentShader:STEAM_F,transparent:true,depthWrite:false})),false); m.layers.set(1); m.renderOrder=5; CAFE.wisps.push({m,t:9,life:1,p:new T.Vector3(),s:.02}); }
+  /* where the lamps hang, for the light */
+  [[-.8,2.09,-.3],[0,2.09,-.3],[.8,2.09,-.3],[0,2.05,.78]].forEach((p,i)=>{ cw(p[0],p[1],p[2],cV); CU.uCL.value[i].set(cV.x,cV.y,cV.z,i<3?1:.85); });
+  /* tapping the café from the street: a box round it */
+  CAFE.pick=new T.Mesh(new T.BoxGeometry(w+.3,h+1.4,d+.3),new T.MeshBasicMaterial()); CAFE.pick.matrixAutoUpdate=false; CAFE.pick.matrixWorld.copy(M).multiply(cM.makeTranslation(0,(h+1.4)/2,0));
+  /* the camera's resting look: just below the middle of the board */
+  CAFE.p0=cport()?-.05:.06; cafeRest(); }
+/* the barista, the cup and the coffee at rest: as they are each time you come in */
+function cafeRest(){ const B=CAFE.bar; [B.x,B.z]=BP.home; B.fx=B.x; B.fz=B.z; B.yaw=B.yawT=0; B.sp=0; B.R='wipe'; B.L='free'; B.wave=B.nod=0; B.say='';
+  CAFE.cup.at='stack'; CAFE.cup.p.set(...CP.stack); CAFE.cup.from.copy(CAFE.cup.p); CAFE.cup.k=1; CAFE.cup.fill=CAFE.cup.art=CAFE.cup.drain=0; CAFE.beats=[]; CAFE.ph='menu'; CAFE.shake=0; CAFE.steam=0;
+  CAFE.fu.uSw.value=0; CAFE.sw=0; CAFE.dv=0; CAFE.card=0; CAFE.lean=0; CAFE.yaw=0; CAFE.pitch=CAFE.p0; CAFE.wisps.forEach(q=>{ q.t=9; }); }
+
+/* ---------- the way in and the way out ---------- */
+function cset(s){ CAFE.st=s; CAFE.on=s==='enter'||s==='in'||s==='exit'; CAFE.t=0; el.classList.toggle('incafe',CAFE.on); if(CAFE.cur){ CAFE.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } cafeUI(); }
+const cbusy=()=>!CAFE.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0;
+/* where you are and which way you face, in the café's frame */
+function cafeYou(){ const P=player; clocal(cV.copy(P.u).multiplyScalar(R+P.h),CAFE.pl); cV2.copy(P.f).transformDirection(CAFE.Mi); return {x:CAFE.pl.x,z:CAFE.pl.z,fz:cV2.z}; }
+const cafeAtDoor=(m=1)=>{ const y=cafeYou(); return Math.abs(y.x)<.62*m&&y.z>1.5&&y.z<2.8+(m-1)*.6; };
+/* go in: from right by the door straight away, from further off walking over there first (round whatever is in the way) */
+function cafeGo(){ if(CAFE.st!=='out'||cbusy()) return false; if(cafeAtDoor(1.6)){ cafeEnter(); return true; }
+  const P=player, [gx,gz]=cxz(0,CAFE.d/2), path=navPath(P.x,P.z,gx,gz,1.5); if(!path) return false;   // (to between 1 and 1.5 m out from the door)
+  closeTalk(); TALK.goal=null; C.guide=null; P.path=path; P.tgt=null; P.stuck=0; CAFE.go=0; CAFE.last=0; cset('go'); began(); A.tick(); return true; }
+function cafeEnter(){ const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  const y=cafeYou(); CAFE.fig=[y.x,y.z]; CAFE.fh=Math.atan2(cV2.x,cV2.z); CAFE.fph=P.ph; CAFE.fstep=0; cafeRest();
+  /* the camera: from where it is, down behind you to eye height, in through the door, to the counter */
+  const E=cafeEye(new T.Vector3()); CAFE.curve=new T.CatmullRomCurve3([st.camP.clone(),cw(0,CFL+1.32,2.95),cw(0,CFL+CEY+.05,1.45),E],false,'centripetal');
+  CAFE.lcurve=new T.CatmullRomCurve3([st.camL.clone(),cw(0,1.22,.9),cw(0,1.5,-.6),E.clone().add(cafeDir(0,CAFE.p0,cV3))],false,'centripetal');
+  CAFE.u0=stUp.clone(); CAFE.k=1; CAFE.wIn=null; CAFE.greet=0; me.visible=true; inBtn.hidden=true; cset('enter'); }
+function cafeLeave(){ if(CAFE.st!=='in'||CAFE.ph==='dive'||CAFE.ph==='card'||CAFE.ph==='rise') return; const P=player;
+  /* you come out onto the pavement, facing the street, and the walking camera takes over just where this one ends */
+  const [x,z]=cxz(0,3.05); P.x=x; P.z=z; P.u.copy(at(x,z)); tang(P.u,cw(0,0,9,cV),P.f); P.h=standH(x,z); P.speed=0; P.path=null; P.tgt=null;
+  const D=rigLimit(x,z,P.u,P.f,C.PITCH,C.D0()), head=cV.copy(P.u).multiplyScalar(R+P.h+C.HEAD); CAFE.endP=new T.Vector3(); CAFE.endL=new T.Vector3(); rigPose(head,P.u,P.f,C.PITCH,D,CAFE.endP,CAFE.endL); CAFE.endD=D;
+  CAFE.y0=CAFE.yaw; CAFE.p0x=CAFE.pitch; CAFE.fig=[0,1.2]; CAFE.fh=0; CAFE.curve=null; cset('exit'); }
+function cafeEye(o,lean=0){ const p=cport(); return cw(0,CFL+CEY+(p?.06:0)-lean*.04,(p?1.05:1)-lean*.85,o); }   // lean: up to the counter, over your cup
+function cafeDir(yaw,pitch,o){ return cdir(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch),o); }
+/* the figure (you) walking in or out: in the café's frame, on the ground, the step or the floor, turning as it goes */
+function cafeFig(dt,t,x,z,sp){ const [ox,oz]=CAFE.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); CAFE.fig=[x,z];
+  if(dd>1e-4){ let a=Math.atan2(dx,dz)-CAFE.fh; a=Math.atan2(Math.sin(a),Math.cos(a)); CAFE.fh+=a*Math.min(1,dt*9); }
+  const [mx,mz]=cxz(x,z), y=z>2?standH(mx,mz)-sag(x,z):z>1.44?.16:CFL; cw(x,y,z,cV); const U=cV2.copy(at(mx,mz)); cdir(Math.sin(CAFE.fh),0,Math.cos(CAFE.fh),cV3);
+  sT.crossVectors(U,tang(U,cV3,cV3)).normalize(); Mf.makeBasis(sT,U,cV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(cV);
+  CAFE.fph+=dt*sp*4.6; animate(me,CAFE.fph,clamp(sp/2.7,0,1),0,t,9); CAFE.fstep+=sp*dt; if(CAFE.fstep>.62){ CAFE.fstep=0; A.step(z>2?(roadDist(mx,mz)<RW+SW?1:0):1); } }
+/* a point along a line of points, a fraction u of the way by length */
+function cpoly(pts,u){ let L=0; const s=[]; for(let i=1;i<pts.length;i++){ const l=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]); s.push(l); L+=l; }
+  let r=u*L; for(let i=0;i<s.length;i++){ if(r<=s[i]||i===s.length-1){ const k=s[i]?clamp(r/s[i],0,1):1; return [lerp(pts[i][0],pts[i+1][0],k),lerp(pts[i][1],pts[i+1][1],k),L]; } r-=s[i]; } return [pts[0][0],pts[0][1],L]; }
+const CT_IN=2.9, CT_OUT=2.6;   // seconds to walk in, and out
+function cafeWayIn(dt,t){ const c=CAFE.t+=dt, P=player;
+  /* you walk to the door and in; the door opens as you reach it and shuts behind you */
+  /* (you walk on to where you will stand at the counter, so the camera arrives in your own eyes: you fade as it comes up behind you) */
+  const W=CAFE.wIn||(CAFE.wIn=[CAFE.fig.slice(),[0,1.78],[0,clocal(cafeEye(cV4),cV4).z]]), wk=sstep(0,2.2,c), [x,z,L]=cpoly(W,wk), sp=L*6*wk*(1-wk)/2.2;
+  if(c>.3&&CAFE.doorT===0){ CAFE.doorT=1; A.cafeDoor(true); CAFE.bellV+=5; } if(c>2.25&&CAFE.doorT===1){ CAFE.doorT=0; CAFE.shut=1; }
+  const s=E.io(clamp(c/(CT_IN-.1),0,1)); CAFE.curve.getPointAt(s,CAFE.cp); CAFE.lcurve.getPointAt(Math.min(1,s*1.04),CAFE.cl); CAFE.cu.copy(CAFE.u0).lerp(CAFE.up,sstep(.2,.8,s)).normalize();
+  if(me.visible){ cafeFig(dt,t,x,z,sp); if(c>1&&me.position.distanceTo(CAFE.cp)<.9||c>2.3) me.visible=false; }
+  if(c>=CT_IN){ CAFE.wIn=null; CAFE.curve=CAFE.lcurve=null; CAFE.ph='menu'; CAFE.bar.say='Hello! What can I get you?'; cset('in'); if(CAFE.kb) cafeFocus('#crMenu .crdrink'); }
+  if(c>1.5&&!CAFE.greet){ CAFE.greet=1; CAFE.bar.wave=1.8; A.murmur(BARISTA.pitch,3); } }   // the barista looks up and waves as you come in
+function cafeWayOut(dt,t){ const c=CAFE.t+=dt, P=player;
+  /* you turn round to the door, it opens, out you go and it shuts behind you; the camera ends just where the walking one starts */
+  if(c<.75){ const k=E.io(c/.75), to=CAFE.y0>=0?Math.PI:-Math.PI; CAFE.yaw=lerp(CAFE.y0,to,k); CAFE.pitch=lerp(CAFE.p0x,-.08,k); cafeEye(CAFE.cp); cafeDir(CAFE.yaw,CAFE.pitch,cV).add(CAFE.cp); CAFE.cl.copy(cV); CAFE.cu.copy(CAFE.up);
+    if(!CAFE.curve){ /* (built once the turn is done, from where the turn ends) */ } }
+  else { if(!CAFE.curve){ CAFE.curve=new T.CatmullRomCurve3([CAFE.cp.clone(),cw(0,CFL+CEY+.06,1.3),CAFE.endP.clone()],false,'centripetal'); CAFE.lc0=CAFE.cl.clone(); }
+    const s=E.io(clamp((c-.75)/(CT_OUT-.85),0,1)); CAFE.curve.getPointAt(s,CAFE.cp); CAFE.cl.copy(CAFE.lc0).lerp(CAFE.endL,sstep(.1,.9,s)); CAFE.cu.copy(CAFE.up).lerp(P.u,s).normalize(); }
+  if(c>.4&&CAFE.doorT===0&&!CAFE.shut){ CAFE.doorT=1; A.cafeDoor(true); CAFE.bellV+=5; } if(c>2.05&&CAFE.doorT===1){ CAFE.doorT=0; CAFE.shut=1; }
+  const W=[[0,1.1],[0,3.05]], u=clamp((c-.45)/1.45,0,1), wk=u*u*(3-2*u), [x,z,L]=cpoly(W,wk), sp=L*6*u*(1-u)/1.45; if(c>.45){ me.visible=true; cafeFig(dt,t,x,z,sp); }   // (out ahead of the camera, so you are seen walking out)
+  if(c>=CT_OUT){ /* hand back: you, standing on the pavement, and the walking camera set exactly where this one is */
+    const [mx,mz]=cxz(0,3.05); P.x=mx; P.z=mz; P.u.copy(at(mx,mz)); tang(P.u,cw(0,0,9,cV),P.f); P.h=standH(mx,mz); P.ph=CAFE.fph;
+    C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.dist=CAFE.endD; C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dragT=9; C.tk=0; stUp.copy(P.u);
+    CAFE.curve=null; cset('out'); CAFE.cp.copy(CAFE.endP); CAFE.cl.copy(CAFE.endL); CAFE.cu.copy(P.u); } }
+
+/* ---------- the barista at work ----------
+   Each beat: how long, where they stand (BP), which way they face (0 to you, PI to the back bar), what each hand is doing
+   (R, L: a pose from CPOSE, else the walk's own swing), and what happens: go, as it starts; end, when it is done. Between
+   two places they walk */
+function barPlan(){ const L=[], b=(dur,to,face,o={})=>L.push(Object.assign({dur,to,face},o)), PI=Math.PI, again=CAFE.cup.at==='serve';
+  b(.7,again?BP.serve:BP.home,0,{nod:1,go:'say'});                                                      // says it back, with a nod
+  if(again) b(.35,BP.serve,0,{R:'set',end:'take'});                                                      // (another: your cup first)
+  else { b(.6,BP.stack,PI); b(.35,BP.stack,PI,{R:'reach',end:'take'}); }                                // turns to the cups and takes one
+  b(.75,BP.machine,PI,{R:'carry'}); b(.32,BP.machine,PI,{R:'reach',end:'set'});                       // to the machine: the cup on the tray
+  b(.35,BP.grind,PI); b(.85,BP.grind,PI,{L:'reach',go:'grind'});                                      // grinds
+  b(.35,BP.machine,PI); b(.5,BP.machine,PI,{R:'work',L:'work',go:'tamp'});                            // tamps, and locks the handle in
+  b(.9,BP.machine,PI,{R:'work',go:'pour'});                                                           // the shot runs
+  b(.8,BP.machine,PI,{L:'work',go:'steam'});                                                          // and the milk, at the wand
+  b(.32,BP.machine,PI,{R:'reach',end:'take'});                                                        // takes it up
+  b(.85,BP.serve,0,{R:'carry'}); b(.42,BP.serve,0,{R:'set',end:'serve'});                             // turns and sets it down in front of you
+  b(.55,BP.home,0); return L; }
+/* the arms in each pose: [the upper arm forward, out to the side, the forearm forward] */
+const CPOSE={rest:[0,0,-.12],reach:[-.95,0,-.3],work:[-1.3,0,-.6],carry:[-.8,0,-1.05],set:[-1.1,0,-.2],wipe:[-1.05,0,-.35]};
+function cafeOrder(i){ if(CAFE.st!=='in'||!(CAFE.ph==='menu'||CAFE.ph==='served')||!MENU[i]) return; CAFE.dr=i; CAFE.ph='brew'; CAFE.beats=barPlan(); CAFE.beat=-1; CAFE.bt=0;
+  if(CAFE.cup.at!=='serve'){ cafeArt(CAFE.acv,MENU[i].art); CAFE.atx.needsUpdate=true; } A.tick(); CAFE.bdraw(); cafeUI(); }
+/* the cup goes from where it is to its next place (the hand, the tray, your place) in a moment, not in a jump */
+function cupTo(at){ const c=CAFE.cup; c.from.copy(c.p); c.at=at; c.k=0; }
+function cafeBeats(dt){ const B=CAFE.bar, cup=CAFE.cup; if(CAFE.ph!=='brew') return;
+  if(CAFE.beat<0||CAFE.bt>=CAFE.beats[CAFE.beat].dur){ const q=CAFE.beats[CAFE.beat];
+    if(q){ B.x=q.to[0]; B.z=q.to[1];   // there
+      if(q.end==='take'){ if(cup.at==='serve') cup.drain=1; cupTo('hand'); A.clink(.018); }
+      else if(q.end==='set'){ cupTo('brew'); A.clink(.022); if(cup.drain||cup.fill>0){ cup.fill=cup.art=0; cup.drain=0; cafeArt(CAFE.acv,MENU[CAFE.dr].art); CAFE.atx.needsUpdate=true; } }
+      else if(q.end==='serve'){ cupTo('serve'); A.cupDown(); A.chime(12,.06,.022); A.chime(14,.2,.018); } }
+    CAFE.beat++; CAFE.bt=0; B.fx=B.x; B.fz=B.z; const n=CAFE.beats[CAFE.beat];
+    if(!n){ CAFE.ph='served'; CAFE.pt=0; CAFE.fold=true; B.say='Your '+MENU[CAFE.dr].name+'. Enjoy!'; A.murmur(BARISTA.pitch,4); cafeUI(); if(CAFE.kb) cafeFocus('#crLook'); return; }
+    if(n.go==='say'){ B.say='One '+MENU[CAFE.dr].name+', coming up.'; A.murmur(BARISTA.pitch,6); cafeUI(); }
+    if(n.nod) B.nod=1; if(n.go==='grind'){ A.grind(.85); CAFE.shake=.85; } if(n.go==='tamp') A.tamp(); if(n.go==='pour') A.pour(.9); if(n.go==='steam'){ A.steam(.75); CAFE.steam=.8; } }
+  const q=CAFE.beats[CAFE.beat]; CAFE.bt+=dt; const u=clamp(CAFE.bt/q.dur,0,1), k=u*u*(3-2*u);
+  B.x=lerp(B.fx,q.to[0],k); B.z=lerp(B.fz,q.to[1],k); B.sp=Math.hypot(q.to[0]-B.fx,q.to[1]-B.fz)*6*u*(1-u)/q.dur; B.yawT=q.face; B.R=q.R||'free'; B.L=q.L||'free';
+  if(q.go==='pour'&&cup.at==='brew') cup.fill=u; if(!cup.drain&&cup.fill>.99&&(q.go==='steam'||cup.art>0&&cup.art<1)) cup.art=Math.min(1,cup.art+dt/1.3); }
+/* the barista drawn: where they stand and face, walking or not, each arm in its pose, the wave, the nod, a blink, a little sway;
+   the cloth in hand while they wipe the counter; and the cup, in their hand or where it was set down */
+function cafePose(dt,t){ const B=CAFE.bar, cup=CAFE.cup, m=CAFE.m, f=B.fig, d=f.userData;
+  if(CAFE.ph!=='brew'){ B.sp=0; B.yawT=0; B.R=CAFE.st==='in'||CAFE.st==='out'?'wipe':'rest'; B.L='free';
+    if(Math.hypot(B.x-BP.home[0],B.z-BP.home[1])>.005){ B.x=damp(B.x,BP.home[0],3,dt); B.z=damp(B.z,BP.home[1],3,dt); } }   // (back to their place behind the counter)
+  let a=(B.yawT||0)-B.yaw; a=Math.atan2(Math.sin(a),Math.cos(a)); B.yaw+=a*Math.min(1,dt*7);
+  cw(B.x,CFL,B.z,cV); cdir(Math.sin(B.yaw),0,Math.cos(B.yaw),cV3); sT.crossVectors(CAFE.up,cV3).normalize(); Mf.makeBasis(sT,CAFE.up,cV3); f.quaternion.setFromRotationMatrix(Mf); f.position.copy(cV);
+  B.ph+=dt*B.sp*5; B.wave=Math.max(0,B.wave-dt); animate(f,B.ph,clamp(B.sp/1.4,0,1)*.7,B.wave,t,7);
+  B.step+=B.sp*dt; if(B.step>.4){ B.step=0; if(CAFE.on) A.step(1); }
+  [B.R,B.L].forEach((p,i)=>{ const arm=d.arms[i], fa=d.fore[i], c=B.arm[i];
+    if(p==='free'||i===1&&B.wave>0){ c[0]=arm.rotation.x; c[1]=arm.rotation.z; c[2]=fa.rotation.x; return; }
+    const P0=CPOSE[p], w=p==='wipe'?1:0; c[0]=damp(c[0],P0[0]+w*Math.sin(t*4.2)*.12,9,dt); c[1]=damp(c[1],P0[1]+w*Math.cos(t*4.2)*.1*(i?1:-1),9,dt); c[2]=damp(c[2],P0[2],9,dt);
+    arm.rotation.x=c[0]; arm.rotation.z=c[1]; fa.rotation.x=c[2]; });
+  B.nod=Math.max(0,B.nod-dt*1.6); d.head.rotation.x=Math.sin(B.nod*Math.PI)*.3; d.body.rotation.z=B.sp>.05?0:Math.sin(t*.8)*.025;
+  B.blink-=dt; const ey=B.blink<.12?.15:1; if(B.blink<0) B.blink=2+Math.random()*3; d.eyes.forEach(e=>e.scale.y=ey);
+  m.cloth.visible=B.R==='wipe'||CAFE.warm;
+  /* the cup: in the barista's hand while it is carried (upright), else where it was set down */
+  f.updateMatrixWorld(true); clocal(d.fore[0].localToWorld(cV2.set(0,-.2,.03)),cV2); cV2.y-=.03;
+  const goal=cup.at==='hand'?cV2:cup.at==='brew'?cV3.set(...CP.brew):cup.at==='serve'?cV3.set(...CP.serve):cV3.set(...CP.stack);
+  cup.k=Math.min(1,cup.k+dt/.2); cup.p.copy(cup.from).lerp(goal,sstep(0,1,cup.k));
+  if(cup.drain){ cup.fill=Math.max(0,cup.fill-dt*1.6); cup.art=Math.max(0,cup.art-dt*1.6); }
+  m.cup.matrix.multiplyMatrices(CAFE.M,cM.makeTranslation(cup.p.x,cup.p.y,cup.p.z)); m.cup.matrixWorldNeedsUpdate=true;
+  const fy=lerp(.017,.068,cup.fill), fr=lerp(.036,.0515,cup.fill)/.051; m.foam.visible=cup.fill>.01||CAFE.warm;
+  m.foam.matrix.multiplyMatrices(CAFE.M,cM.makeTranslation(cup.p.x,cup.p.y+fy,cup.p.z).multiply(cM2.makeScale(fr,1,fr))); m.foam.matrixWorldNeedsUpdate=true;
+  CAFE.fu.uFill.value=cup.fill; CAFE.fu.uArt.value=cup.art;
+  /* the shot running from the spout while it pours */
+  const pouring=CAFE.ph==='brew'&&CAFE.beats[CAFE.beat]&&CAFE.beats[CAFE.beat].go==='pour'&&cup.at==='brew'; m.pour.visible=pouring||CAFE.warm;
+  if(pouring){ const y0=CP.spout[1], y1=cup.p.y+fy; m.pour.matrix.multiplyMatrices(CAFE.M,cM.makeTranslation(CP.spout[0],y0,CP.spout[2]).multiply(cM2.makeScale(1,Math.max(.01,y0-y1),1))); m.pour.matrixWorldNeedsUpdate=true; }
+  /* the grinder shaking, the door on its hinge (a spring with a little overshoot), the bell swinging when the door moves */
+  CAFE.shake=Math.max(0,CAFE.shake-dt); const j=CAFE.shake>0?.0035:0; cw(CP.grind[0]+(Math.random()-.5)*j,CP.grind[1],CP.grind[2]+(Math.random()-.5)*j,cV); m.grind.matrix.copy(CAFE.M).setPosition(cV); m.grind.matrixWorldNeedsUpdate=true;
+  const dk=CAFE.doorT*1.62; CAFE.doorV+=((dk-CAFE.door)*38-CAFE.doorV*8.5)*dt; CAFE.door+=CAFE.doorV*dt;
+  if(CAFE.shut&&CAFE.door<.02&&CAFE.doorT===0){ CAFE.shut=0; CAFE.door=0; CAFE.doorV=0; A.cafeDoor(false); CAFE.bellV+=3; }
+  m.door.matrix.multiplyMatrices(CAFE.M,cM.makeTranslation(-CDW/2,0,CAFE.d/2-.04).multiply(cM2.makeRotationY(CAFE.door))); m.door.matrixWorldNeedsUpdate=true;
+  CAFE.bellV+=(-CAFE.bell*55-CAFE.bellV*2.4)*dt; CAFE.bell+=CAFE.bellV*dt;
+  m.bell.matrix.multiplyMatrices(CAFE.M,cM.makeTranslation(...CP.bell).multiply(cM2.makeRotationX(clamp(CAFE.bell,-.6,.6)*.5))); m.bell.matrixWorldNeedsUpdate=true;
+  /* steam: from the wand while it steams, then a thread or two off the cup once it is served */
+  CAFE.steam=Math.max(0,CAFE.steam-dt); CAFE.wisp-=dt;
+  if(CAFE.wisp<=0&&(CAFE.steam>0||cup.at==='serve'&&cup.fill>.9)){ CAFE.wisp=CAFE.steam>0?.09:.55; const q=CAFE.wisps.find(w=>w.t>=w.life); if(q){ q.t=0; q.life=CAFE.steam>0?.9:1.6; q.s=CAFE.steam>0?.022:.016;
+      if(CAFE.steam>0) q.p.set(CP.steam[0]+(Math.random()-.5)*.02,CP.steam[1]-.03,CP.steam[2]+.02); else q.p.set(cup.p.x+(Math.random()-.5)*.03,cup.p.y+.08,cup.p.z+(Math.random()-.5)*.03); } }
+  for(const q of CAFE.wisps){ q.t+=dt; const a=q.t/q.life, on=a<1&&!CAFE.warm; q.m.visible=on||CAFE.warm; if(!on){ q.m.material.uniforms.uA.value=0; continue; }
+    q.p.y+=dt*.11; q.p.x+=Math.sin(t*2+q.life*9)*dt*.02; const s=q.s*(1+a*2.2); q.m.material.uniforms.uA.value=Math.sin(Math.PI*a)*.55;
+    cM.makeScale(s,s*1.3,s).setPosition(q.p); q.m.matrix.multiplyMatrices(CAFE.M,cM); q.m.matrixWorldNeedsUpdate=true; } }
+
+/* ---------- looking into the cup: the camera sinks into it and the foam swirls over the screen; the card is in the foam ---------- */
+function cafeDive(){ if(CAFE.st!=='in'||CAFE.ph!=='served'||CAFE.cup.at!=='serve') return; CAFE.ph='dive'; CAFE.dv=0; CAFE.d0p.copy(CAFE.cp); CAFE.d0l.copy(CAFE.cl); CAFE.d0u.copy(CAFE.cu); A.whoosh(false,1.2,.06); cafeUI(); }
+function cafeRise(){ if(CAFE.ph!=='dive'&&CAFE.ph!=='card') return; CAFE.ph='rise'; cupCard(false); A.whoosh(true,1.1,.05); cafeUI(); }
+function cafeDiveCam(dt){ const u=CAFE.dv, s=E.io(u), cup=CAFE.cup.p, top=cw(cup.x,cup.y+.068,cup.z,cV4);
+  cV.copy(top).addScaledVector(CAFE.up,.42).addScaledVector(cdir(0,0,1,cV3),.07); cV2.copy(top).addScaledVector(CAFE.up,.03);   // over the cup, then down to just above the foam
+  const a=1-s; CAFE.cp.copy(CAFE.d0p).multiplyScalar(a*a).addScaledVector(cV,2*a*s).addScaledVector(cV2,s*s);
+  CAFE.cl.copy(CAFE.d0l).lerp(top,sstep(0,.55,s)); CAFE.cu.copy(CAFE.d0u).lerp(cdir(0,0,-1,cV3),sstep(.2,.75,s)).normalize();
+  CU.uNr.value=lerp(.12,.004,sstep(.25,.75,s)); }
+function cupCard(on){ const i=CAFE.dr, d=MENU[i]; if(on){ cupK.textContent=d.name; cupH.textContent=d.head; cupT.textContent=d.text; cupS.innerHTML=CSIGN[d.art];
+    cupGo.href=d.href; cupGo.firstChild.nodeValue=d.go+' '; const ext=/^https?:/.test(d.href); cupGo.target=ext?'_blank':'_self'; if(ext) cupGo.rel='noopener'; else cupGo.removeAttribute('rel'); cupGo.querySelector('svg').style.display=ext?'':'none'; }
+  cupEl.classList.toggle('on',on); cupEl.setAttribute('aria-hidden',on?'false':'true'); if(on&&CAFE.kb) cafeFocus('#crCupGo'); }
+/* the signs on the card, as on the board */
+const CSIGN={heart:'<svg viewBox="0 0 40 40"><path d="M20 33C7 24 4 17 8 11c3-4 9-4 12 1 3-5 9-5 12-1 4 6 1 13-12 22Z" fill="currentColor"/></svg>',
+  krios:'<svg viewBox="0 0 40 40"><path d="M11 8v24M26 8 13 20l13 12" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M29 15a7 7 0 0 1 0 10M33 12a11 11 0 0 1 0 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  rocket:'<svg viewBox="0 0 40 40"><path d="M20 4c6 5 7 14 4 22h-8c-3-8-2-17 4-22Z" fill="currentColor"/><path d="M16 20l-5 8 5-1M24 20l5 8-5-1" fill="currentColor"/><circle cx="20" cy="31" r="2.6" fill="currentColor"/><circle cx="20" cy="15" r="2.4" fill="#fbf6ec"/></svg>'};
+
+/* ---------- each frame ---------- */
+function cafeStep(dt,t){ if(!CAFE.g) return; const P=player; CAFE.p0=cport()?-.05:.06;   // (on a phone held upright the view rests a little lower, so the barista is in it above the menu)
+  /* the room is drawn only when it can be seen: from the street nearby, or from inside */
+  CAFE.g.visible=CAFE.warm||CAFE.on||stCam.position.distanceTo(CAFE.c0)<20; if(!CAFE.g.visible&&CAFE.st==='out'&&CAFE.k<.001){ cafeOutside(dt); return; }
+  if(CAFE.st==='out'||CAFE.st==='go') cafeOutside(dt);
+  else if(CAFE.st==='enter') cafeWayIn(dt,t);
+  else if(CAFE.st==='exit') cafeWayOut(dt,t);
+  else cafeInside(dt,t);
+  cafeBeats(dt); cafePose(dt,t);
+  /* how far inside the camera is: the door takes the room's light, and from the street by day the room is a little dimmer than the day */
+  const cz=clocal(CAFE.on?CAFE.cp:stCam.position,cV).z, inn=CAFE.on?sstep(1.7,1.1,cz):0; CDIN.value=inn; CU.uDim.value=1-.2*(1-inn)*(1-SKY.night);
+  CU.uCL.value.forEach((l,i)=>{ l.w=(i<3?1.12:.85)*(1+.18*SKY.night); });
+  /* the swirl in the foam keeps turning while you are in the cup */
+  CAFE.swT+=dt; CAFE.fu.uTime.value=CAFE.swT; CAFE.fu.uSw.value=CAFE.sw;
+  /* the camera: this one while you are in here (and on the way in and out), handed back smoothly after */
+  if(CAFE.st==='out') CAFE.k=damp(CAFE.k,0,7,dt);
+  if(CAFE.k>.001){ const k=CAFE.st==='out'?CAFE.k:1; st.camP.lerp(CAFE.cp,k); st.camL.lerp(CAFE.cl,k); stUp.lerp(CAFE.cu,k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
+    if(CAFE.on) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+  /* (a nearer lens in here, for the cup; a little wider, for the room) */
+  const nr=CAFE.on?.02:.1; if(stCam.near!==nr){ stCam.near=nr; stCam.updateProjectionMatrix(); }
+  if(CAFE.k>.001){ const fv=lerp(stCam.fov,cport()?62:50,CAFE.k); if(Math.abs(stCam.fov-fv)>.01){ stCam.fov=fv; stCam.updateProjectionMatrix(); } }
+  /* the town's music is a little quieter in here */
+  CAFE.mk=damp(CAFE.mk||0,CAFE.st==='in'?1:CAFE.on?CDIN.value:0,2.5,dt); if(CAFE.mk>.002) A.music(.55*(1-.42*CAFE.mk)); }
+/* out in the street: going in when you walk up to the door, or once you get there after asking to; the button by the café */
+function cafeOutside(dt){ const P=player;
+  if(CAFE.st==='go'){ CAFE.go+=dt; if(cbusy()||TALK.goal||CAFE.go>20){ cset('out'); }
+    else if(cafeAtDoor(1.6)) cafeEnter();
+    else if(!P.path&&!P.tgt){ if(!CAFE.last){ CAFE.last=1; P.tgt=at(...cxz(0,2.45)).multiplyScalar(R); } else cset('out'); } }   // the last step, straight to the door
+  else if(!cbusy()&&!TALK.goal&&P.speed>.35&&CAFE_ON){ const y=cafeYou(); if(Math.abs(y.x)<.62&&y.z>1.5&&y.z<2.8&&y.fz<-.5) cafeEnter(); }
+  inBtn.hidden=!(CAFE.st==='out'&&PJ.id==='cafe'&&!cbusy()); }
+function cafeInside(dt,t){ const port=cport();
+  /* turning: a drag, or the arrow keys (or A and D); W walks you back up to the counter, or out if you face the door; S steps back out */
+  const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0), busy=CAFE.ph==='dive'||CAFE.ph==='card'||CAFE.ph==='rise';
+  if(kx&&!busy){ CAFE.yaw=clamp(CAFE.yaw+kx*1.6*dt,-2.95,2.95); CAFE.dragT=0; }
+  const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown');
+  if(!busy&&(bk||fw&&Math.abs(CAFE.yaw)>2.2)){ CAFE.out=(CAFE.out||0)+dt; if(CAFE.out>.3){ CAFE.out=0; cafeLeave(); return; } } else CAFE.out=0;
+  CAFE.dragT+=dt; CAFE.pt+=dt;
+  /* where the view rests on its own: the board; the barista while they work; the cup, leaning in, once it is served */
+  let ay=0, ap=CAFE.p0, al=0;
+  if(CAFE.ph==='brew'){ const e=clocal(cafeEye(cV),cV2), B=CAFE.bar, dx=B.x-e.x, dy=CFL+.95-e.y, dz=B.z-e.z; ay=Math.atan2(-dx,-dz)*.45; ap=lerp(CAFE.p0,Math.atan2(dy,Math.hypot(dx,dz)),.45); }
+  else if(CAFE.ph==='served'&&CAFE.cup.at==='serve'){ al=1; const e=clocal(cafeEye(cV,CAFE.lean),cV2), c=CAFE.cup.p; ap=Math.atan2(c.y+.05-e.y,Math.hypot(c.x-e.x,c.z-e.z))+(port?.09:.07); }   // (the cup a little below the middle, clear of the menu)
+  if(fw&&Math.abs(CAFE.yaw)<1.2&&!busy) al=1;
+  if(CAFE.dragT>2.4&&!busy){ CAFE.yaw=damp(CAFE.yaw,ay,1.8,dt); CAFE.pitch=damp(CAFE.pitch,ap,1.8,dt); }
+  CAFE.lean=damp(CAFE.lean,al,1.6,dt);
+  /* into the cup: the swirl starts as you near the foam and keeps turning slowly while the card is up; out again, it settles back into the drink's sign */
+  if(CAFE.ph==='dive'||CAFE.ph==='card'){ CAFE.dv=Math.min(1,CAFE.dv+dt/1.7); CAFE.sw=CAFE.ph==='card'?Math.min(1.8,CAFE.sw+dt*.07):Math.max(CAFE.sw,1.1*sstep(.45,1,CAFE.dv));
+    if(CAFE.dv>=1&&CAFE.ph==='dive'){ CAFE.ph='card'; CAFE.pt=0; } if(CAFE.ph==='card'&&CAFE.pt>.25&&!CAFE.card){ CAFE.card=1; cupCard(true); } }
+  else if(CAFE.ph==='rise'){ CAFE.dv=Math.max(0,CAFE.dv-dt/1.3); CAFE.sw=Math.min(CAFE.sw,1.1*sstep(.25,1,CAFE.dv)); if(CAFE.dv<=0){ CAFE.ph='served'; CAFE.card=0; CAFE.sw=0; CAFE.dragT=9; CU.uNr.value=.12; cafeUI(); if(CAFE.kb) cafeFocus('#crLook'); } }
+  if(CAFE.dv>0) cafeDiveCam(dt);
+  else { cafeEye(CAFE.cp,CAFE.lean); cafeDir(CAFE.yaw,CAFE.pitch,cV).add(CAFE.cp); CAFE.cl.copy(cV); CAFE.cu.copy(CAFE.up); }
+  me.visible=false; }
+
+/* ---------- the café's buttons and its card ---------- */
+const inBtn=$('#crCafeIn',el), cafeEl=$('#crCafe',el), menuEl=$('#crMenu',el), brewT=$('#crBrewT',el), lookBtn=$('#crLook',el), moreBtn=$('#crMore',el), leaveBtn=$('#crLeave',el),
+  cupEl=$('#crCup',el), cupK=$('#crCupK',el), cupH=$('#crCupH',el), cupT=$('#crCupT',el), cupS=$('#crCupS',el), cupGo=$('#crCupGo',el), cupBack=$('#crCupBack',el), drinkB=$$('.crdrink',el);
+drinkB.forEach((b,i)=>{ b.querySelector('.crdrink-n').textContent=MENU[i].name; b.querySelector('.crdrink-k').textContent=MENU[i].what; b.addEventListener('click',e=>{ e.stopPropagation(); if(e.detail===0) CAFE.kb=true; cafeOrder(i); }); });
+inBtn.addEventListener('click',e=>{ e.stopPropagation(); CAFE.kb=e.detail===0; cafeGo(); });
+lookBtn.addEventListener('click',e=>{ e.stopPropagation(); if(e.detail===0) CAFE.kb=true; cafeDive(); });
+moreBtn.addEventListener('click',e=>{ e.stopPropagation(); CAFE.fold=false; cafeUI(); if(e.detail===0){ CAFE.kb=true; cafeFocus('#crMenu .crdrink'); } });   // the menu again, to order another
+leaveBtn.addEventListener('click',e=>{ e.stopPropagation(); CAFE.kb=e.detail===0; cafeLeave(); });
+cupBack.addEventListener('click',e=>{ e.stopPropagation(); cafeRise(); });
+/* the link in the foam: the visitor's own click opens it (a new tab, or their mail in this one), and then you rise back out of the cup */
+cupGo.addEventListener('click',e=>{ e.stopPropagation(); setTimeout(cafeRise,180); });
+[cafeEl,cupEl,inBtn].forEach(x=>x.addEventListener('pointerdown',e=>e.stopPropagation()));
+function cafeFocus(sel){ setTimeout(()=>{ const b=$(sel,el); if(b&&!b.closest('[hidden]')){ kbNav=true; b.focus(); } },60); }
+function cafeUI(){ const inside=CAFE.st==='in', ph=CAFE.ph, cup=ph==='dive'||ph==='card'||ph==='rise', d=MENU[CAFE.dr];
+  cafeEl.classList.toggle('on',inside&&!cup); el.classList.toggle('incup',CAFE.on&&cup);
+  menuEl.classList.toggle('brew',ph==='brew'); menuEl.classList.toggle('served',ph==='served'); menuEl.classList.toggle('fold',ph==='served'&&CAFE.fold); moreBtn.hidden=!(ph==='served'&&CAFE.fold);
+  /* what the barista last said (under their tag, Barista) */
+  brewT.textContent=CAFE.bar.say?'\u201c'+CAFE.bar.say+'\u201d':''; menuEl.classList.toggle('said',!!CAFE.bar.say); lookBtn.hidden=ph!=='served';
+  drinkB.forEach((b,i)=>{ b.disabled=ph==='brew'; b.classList.toggle('mine',(ph==='brew'||ph==='served')&&i===CAFE.dr); });
+  if(CAFE.bdraw) CAFE.bdraw(); if(!CAFE.on) cupCard(false); }
+/* ---------- pointing, inside: drag to look round; tap the board to order, the cup to look into it, the door to leave ---------- */
+function cafeDown(e){ CAFE.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; }
+function cafePick(e){ cNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); cRay.setFromCamera(cNdc,stCam); cRay.layers.set(0);
+  if(CAFE.st==='out') return cRay.intersectObject(CAFE.pick,false).length?{cafe:1}:null;
+  const m=CAFE.m, h=cRay.intersectObjects([m.board,m.door,m.cup,m.foam],false)[0];
+  if(!h){ /* the cup is small: near it on the screen is near enough */ if(CAFE.cup.at!=='serve') return null; const s=cafeDbg.screen('cup'); return Math.hypot(s[0]-e.clientX,s[1]-e.clientY)<Math.max(44,innerHeight*.06)?{cup:1}:null; }
+  if(h.object===m.board){ const v=1-h.uv.y; for(let i=0;i<MENU.length;i++) if(Math.abs(v-(.37+i*.215))<.1) return {drink:i}; return null; }
+  if(h.object===m.door) return {door:1};
+  return {cup:1}; }
+function cafeTapIn(e){ if(CAFE.st!=='in') return; const p=cafePick(e); if(!p) return;
+  if(p.drink!=null&&(CAFE.ph==='menu'||CAFE.ph==='served')) cafeOrder(p.drink); else if(p.cup&&CAFE.ph==='served') cafeDive(); else if(p.door) cafeLeave(); }
+/* from the street: tapping the café walks you over and in */
+function cafeTap(e){ if(CAFE.st!=='out'||!CAFE.g||cbusy()) return; const P=player; if(Math.hypot(P.x-CAFE.x,P.z-CAFE.z)>26) return; if(cafePick(e)) cafeGo(); }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!CAFE.g) return; const D=CAFE.drag;
+  if(D&&e.pointerId===D.id){ if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>(e.pointerType==='mouse'?6:9)) D.moved=true;
+    if(D.moved&&CAFE.st==='in'&&CAFE.dv<=0){ CAFE.yaw=clamp(CAFE.yaw-(e.clientX-D.lx)*.0042,-2.95,2.95); CAFE.pitch=clamp(CAFE.pitch-(e.clientY-D.ly)*.0034,-.8,.65); CAFE.dragT=0; }
+    D.lx=e.clientX; D.ly=e.clientY; return; }
+  /* the cursor says what a click would do */
+  if(e.pointerType!=='mouse'||(CAFE.st==='out'&&down)) return; let lab=null, hv=-1;
+  if(CAFE.st==='in'&&(CAFE.ph==='menu'||CAFE.ph==='served'||CAFE.ph==='brew')){ const p=cafePick(e); if(p){ if(p.drink!=null&&CAFE.ph!=='brew'){ lab='Order'; hv=p.drink; } else if(p.cup&&CAFE.ph==='served') lab='Look in'; else if(p.door&&CAFE.ph!=='brew') lab='Leave'; } }
+  else if(CAFE.st==='out'&&!cbusy()&&CAFE.g.visible&&Math.hypot(player.x-CAFE.x,player.z-CAFE.z)<26&&cafePick(e)&&!pickPerson(e)) lab='Go in';
+  if(hv!==CAFE.hov){ CAFE.hov=hv; if(CAFE.bdraw) CAFE.bdraw(); }
+  const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); CAFE.cur=true; } else if(CAFE.cur){ ce.classList.remove('big'); CAFE.cur=false; } },{passive:true});
+addEventListener('pointerup',e=>{ const D=CAFE.drag; if(!D||e.pointerId!==D.id) return; CAFE.drag=null; if(!D.moved&&S.st===st&&S.mode==='station') cafeTapIn(e); });
+addEventListener('pointercancel',()=>{ CAFE.drag=null; });
+addEventListener('pointerdown',()=>{ CAFE.kb=false; },true);   // a pointer, not the keys: focus is not moved for you
+/* keys: by the door E or Enter goes in; inside Escape backs out of the cup or leaves, Enter looks into a served cup */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!CAFE.g) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button');
+  if(k==='Tab'||k==='Enter'||k==='Space'||k==='KeyE') CAFE.kb=true;
+  if(CAFE.st==='out'||CAFE.st==='go'){
+    if(CAFE.st==='go'&&k==='Escape'){ cset('out'); player.path=null; e.stopImmediatePropagation(); return; }
+    if((k==='KeyE'||k==='Enter')&&!ctl&&!cbusy()&&CAFE_ON&&cafeAtDoor(1.6)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ cafeEnter(); e.preventDefault(); e.stopImmediatePropagation(); }
+    return; }
+  if(k==='Escape'){ if(CAFE.ph==='dive'||CAFE.ph==='card') cafeRise(); else if(CAFE.st==='in') cafeLeave(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ if(CAFE.st==='in'&&CAFE.ph==='served') cafeDive(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
+function cafeReset(leaving){ if(!CAFE.g) return; if(leaving&&CAFE.warm){ CAFE.warm=false; CAFE.meshes.forEach(m=>{ m.frustumCulled=true; }); }
+  CAFE.drag=null; CAFE.curve=null; CAFE.wIn=null; CAFE.shut=0; CAFE.door=CAFE.doorV=CAFE.doorT=0; CAFE.k=0; cafeRest(); cset('out'); CU.uNr.value=.12; CDIN.value=0;
+  if(stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } if(me) me.visible=true; inBtn.hidden=true; cupCard(false); }
+const cafeDbg={C:CAFE,MENU,CP,BP,get state(){ return {st:CAFE.st,ph:CAFE.ph,dr:CAFE.dr,cup:CAFE.cup.at,fill:+CAFE.cup.fill.toFixed(2),art:+CAFE.cup.art.toFixed(2),door:+CAFE.door.toFixed(2),k:+CAFE.k.toFixed(3),
+    card:cupEl.classList.contains('on'),me:me.visible,near:stCam.near,beat:CAFE.beat,bar:[+CAFE.bar.x.toFixed(2),+CAFE.bar.z.toFixed(2),CAFE.bar.R,CAFE.bar.L,+CAFE.bar.yaw.toFixed(2)],say:CAFE.bar.say,you:(({x,z})=>[+x.toFixed(2),+z.toFixed(2)])(cafeYou()),menu:cafeEl.classList.contains('on'),button:!inBtn.hidden}; },
+  go:cafeGo,enter:cafeEnter,leave:cafeLeave,order:cafeOrder,dive:cafeDive,rise:cafeRise,local:(x,z)=>cxz(x,z),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  /* where on the screen a drink on the board, the cup and the door are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const p=what==='cup'?cw(CAFE.cup.p.x,CAFE.cup.p.y+.06,CAFE.cup.p.z,cV):what==='door'?cw(0,1.1,CAFE.d/2-.04,cV):cw(-.12,1.95+.405-(.37+what*.215)*.81,-CAFE.d/2+.08+.07,cV);
+    const v=p.project(stCam); return [(v.x*.5+.5)*innerWidth,(-v.y*.5+.5)*innerHeight,v.z]; }};
 /* ---------- birds circling over town ---------- */
 const BIRDS=[], BU=new T.Vector3();
 function buildBirds(){ for(let i=0;i<6;i++){ const g=new T.Group(), wl=mesh(BOXG,'#3b3a3c',-.17,0,0,.34,.02,.09), wr=mesh(BOXG,'#3b3a3c',.17,0,0,.34,.02,.09); g.add(wl,wr,mesh(BOXG,'#3b3a3c',0,0,0,.07,.05,.16)); sc.add(g);
@@ -1080,7 +1597,7 @@ st.build=async function(){
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer();
+  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe();
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1};   // the seasons, snow, rain and lit windows are the kit's
@@ -1149,7 +1666,7 @@ function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight
 let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(CAFE.on){ cafeDown(e); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
 const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
@@ -1159,10 +1676,10 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
     if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
     else if(down.moved){ turnBy(dx,e.clientY-down.ly); began(); }
     down.lx=e.clientX; down.ly=e.clientY; }
-  if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
+  if(e.pointerType==='mouse'&&!down&&!CAFE.on){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
 addEventListener('pointerup',e=>{ if(PHS.drag&&e.pointerId===PHS.drag.id){ PHS.drag=null; return; } if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
-  const p=pickPerson(e); if(p) goTalk(p); });
+  const p=pickPerson(e); if(p) goTalk(p); else cafeTap(e); });
 addEventListener('pointercancel',()=>{ down=null; look=null; PHS.drag=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
@@ -1238,7 +1755,7 @@ const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
 function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on){ a.walk=0; return; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
     if(d<7){ AH.st='here'; a.wave=2; openInvite(); return; }   // close enough: he just asks
@@ -1426,10 +1943,10 @@ st.enter=function(){ post.uniforms.uFlat.value=1;   /* Earth's daylight from the
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone');
   $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
-  marksEnter(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
+  marksEnter(); cafeReset(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.dispose(); shRT.depthTexture.dispose(); baked=false; }   /* Earth's own drawing buffers and its sun's shadow are given back while you are not on Earth: the next frame here makes them again */
   CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
-  post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); A.music(0); A.hush(); };
+  post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); cafeReset(true); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
 
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
@@ -1452,7 +1969,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
-  if(PHS.on){ ix=iz=0; P.tgt=null; }   // holding the light, you stay put
+  if(PHS.on||CAFE.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café), you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -1539,11 +2056,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     const off=V.z>1||Math.abs(V.x)>.9||Math.abs(V.y)>.84, ed=edges[i], showE=owed&&off&&!busy&&d>6; ed.classList.toggle('on',showE);
     if(showE){ let ex=V.z>1?-V.x:V.x, ey=V.z>1?-V.y:V.y; const m=Math.max(Math.abs(ex)/.82,Math.abs(ey)/.74,1e-3); ex/=m; ey/=m;
       ed.style.transform=`translate(${((ex*.5+.5)*innerWidth).toFixed(1)}px,${((-ey*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-50%)`; ed.style.setProperty('--a',Math.atan2(-ey,ex).toFixed(3)+'rad'); } });
-  goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on);
+  goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on);
   /* walk up to a landmark and it says what it is, and where to find it */
   /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
      it for a moment, so passing one on your way somewhere does not flash it up */
-  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on&&!CAFE.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
     if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
     const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
@@ -1583,6 +2100,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music and birds now and then
   A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
+  cafeStep(dt,t);   // the café: its room, its barista, and its camera while you are inside
   A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
 st._dbg={post:PC,steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
@@ -1919,4 +2437,5 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on
 addEventListener('keyup',e=>{ CL.held.delete(e.code); });
 addEventListener('wheel',()=>{ if(S.st===st&&S.mode==='station'&&(CL.st==='sat'||CL.st==='sit')) clStand(); },{passive:true});   // (the wheel too)
 st._dbg.cliff={CL,get M(){ return CLM; },F:CLF,WEST:CLWEST,goSit:()=>clGoSit(),goKite:()=>clGoKite(),sit:()=>clSit(),stand:()=>clStand(),take:()=>kiteTake(),end:()=>kiteEnd(),steer:(dx,dy)=>kiteSteer(dx,dy),pick:e=>clPick(e),reset:()=>clReset(),tags:clTags};
+st._dbg.cafe=cafeDbg;
 })();

@@ -22,6 +22,19 @@
     <div class="crflash" aria-hidden="true"></div>
     <div class="crcard" id="crCard" role="dialog" aria-label="Your postcard" hidden><div class="crcard-b"><img id="crCardImg" alt="Your postcard from Earth"><div class="crcard-a"><a class="btn pri hit" id="crCardSave" href="#" download="heloria-postcard.jpg" data-cur="Save">Save</a><button class="btn hit" id="crCardShare" type="button" data-cur="Share" hidden>Share</button><button class="btn hit" id="crCardAgain" type="button">Take another</button><button class="btn hit" id="crCardClose" type="button" aria-label="Close">Close</button></div></div></div>
     <div class="crsteer-ui" id="crSteerUI" hidden><span class="ui">Drag to turn the light</span><button class="btn pri hit" id="crSteerDone" type="button" data-cur="Done">Done</button></div>
+    <button class="btn hit crcafein" id="crCafeIn" type="button" data-cur="Go in" hidden>Go in for a coffee</button>
+    <div class="crcafe" id="crCafe">
+      <div class="crmenu hit" id="crMenu" role="group" aria-label="The café menu">
+        <span class="crmenu-n ui">Menu</span>
+        <div class="crmenu-s"><span class="crmenu-say"><span class="crmenu-who ui">Barista</span><span class="ui" id="crBrewT" aria-live="polite"></span></span><span class="crmenu-b"><button class="btn hit crmore" id="crMore" type="button" data-cur="Menu" hidden>Another drink</button><button class="btn hit crlook" id="crLook" type="button" data-cur="Look in" hidden>Look into the cup</button></span></div>
+        <div class="crmenu-l"><button class="crdrink hit" type="button" data-cur="Order"><span class="crdrink-n disp"></span><span class="crdrink-k ui"></span></button><button class="crdrink hit" type="button" data-cur="Order"><span class="crdrink-n disp"></span><span class="crdrink-k ui"></span></button><button class="crdrink hit" type="button" data-cur="Order"><span class="crdrink-n disp"></span><span class="crdrink-k ui"></span></button></div>
+      </div>
+      <button class="btn hit crleave" id="crLeave" type="button" data-cur="Leave">Leave the café</button>
+    </div>
+    <div class="crcup hit" id="crCup" role="dialog" aria-label="Your coffee" aria-hidden="true">
+      <span class="crcup-s" id="crCupS" aria-hidden="true"></span><span class="crcup-k ui" id="crCupK"></span><h3 class="crcup-h disp" id="crCupH"></h3><p class="crcup-t" id="crCupT"></p>
+      <div class="crcup-a"><a class="btn hit" id="crCupGo" href="mailto:contact@helorialabs.com" target="_self" data-cur="Open">Book the chat <svg class="ar" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg></a><button class="btn hit" id="crCupBack" type="button" data-cur="Back">Back to the café</button></div>
+    </div>
     <div class="crstick" id="crStick" hidden><i></i></div>
     <button class="crskip ui hit" id="crSkip" type="button" data-cur="Skip">Skip</button>
   </article>

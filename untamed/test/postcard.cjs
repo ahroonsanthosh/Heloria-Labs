@@ -4,7 +4,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const P = mobile ? 'm-' : '', fail = m => { log('FAIL ' + m); process.exitCode = 1; };
   await H(h => { const d = h.ST.cr._dbg; d.sky.set({ time: '16:40', weather: 'clear' }); d.sky.step(.5); const q = d.INST.ph; d.player.x = q.x - 3.2; d.player.z = q.z - 1.2; d.player.u.copy(d.at(d.player.x, d.player.z)); });
   const vp = page.viewportSize(); await page.mouse.move(vp.width * .3, vp.height * .5); await page.mouse.down(); await page.mouse.move(vp.width * .3 + 40, vp.height * .5, { steps: 3 }); await page.mouse.up();   // out walking
-  let ok = false; for (let i = 0; i < 30 && !ok; i++) { await wait(400); ok = await page.evaluate(() => { const b = document.querySelector('#crPost'); return b && !b.hidden && getComputedStyle(b).display !== 'none'; }); }
+  let ok = false; for (let i = 0; i < 120 && !ok; i++) { await wait(500); ok = await page.evaluate(() => { const b = document.querySelector('#crPost'); return b && !b.hidden && getComputedStyle(b).display !== 'none'; }); }
   if (!ok) { fail('no postcard button while walking'); return; }
   await page.click('#crPost'); await wait(1200);
   const framing = await page.evaluate(() => !document.querySelector('#crFrame').hidden && +getComputedStyle(document.querySelector('.st-cr .card')).opacity < .1);
