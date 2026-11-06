@@ -120,7 +120,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return { seen, talking: !!d.talk().p }; });
   rec(!pass_.seen, 'walking over to Ahroon past Aetos, its card never flashes up', JSON.stringify(pass_));
   await E((e, d) => { d.closeTalk(); });
-  const cards = await E((e, d) => { const out = {}; d.began(); for (const id of ['kr', 'ae', 'ph', 'og', 'be'].concat(d.INST.cafe ? ['cafe'] : [])) { const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(6); const c = document.querySelector('#crProj'); const early = c.classList.contains('on');
+  const cards = await E((e, d) => { const out = {}; d.began(); for (const id of ['kr', 'ae', 'ph', 'og', 'be']) { /* (the café puts up no card: you go in to book; checked below) */ const q = d.INST[id]; e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(6); const c = document.querySelector('#crProj'); const early = c.classList.contains('on');
       e.run(24); out[id] = !early && c.classList.contains('on') && c.target && c.href && c.querySelector('.crpj-n').textContent; } return out; });
   rec(Object.values(cards).every(Boolean), 'stopping by each landmark shows what it is, with its link, after a moment', JSON.stringify(cards));
   const tgt = await page.evaluate(() => { const c = document.querySelector('#crProj'); return c.target; });
