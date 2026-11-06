@@ -208,15 +208,19 @@ function buildOutside(){
   const rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
   /* the path curves in from the right, where the walk begins, and straightens onto the axis at the steps */
   const homePath=[]; for(let i=0;i<30;i++){ const u=i/29, z=PV.foot+.75+u*76, t=clamp((z-14)/80,0,1); homePath.push([21*Math.pow(t,1.32)+.8*Math.sin(t*Math.PI*2.2)*t*(1-t)*4+(rnd()-.5)*.24,z]); }
-  homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22; const g=slab(w,d,.03+rnd()*.02); g.rotateY((rnd()-.5)*.36); g.translate(x,0,z); stones.push(g); });
+  homePath.forEach(([x,z],i)=>{ const w=.9+rnd()*.5, d=.62+rnd()*.22, top=.03+rnd()*.02, ry=(rnd()-.5)*.36; const g=slab(w,d,top); g.rotateY(ry); g.translate(x,0,z); stones.push(g);
+    POND.addSlab(x,z,w,d,ry); });   // these answer the hand (see 26-pond.js)
   for(let i=0;i<16;i++){ const x=-17.6-i*3.0-i*i*.07, z=FAR_ARCH.z+Math.sin(i*.6)*.45-i*.08; const w=1.0+rnd()*.25, d=.78+rnd()*.2;
     const g=slab(w,d,.03+rnd()*.02); g.rotateY((rnd()-.5)*.36); g.translate(x,0,z); stones.push(g); }
-  const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.02;}', key:'stones', color:'#EEE5D8', rough:.75, joint:0, glsl:WATER,
+  const stoneM=stoneMat({U:W.U, sdf:'float mapAO(vec3 p){return p.y+.02;}', key:'stones', color:'#EEE5D8', rough:.75, joint:0, glsl:WATER+POND.slabFrag,
+    vert:POND.slabVert, vnormal:POND.slabNormal, vpos:POND.slabPos,
     albedo:'{ float top=smoothstep(.55,.9,wN.y); diffuseColor.rgb*=mix(.66,1.,top)*mix(.8,1.,smoothstep(-.02,.06,vWP.y)); }',
     emisGLSL:`{ vec3 V=normalize(cameraPosition-vWP); vec3 R=reflect(-V,wN); float fr=.05+.95*((1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.))*(1.-max(dot(wN,V),0.)));
       float sk=((max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))*(max(dot(R,uSunDir),0.))); vec3 env=mix(uHazeCol,uHazeSun,sk)*(.75+.45*smoothstep(-.1,.4,R.y));
-      outgoingLight+=env*fr*.8; }`});
-  const st=new T.Mesh(mergeGeos(stones),stoneM); st.receiveShadow=true; st.castShadow=true; sc.add(st);
+      outgoingLight+=env*fr*.8; }`+POND.slabEmis});
+  Object.assign(stoneM.userData.u,POND.slabU);
+  const stoneG=mergeGeos(stones); POND.slabAttr(stoneG,stones);
+  const st=new T.Mesh(stoneG,stoneM); st.receiveShadow=true; st.castShadow=true; st.customDepthMaterial=POND.slabDepth(); sc.add(st);
 
   /* far shore: low hills deep in the haze */
   {
@@ -243,7 +247,7 @@ function buildOutside(){
   /* water */
   W.mirror=new Mirror(QL.refl);
   W.sim=makeSim();
-  W.waterMat=waterMat(W.U,W.mirror,W.sim);
+  W.waterMat=waterMat(W.U,W.mirror,W.sim,{pond:POND.water});
   W.water=new T.Mesh(new T.PlaneGeometry(1800,1800,1,1),W.waterMat); W.water.rotation.x=-Math.PI/2; W.water.frustumCulled=false; sc.add(W.water);
 
   /* tall grass at the edges */
@@ -358,6 +362,8 @@ function buildOutside(){
     g.rotateY(Math.PI/2); const m=new T.Mesh(g,W.beamMat); m.position.set(-11.6,Y0,a.c); m.frustumCulled=false; m.renderOrder=960; sc.add(m); beams.push(m); }
   W.beams=beams;
   W.hideInMirror=[W.water,W.seeds.mesh,...beams];
+  /* the koi in the water by the first stepping stones (see 26-pond.js) */
+  sc.add(POND.koiMesh(W));
   /* the last thing on the walk: a rocket from the far shore, now and then */
   W.launch=makeLaunch(W);
   W.update=(dt,st)=>{

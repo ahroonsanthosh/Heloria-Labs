@@ -57,6 +57,8 @@ conversation finishes with a photo and a link, and a board outside the café boo
   `/untamed/?time=21:30#land` (or `?date=12-24`, `?weather=fog`, together with `&`).
 - By the lighthouse you can take the light and steer it over the water. The beam lights whatever it crosses and thins
   the fog, and a drone that has lost its way locks onto it and follows it home: Pharos in small.
+- At the start of the walk the stepping stones answer your hand: they tip toward it, ring the water and light up
+  underneath, and the koi come over to see.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
   dark to a sales call that rises over a table as lines of light.
 - No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
@@ -98,10 +100,11 @@ node tools/site-smoke.cjs docs
 
 Add `--mobile` to any of them for a phone. `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`)
 listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
-page. Each game has its own full check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
+page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk. Each game has its own full
+check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
-the drone home, and `weather-sound.cjs` (with `--meter`) listens to the rain, the crickets and the foghorn; any of them
-takes `--query date=12-24` and the like.
+the drone home, `postcard.cjs` takes a postcard, and `weather-sound.cjs` (with `--meter`) listens to the rain, the
+crickets and the foghorn; any of them takes `--query date=12-24` and the like.
 </details>
 
 <br>

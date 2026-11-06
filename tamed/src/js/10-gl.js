@@ -120,15 +120,18 @@ function sceneU(){
 }
 
 /* stone: MeshStandardMaterial with our grain, signed-distance ambient occlusion and haze stitched in.
-   o.sdf is GLSL defining float mapAO(vec3 p) for this scene */
+   o.sdf is GLSL defining float mapAO(vec3 p) for this scene. A stone that moves gives o.vert (its vertex declarations),
+   o.vnormal (code that may turn objectNormal) and o.vpos (code that may move transformed) */
 function stoneMat(o){
   const m=new T.MeshStandardMaterial({color:o.color||'#EDE3D3', roughness:o.rough??.92, metalness:0});
   m.userData.u={uJoint:{value:o.joint??1}, uWarm:{value:col(o.warm||'#FFF2DF')}, uMirror:{value:null}, uMirrorK:{value:o.mirrorK||0}, uTexMat:{value:new T.Matrix4()}, uEmis:{value:col(o.emis||'#000000')}};
   m.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,o.U,m.userData.u,GU);
     const mir=!!o.mirror;
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP; varying vec3 vWN;'+(mir?'\nuniform mat4 uTexMat; varying vec4 vMC;':''))
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP; varying vec3 vWN;'+(mir?'\nuniform mat4 uTexMat; varying vec4 vMC;':'')+(o.vert||''))
       .replace('#include <fog_vertex>','#include <fog_vertex>\n{ vec4 w4=modelMatrix*vec4(transformed,1.); vWP=w4.xyz; vWN=normalize(mat3(modelMatrix)*objectNormal);'+(mir?' vMC=uTexMat*w4;':'')+' }');
+    if(o.vnormal) sh.vertexShader=sh.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n'+o.vnormal);
+    if(o.vpos) sh.vertexShader=sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n'+o.vpos);
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\n#define AO_N '+QL.ao+'\nvarying vec3 vWP; varying vec3 vWN;\nuniform vec3 uEmis; uniform float uRefl;'+(mir?'\nuniform sampler2D uMirror; uniform float uMirrorK; varying vec4 vMC;':'')
         +GLSL.noise+GLSL.sdf+(o.sdf||'float mapAO(vec3 p){return 1e5;}')+GLSL.ao+GLSL.haze+GLSL.stone+(o.caustic?GLSL.caustic:'')+(o.cav||'')+(o.glsl||''))
       .replace('#include <map_fragment>','#include <map_fragment>\n vec3 wN=normalize(vWN); diffuseColor.rgb*=stoneTex(vWP,wN);'+(o.albedo||''))

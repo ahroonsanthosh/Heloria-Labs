@@ -299,6 +299,10 @@ const A=(()=>{
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+d*(1.2-r*.05)); o.connect(a); a.connect(out); o.start(t0); o.stop(t0+d*1.3+.1); }); }
   /* a short sound only once the sound is running: before the browser lets it, it would wait and come all at once */
   const live=()=>on&&ctx&&ctx.state==='running';
+  /* the pond's sounds answer a hand that has touched the page: never before the first click, tap or key, even where the
+     browser lets the sound start by itself */
+  let touched=false; ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,()=>{ touched=true; },{capture:true,passive:true}));
+  const pond=()=>touched&&live(), heard={knock:0,plink:0,swirl:0};
   function tone(f,dur,g,type='sine',f2=0,delay=0,send=.2,atk=.008,dest){ if(!live()) return; const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain();
     o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur*.8);
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(dest||n.comp);
@@ -366,7 +370,7 @@ const A=(()=>{
        size, how long it took); and a jump to just before a recording's seam, which hands back its two players */
     loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els||!!L.moved,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
       rms:+(L.rms||0).toFixed(5),bytes:L.bytes||0,ms:L.ms||0,P:L.P,H:L.H,t:e?+e.currentTime.toFixed(3):0,rate:e?e.playbackRate:1}; }); },
-    get rendered(){ return REN.ms; }, get ios(){ return MX.ios; },
+    get rendered(){ return REN.ms; }, get ios(){ return MX.ios; }, get pondHeard(){ return heard; },
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
     get busy(){ return !!OAC&&!REN.ms&&performance.now()<30000; },
     _seam(name,before){ const L=LP[name], e=L&&L.els&&L.els[L.cur]; if(e) e.currentTime=Math.max(0,L.P-before); return L&&L.els; },
@@ -431,6 +435,15 @@ const A=(()=>{
       noise(d,.06+.09*k,700+1500*k,260+200*k,'bandpass',1.3,0,.35,out);
       noise(d*.6,.012+.02*k,3400+900*k,1800,'bandpass',1.6,.03,.25,out);
       if(k>.45&&Math.random()<.5) plip(.008+.01*k,.12+Math.random()*.2); },
+    /* the pond at the start of the walk, all of it small and quiet: a stepping stone tipping on the water (a round knock,
+       a little lower for a bigger stone, pitched where a phone's speaker still plays it, and the water it pushes); a ring
+       going out from it (a plink on the lake); a koi turning at the hand (a swirl, and a soft bloop) */
+    knock(k=1,p=0,size=1){ if(!pond()) return; heard.knock++; const out=pan(p*.6,n.comp), f=262/Math.sqrt(clamp(size,.6,1.6))*(.94+Math.random()*.12);
+      tone(f,.2,.03*k,'sine',f*.72,0,.22,.004,out); tone(f*2.4,.05,.007*k,'triangle',f*2.2,0,.1,.002,out);
+      noise(.14,.012*k,520,240,'bandpass',1.4,0,.2,out); },
+    plink(k=1,p=0,delay=0){ if(!pond()) return; heard.plink++; const f=820+Math.random()*420; tone(f,.11,.016*k,'sine',f*1.65,delay,.45,.003,pan(p*.7,n.water)); },
+    swirl(k=1,p=0){ if(!pond()) return; heard.swirl++; const out=pan(p*.6,n.comp);
+      noise(.26,.009*k,700,1500,'bandpass',2.2,0,.3,out); tone(250+Math.random()*50,.14,.009*k,'sine',340,.03,.25,.012,out); },
     whoosh(up=true,dur=1.4,g=.07){ noise(dur,g,up?260:2600,up?2600:260,'bandpass',1,0,.5); },
     swell(){ if(!live()) return; [62,66,69,74].forEach((m,i)=>tone(mtof(m),3.2,.03,'sine',0,i*.06,.8,.6)); noise(2.2,.05,200,2600,'lowpass',.7,0,.6); },
     open(){ if(!live()) return; [57,62,66,69].forEach((m,i)=>tone(mtof(m),2.6,.028,'sine',mtof(m)*1.003,i*.05,.8,.35)); noise(1.4,.06,300,4200,'lowpass',.6,0,.6); },

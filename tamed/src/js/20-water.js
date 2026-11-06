@@ -74,15 +74,18 @@ function drawReflectText(){
   TXT.tex.needsUpdate=true; TXT.dirty=false;
 }
 
+/* o.pond: what lives in this water (see 26-pond.js): its uniforms, its GLSL, and code that changes what is seen through the
+   surface (body) before the reflection is laid over it */
 function waterMat(U,mirror,sim,o={}){
+  const pd=o.pond||{};
   const u=Object.assign({tRefl:{value:mirror.rt.texture}, uTexMat:{value:mirror.texMat}, tSim:{value:null}, uSim:{value:SIM.rect}, uSimTx:{value:1/QL.sim},
     tText:{value:null}, uTextK:{value:new T.Vector2(0,0)}, uTextCol:{value:new T.Color('#2A2520')}, uHorizon:{value:.5},
-    uDeep:{value:col(o.deep||'#122022')}, uSunCol:{value:new T.Color()}, uSky:{value:new T.Color()}, uRippleK:{value:1}, uWaveK:{value:1}, uSpec:{value:1}},GU,U);
+    uDeep:{value:col(o.deep||'#122022')}, uSunCol:{value:new T.Color()}, uSky:{value:new T.Color()}, uRippleK:{value:1}, uWaveK:{value:1}, uSpec:{value:1}},GU,U,pd.uniforms||{});
   return new T.ShaderMaterial({uniforms:u,
     vertexShader:`uniform mat4 uTexMat; varying vec3 vWP; varying vec4 vMC; void main(){ vec4 w=modelMatrix*vec4(position,1.); vWP=w.xyz; vMC=uTexMat*w; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform sampler2D tRefl,tSim,tText; uniform vec4 uSim; uniform float uSimTx,uTime,uHorizon,uRippleK,uWaveK,uSpec; uniform vec2 uRes,uTextK;
     uniform vec3 uDeep,uSunCol,uSky,uTextCol; varying vec3 vWP; varying vec4 vMC;
-    ${GLSL.noise}${GLSL.haze}
+    ${GLSL.noise}${GLSL.haze}${pd.decl||''}
     vec2 waves(vec2 p,float t){
       vec2 g=vec2(0.);
       g+=vec2(cos(p.x*.9+t*.7+p.y*.3),cos(p.y*1.1-t*.6))*.010;
@@ -108,7 +111,7 @@ function waterMat(U,mirror,sim,o={}){
       vec4 rf=texture2D(tRefl,ruv);
       float cs=max(dot(N,V),0.);
       float fr=.02+.98*((1.-cs)*(1.-cs)*(1.-cs)*(1.-cs)*(1.-cs));
-      vec3 body=uDeep*(.55+.45*uSky);
+      vec3 body=uDeep*(.55+.45*uSky);${pd.body||''}
       vec3 c=mix(body,rf.rgb,clamp(fr*1.04,0.,1.));
       vec3 Hh=normalize(uSunDir+V); float sp=pow(max(dot(N,Hh),0.),900.)*60.+pow(max(dot(N,Hh),0.),90.)*1.2;
       c+=uSunCol*sp*uSpec*fr*smoothstep(-.02,.06,uSunDir.y);
