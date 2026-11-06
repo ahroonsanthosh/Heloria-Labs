@@ -645,6 +645,219 @@ const edges=CREW.map((c,i)=>{ const e=document.createElement('span'); e.classNam
   e.addEventListener('click',ev=>{ ev.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }); return e; });
 const Y_UP=new T.Vector3(0,1,0);
 
+/* ---------- Diarmuid, playing outside the café ----------
+   A busker on the pavement in front of the café, by the street lamp: tall and lanky, brown hair, an electric guitar
+   slung low, a small practice amp beside him with a lantern on it, and his case open in front of him. He plays all day.
+   His guitar is made in the browser (BUSK in the core): as you come near it rises and the town's music dips under it,
+   and as you walk away it all comes back. At night a string of lights hangs over his spot from the lamp post and his lantern
+   is lit, so he is a small warm pool of light in the dark town. Tap him (or press E beside him) and he looks up, nods and
+   plays you a short solo, then goes back to his piece. He does not talk, and he is not one of the three to meet.
+   Everything about how he looks is in DM_LOOK, so it is one place to change. */
+const DM_LOOK={shirt:'#6f7a5e',pants:'#3b4049',shoes:'#5a4535',sole:'#2f2823',skin:'#e3b496',build:.8,arm:.82,depth:.62,
+  head:[.144,.178,.154,.13,.022],face:{bw:.012,arch:.009,by:.052},mouth:'smile',hair:'tousled',hairC:'#6b4a32',
+  tall:{leg:1.22,torso:1.1,arm:1.17,fore:1.12,all:1.03},   // how much longer than the figure's own his legs, body and arms are, then all of him
+  guitar:{body:'#b4512e',guard:'#efe6d2',neck:'#d4ad78',board:'#3b2a22',strap:'#3a2f28'}};
+/* his hair: brown, a bit long and tousled. A full cap heaped up in uneven clumps, a few pieces flicking out round the
+   edge, and a fringe falling over his forehead */
+HAIR.tousled=(B,f,c)=>{ const c2=tint(c,-.18), r=seeded(23), edge=a=>1.5-.42*Math.cos(a)+.04*Math.cos(3*a)+.05*Math.sin(5*a+1),
+  clump=(t,a)=>.5+.5*Math.sin(a*6+t*5+1.3)*Math.cos(a*4-t*7),
+  H=cap(B,f,c,edge,(t,a)=>.012+.032*(1-t*t)+.018*clump(t,a)*sstep(0,.3,t)*(1-.5*t),.22,16,80);
+  for(let k=0;k<11;k++){ const a=1.05+k/10*(TAU-2.1)+(r()-.5)*.2, q=H.at(.93,a,-.002), L=v3(Math.sin(a)*(.5+r()*.6),-1,Math.cos(a)*(.5+r()*.6)+.3*(r()-.5));
+    H.lump(FG.sph,k%3?c:c2,q.p.addScaledVector(L.clone().normalize(),.018),q.n,L,[.036+r()*.012,.017,.009]); }
+  [[-.45,.75,.05],[-.12,.55,.052],[.2,.35,.046],[.5,.2,.038]].forEach(([a,sx,s],k)=>{ const q=H.at(.95,a,.002), L=v3(sx,-1,.25); H.lump(FG.sph,k%2?c2:c,q.p.addScaledVector(L.clone().normalize(),.018),q.n,L,[s,.024,.009]); }); };   // swept to one side
+/* where he stands and which way he looks (the town); the lamp post and the pole his lights hang between */
+const DM={x:4.42,z:-10.28,face:[.8,-4.6],lamp:[3.8,-11.2],pole:[5.75,-9.75],g:null,st:'play',stT:0,ct:0,sct:0,att:0,attT:5,blink:2.5,d:99,lv:0,hov:false,goal:false,cool:0,
+  obs:[],pick:[],ev:null,sev:null,rh:new T.Vector3(),lh:new T.Vector3(),hy:0,nk:0};
+const dmM=new T.Matrix4(), dmM2=new T.Matrix4(), dmQ=new T.Quaternion(), dmE=new T.Euler(), dmV=new T.Vector3(), dmW=new T.Vector3(), DOWN=new T.Vector3(0,-1,0);
+/* the guitar's frets: where along the neck (from the nut, toward the bridge) the n-th one is */
+const NUT=.452, SCALE=.567, fretX=n=>NUT-SCALE*(1-Math.pow(2,-n/12));
+function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,DM.z,DM.face[0],DM.face[1]);
+  const spot=new T.Group(); spot.matrixAutoUpdate=false; spot.matrix.copy(frameAt(DM.x,DM.z,yaw,standH(DM.x,DM.z))); sc.add(spot); DM.spot=spot; DM.dir=at(DM.x,DM.z);
+  /* lanky: the figure's own build, then longer legs, a longer body and longer, thinner arms; his head as it is */
+  const g=figure(L), d=g.userData, b=d.body, mat=toonMat('#ffffff',{fig:true,vc:true,fresh:true}); DM.mat=mat;
+  const torso=b.children.find(o=>o.isMesh); torso.scale.y=K.torso; torso.position.y=.5*(1-K.torso);
+  d.legs.forEach((l,i)=>{ l.scale.set(.86,K.leg,.86); l.rotation.z=i?.05:-.05; });
+  DM.sh=.5+.4*K.torso; d.arms.forEach(a=>{ a.position.y=DM.sh; a.children[0].scale.set(.9,K.arm,.9); });
+  d.fore.forEach(f=>{ f.position.y=-.18*K.arm; f.rotation.set(0,0,0); f.children[0].scale.set(.9,K.fore,.9); });
+  d.head.position.y=.5+.665*K.torso; DM.hy=d.head.position.y; DM.lift=.5*(K.leg-1); DM.ua=.18*K.arm; DM.fa=.19*K.fore;
+  g.scale.setScalar(K.all); spot.add(g); DM.g=g; DM.fig=d;
+  /* the guitar, in his body's frame: slung low across his hips, its face to the street and a little up, the neck rising to his left */
+  const GM=new T.Matrix4().compose(v3(-.035,.6,.128),dmQ.setFromEuler(dmE.set(-.16,-.22,.36,'YXZ')),v3(1,1,1)); DM.GM=GM;
+  const Gp=part(), shp=pts=>{ const s=new T.Shape(); s.moveTo(pts[0][0],pts[0][1]); s.splineThru(pts.slice(1).map(([x,y])=>new T.Vector2(x,y))); return s; };
+  const gput=(geo,col,x,y,z,sx,sy,sz,rx=0,rz=0)=>Gp.geo(geo,col,dmM.multiplyMatrices(GM,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,0,rz)),dmW.set(sx,sy,sz))));
+  const BODY=[[-.215,0],[-.2,-.078],[-.15,-.12],[-.08,-.128],[-.03,-.11],[0,-.097],[.04,-.1],[.085,-.112],[.116,-.098],[.108,-.072],[.09,-.05],[.1,-.024],[.1,.024],[.096,.05],[.12,.082],[.152,.108],[.14,.126],[.1,.124],[.06,.11],[.02,.1],[-.03,.118],[-.08,.13],[-.15,.122],[-.2,.08],[-.215,0]];
+  Gp.geo(new T.ExtrudeGeometry(shp(BODY),{depth:.03,bevelEnabled:true,bevelThickness:.007,bevelSize:.007,bevelSegments:2,curveSegments:48}).translate(0,0,-.015).toNonIndexed(),gc.body,GM);
+  Gp.geo(new T.ShapeGeometry(shp([[-.15,-.03],[-.12,-.07],[-.04,-.09],[.05,-.078],[.088,-.042],[.092,.03],[.07,.068],[0,.068],[-.06,.045],[-.12,.02],[-.15,-.03]]),24).translate(0,0,.0235).toNonIndexed(),gc.guard,GM);   // the scratchplate
+  [-.072,-.022,.026].forEach((x,i)=>gput(FG.box,'#2a2826',x,0,.027,.016,.07,.007,0,i?0:.14));   // three pickups
+  gput(FG.box,'#b9bcbe',-.115,0,.027,.024,.075,.007); [[-.1,-.07],[-.066,-.086]].forEach(([x,y])=>gput(FG.can,gc.guard,x,y,.03,.011,.012,.011,Math.PI/2));   // the bridge, two knobs
+  gput(FG.can,'#4a4846',-.12,-.124,0,.009,.016,.009);   // the jack, where his lead goes in
+  gput(FG.box,gc.neck,.2675,0,.014,.365,.042,.02); gput(FG.box,gc.board,.2675,0,.0275,.365,.04,.006); gput(FG.box,gc.guard,NUT,0,.0295,.006,.04,.008);   // the neck, its fingerboard and nut
+  [3,5,7,9].forEach(n=>gput(FG.sph,gc.guard,(fretX(n)+fretX(n-1))/2,0,.031,.005,.005,.002)); [-.011,.011].forEach(y=>gput(FG.sph,gc.guard,(fretX(12)+fretX(11))/2,y,.031,.005,.005,.002));
+  gput(FG.box,gc.neck,.53,.012,.011,.16,.064,.014); for(let k=0;k<6;k++) gput(FG.can,'#c9ccce',.47+k*.021,.05,.019,.006,.014,.006);   // the headstock and its tuners
+  [[.15,.112],[-.219,0]].forEach(([x,y])=>gput(FG.sph,'#c9ccce',x,y,0,.008,.008,.008));
+  /* the strap: from the horn over his left shoulder, across his back to the tail of the guitar */
+  const ky=y=>.5+(y-.5)*K.torso, sb1=v3(.15,.112,-.012).applyMatrix4(GM), sb2=v3(-.219,0,-.01).applyMatrix4(GM);
+  Gp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([sb1,v3(.125,ky(.86),.108),v3(.128,ky(.985),.012),v3(.105,ky(.88),-.1),v3(.01,ky(.74),-.098),v3(-.105,ky(.6),-.094),v3(-.124,ky(.54),-.02),sb2]),56,.011,5,false).toNonIndexed(),gc.strap,new T.Matrix4());
+  const gm=Gp.mesh(); b.add(gm);
+  /* what is round him, in his spot's frame: the amp with a lantern on it, his case open in front, the lead between */
+  const Pp=part(), AM=new T.Matrix4().compose(v3(-.5,0,-.02),dmQ.setFromAxisAngle(UPY,.4),v3(1,1,1)), CM=new T.Matrix4().compose(v3(.36,0,.6),dmQ.setFromAxisAngle(UPY,-.5),v3(1,1,1));
+  const pput=(M,geo,col,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>Pp.geo(geo,col,dmM.multiplyMatrices(M,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,ry,rz,'YXZ')),dmW.set(sx,sy,sz))));
+  pput(AM,FG.box,'#2f2b29',0,.15,0,.32,.3,.18); pput(AM,FG.box,'#a99d86',0,.12,.091,.27,.19,.004); pput(AM,FG.box,'#d9d0bc',0,.265,.091,.27,.04,.006);   // the cabinet, its grille and panel
+  [-.09,-.05,-.01,.03,.1].forEach(x=>pput(AM,FG.can,'#1e1c1b',x,.265,.097,.009,.012,.009,Math.PI/2)); pput(AM,FG.sph,'#c2412f',.065,.265,.096,.007,.007,.004);   // its knobs, the input and the light
+  pput(AM,FG.box,'#e9e2cf',0,.13,.094,.06,.016,.003); pput(AM,FG.box,'#1e1c1b',0,.31,0,.11,.02,.03);
+  /* the lantern on the amp: its base, frame and cap here; the glass is its own, to light up at night */
+  pput(AM,FG.can,'#2b2b2b',.07,.306,-.02,.032,.012,.032); for(let k=0;k<4;k++){ const a=k*Math.PI/2+.785; pput(AM,FG.box,'#2b2b2b',.07+Math.cos(a)*.026,.346,-.02+Math.sin(a)*.026,.006,.07,.006); }
+  pput(AM,FG.cone,'#2b2b2b',.07,.395,-.02,.036,.03,.036); pput(AM,FG.sph,'#2b2b2b',.07,.415,-.02,.01,.01,.01);
+  DM.glass=new T.Mesh(new T.CylinderGeometry(.022,.022,.062,10),flatMat('#e6dcc4')); DM.glass.position.copy(v3(.07,.346,-.02).applyMatrix4(AM)); spot.add(DM.glass);
+  /* his case, open on the pavement: the shell, its lining, the lid stood up on his side, a few coins */
+  const CASE=[[-.29,0],[-.27,-.12],[-.18,-.155],[-.06,-.15],[.03,-.11],[.1,-.07],[.42,-.06],[.47,-.035],[.47,.035],[.42,.06],[.1,.07],[.03,.11],[-.06,.15],[-.18,.155],[-.27,.12],[-.29,0]];
+  const inner=s=>s.map(([x,y])=>[(x-.09)*.88+.09,y*.82]), slab=(pts,dp,bv)=>new T.ExtrudeGeometry(shp(pts),{depth:dp,bevelEnabled:!!bv,bevelThickness:bv,bevelSize:bv,bevelSegments:1,curveSegments:20}).rotateX(-Math.PI/2).toNonIndexed();
+  Pp.geo(slab(CASE,.07,.008).translate(0,.008,0),'#3a2e27',CM); Pp.geo(slab(inner(CASE),.002,0).translate(0,.086,0),'#7a3a3f',CM);
+  const LID=new T.Matrix4().multiplyMatrices(CM,new T.Matrix4().makeTranslation(0,.088,-.155)).multiply(new T.Matrix4().makeRotationX(-1.83)).multiply(new T.Matrix4().makeTranslation(0,0,.155));
+  Pp.geo(slab(CASE,.035,.006),'#3a2e27',LID); Pp.geo(slab(inner(CASE),.002,0).translate(0,-.007,0),'#7a3a3f',LID);
+  const cr=seeded(5); for(let k=0;k<6;k++) pput(CM,FG.can,k%2?'#c9cdd0':'#d8b45a',-.2+cr()*.2,.091,(cr()-.5)*.16,.017,.004,.017,cr()*.3,0,cr()*.3);
+  /* the lead: out of the guitar, down to the pavement by his foot, along it and up into the amp */
+  const jk=v3(-.12,-.13,0).applyMatrix4(GM).add(v3(0,DM.lift,0)).multiplyScalar(K.all), ai=v3(.1,.265,.1).applyMatrix4(AM);
+  Pp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([jk,jk.clone().add(v3(-.02,-.12,.03)),v3(-.16,.012,.12),v3(-.3,.012,.16),v3(-.36,.03,.14),ai.clone().add(v3(.0,.02,.03)),ai]),40,.0065,4,false).toNonIndexed(),'#1f1d1c',new T.Matrix4());
+  const pm=Pp.mesh(); spot.add(pm);
+  /* soft shadows under the amp and the case */
+  [[AM,.42,.3],[CM,.62,.42]].forEach(([M,sx,sz])=>{ const s=new T.Mesh(SHG,SHM); s.matrixAutoUpdate=false; s.matrix.copy(M).multiply(dmM2.compose(dmV.set(0,.02,0),dmQ.identity(),dmW.set(sx,1,sz))); s.renderOrder=1; s.layers.set(1); spot.add(s); });
+  g.traverse(o=>{ if(o.isMesh&&o.material===FIGM) o.material=mat; }); pm.material=mat; DM.pick=[g,pm];
+  /* he, his amp and his case are solid; so is the walking grid round them, which was laid out before he arrived */
+  obsAt(spot.matrix,0,0,.34,1.8); obsAt(spot.matrix,-.5,-.02,.22,.6); obsAt(spot.matrix,.36,.6,.3,.4); DM.obs=OBS.slice(-3);
+  /* the lights: a wire from a band round the lamp post to a slim pole of their own, sagging over his spot, bulbs along it */
+  kitTo(); const LP=frameAt(DM.lamp[0],DM.lamp[1],0), PM=frameAt(DM.pole[0],DM.pole[1],0), a0=v3(0,2.32,0).applyMatrix4(LP), a1=v3(0,2.3,0).applyMatrix4(PM);
+  cyl(LP,'#3c4746',0,2.29,0,.064,.05,'cyl8'); cyl(PM,'#3c4746',0,0,0,.075,.04,'cyl8'); cyl(PM,'#3c4746',0,.04,0,.024,2.28,'cyl8'); put(PM,'sph','#3c4746',0,2.33,0,.034,.034,.034); obs(DM.pole[0],DM.pole[1],.1,2.3); DM.obs.push(OBS[OBS.length-1]);
+  const wp=[]; for(let k=0;k<=12;k++){ const t=k/12, p=a0.clone().lerp(a1,t); p.addScaledVector(dmV.copy(p).normalize(),-.36*4*t*(1-t)); wp.push(p); }
+  const wire=new T.CatmullRomCurve3(wp); kadd(new T.TubeGeometry(wire,28,.008,4,false).toNonIndexed(),'#2e2c2b',new T.Matrix4());
+  const NB=12, bulbs=new T.InstancedMesh(new T.SphereGeometry(.03,8,6).scale(1,1.3,1),flatMat('#ece3cc'),NB), hp=[], hs=[];
+  for(let k=0;k<NB;k++){ const p=wire.getPoint((k+.5)/NB), u=dmV.copy(p).normalize(), [bx,bz]=loc(u), M=frameAt(bx,bz,0,p.length()-R);
+    cyl(M,'#2e2c2b',0,-.03,0,.014,.03,'cyl8'); const c=v3(0,-.075,0).applyMatrix4(M); bulbs.setMatrixAt(k,dmM.compose(c,dmQ.setFromUnitVectors(UPY,u),dmW.set(1,1,1))); hp.push(c.x,c.y,c.z); hs.push(.34); }
+  bulbs.frustumCulled=false; sc.add(bulbs); DM.bulbs=bulbs;
+  /* at night: a soft glow round each bulb and the lantern, and a warm pool on the pavement under them */
+  spot.updateMatrixWorld(true); const gw=DM.glass.getWorldPosition(new T.Vector3()); hp.push(gw.x,gw.y,gw.z); hs.push(.5);
+  const hg=new T.BufferGeometry(); hg.setAttribute('position',new T.Float32BufferAttribute(hp,3)); hg.setAttribute('aS',new T.Float32BufferAttribute(hs,1));
+  const halo=new T.Points(hg,new T.ShaderMaterial({uniforms:{uK:{value:0},uH:{value:800}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+    vertexShader:`attribute float aS; uniform float uH; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; gl_PointSize=aS*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); }`,
+    fragmentShader:`uniform float uK; void main(){ vec2 q=gl_PointCoord*2.-1.; float r=dot(q,q), a=exp(-r*5.)*(1.-smoothstep(.6,1.,r)); gl_FragColor=vec4(vec3(1.,.72,.38)*a*uK,1.); }`}));
+  halo.layers.set(1); halo.frustumCulled=false; halo.renderOrder=7; sc.add(halo); DM.halo=halo;
+  { const cx=(DM.x+(DM.lamp[0]+DM.pole[0])/2)/2, cz=(DM.z+(DM.lamp[1]+DM.pole[1])/2)/2, GR=2.3, NR=8, NS=32, P=[], Kk=[], I=[];
+    for(let i=0;i<=NR;i++) for(let j=0;j<NS;j++){ const r=GR*i/NR, a=TAU*j/NS, x=cx+Math.cos(a)*r, z=cz+Math.sin(a)*r; at(x,z,dmV).multiplyScalar(R+standH(x,z)+.025); P.push(dmV.x,dmV.y,dmV.z); Kk.push(1-i/NR); }
+    for(let i=0;i<NR;i++) for(let j=0;j<NS;j++){ const a=i*NS+j, b2=i*NS+(j+1)%NS, c=a+NS, e=b2+NS; I.push(a,c,b2, b2,c,e); }
+    const pg=new T.BufferGeometry(); pg.setAttribute('position',new T.Float32BufferAttribute(P,3)); pg.setAttribute('aK',new T.Float32BufferAttribute(Kk,1)); pg.setIndex(I);
+    const pool=new T.Mesh(pg,new T.ShaderMaterial({uniforms:{uK:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+      vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+      fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.66,.34)*vK*vK*(3.-2.*vK)*uK*.3,1.); }`}));
+    pool.layers.set(1); pool.renderOrder=2; pool.frustumCulled=false; sc.add(pool); DM.pool=pool; }
+  if(NAV.free) for(const o of DM.obs){ const m=o.r+.3, N=NAV.N; for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+    if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2<m*m) NAV.free[j*N+i]=0; } }
+  /* the houses near him, to know when you are inside one (where you do not hear him) */
+  DM.houses=HOUSES.filter(H=>{ const p=dmV.setFromMatrixPosition(H.M), [hx,hz]=loc(p.normalize()); return Math.hypot(hx-DM.x,hz-DM.z)<16; }).map(H=>({inv:H.M.clone().invert(),w:H.w,d:H.d}));
+  /* what he plays, as moments his hands move: each chord or note (strums grouped), with where the fretting hand goes */
+  const sc0=A.buskAt?A.buskAt().score:null; if(sc0){ DM.score=sc0; DM.ev=busEvents(sc0.notes,sc0,false); DM.sev=busEvents(sc0.solo.notes,sc0,true); }
+  /* his name tag, the same as ours; tapping it asks him to play */
+  const lb=document.createElement('span'); lb.className='crl ui'; lb.textContent='Diarmuid'; $('#crLabels',el).appendChild(lb); DM.lb=lb;
+  lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station') buskAsk(); });
+  /* on a computer, pointing at him shows his name; E beside him (with none of us closer) asks him to play */
+  addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||e.pointerType!=='mouse'||down) return; const on=!hov&&!!pickBusk(e);
+    if(on!==DM.hov){ DM.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Listen'; ce.classList.add('big'); } else if(!hov) ce.classList.remove('big'); } } },{passive:true});
+  addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||TALK.p||GLN.t>=0||PHS.on||!(e.code==='KeyE'||e.code==='Enter')) return;
+    if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
+    if(DM.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ buskAsk(); e.preventDefault(); } },true);
+  st._dbg.busk={DM,ask:buskAsk,pick:pickBusk,level:buskLevel,update:buskUpdate,get state(){ return {st:DM.st,d:+DM.d.toFixed(2),lv:+DM.lv.toFixed(3),goal:DM.goal,att:+DM.att.toFixed(2),ct:+DM.ct.toFixed(2),sct:+DM.sct.toFixed(2)}; },spot:[DM.x,DM.z]}; }
+/* the score as moments: strums (three strings or more at once) and single notes, each with the strings in the order struck,
+   and the fret the left hand is at: the chord's shape for his piece, the note itself for the solo */
+function busEvents(N,S0,solo){ const n=N.slice().sort((a,b)=>a.t-b.t), out=[];
+  for(let i=0;i<n.length;){ const g=[n[i]]; while(i+g.length<n.length&&n[i+g.length].t-n[i].t<.045) g.push(n[i+g.length]); i+=g.length;
+    const ss=g.map(q=>q.s), strum=g.length>=3, top=g.reduce((a,q)=>q.s>a.s?q:a,g[0]);
+    let fr; if(solo) fr=strum?2.5:Math.max(1,top.m-S0.open[top.s])-.4; else { const bar=Math.floor((g[0].t+.05)/S0.bar)%4; fr=[7,5,3,2][bar]+1.2; }
+    out.push({t:g[0].t,ss,strum,dir:strum?(ss[0]<ss[ss.length-1]?1:-1):0,mute:g.every(q=>q.d<.05),fr}); }
+  return out; }
+/* what you tapped: him (or his amp or case) under the pointer, or close enough to him on the screen */
+function pickBusk(e){ if(!DM.g||!DM.spot.visible) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
+  ray.intersectObjects(DM.pick,true,hits); if(hits.length) return {direct:true,dist:hits[0].distance};
+  const h0=R+standH(DM.x,DM.z), f=V.copy(DM.dir).multiplyScalar(h0).project(stCam); if(f.z>1) return null;
+  const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=V.copy(DM.dir).multiplyScalar(h0+1.65).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
+  const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, tt=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*tt,e.clientY-fy-ey*tt);
+  return dd<Math.max(26,Math.sqrt(L2)*.34)?{direct:false,dist:1e9}:null; }
+/* a click or tap: his, unless one of us is the one you meant (a squarely hit person in front of him, or one of us near the
+   pointer when he is not squarely under it) */
+function buskTap(e,p){ if(!DM.g||FIN.on||CUT.on||TALK.p||GLN.t>=0||PHS.on) return false; const k=pickBusk(e); if(!k) return false;
+  if(p){ if(!k.direct) return false; hits.length=0; ray.intersectObject(p.g,true,hits); if(hits.length&&hits[0].distance<k.dist) return false; }
+  buskAsk(); return true; }
+/* asking him to play: beside him he looks up and plays; from further off you walk over first */
+function buskAsk(){ if(!DM.g||FIN.on||CUT.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
+  if(DM.d<3.2){ DM.goal=false; if(DM.st==='play'&&DM.cool<=0){ DM.st='nod'; DM.stT=0; A.tick(); } else DM.att=Math.max(DM.att,.6); return; }
+  TALK.goal=null; const path=navPath(P.x,P.z,DM.x,DM.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(DM.x,DM.z).multiplyScalar(R); } DM.goal=true; P.stuck=0; A.tick(); }
+const BEAT=60/72;
+/* how much of him you hear at (x, z): all of him within a couple of metres, none by ten, and next to nothing from inside a house */
+function buskLevel(x,z){ const d=Math.hypot(x-DM.x,z-DM.z); if(d>=10) return 0; let k=Math.pow(sstep(10,2.3,d),1.6);
+  for(const H of DM.houses){ at(x,z,dmV).multiplyScalar(R).applyMatrix4(H.inv); if(Math.abs(dmV.x)<H.w/2&&Math.abs(dmV.z)<H.d/2){ k*=.035; break; } } return k; }
+function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM.x,P.z-DM.z); DM.d=d;
+  /* the sound: nothing during the landing or the last flight */
+  const busy=CUT.on||FIN.on, lv=busy?0:buskLevel(P.x,P.z); DM.lv=lv;
+  if(busy&&DM.st!=='play'){ DM.st='play'; DM.goal=false; }
+  DM.cool=Math.max(0,DM.cool-dt); DM.stT+=dt;
+  /* asked from across town: when you get there, he plays */
+  if(DM.goal){ if(TALK.goal||TALK.p||busy) DM.goal=false; else if(d<2.8||(!P.path&&!P.tgt&&d<3.4)){ DM.goal=false; P.path=null; P.tgt=null; buskAsk(); } else if(!P.path&&!P.tgt) DM.goal=false; }
+  if(DM.st==='nod'&&DM.stT>.95){ DM.st='solo'; DM.stT=0; DM.sct=0; }
+  if(DM.st==='solo'&&DM.sct>16){ DM.st='play'; DM.stT=0; DM.cool=1.2; }
+  A.busk&&A.busk(DM.st==='play'||(DM.st==='nod'&&DM.stT<.4)?lv:0,DM.st==='solo'?Math.max(1e-4,Math.min(1,lv*1.15)):0,lv);   // (the solo kept just above nothing while you are away, so it carries on rather than starting again)
+  /* his clock: the recording's own time where it is playing, his own where it is not, so his hands keep time with what you hear */
+  const S0=DM.score, aw=A.buskAt?A.buskAt():null;
+  if(S0){ const Pd=S0.P; DM.ct=(DM.ct+dt)%Pd; if(aw&&aw.loop>=0){ let e=aw.loop-DM.ct; if(e>Pd/2) e-=Pd; if(e<-Pd/2) e+=Pd; DM.ct=(DM.ct+(Math.abs(e)>.35?e:e*Math.min(1,dt*3))+Pd)%Pd; }
+    if(DM.st==='solo'){ DM.sct+=dt; if(aw&&aw.solo>=0){ const e=aw.solo-DM.sct; if(e>-.35) DM.sct+=e>.35?e:e*Math.min(1,dt*3); } } }   // (the solo's clock only ever goes forward)
+  /* round the curve of the world (past about 26 m, below the horizon from where you stand) he and his lights are not drawn at all */
+  const vis=d<26; if(DM.spot.visible!==vis){ DM.spot.visible=DM.bulbs.visible=vis; DM.nk=-1; }
+  /* the lights: up as it gets dark */
+  const nk=sstep(.12,.6,SKY.night); if(Math.abs(nk-DM.nk)>.002||t<1){ DM.nk=nk;
+    DM.bulbs.material.uniforms.uC.value.setRGB(lerp(.93,1.35,nk),lerp(.89,1.05,nk),lerp(.8,.62,nk)); DM.glass.material.uniforms.uC.value.setRGB(lerp(.9,1.4,nk),lerp(.86,1.05,nk),lerp(.77,.55,nk));
+    DM.mat.uniforms.uC.value.setRGB(1+.42*nk,1+.22*nk,1+.02*nk); DM.pool.material.uniforms.uK.value=nk; DM.pool.visible=DM.halo.visible=vis&&nk>.01; }
+  if(DM.halo.visible){ DM.halo.material.uniforms.uK.value=nk*(.92+.08*Math.sin(t*2.3)); DM.halo.material.uniforms.uH.value=colRT.height||innerHeight; }
+  /* his name tag: when you point at him, or are near */
+  const lb=DM.lb, hw=dmW.copy(DM.dir).multiplyScalar(R+standH(DM.x,DM.z)+1.82).project(stCam), quiet=TALK.p||CUT.on||FIN.on||GLN.t>=0||PHS.on;
+  lb.classList.toggle('on',(DM.hov||d<5.5)&&hw.z<1&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  lb.style.transform=`translate(${((hw.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hw.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
+  if(!vis) return;
+  buskPose(dt,t,P); }
+/* an arm reaching a point (in his body's frame): the elbow out toward pole, the upper arm and forearm laid along the two halves */
+const rU=new T.Vector3(), rN=new T.Vector3(), rE=new T.Vector3(), rF=new T.Vector3(), rQ=new T.Quaternion();
+function reach(arm,fore,H,pole){ const S=arm.position, a=DM.ua, b=DM.fa; rU.subVectors(H,S); const D0=rU.length()||1, D=clamp(D0,Math.abs(a-b)+.002,a+b-.002); rU.divideScalar(D0);
+  const ca=clamp((a*a+D*D-b*b)/(2*a*D),-1,1); rN.copy(pole).addScaledVector(rU,-pole.dot(rU)).normalize(); rE.copy(rN).multiplyScalar(a*Math.sqrt(1-ca*ca)).addScaledVector(rU,a*ca);   // the elbow, from the shoulder
+  arm.quaternion.setFromUnitVectors(DOWN,rF.copy(rE).divideScalar(a)); rF.copy(rU).multiplyScalar(D).sub(rE).normalize().applyQuaternion(rQ.copy(arm.quaternion).invert());
+  fore.quaternion.setFromUnitVectors(DOWN,rF); }
+const RPOLE=new T.Vector3(-.7,-.35,-.6).normalize(), LPOLE=new T.Vector3(.55,-.85,-.2).normalize(), dmH=new T.Vector3(), dmL=new T.Vector3();
+/* the last moment of the score at or before c, by halving */
+function evAt(E,c){ let lo=0, hi=E.length-1; if(!E.length||c<E[0].t) return -1; while(lo<hi){ const m=(lo+hi+1)>>1; if(E[m].t<=c) lo=m; else hi=m-1; } return lo; }
+function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM.ev, c=solo?DM.sct:DM.ct, S0=DM.score;
+  /* the beat he nods and taps to */
+  const bt=solo?(DM.sct-S0.solo.t1)/BEAT:DM.ct/BEAT, ph=((bt%1)+1)%1, nod=Math.exp(-ph*5)*(Math.floor(bt)%4===0?1.4:1), tap=.5-.5*Math.cos(TAU*ph);
+  /* the right hand: through the strings on each strum or note, back to where the next one starts in between */
+  const ys=s=>(2.5-s)*.0068; let ry=0, rz=.04, rx=-.045, fr=E&&E.length?E[0].fr:8;
+  if(E&&E.length){ const i=evAt(E,c), e0=i>=0?E[i]:E[E.length-1], e1=E[i+1]||null, k=i>=0?c-e0.t:9;
+    const from=q=>q.strum?(q.dir>0?ys(0)+.024:ys(5)-.02):ys(q.ss[q.ss.length-1])+.008, to=q=>q.strum?(q.dir>0?ys(5)-.026:ys(0)+.022):ys(q.ss[q.ss.length-1])-.01;
+    const sw=e0.strum?.06:.035, u=sstep(0,sw,k), y1=to(e0);
+    if(k<sw||!e1) ry=lerp(from(e0),y1,u); else { const gap=e1.t-e0.t-sw, w=sstep(0,1,(k-sw)/Math.max(.05,gap)); ry=lerp(y1,from(e1),w); rz=.04+.018*Math.sin(Math.PI*w); }
+    if(k<sw) rz=.026+.01*u; if(e0.strum) rx=-.025;
+    fr=e0.fr; if(e1&&e1.fr!==e0.fr) fr=lerp(e0.fr,e1.fr,sstep(e1.t-.14,e1.t-.02,c)); }
+  if(DM.st==='nod') ry=lerp(ry,.03,sstep(.2,.5,DM.stT)), rz=.07;
+  dmH.set(rx,ry,rz).applyMatrix4(DM.GM); DM.rh.lerp(dmH,1-Math.exp(-28*dt)); reach(d.arms[0],d.fore[0],DM.rh,RPOLE);
+  /* the left hand: on the neck at the fret, behind and under it */
+  DM.fr=damp(DM.fr??fr,fr,16,dt); dmL.set(fretX(DM.fr)-.012,-.03,-.004+.004*Math.sin(t*7.3)).applyMatrix4(DM.GM); DM.lh.lerp(dmL,1-Math.exp(-22*dt)); reach(d.arms[1],d.fore[1],DM.lh,LPOLE);
+  /* the rest of him: a sway every two bars, the nod and the foot on the beat */
+  const sway=Math.sin(Math.PI*bt/4), en=solo?1.5:1;
+  d.body.position.y=DM.lift-.006*(1-tap)*en; d.body.rotation.set(.03+.012*nod*en,.05*Math.sin(Math.PI*bt/4+1)*en,.022*sway*en);
+  d.legs[0].rotation.x=-.1*tap; d.legs[0].position.y=.5+.008*tap; d.legs[1].rotation.x=.02;
+  /* where he looks: down at his hands mostly; up at you now and then when you are near, and when you ask him to play */
+  DM.attT-=dt; let want=0;
+  if(DM.st==='nod') want=1; else if(solo&&DM.sct<1.6) want=.75; else if(DM.d<6&&DM.attT<0){ want=1; if(DM.attT<-1.8) DM.attT=5+Math.random()*6; }
+  DM.att=damp(DM.att,want,want>DM.att?6:2.5,dt);
+  DM.g.updateWorldMatrix(true,false); const lp=DM.g.worldToLocal(dmV.copy(P.u).multiplyScalar(R+P.h+1.1)); lp.y-=DM.hy+DM.lift;
+  const ly=clamp(Math.atan2(lp.x,lp.z),-1,1), lpt=clamp(-Math.atan2(lp.y,Math.hypot(lp.x,lp.z)),-.35,.5);
+  const nodK=DM.st==='nod'?.2*Math.max(0,Math.sin(TAU*DM.stT/.45))*sstep(.15,.3,DM.stT):0;
+  d.head.rotation.set(lerp(.36+.05*nod,lpt,DM.att)+nodK,lerp(.32,ly,DM.att),lerp(.05*sway,0,DM.att)); d.body.rotation.y+=clamp(ly*.2,-.2,.2)*DM.att;
+  DM.blink-=dt; if(DM.blink<0) DM.blink=2+Math.random()*3; d.eyes[0].scale.y=DM.blink<.12?.15:1; }
+
 /* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
 const RKR=1.2, RKH=4.4, RKB=.35, FLOOR=.42, BAND=2.05, GAP=.42, rAt=y=>RKR*(1-(y-RKB)/RKH);
 const HINGE_Z=rAt(FLOOR)-.035, DOOR_L=BAND-FLOOR, DOOR_SHUT=-Math.atan((rAt(FLOOR)-rAt(BAND))/DOOR_L), DROP=Math.asin(FLOOR/DOOR_L), DOOR_OPEN=Math.PI/2+DROP, RAMP_END=HINGE_Z+DOOR_L*Math.cos(DROP), OUT_Z=Math.hypot(START[0]-PAD[0],START[1]-PAD[1]);
@@ -1008,6 +1221,7 @@ st.build=async function(){
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
+  buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1};   // the seasons, snow, rain and lit windows are the kit's
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
@@ -1087,7 +1301,7 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
 addEventListener('pointerup',e=>{ if(PHS.drag&&e.pointerId===PHS.drag.id){ PHS.drag=null; return; } if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
-  const p=pickPerson(e); if(p) goTalk(p); });
+  const p=pickPerson(e); if(buskTap(e,p)) return; if(p) goTalk(p); });
 addEventListener('pointercancel',()=>{ down=null; look=null; PHS.drag=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
@@ -1495,6 +1709,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       for(let k=0;k<12;k++){ const a=k/12*TAU+Math.random()*.3; V2.set(Math.cos(a)*.34,.22,Math.sin(a)*.34).applyMatrix4(OG.M); V3.set(Math.cos(a)*2,.5,Math.sin(a)*2).applyMatrix4(OG.M).sub(V2); puff(V2,V3,.16+Math.random()*.1,1.3); }
       if(!quiet&&d0<15) A.vent(0); } }
   if(BE) BE.lt.visible=(t/1.6)%1<.3;
+  buskUpdate(dt,t);   // Diarmuid: his guitar, his hands, his lights
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
     KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;

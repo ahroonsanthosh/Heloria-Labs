@@ -259,9 +259,87 @@ const A=(()=>{
           a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.034+rnd()*.06,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
         else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.22+rnd()*.26;
           s.connect(bp); bp.connect(a); a.connect(lp); s.start(t); } } }});
+  /* ---------- Diarmuid's guitar, outside the café on Earth ----------
+     An electric guitar made here, string by string. Each note is a plucked string (Karplus-Strong): a short burst of soft
+     noise, one period long, goes round a delay line one period long and loses a little of its top each time round, so it
+     rings and fades the way a string does. A string sounds one note at a time, and its next note stops the last. The
+     strings go through a small amp: a soft, slightly lopsided overdrive that is never fed anything high (so it has nothing
+     to fizz with), a little more middle, then a small cabinet that rolls the top off steeply above 3 kHz, so it stays warm
+     on a phone's speaker. His piece is in the town's key and at its tempo: the same four chords (Fmaj9, Em9, Dm9, Cmaj9),
+     at 72 and swung. Sixteen bars that go round, eight picked with a tune on top and eight strummed under the same tune.
+     The solo he plays when you ask is a second recording: four bars of lead over the same chords, a little brighter, with
+     an echo, ending on the home chord and left to ring */
+  const GTR=[40,45,50,55,59,64], BK={duck:1,on:false,s:false,done:false};   // the open strings, low E to high e; how far the town's music is let through while he plays
+  const BKS=(()=>{ const beat=60/72, bar=4*beat, sl=k=>beat*(Math.floor(k/2)+(k%2?.56:0)), len=(k,n)=>sl(k+n)-sl(k);   // where the k-th swung eighth of a bar falls, and how long n of them last
+    let seed=4111; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647, hum=()=>(rnd()-.5)*.012;
+    /* the chords as he holds them, one shape walking down the neck: the notes on the A, D, G and B strings */
+    const SH=[[53,57,64,67],[52,55,62,66],[50,53,60,64],[48,52,59,62]];
+    /* the tune, on the high string: [eighth, note, how many eighths] in each of eight bars */
+    const TUNE=[[[0,72,3],[3,69,1],[4,72,2],[6,76,2]],[[0,74,3],[3,71,1],[4,74,2],[6,71,2]],[[0,72,3],[3,69,1],[4,72,2],[6,74,1],[7,76,1]],[[0,74,2],[2,72,2],[4,67,4]],
+      [[0,76,2],[2,74,1],[3,72,1],[4,69,2],[6,72,2]],[[0,71,3],[3,67,1],[4,71,2],[6,74,2]],[[0,72,2],[2,74,1],[3,76,3],[6,74,1],[7,72,1]],[[0,74,2],[2,76,2],[4,72,4]]];
+    const mk=()=>{ const N=[]; return {N,note:(t,s,m,d,v,o)=>N.push(Object.assign({t:Math.max(0,t+hum()),s,m,d,v:v*(.93+rnd()*.14)},o))}; };
+    const A=mk(), note=A.note;
+    for(let b=0;b<16;b++){ const t0=b*bar, sh=SH[b%4];
+      if(b<8){ /* picked: the bass and the top of the chord together, then the middle strings in turn, each left to ring */
+        [[1,4],[3],[2],[4],[1],[3],[4],[2]].forEach((ss,k)=>ss.forEach(s=>note(t0+sl(k),s,sh[s-1],len(k,8-k)+.2,[.8,.5,.48,.58,.62,.48,.55,.46][k]*(s===1?1:.9)))); }
+      else /* strummed: down on the beat, up on the off-beat, and a muted chop on three */
+        [[0,'D',.75],[2,'D',.48],[3,'U',.38],[4,'X',.34],[5,'U',.36],[6,'D',.46],[7,'U',.34]].forEach(([k,dir,v])=>{ const t=t0+sl(k);
+          if(dir==='X') return [1,2,3,4].forEach((s,i)=>note(t+i*.009,s,sh[s-1],.035,v,{br:.35}));
+          (dir==='U'?[4,3,2]:k?[2,3,4]:[1,2,3,4]).forEach((s,i)=>note(t+i*(dir==='U'?.009:.012),s,sh[s-1],len(k,2)+.04,v*(dir==='U'?.85:1))); });   // each rings on until the next stroke
+      TUNE[b%8].forEach(([k,m,n])=>note(t0+sl(k)+(b<8?0:.03),5,m,len(k,n)+.05,b<8?.85:.8,{br:.62})); }
+    /* the solo: a slide up into it, four bars of lead on the high string (a bend, a slide, the long notes sung with
+       vibrato), a low note under each of the first three bars, and the home chord rolled and left to ring */
+    const B=mk(), t1=.6, at=(b,k)=>t1+b*bar+sl(k);
+    [[0,-1,76,1,{sl:72}],[0,0,79,1],[0,1,79,2,{bd:[[0,0],[.1,2]],vb:.15}],[0,3,79,1],[0,4,76,2,{vb:.2}],[0,6,74,1],[0,7,76,1],
+     [1,0,79,3,{vb:.25}],[1,3,78,1],[1,4,76,2],[1,6,74,1],[1,7,71,1],
+     [2,0,72,1],[2,1,74,1],[2,2,76,1],[2,3,77,1],[2,4,81,3,{sl:79,vb:.28}],[2,7,79,1],
+     [3,0,76,1],[3,1,74,1],[3,2,72,2,{vb:.15}]].forEach(([b,k,m,n,o])=>B.note(k<0?t1-.44*beat:at(b,k),5,m,(k<0?.44*beat:len(k,n))+.04,.85,Object.assign({br:.7,pp:.14},o)));
+    [53,52,50].forEach((m,b)=>B.note(at(b,0),1,m,bar-.05,.5));
+    [48,52,59,62,64].forEach((m,i)=>B.note(at(3,4)+i*.035,i+1,m,4,.62));
+    return {beat,bar,P:16*bar,notes:A.N,solo:{P:18,notes:B.N,t1},open:GTR}; })();
+  /* one note into out: its string rings from its start until it is let go (d), then is damped quickly; stopped outright at
+     end. sl slides into it from another note, bd bends it ([seconds, semitones] points), vb sings it with vibrato */
+  function pluck(out,sr,t0s,n,end,rnd){ const f0=440*Math.pow(2,(n.m-69)/12), lo=440*Math.pow(2,(Math.min(n.m,n.sl||n.m)-69)/12), M=Math.ceil(sr/lo*1.03)+4, ring=new Float32Array(M);
+    const t0=Math.round((t0s+n.t)*sr), E=Math.round(sr/f0), x=new Float32Array(E), br=n.br??.5; let lx=0, mx=0;
+    for(let i=0;i<E;i++){ lx+=br*((rnd()*2-1)-lx); x[i]=lx; }   // the pick: soft noise, softer still for a dark note
+    const pk=Math.max(2,Math.round(E*(n.pp??.17))); for(let i=E-1;i>=pk;i--) x[i]-=x[i-pk];   // plucked a little way from the bridge
+    for(let i=0;i<E;i++) mx=Math.max(mx,Math.abs(x[i])); for(let i=0;i<E;i++) x[i]*=n.v/(mx||1);
+    const T60=4.5-2.7*clamp((n.m-40)/45,0,1), rho=Math.pow(10,-3/(f0*T60)), rOff=Math.pow(10,-3/(f0*.09)), S0=.5-.22*clamp((n.m-48)/30,0,1);
+    const hold=Math.round(n.d*sr), stop=Math.round((t0s+end)*sr), bd=n.bd, vb=n.vb||0;
+    let w=0, prev=0, pkA=0, quiet=0;
+    for(let i=0;;i++){ const o=t0+i; if(o>=out.length) break; const t=i/sr; let st=0;
+      if(n.sl) st+=(n.sl-n.m)*(1-sstep(0,.07,t));
+      if(bd){ let j=0; while(j<bd.length-1&&bd[j+1][0]<t) j++; const a=bd[j], b=bd[Math.min(j+1,bd.length-1)]; st+=b[0]>a[0]?lerp(a[1],b[1],clamp((t-a[0])/(b[0]-a[0]),0,1)):a[1]; }
+      if(vb) st+=vb*Math.sin(TAU*5.4*t)*sstep(.15,.45,t);
+      const damp=i>hold, S=damp?.5:S0, D=sr/(f0*Math.pow(2,st/12))-S; let rd=w-D; if(rd<0) rd+=M;
+      const i0=rd|0, fr=rd-i0, y=ring[i0]*(1-fr)+ring[i0+1<M?i0+1:0]*fr, lp=(1-S)*y+S*prev; prev=y;
+      ring[w]=(i<E?x[i]:0)+(damp?rOff:rho)*lp; if(++w===M) w=0;
+      let g=1; if(o>=stop){ g=1-(o-stop)/(sr*.012); if(g<=0) break; }   // the next note on this string, or the end of the piece, stops it
+      out[o]+=y*g;
+      const a=y<0?-y:y; if(a>pkA) pkA=a; if((i&255)===255){ if(pkA<6e-5*n.v){ if(++quiet>3) break; } else quiet=0; pkA=0; } } }
+  /* the strings into the amp: the whole score into one stretch of sound, then the overdrive, the cabinet and the room */
+  function amp(oc,t0,sc,o){ const sr=oc.sampleRate, g=new Float32Array(oc.length); let seed=271; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+    const by=GTR.map(()=>[]); for(const n of sc) by[n.s].push(n);
+    for(const q of by){ q.sort((a,b)=>a.t-b.t); q.forEach((n,i)=>pluck(g,sr,t0,n,Math.min(q[i+1]?q[i+1].t:1e9,o.cut||1e9),rnd)); }
+    let pk=0; for(const v of g) pk=Math.max(pk,Math.abs(v)); const b=oc.createBuffer(1,oc.length,sr), d=b.getChannelData(0), k=.9/(pk||1); for(let i=0;i<g.length;i++) d[i]=g[i]*k;
+    const src=oc.createBufferSource(); src.buffer=b; src.start(0);
+    const f=(type,fr,q,gn=0)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=fr; x.Q.value=q; x.gain.value=gn; return x; };
+    const ws=oc.createWaveShaper(), K=o.drive, a=.18, n0=Math.tanh(K+a)-Math.tanh(a), n1=Math.tanh(a)-Math.tanh(a-K), cv=new Float32Array(1025);
+    for(let i=0;i<cv.length;i++){ const x=i/512-1, y=Math.tanh(K*x+a)-Math.tanh(a); cv[i]=.9*y/(x>=0?n0:n1); }   // lopsided, so what it adds is the warm even harmonics
+    ws.curve=cv; ws.oversample='4x';
+    const ch=[f('highpass',110,.7),f('lowpass',3400,.6),ws,f('peaking',720,.8,2.5),f('lowpass',o.cab,.7),f('lowpass',o.cab*1.3,.55),f('highpass',90,.6)], lv=oc.createGain(), B=bus(oc,o.wet,.3);
+    src.connect(ch[0]); for(let i=0;i<ch.length-1;i++) ch[i].connect(ch[i+1]); lv.gain.value=o.level; ch[ch.length-1].connect(lv); lv.connect(B.in); lv.connect(B.rv);
+    if(o.echo){ const dl=oc.createDelay(1), fb=oc.createGain(), el=f('lowpass',2000,.5), ew=oc.createGain(); dl.delayTime.value=o.echo; fb.gain.value=.26; ew.gain.value=.22;
+      lv.connect(dl); dl.connect(el); el.connect(fb); fb.connect(dl); el.connect(ew); ew.connect(B.in); } }
+  const BUSK=loop({name:'busk',sr:22050,P:BKS.P,H:.9,R:.2,fade:false,ref:1,tc:.45,tcOut:.3,gate:.3,make(oc,t0){ amp(oc,t0,BKS.notes,{drive:1.6,cab:2500,level:.22,wet:.3,cut:BKS.P}); }});
+  /* the solo is played once: near its end (where only the last chord is still ringing) it is let go, even if the page has
+     stalled, so it never goes round again */
+  const soloEnd=()=>{ const a=SOLO.els[SOLO.cur]; if(a&&a._on&&a.currentTime>SOLO.P-2){ BK.done=true; SOLO.want=0; } };
+  const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ amp(oc,t0,BKS.solo.notes,{drive:2.2,cab:2700,level:.23,wet:.35,echo:.42}); }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
+  setInterval(soloEnd,100);
   let making=!!OAC;
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -308,7 +386,7 @@ const A=(()=>{
       if(B&&B.ping&&ctx&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
     muffle(v){ muf=!!v; },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
-    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=RAINL.want=0; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
+    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
     /* a grain of rock against the hull: a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
@@ -343,7 +421,18 @@ const A=(()=>{
     phrase(who,g=.012){ if(!on||muted||!ctx) return; const M=who?[67,64,62]:[72,76,79];
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
     /* Earth's music (see MUS above): music(v) sets its level; call it every frame while it should play */
-    music(v){ MUS.want=clamp((v||0)/.55,0,1); },
+    music(v){ MUS.want=clamp((v||0)/.55,0,1)*BK.duck; },
+    /* Diarmuid outside the café (see BUSK above): v his piece's level, s the solo's, k how close you are to him (0 to 1);
+       call it every frame on Earth. While he is close the town's music dips under him. On an iPhone, where a recording
+       only plays or stops, he plays and the music stops once you are close, and the other way round as you walk off.
+       Each new solo starts from its beginning */
+    busk(v,s=0,k){ v=clamp(v||0,0,1); s=clamp(s||0,0,1); k=clamp(k??Math.max(v,s),0,1);
+      if(s>0&&!BK.s){ for(const el of SOLO.els){ el._on=false; if(!el.paused) el.pause(); } SOLO.cur=0; SOLO.vol=0; BK.done=false; } BK.s=s>0; soloEnd(); if(BK.done) s=0;
+      if(IOS){ BK.on=BK.on?k>.25:k>.4; BUSK.want=BK.on&&v>.05?1:0; SOLO.want=BK.on&&s>.05?1:0; BK.duck=BK.on?0:1; return; }
+      BUSK.want=v; SOLO.want=s; BK.duck=1-.9*sstep(.25,.85,k); },
+    /* how far into his piece and into the solo the recordings are now (seconds, -1 when not sounding), and what he plays,
+       so his hands can keep time with what you hear */
+    buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS}; },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
