@@ -153,13 +153,28 @@ A.start().catch(()=>{});
 
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
 async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
+/* ?diag on the address: a small panel with how long each step of the loading takes, the graphics chip, and any error, so a
+   slow load in a particular browser can be read off a screenshot. Nothing of it exists without ?diag */
+const DIAG=/[?&]diag(=|&|$)/.test(location.search)?{steps:[['page and scripts',Math.round(performance.now())]],cur:'start',last:performance.now(),errs:[]}:null;
+function diag(name){ if(!DIAG) return; const t=performance.now(); DIAG.steps.push([DIAG.cur,Math.round(t-DIAG.last)]); DIAG.cur=name; DIAG.last=t; }
+if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||e).slice(0,200)),true);
+  addEventListener('unhandledrejection',e=>DIAG.errs.push('promise: '+String(e.reason&&e.reason.message||e.reason).slice(0,200)));
+  const ce=console.error; console.error=(...a)=>{ DIAG.errs.push(a.map(x=>String(x&&x.message||x)).join(' ').slice(0,200)); ce.apply(console,a); };
+  const el=document.createElement('pre'); el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;margin:0;padding:8px 10px;max-width:min(600px,calc(100vw - 16px));max-height:70vh;overflow:auto;background:rgba(0,0,0,.84);color:#e8f0e8;font:11px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;border-radius:6px';
+  document.body.appendChild(el);
+  let gpu='?'; try{ const gl=renderer&&renderer.getContext(), ext=gl&&gl.getExtension('WEBGL_debug_renderer_info'); gpu=gl?(ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)):'no WebGL'; }catch(e){ gpu='error '+e.message; }
+  setInterval(()=>{ const now=performance.now();
+    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')+'\n\n'
+      +DIAG.steps.map(([n,ms])=>(n+'                          ').slice(0,26)+String(ms).padStart(7)+' ms').join('\n')
+      +'\n'+(S.ready?'READY':'now: '+DIAG.cur+' for '+Math.round(now-DIAG.last)+' ms')+'\ntotal '+Math.round(now)+' ms since the page opened'
+      +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):''); },250); }
 async function boot(){
   if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
-  UI.loadStep(.08);
+  UI.loadStep(.08); diag('fonts');
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
-  await nextFrame();
+  await nextFrame(); diag('build outside');
   rtA=RT(4,4,{samples:QL.samples}); rtB=RT(4,4,{samples:QL.samples});
-  OUT=buildOutside(); UI.loadStep(.3); await nextFrame();
+  OUT=buildOutside(); UI.loadStep(.3); await nextFrame(); diag('build gallery');
   GAL=buildGallery(); UI.loadStep(.45); await nextFrame();
   OUT.sim.clear();
   resize();
@@ -169,11 +184,12 @@ async function boot(){
   for(let i=0;i<steps.length;i++){ const [s,w]=steps[i]; const W=w==='out'?OUT:GAL, cam=CAM[w];
     S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
     camAt(w,s,cam); W.update(.016); W.applyLight(tod,TINT,s);
-    await compileQuiet(W.scene,cam);
-    W.render(cam,rtA); UI.loadStep(.45+.5*(i+1)/steps.length); await nextFrame(); }
+    diag('compile '+(i+1)+'/6 '+w); await compileQuiet(W.scene,cam);
+    diag('first draw '+(i+1)+'/6 '+w); W.render(cam,rtA); UI.loadStep(.45+.5*(i+1)/steps.length); await nextFrame(); }
+  diag('glow and finish');
   S.s=0; drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex;
   const bt=POST.bloom(rtA); POST.comp.uniforms.tScene.value=rtA.texture; POST.comp.uniforms.tBloom.value=bt; POST.pass(POST.comp,null);
-  UI.loadStep(1);
+  UI.loadStep(1); diag('ready');
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
 }
 requestAnimationFrame(frame);
