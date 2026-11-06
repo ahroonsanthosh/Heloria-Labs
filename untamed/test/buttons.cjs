@@ -299,7 +299,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await H(h => !h.U.probe.visible && h.S.st === null), 'Earth has put itself away behind the page');
   await H(h => { h.S.finX = 1; }); await wait(20000);
   rec(await page.evaluate(() => { const f = document.querySelector('#fin'); return !f.hidden && getComputedStyle(f).backgroundColor === 'rgb(255, 255, 255)' && /challenging what's impossible/.test(f.textContent) && !/Kríos|Aetos|Pharos|Ogive/.test(f.textContent); }), 'the last page is white and ends on the three of us');
-  rec(await page.evaluate(() => { const b = document.querySelector('#fin .fb'); return !!b && /Backed by Andrena Ventures/.test(b.textContent) && +getComputedStyle(b).opacity > .5; }), 'and under the line, who backs us: Andrena Ventures');
+  rec(await until(() => { const b = document.querySelector('#fin .fb'); return !!b && /Backed by Andrena Ventures/.test(b.textContent) && +getComputedStyle(b).opacity > .5; }, null, 30000), 'and under the line, who backs us: Andrena Ventures');   // (it fades in after the line above it)
   await covered('#fin', 'the white page'); await shot((mobile ? 'm-' : '') + 'fin-end');
 
   const fails = results.filter(r => !r.ok);
