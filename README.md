@@ -109,7 +109,8 @@ page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start 
 check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
 the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `cafe.cjs` goes into the café, orders
-every drink and looks into each cup, `postcard.cjs` takes a postcard, and `weather-sound.cjs` (with `--meter`) listens
+every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
+`postcard.cjs` takes a postcard, and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
 </details>
 

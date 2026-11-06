@@ -104,7 +104,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(up1 === 'up' && back.st === 'idle' && back.ws < .05 && back.cam < 7.5 && back.creak > before, (mobile ? 'a tap' : 'a key') + ' stands you up and gives the camera back', JSON.stringify({ up1, ...back }));
   /* E (or the tag) sits you down again where you stand; then a click (a tap) stands you up, and does not sit you down again */
   if (mobile) { let t = null;   // (the tag follows the bench as the camera settles back: found again, if a tap lands just off it)
-    for (let k = 0; k < 3 && !(await C((c, d) => d.cliff.CL.st !== 'idle')); k++) { t = await page.evaluate(() => { const e = document.querySelector('#crLabels > span.crl:nth-last-child(2)'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, top = document.elementFromPoint(x, y);
+    for (let k = 0; k < 3 && !(await C((c, d) => d.cliff.CL.st !== 'idle')); k++) { t = await page.evaluate(() => { const e = [...document.querySelectorAll('#crLabels > span.crl')].find(x => x.textContent === 'Sit'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, top = document.elementFromPoint(x, y);
       return e.classList.contains('on') && (top === e || e.contains(top)) ? [x, y] : null; }); if (t) await page.touchscreen.tap(t[0], t[1]); await wait(150); }
     rec(!!t, 'the Sit tag is there to tap, on top'); }
   else await page.keyboard.press('KeyE');

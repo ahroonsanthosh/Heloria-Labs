@@ -9,7 +9,7 @@ module.exports = async ({ page, wait, T, frames, log, mobile, vp, check, ctx }) 
   const ready = () => page.waitForFunction(() => window.__tamed && window.__tamed.S.ready, null, { timeout: 300000 });
   /* a world point on the screen, and whether a hand there would be on the page itself rather than on a link or button */
   const onScreen = (x, z, y = 0) => P((t, a) => { const s = t.POND.screen(a[0], a[1], a[2]); const el = document.elementFromPoint(s[0], s[1]);
-    return { x: s[0], y: s[1], ok: s[2] < 1 && s[0] > 24 && s[0] < innerWidth - 24 && s[1] > 24 && s[1] < innerHeight - 24 && !(el && el.closest && el.closest('a,button,#cue')) }; }, [x, z, y]);
+    return { x: s[0], y: s[1], ok: s[2] < 1 && s[0] > 24 && s[0] < innerWidth - 24 && s[1] > 24 && s[1] < innerHeight - 24 && !!el && el.tagName === 'CANVAS' }; }, [x, z, y]);
   /* the walk sways a little with the pointer, so a point is aimed at a few times over */
   const aim = async (x, z, y = 0, n = 4) => { let s; for (let i = 0; i < n; i++) { s = await onScreen(x, z, y); await page.mouse.move(s.x, s.y); await frames(2); } return s; };
   const sim = async secs => { const t0 = await P(t => t.POND.t); for (let i = 0; i < 400; i++) { await frames(1); if (await P(t => t.POND.t) - t0 >= secs) return; } };
@@ -42,7 +42,9 @@ module.exports = async ({ page, wait, T, frames, log, mobile, vp, check, ctx }) 
     check(c1.ring > c0.ring && c1.knock > c0.knock && b.g > .3, 'coming onto a stone sends a ring out and lights the water under it (rings ' + c1.ring + ', light ' + b.g.toFixed(2) + ')');
     check(run === 'running' && h1.knock === h0.knock && h1.plink === h0.plink, 'nothing is heard before the first click or tap, though the sound is running (' + run + ', ' + JSON.stringify(h1) + ')');
     /* the first click; then onto the stone again: a knock and a plink */
-    const wpt = await onScreen(S0.x - 2.4, S0.z + .6, 0); await page.mouse.click(wpt.x, wpt.y); await wait(700); await frames(2);
+    /* (on the open water beside the stone, not on the page's own controls) */
+    let wpt = null; for (const [ox, oz] of [[-2.4, .6], [-2.4, -1.5], [2.4, -1.5], [-2, -3], [2, -3]]) { wpt = await onScreen(S0.x + ox, S0.z + oz, 0); if (wpt.ok) break; }
+    await page.mouse.click(wpt.x, wpt.y); await wait(700); await frames(2);
     await aim(S0.x, S0.z, .04, 3); await frames(2);
     const h2 = await P(t => ({ ...t.A.pondHeard }));
     check(h2.knock > h1.knock && h2.plink > h1.plink, 'after the first click a stone tipping is heard: a knock, and a plink for its ring (' + JSON.stringify(h2) + ')');
