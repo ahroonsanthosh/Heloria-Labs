@@ -347,6 +347,31 @@ const A=(()=>{
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
     /* Earth's music (see MUS above): music(v) sets its level; call it every frame while it should play */
     music(v){ MUS.want=clamp((v||0)/.55,0,1); },
+    /* ---------- the cliff on Earth: a bench and a kite. Each sound is short and soft, a tone or a narrow band, never a bed of noise ---------- */
+    /* the bench taking your weight: a dry creak of old wood, a slow buzz through the hollow ring of a plank (soft: getting up) */
+    creak(soft=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.08), d=soft?.24:.4, g=soft?.13:.22;
+      const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(46*v,t0); o.frequency.linearRampToValueAtTime(72*v,t0+d*.4); o.frequency.linearRampToValueAtTime(54*v,t0+d);
+      const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=860*v; b.Q.value=4.5; const a=ctx.createGain();
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.025); a.gain.setValueAtTime(g*.85,t0+d*.55); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
+      o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+d+.05); },
+    /* the kite's cloth in the wind: a few quick flaps, low and muffled, quicker and louder the harder it flies (k from 0 to 1);
+       p places it left or right */
+    flutter(k=.5,p=0){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const t0=ctx.currentTime, n0=2+Math.round(k*3+Math.random()*.8), sp=.062-.024*k, g=(.08+.2*k)*vr(.15);
+      const s=shot(), b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=(380+300*k)*vr(.1); b.Q.value=1.3;
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200; const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); let ti=t0;
+      for(let i=0;i<n0;i++){ const gi=g*(1-i/(n0+1)); a.gain.setValueAtTime(0,ti); a.gain.linearRampToValueAtTime(gi,ti+.005); a.gain.exponentialRampToValueAtTime(gi*.03+1e-5,ti+sp*.7); ti+=sp*(.85+Math.random()*.3); }
+      let dst=comp; if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      s.connect(b); b.connect(lp); lp.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(ti+.05); },
+    /* the string pulled taut: a short plucked note in the town's key, higher the harder the pull (k from 0 to 1), over a soft
+       low thump; p places it left or right */
+    tug(k=.5,p=0){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const t0=ctx.currentTime, f=inKey(220*Math.pow(2,k*1.2)*vr(.03)), g=.014+.022*k; let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.2; pn.connect(sg); sg.connect(revIn); dst=pn; }
+      [[f,'triangle',.34,g,.004,1],[f*2,'sine',.14,g*.35,.003,1],[105,'sine',.11,g*.9,.006,.65]].forEach(([fr,ty,d,gg,at,dn])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type=ty;
+        o.frequency.setValueAtTime(dn<1?fr:fr*1.01,t0); o.frequency.exponentialRampToValueAtTime(fr*dn,t0+(dn<1?d:.04));
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(gg,t0+at); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(dst); o.start(t0); o.stop(t0+d+.05); }); },
+    /* the kite taking the wind: a soft breath rising under three notes climbing in the town's key */
+    lift(){ if(!on||muted||!ctx) return; noise(1,.06,240,760,'bandpass',.9,0,.25);
+      [392,523.25,659.25].forEach((f,i)=>{ tone(f,1.1,.018,'sine',0,.08+i*.15,.5,.02); tone(f*2,.4,.005,'sine',0,.08+i*.15,.3,.01); }); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
@@ -425,15 +450,6 @@ const A=(()=>{
     beep(f=880){ tone(f*vr(.015),.07,.035,'square'); },
     dock(){ const v=vr(.03); tone(587*v,.7,.06,'sine',0,0,.5); tone(880*v,1,.05,'sine',0,.12,.5); },
     key(){ tone(1800+Math.random()*900,.025,.01,'triangle'); },
-    /* formant voice: syllables shaped by three resonances. who: 0 buyer, 1 you */
-    voice(who){ if(!ctx) return null; const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=who?118:182;
-      const g=ctx.createGain(); g.gain.value=0; const bs=[0,1,2].map(k=>{const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=who?7:9; b.frequency.value=[700,1200,2600][k]; o.connect(b); const bg=ctx.createGain(); bg.gain.value=[1,.7,.32][k]; b.connect(bg); bg.connect(g); return b;});
-      g.connect(comp); const sg=ctx.createGain(); sg.gain.value=.25; g.connect(sg); sg.connect(revIn); o.start();
-      return {o,g,bs, syl(dur,pitch,vowel){ const t0=ctx.currentTime; const F=[[730,1090,2440],[530,1840,2480],[270,2290,3010],[570,840,2410],[440,1020,2240],[660,1720,2410]][vowel%6];
-          bs.forEach((b,k)=>b.frequency.setTargetAtTime(F[k]*(who?.92:1.08),t0,.02)); o.frequency.setTargetAtTime(pitch,t0,.03);
-          g.gain.cancelScheduledValues(t0); g.gain.setTargetAtTime(on&&!muted?.16:0,t0,.012); g.gain.setTargetAtTime(0,t0+dur*.8,.03); },
-        hold(v,pitch){ const t0=ctx.currentTime; g.gain.setTargetAtTime(v*(on&&!muted?.13:0),t0,.03); if(pitch) o.frequency.setTargetAtTime(pitch,t0,.05); },
-        stop(){ try{ g.gain.setTargetAtTime(0,ctx.currentTime,.02); o.stop(ctx.currentTime+.2); }catch(e){} } }; }
   };
 })();
 function sndUI(){}
@@ -5147,6 +5163,7 @@ st.build=async function(){
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer();
+  buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1};   // the seasons, snow, rain and lit windows are the kit's
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -5579,6 +5596,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   glanceApply(dt); steerCam(dt);
   S.stSnap=true; // the camera does its own smoothing
   }
+  cliffUpdate(dt,t);   // the bench and the kite on the cliff (see the cliff, below)
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
   ahroonUpdate(dt);
@@ -5654,6 +5672,335 @@ st._dbg={post:PC,steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) st
     get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
       season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS,get FALL(){ return FALL; }},
   began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+
+/* ---------- the cliff: a bench and a kite ----------
+   Out on the east cliff, south of the lighthouse and clear of the town and its landmarks, a bench looks over the sea with a
+   kite leaning on its back. Click the bench (or walk into it from the front or round an end, or press E beside it) and you
+   go over and sit down, and the camera settles slowly into a wide view over the water toward the sun; by night, toward the
+   western horizon. Anything you do then (a click, a drag, a key, the stick) stands you up and gives the camera back. Click
+   the kite and you pick it up and carry it round to the top of the drop, where it rises on the wind on a string from your
+   hand, its ribbon streaming. Drag to steer it and it swoops, climbs and dives a moment behind your hand; let go and it flies
+   on steadily. Walk off, or click anywhere else, and it drifts down and is reeled in to its place by the bench.
+   It is all the town's own kit and toon materials, so the light falls on it as on everything else, and the sun is read where
+   it is, every frame. It is built after the town and its trees, so not one of theirs moves, and marks its own ground (and its
+   one way in) on the walking grid. It takes the input it needs by wrapping the station's pointer handler and listening for
+   itself, and touches the camera only after the town's rig has placed it, so nothing else on Earth works any differently. */
+/* the bench, the way it faces (out to sea), and how far the view may turn from that to follow the sun. It stands in a nook
+   between two trees, with a rock at each end of the ground in front of it, where the cliff drops to the sea; you reach that
+   ground round its left end, where you also fly the kite */
+const CLF={x:16.13,z:-6.25,yaw:Math.PI/2+.06,lim:.95};
+/* west, for the view by night: the planet's +x, the side the town's sun stands over and the bench looks out to */
+const CLWEST=WEST.clone();   // west as the sky has it (see the sky over Earth)
+const CLMOVE=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'], CLNR=18, CLNS=22;
+/* st: idle, go (walking over), sit (sitting down), sat, up (getting up). k: home, go (walking over), carry (round to the edge),
+   rise, fly, down (back to the bench) */
+const CL={st:'idle',t:0,arm:true,view:false,k:'home',kt:0,ws:0,vs:0,wk:0,vk:0,az:0,el:.2,vaz:0,vel:0,taz:0,tel:.9,L:1.4,look:0,lookOn:false,kcOn:false,drag:null,tap:null,held:new Set(),hov:null,
+  fl:0,tg:0,acc:0,stuck:0,crk:false,lift:false,pan:0,sp:0,k0:new T.Vector3(),q0:new T.Quaternion(),pv:new T.Vector3(),kcP:new T.Vector3(),kcL:new T.Vector3(),
+  kx:new T.Vector3(1,0,0),kz:new T.Vector3(0,0,1),rib:[]};
+let CLM=null;
+const cv0=new T.Vector3(), cv1=new T.Vector3(), cv2=new T.Vector3(), cv3=new T.Vector3(), cv4=new T.Vector3(), cv5=new T.Vector3(), cv6=new T.Vector3(), cv7=new T.Vector3(), cvP=new T.Vector3(), cvL=new T.Vector3();
+const cq0=new T.Quaternion(), cq1=new T.Quaternion(), ce0=new T.Euler(), cm0=new T.Matrix4(), CLDOWN=new T.Vector3(0,-1,0);
+function buildCliff(){
+  const M=frameAt(CLF.x,CLF.z,CLF.yaw), lp=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(M), xz=(x,z)=>loc(lp(x,0,z,cv0).normalize());
+  const up=at(CLF.x,CLF.z), lf=new T.Vector3().setFromMatrixColumn(M,0).normalize(), fw=new T.Vector3().setFromMatrixColumn(M,2).normalize();   // its up, its left as you sit on it, its front
+  /* the town's own bench, the same as the four round the square; solid as two round ends rather than one wide circle, which
+     here would close the way round it to the ground in front */
+  bench(CLF.x,CLF.z,CLF.yaw); OBS.pop(); obsAt(M,-.38,0,.38,1); obsAt(M,.38,0,.38,1);
+  const kb=xz(.46,-.72); obs(kb[0],kb[1],.28,.9);   // and the kite, where it leans on it, is solid too
+  /* the walking grid was made before these: they mark their own ground on it, by the same rule */
+  for(const o of OBS.slice(-3)){ const m=o.r+.3; for(let j=0;j<NAV.N;j++) for(let i=0;i<NAV.N;i++){ const dx=NAV.O+i*NAV.S-o.x, dz=NAV.O+j*NAV.S-o.z; if(dx*dx+dz*dz<m*m) NAV.free[j*NAV.N+i]=0; } }
+  /* the kite: a diamond of orange and cream, bowed a little toward you, on a spine and a cross spar */
+  const P_=[], N_=[], C_=[], tri=(a,b,c,col)=>{ const n=cv0.subVectors(b,a).cross(cv1.subVectors(c,a)).normalize(); if(n.z<0){ const s=b; b=c; c=s; n.negate(); } const k=C3(col);
+    for(const p of [a,b,c]){ P_.push(p.x,p.y,p.z); N_.push(n.x,n.y,n.z); C_.push(k.r,k.g,k.b); } };
+  const dT=v3(0,.3,0), dB=v3(0,-.62,0), dL=v3(-.36,0,-.05), dR=v3(.36,0,-.05), dC=v3(0,0,.03);
+  tri(dT,dL,dC,'#ef8a3c'); tri(dT,dC,dR,'#f7efe2'); tri(dL,dB,dC,'#f7efe2'); tri(dC,dB,dR,'#ef8a3c');
+  const sg=new T.BufferGeometry(); sg.setAttribute('position',new T.Float32BufferAttribute(P_,3)); sg.setAttribute('normal',new T.Float32BufferAttribute(N_,3)); sg.setAttribute('color',new T.Float32BufferAttribute(C_,3));
+  const spar=(a,b)=>new T.BoxGeometry(.018,a.distanceTo(b),.018).applyMatrix4(cm0.compose(cv0.addVectors(a,b).multiplyScalar(.5),cq0.setFromUnitVectors(UPY,cv1.subVectors(b,a).normalize()),cv2.set(1,1,1)));
+  const kite=new T.Group(); sc.add(kite);
+  [new T.Mesh(sg,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fig:true})),new T.Mesh(mergeG([spar(v3(0,.3,-.014),v3(0,-.62,-.014)),spar(v3(-.35,0,-.064),v3(0,0,.012)),spar(v3(0,0,.012),v3(.35,0,-.064))]),toonMat('#5a4537',{fig:true}))]
+    .forEach(m=>{ m.userData.dyn=true; kite.add(m); });
+  /* leaning on the back of the bench, its foot in the grass and its face to the town */
+  const hb=lp(.46,.02,-.84), ky=lp(.46,.8,-.28).sub(hb).normalize(), kx=lf.clone().negate(), kz=new T.Vector3().crossVectors(kx,ky).normalize();
+  const homeQ=new T.Quaternion().setFromRotationMatrix(cm0.makeBasis(kx,ky,kz)).multiply(cq0.setFromAxisAngle(UPY,.22)), homeP=hb.clone().addScaledVector(ky,.62);
+  /* its ribbon tail, lying in the grass behind it in a lazy curve */
+  const home=[]; { let x=.46, z=-.84; for(let i=0;i<CLNR;i++){ home.push(lp(x,.018,z)); const a=1.05*Math.cos(i*.55)-.3; x+=Math.sin(a)*.12; z-=Math.cos(a)*.12; } }
+  const rp=new Float32Array(CLNR*6), rn=new Float32Array(CLNR*6), ri=[]; for(let i=0;i<CLNR-1;i++) ri.push(i*2,i*2+1,i*2+2, i*2+1,i*2+3,i*2+2);
+  const rg=new T.BufferGeometry(); rg.setAttribute('position',new T.BufferAttribute(rp,3).setUsage(T.DynamicDrawUsage)); rg.setAttribute('normal',new T.BufferAttribute(rn,3).setUsage(T.DynamicDrawUsage)); rg.setIndex(ri);
+  const rib=new T.Mesh(rg,toonMat('#d9553d',{side:T.DoubleSide,fig:true})); rib.frustumCulled=false; rib.userData.dyn=true; sc.add(rib);
+  CL.rib=home.map(p=>({p:p.clone(),q:p.clone()}));
+  /* the string: a strip turned to the camera, a pen line wide wherever it is, drawn with the colours only (no ink round it) */
+  const sp=new Float32Array(CLNS*6), sn=new Float32Array(CLNS*6), si=[]; for(let i=0;i<CLNS*2;i++) sn[i*3+1]=1; for(let i=0;i<CLNS-1;i++) si.push(i*2,i*2+1,i*2+2, i*2+1,i*2+3,i*2+2);
+  const stg=new T.BufferGeometry(); stg.setAttribute('position',new T.BufferAttribute(sp,3).setUsage(T.DynamicDrawUsage)); stg.setAttribute('normal',new T.BufferAttribute(sn,3)); stg.setIndex(si);
+  const str=new T.Mesh(stg,flatMat('#2f2925')); str.material.side=T.DoubleSide; str.frustumCulled=false; str.layers.set(1); str.visible=false; sc.add(str);
+  /* the reel: in the grass by the kite, and in your hand while you fly it */
+  const reelG=new T.CylinderGeometry(.03,.03,.085,10).rotateZ(Math.PI/2), reelM=toonMat('#b8834f',{fig:true});
+  const inHand=new T.Mesh(reelG,reelM); inHand.position.set(0,-.2,.045); inHand.visible=false; me.userData.fore[0].add(inHand);
+  const onGround=new T.Mesh(reelG,reelM); onGround.position.copy(lp(.8,.03,-1)); onGround.quaternion.setFromRotationMatrix(M).multiply(cq0.setFromAxisAngle(UPY,.8)); sc.add(onGround);
+  /* what a click finds: a box round each (never drawn) */
+  const hit=(w,h,d,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w,h,d)); m.applyMatrix4(cm0.copy(M).multiply(new T.Matrix4().makeTranslation(x,y,z))); m.updateMatrixWorld(true); return m; };
+  /* where you stand to sit down (on the ground in front, by its left end), and to take the kite (behind it); you fly the kite
+     from that ground in front, at the top of the drop */
+  CLM={M,up,lf,fw,b:[CLF.x,CLF.z],bW:at(CLF.x,CLF.z).multiplyScalar(R),fx:Math.sin(CLF.yaw),fz:Math.cos(CLF.yaw),lx:Math.cos(CLF.yaw),lz:-Math.sin(CLF.yaw),sitA:xz(.8,.66),kiteA:xz(.85,-1.45),kb,
+    seatP:lp(.28,.04,.13),seatQ:new T.Quaternion().setFromRotationMatrix(M),headW:lp(.28,1.15,.13),tagB:lp(0,1.3,0),tagK:lp(.62,1.12,-.7),reelW:lp(.8,.06,-1),
+    kite,homeP,homeQ,home,rib,str,inHand,onGround,hitB:hit(1.75,1.1,1,0,.5,-.02),hitK:new T.Mesh(new T.BoxGeometry(.85,1.05,.3))};
+  CLM.hitK.position.copy(homeP).addScaledVector(ky,-.16); CLM.hitK.quaternion.copy(homeQ); CLM.hitK.updateMatrixWorld(true);   // the kite's, close round it as it leans
+  clWay([CLM.sitA,CLM.kiteA]); kiteHome(); }
+/* the way in. The town's walking grid is coarse (a cell every 40 cm, each kept 30 cm clear of anything solid), and the trees
+   and rocks along this cliff stand close together, so ground you can walk over is not always ground the grid can see a way
+   across. From each spot here, a search over the same cells, allowed a little nearer the stones and trunks (16 cm clear, where
+   walking past one only nudges you), finds the nearest ground the town can already reach, and the cells along that way are
+   opened. Nothing else of the grid changes: it is one way in, so it is no short cut for any other walk */
+function clWay(goals){ const n=NAV.N, F=NAV.free, id=(i,j)=>j*n+i, inn=(i,j)=>i>=0&&j>=0&&i<n&&j<n, free=(i,j)=>inn(i,j)&&F[id(i,j)]===1;
+  const town=new Uint8Array(n*n), q=[navNear(...navIJ(0,-4))]; town[id(...q[0])]=1;
+  while(q.length){ const [i,j]=q.pop(); for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ const a=i+di, b=j+dj; if((!di&&!dj)||!free(a,b)||town[id(a,b)]||(di&&dj&&(!free(i+di,j)||!free(i,j+dj)))) continue; town[id(a,b)]=1; q.push([a,b]); } }
+  const near=OBS.filter(o=>Math.hypot(o.x-CLF.x,o.z-CLF.z)<17), loose=new Map(), ok=(i,j)=>{ if(!inn(i,j)) return false; if(F[id(i,j)]) return true; const k=id(i,j); if(loose.has(k)) return loose.get(k);
+    const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let v=Math.hypot(x-CLF.x,z-CLF.z)<14&&walkable(x,z); if(v) for(const o of near){ const dx=x-o.x, dz=z-o.z, m=o.r+.16; if(dx*dx+dz*dz<m*m){ v=false; break; } } loose.set(k,v); return v; };
+  for(const [gx,gz] of goals){ let s=navIJ(gx,gz); if(!ok(...s)) for(let r=1;r<3&&!ok(...s);r++) for(let dj=-r;dj<=r;dj++) for(let di=-r;di<=r;di++) if(ok(s[0]+di,s[1]+dj)){ s=[s[0]+di,s[1]+dj]; }
+    if(!ok(...s)||town[id(...s)]) continue;
+    const from=new Map([[id(...s),-1]]), qq=[s]; let end=null;
+    for(let h=0;h<qq.length&&!end;h++){ const [i,j]=qq[h]; for(let dj=-1;dj<=1&&!end;dj++) for(let di=-1;di<=1&&!end;di++){ const a=i+di, b=j+dj, k=id(a,b);
+      if((!di&&!dj)||from.has(k)||!ok(a,b)||(di&&dj&&(!ok(i+di,j)||!ok(i,j+dj)))) continue; from.set(k,id(i,j)); if(town[k]) end=k; else qq.push([a,b]); } }
+    for(let k=end, p=end==null?-1:from.get(end); k!=null&&k>=0; k=p, p=k>=0?from.get(k):-1){ F[k]=1; if(p>=0){ const i=k%n, j=(k-i)/n, i2=p%n, j2=(p-i2)/n; if(i!==i2&&j!==j2){ F[id(i,j2)]=1; F[id(i2,j)]=1; } } } } }
+
+/* ---------- the cliff: sitting down, and getting up again ---------- */
+function clWalk(ax,az){ const P=player, d=Math.hypot(P.x-ax,P.z-az); let path=null;
+  if(d>2.2||!navClear(P.x,P.z,ax,az)) path=navPath(P.x,P.z,ax,az,1.3);   // the way round, to near enough, and the last steps straight there
+  P.path=(path||[]).concat([[ax,az]]); P.tgt=null; P.stuck=0; TALK.goal=null; C.guide=null; CL.stuck=0; began(); A.tick(); }
+function clFree(){ return !!CLM&&!FIN.on&&!CUT.on&&!TALK.p&&GLN.t<0; }
+function clGoSit(){ if(!clFree()||(CL.st!=='idle'&&CL.st!=='go')) return; if(CL.k==='carry'||CL.k==='rise'||CL.k==='fly') kiteEnd(); else if(CL.k==='go') CL.k='home';
+  const [ax,az]=CLM.sitA; if(Math.hypot(player.x-ax,player.z-az)<.45){ began(); clSit(); return; } clWalk(ax,az); CL.st='go'; }
+function clGoKite(){ if(!clFree()||(CL.k!=='home'&&CL.k!=='go')) return; if(CL.st==='sat'||CL.st==='sit') clStand(); else if(CL.st==='go') CL.st='idle';
+  const [ax,az]=CLM.kiteA; if(Math.hypot(player.x-ax,player.z-az)<.45){ began(); kiteTake(); return; } clWalk(ax,az); CL.k='go'; }
+/* on the way over: there, sit down (or take the kite); set off somewhere else, and it is forgotten; held up for long, close
+   enough is close enough */
+function clGo(dt){ const P=player, gb=CL.st==='go', gk=CL.k==='go'; if(!gb&&!gk) return; const [ax,az]=gb?CLM.sitA:CLM.kiteA, d=Math.hypot(P.x-ax,P.z-az);
+  const off=()=>{ if(gb) CL.st='idle'; else CL.k='home'; }, done=()=>{ P.path=null; P.tgt=null; if(gb) clSit(); else kiteTake(); };
+  if(TALK.goal||TALK.p||(!P.path&&!P.tgt&&d>.6)) return off();
+  if(d<.3||(!P.path&&!P.tgt)) return done();
+  CL.stuck=P.speed<.25?CL.stuck+dt:Math.max(0,CL.stuck-dt);
+  if(CL.stuck>1.3){ CL.stuck=0; if(d<1.4) done(); else { P.path=null; P.tgt=null; off(); } } }
+function clSit(){ const P=player; CL.st='sit'; CL.t=0; CL.crk=false; CL.lookOn=false; P.path=null; P.tgt=null; P.speed=0; TALK.goal=null; C.guide=null;
+  /* what you were holding to walk over does not count as getting up again: it is let go of, here */
+  CL.held=new Set(CLMOVE.filter(k=>keys.has(k))); CL.held.forEach(k=>keys.delete(k)); if(down&&down.touch){ down=null; stickOff(); } look=null; }
+function clStand(){ if(CL.st!=='sat'&&CL.st!=='sit') return; const P=player; CL.st='up'; CL.t=0; CL.held.clear(); CL.arm=false; A.creak(true);
+  tang(P.u,CLM.fw,P.f); C.pitch=C.PITCH; C.dragT=0; }   // you stand facing the sea, and the town's camera picks you up from there
+/* anything that would walk you: a key (not one held since you sat down) or the stick */
+function clMoving(){ for(const k of CLMOVE) if(keys.has(k)&&!CL.held.has(k)) return true; return !!(down&&down.touch&&down.moved&&Math.hypot(down.ix,down.iz)>.15); }
+function clSeat(dt,t){ const P=player, d=me.userData; CL.t+=dt; let mv=1, sk=1;
+  if(CL.st==='sit'){ mv=E.io(clamp(CL.t/.75,0,1)); sk=sstep(.2,.8,CL.t); if(!CL.crk&&CL.t>.42){ CL.crk=true; A.creak(); } if(CL.t>=.85){ CL.st='sat'; CL.t=0; tang(P.u,CLM.fw,P.f); } }
+  else if(CL.st==='sat'){ P.speed=0; P.tgt=null; P.path=null; if(clMoving()) clStand(); }
+  if(CL.st==='up'){ mv=1-E.io(clamp((CL.t-.06)/.5,0,1)); sk=1-sstep(0,.38,CL.t); if(CL.t>=.6){ CL.st='idle'; clPoseOff(); return; } }
+  /* from where the walk left you onto the seat, turning round; then the legs swing up and dangle, the hands in the lap, and
+     the head turns a little toward wherever the view looks */
+  me.position.lerp(CLM.seatP,mv); me.quaternion.slerp(CLM.seatQ,mv);
+  if(sk<=0) return;
+  d.legs[0].rotation.x=lerp(d.legs[0].rotation.x,-1.08+Math.sin(t*1.7)*.09,sk); d.legs[1].rotation.x=lerp(d.legs[1].rotation.x,-1.08+Math.sin(t*1.7+2.2)*.09,sk);
+  for(let i=0;i<2;i++){ d.arms[i].rotation.x=lerp(d.arms[i].rotation.x,-.42,sk); d.fore[i].rotation.x=lerp(d.fore[i].rotation.x,-.95,sk); }
+  d.body.rotation.x=-.05*sk; d.head.rotation.x=-.12*sk; d.head.rotation.y=clamp(CL.look*.55,-.5,.5)*sk; }
+function clPoseOff(){ const d=me.userData; d.body.rotation.x=0; d.head.rotation.x=0; d.head.rotation.y=0; }
+/* the view from the bench: from high up behind you, over the trees that stand either side, wide out over the sea; turned toward
+   the sun if it is low (as far round as the sea goes), straight out if it is high, and toward the western horizon by night.
+   This world is small enough that from up here its horizon is well below level, so the view looks down to it, keeping you
+   on the bench low in the picture. The sun is read every frame, so the view follows it as the day moves it */
+function seatCam(dt,oP,oL){ const u=CLM.up, f=CLM.fw, l=CLM.lf, sE=SUN.dot(u);
+  cv0.copy(SUN).addScaledVector(u,-sE); let a=0; if(cv0.lengthSq()>1e-8) a=clamp(Math.atan2(cv0.dot(l),cv0.dot(f)),-CLF.lim,CLF.lim)*sstep(.75,.35,sE);
+  cv1.copy(CLWEST).addScaledVector(u,-CLWEST.dot(u)); const wa=cv1.lengthSq()>1e-8?clamp(Math.atan2(cv1.dot(l),cv1.dot(f)),-CLF.lim,CLF.lim):0;
+  a=lerp(wa,a,sstep(-.06,.04,sE));
+  if(!CL.lookOn){ CL.look=a; CL.lookOn=true; } else CL.look=damp(CL.look,a,.35,dt);
+  const port=innerHeight>innerWidth, dir=cv2.copy(f).multiplyScalar(Math.cos(CL.look)).addScaledVector(l,Math.sin(CL.look)), side=cv4.crossVectors(u,dir);
+  oP.copy(CLM.headW).addScaledVector(dir,port?-3.9:-3.4).addScaledVector(u,port?4.9:4.4).addScaledVector(side,port?.7:.9);   // (to the left: the big tree is on the right)
+  const cu=cv3.copy(oP).normalize(), dip=Math.acos(clamp((R+WATER)/oP.length(),-1,1)), pit=dip+(port?.14:.08); dir.addScaledVector(cu,-dir.dot(cu)).normalize();
+  oL.copy(oP).addScaledVector(dir,Math.cos(pit)*8).addScaledVector(cu,-Math.sin(pit)*8); }
+
+/* ---------- the cliff: the kite ---------- */
+function kiteHome(){ const m=CLM, d=me.userData; m.kite.position.copy(m.homeP); m.kite.quaternion.copy(m.homeQ); CL.rib.forEach((r,i)=>{ r.p.copy(m.home[i]); r.q.copy(m.home[i]); });
+  ribbonMesh(0,true); m.str.visible=false; m.inHand.visible=false; m.onGround.visible=true; d.arms[0].quaternion.identity(); }
+/* taken from behind the bench: carried round its end to the top of the drop, and let go there into the wind */
+function kiteTake(){ const P=player; CL.kt=0; CL.kcOn=false; CL.fl=.4; P.path=null; P.tgt=null; P.speed=0; TALK.goal=null; C.guide=null; CLM.onGround.visible=false; CLM.inHand.visible=true; A.flutter(.25,0);
+  const [ax,az]=CLM.sitA; if(Math.hypot(P.x-ax,P.z-az)<.5) return kiteRise(); CL.k='carry'; clWalk(ax,az); CL.stuck=0; }
+function kiteRise(){ const P=player; CL.k='rise'; CL.kt=0; CL.az=0; CL.el=.22; CL.vaz=CL.vel=0; CL.taz=0; CL.tel=.95; CL.L=1.4; CL.tg=.8; CL.acc=0; CL.lift=false; CL.kcOn=false; CL.pv.set(0,0,0);
+  CL.k0.copy(CLM.kite.position); CL.q0.copy(CLM.kite.quaternion); P.path=null; P.tgt=null; P.speed=0; CLM.str.visible=true; }
+function kiteEnd(){ if(CL.k!=='carry'&&CL.k!=='rise'&&CL.k!=='fly') return; CL.k='down'; CL.kt=0; CL.k0.copy(CLM.kite.position); CL.q0.copy(CLM.kite.quaternion); CL.drag=null;
+  const d=me.userData; CLM.inHand.visible=false; CLM.onGround.visible=true; d.arms[0].quaternion.identity(); d.fore[0].rotation.set(-.12,0,0); A.flutter(.45,CL.pan); }
+/* steering: across the screen sweeps it from one side of the wind to the other, up the screen climbs, down dives */
+function kiteSteer(dx,dy){ CL.taz=clamp(CL.taz+dx/innerWidth*2.6*(innerHeight>innerWidth?1.5:1),-1.2,1.2); CL.tel=clamp(CL.tel-dy/innerHeight*2.4,.14,1.15); }
+/* the wind where you stand: W the way it blows (out to sea), U up, Rt your right as you face it */
+const kW=new T.Vector3(), kU=new T.Vector3(), kRt=new T.Vector3(), kO=new T.Vector3(), kTel=new T.Vector3(), kTaz=new T.Vector3(), kVt=new T.Vector3(), kN=new T.Vector3(), kNf=new T.Vector3(), kHand=new T.Vector3(), kAt=new T.Vector3();
+function kiteUpdate(dt,t){ const P=player, K=CLM.kite, d=me.userData; CL.kt+=dt;
+  kU.copy(P.u); tang(kU,CLM.fw,kW); kRt.crossVectors(kW,kU);
+  kO.copy(P.u).multiplyScalar(R+P.h+1.12).addScaledVector(kW,.15);   // where the line runs from: about your hand, held up
+  if(CL.k==='carry'){
+    if(clMoving()||TALK.goal) return kiteEnd();   // you set off somewhere else: it goes back
+    const [ax,az]=CLM.sitA; CL.stuck=P.speed<.25?CL.stuck+dt:Math.max(0,CL.stuck-dt);
+    if(Math.hypot(P.x-ax,P.z-az)<.3||(!P.path&&!P.tgt)||CL.stuck>1.3){ P.path=null; P.tgt=null; kiteRise(); }
+    else { /* in your right hand, upright at your side, its face turned out */
+      const a=d.arms[0]; a.rotation.x=-.18; a.rotation.z=-.22; d.fore[0].rotation.set(-.55,0,0); me.updateMatrixWorld(true); d.fore[0].localToWorld(kHand.set(0,-.2,.045));
+      K.quaternion.copy(me.quaternion).multiply(cq1.setFromEuler(ce0.set(0,-Math.PI/2,0)));
+      K.position.copy(kHand).addScaledVector(cv0.set(0,1,0).applyQuaternion(me.quaternion),.47).addScaledVector(cv1.set(-1,0,0).applyQuaternion(me.quaternion),.09);
+      CL.kx.set(1,0,0).applyQuaternion(K.quaternion); CL.kz.set(0,0,1).applyQuaternion(K.quaternion); }
+  }
+  if(CL.k==='rise'||CL.k==='fly'){
+    if(clMoving()||TALK.goal) return kiteEnd();   // you walk off: it comes down
+    const rk=CL.k==='rise'?E.o(clamp(CL.kt/1.9,0,1)):1; CL.L=lerp(1.4,7.2,rk);   // the line pays out as it climbs
+    if(CL.k==='rise'){ if(!CL.lift&&CL.kt>.2){ CL.lift=true; A.lift(); } if(CL.kt>=1.9) CL.k='fly'; }
+    /* let go, and it settles where the wind holds it: back toward the middle, and up off the water */
+    if(!CL.drag&&CL.k==='fly'){ CL.taz=damp(CL.taz,0,.3,dt); CL.tel=damp(CL.tel,clamp(CL.tel,.7,1.05),.6,dt); }
+    /* where your hand asks it to be, and where it is: a spring a moment behind, that overshoots a little in a swoop */
+    const w=4.2, z=.6; CL.vaz+=(w*w*(CL.taz-CL.az)-2*z*w*CL.vaz)*dt; CL.vel+=(w*w*(CL.tel-CL.el)-2*z*w*CL.vel)*dt; CL.az+=CL.vaz*dt; CL.el+=CL.vel*dt;
+    let hit=0;   // the edges of the wind: low over the water, high overhead, far out to the sides
+    if(CL.el<.14){ hit=-CL.vel; CL.el=.14; CL.vel=Math.abs(CL.vel)*.25; } if(CL.el>1.2){ CL.el=1.2; CL.vel=-Math.abs(CL.vel)*.25; }
+    if(Math.abs(CL.az)>1.22){ hit=Math.max(hit,Math.abs(CL.vaz)*CL.L*.3); CL.az=Math.sign(CL.az)*1.22; CL.vaz*=-.25; }
+    const sp=Math.hypot(CL.vaz*Math.cos(CL.el),CL.vel)*CL.L, wb=.03+.03*clamp(sp/6,0,1);   // its speed through the air; and the wind is never quite steady
+    const az=CL.az+wb*(Math.sin(t*1.3)+.6*Math.sin(t*3.4+1.7)), el=CL.el+wb*.8*(Math.sin(t*1.05+2.3)+.6*Math.sin(t*2.7+.4)), ce=Math.cos(el), se=Math.sin(el), ca=Math.cos(az), sa=Math.sin(az);
+    cv0.copy(kW).multiplyScalar(ce*ca).addScaledVector(kRt,ce*sa).addScaledVector(kU,se); const pos=cv1.copy(kO).addScaledVector(cv0,CL.L);
+    /* which way it points: up off the line while it hangs there, into the turn as it swoops; its face to you */
+    kTel.copy(kW).multiplyScalar(-se*ca).addScaledVector(kRt,-se*sa).addScaledVector(kU,ce); kTaz.copy(kW).multiplyScalar(-sa).addScaledVector(kRt,ca);
+    kVt.copy(kTaz).multiplyScalar(CL.vaz*CL.L*ce).addScaledVector(kTel,CL.vel*CL.L);
+    kNf.subVectors(kO,pos).normalize(); kN.copy(kTel).addScaledVector(kVt,.8/(sp+.8)); kN.addScaledVector(kNf,-kN.dot(kNf)).normalize();
+    cv2.crossVectors(kN,kNf); cq0.setFromRotationMatrix(cm0.makeBasis(cv2,kN,kNf)).multiply(cq1.setFromEuler(ce0.set(0,.16*Math.sin(t*1.9),.1*Math.sin(t*2.3)+.05*Math.sin(t*5.1))));   // and it rocks a little
+    if(CL.k==='rise'){ const b=sstep(0,.8,CL.kt); K.position.lerpVectors(CL.k0,pos,b); K.quaternion.slerpQuaternions(CL.q0,cq0,b); }
+    else { K.position.copy(pos); K.quaternion.copy(cq0); }
+    /* the pull on the string: a tug when it changes course hard, or reaches the edge of the wind; the cloth flaps as fast as it flies */
+    cv4.copy(kVt).sub(CL.pv); CL.pv.copy(kVt); CL.acc=damp(CL.acc,cv4.length()/Math.max(dt,1e-3),10,dt); CL.sp=sp;
+    cv5.copy(K.position).project(stCam); CL.pan=clamp(cv5.x*.7,-.7,.7);
+    CL.tg-=dt; if(CL.k==='fly'&&CL.tg<=0&&(CL.acc>7||hit>1.2)){ A.tug(clamp(Math.max((CL.acc-7)/18,hit/4),0,1),CL.pan); CL.tg=.32; }
+    CL.fl-=dt; if(CL.fl<=0){ const k=clamp(sp/7,0,1); A.flutter(.12+.88*k,CL.pan); CL.fl=k>.15?.13+.3*(1-k)+Math.random()*.06:1.1+Math.random()*1.4; }
+    /* you face it, and hold the string up toward it */
+    tang(P.u,cv6.subVectors(K.position,kO),cv7); const s=cv0.crossVectors(P.f,cv7).dot(P.u), c=P.f.dot(cv7); rot(P.f,P.u,clamp(Math.atan2(s,c),-4*dt,4*dt));
+    const arm=d.arms[0]; me.updateMatrixWorld(true); arm.parent.worldToLocal(cv6.copy(K.position)).sub(arm.position).normalize();
+    arm.quaternion.setFromUnitVectors(CLDOWN,cv6.lerp(CLDOWN,.25).normalize()); d.fore[0].rotation.set(-.3,0,0); me.updateMatrixWorld(true); d.fore[0].localToWorld(kHand.set(0,-.2,.045));
+    CL.kx.copy(cv2); CL.kz.copy(kNf);
+    kAt.copy(K.position).addScaledVector(kNf,.13).addScaledVector(kN,-.06);   // the bridle, where the string ties on
+  } else if(CL.k==='down'){
+    /* it drifts down like a leaf, swaying, and is reeled in to its place by the bench */
+    const u=clamp(CL.kt/2.6,0,1), e=sstep(0,1,u);
+    K.position.lerpVectors(CL.k0,CLM.homeP,e).addScaledVector(kU,.9*Math.sin(Math.PI*u)*(1-u)).addScaledVector(kRt,Math.sin(u*Math.PI*2.5)*.5*(1-e));
+    K.quaternion.slerpQuaternions(CL.q0,CLM.homeQ,sstep(.3,1,u)).multiply(cq0.setFromAxisAngle(cv0.set(0,0,1),.35*Math.sin(u*Math.PI*3)*(1-u)));
+    CL.kx.set(1,0,0).applyQuaternion(K.quaternion); CL.kz.set(0,0,1).applyQuaternion(K.quaternion);
+    kHand.copy(CLM.reelW); kAt.copy(K.position).addScaledVector(CL.kz,.13);
+    CL.fl-=dt; if(CL.fl<=0&&u<.85){ A.flutter(.3*(1-u),CL.pan); CL.fl=.35+Math.random()*.3; }
+    if(u>=1){ CL.k='home'; kiteHome(); A.step(0); return; }
+  }
+  /* the ribbon: each piece follows the one before it, blown out with the wind and down a little, rippling, and never below the
+     grass it lies on */
+  const rb=CL.rib, tip=cv0.set(0,-.62,0).applyQuaternion(K.quaternion).add(K.position), dd=Math.min(dt,.05), hm=CL.k==='down'?sstep(.62,1,CL.kt/2.6):0, fl=CL.k==='carry'?.25:1;
+  rb[0].p.copy(tip);
+  for(let i=1;i<rb.length;i++){ const r=rb[i]; cv1.subVectors(r.p,r.q).multiplyScalar(.9); r.q.copy(r.p); r.p.add(cv1).addScaledVector(kW,4.2*fl*dd*dd).addScaledVector(kU,-2.6*dd*dd).addScaledVector(CL.kx,Math.sin(t*8-i*.7)*1.6*fl*dd*dd*i/rb.length); }
+  for(let it=0;it<3;it++) for(let i=1;i<rb.length;i++){ const a=rb[i-1].p, b=rb[i].p; cv1.subVectors(b,a); const l=cv1.length()||1e-6; b.copy(a).addScaledVector(cv1,.12/l); }
+  for(let i=1;i<rb.length;i++){ const p=rb[i].p, r=p.length(); if(r<R+.016) p.multiplyScalar((R+.016)/r); }
+  if(hm>0) for(let i=1;i<rb.length;i++) rb[i].p.lerp(CLM.home[i],hm);
+  ribbonMesh(t,false);
+  CLM.str.visible=CL.k==='rise'||CL.k==='fly'||(CL.k==='down'&&CL.kt<2.5); }
+/* the ribbon's strip: twisting as it ripples while it flies, flat on the grass at home */
+function ribbonMesh(t,flat){ const rb=CL.rib, n=rb.length, a=CLM.rib.geometry.attributes, P_=a.position.array, N_=a.normal.array;
+  for(let i=0;i<n;i++){ const p=rb[i].p; cv4.subVectors(rb[Math.min(n-1,i+1)].p,rb[Math.max(0,i-1)].p).normalize();
+    if(flat) cv5.crossVectors(CLM.up,cv4); else { const ph=.9*Math.sin(t*3.3-i*.5); cv5.copy(CL.kx).multiplyScalar(Math.cos(ph)).addScaledVector(CL.kz,Math.sin(ph)); }
+    cv5.addScaledVector(cv4,-cv5.dot(cv4)).normalize(); cv6.crossVectors(cv4,cv5); const w=.036*(1-.3*i/n);
+    for(let s=0;s<2;s++){ const k=(i*2+s)*3, g=s?-w:w; P_[k]=p.x+cv5.x*g; P_[k+1]=p.y+cv5.y*g; P_[k+2]=p.z+cv5.z*g; N_[k]=cv6.x; N_[k+1]=cv6.y; N_[k+2]=cv6.z; } }
+  a.position.needsUpdate=true; a.normal.needsUpdate=true; }
+/* the string's strip, from your hand (or the reel) to the kite, sagging when it is slack, about one and a half pixels wide */
+function stringMesh(){ const a=CLM.str.geometry.attributes.position, A_=a.array, cam=st.camP, pxw=2*Math.tan(stCam.fov*Math.PI/360)/innerHeight*.8;
+  const L=kHand.distanceTo(kAt), sag=L*(.05-.03*clamp(CL.sp/5,0,1));
+  for(let i=0;i<CLNS;i++){ const s=i/(CLNS-1); cv4.lerpVectors(kHand,kAt,s).addScaledVector(kU,-sag*4*s*(1-s));
+    cv5.subVectors(kAt,kHand).normalize(); cv6.subVectors(cv4,cam); const w=Math.max(.0025,cv6.length()*pxw); cv6.cross(cv5).normalize().multiplyScalar(w);
+    A_[i*6]=cv4.x+cv6.x; A_[i*6+1]=cv4.y+cv6.y; A_[i*6+2]=cv4.z+cv6.z; A_[i*6+3]=cv4.x-cv6.x; A_[i*6+4]=cv4.y-cv6.y; A_[i*6+5]=cv4.z-cv6.z; }
+  a.needsUpdate=true; }
+/* the camera while you fly it: up behind you looking down a little, turned partly toward the kite, and as far back as it needs
+   to be to have you both in the picture (worked out from how far apart you are across it and up it, against its field of view) */
+function kiteCam(dt,oP,oL){ const P=player, port=innerHeight>innerWidth, U=P.u, hd=cv4.copy(U).multiplyScalar(R+P.h+1), K=CLM.kite.position, tg=cvL.copy(hd).lerp(K,.5);
+  tang(U,cv5.subVectors(K,hd),cv6); const cd=cv5.copy(kW).lerp(cv6,port?.7:.45).normalize(), ph=.32;
+  const v=cv6.copy(cd).multiplyScalar(Math.cos(ph)).addScaledVector(U,-Math.sin(ph)), sr=cv7.crossVectors(v,U).normalize(), su=cv3.crossVectors(sr,v), s=cv2.subVectors(K,hd);
+  const vf=stCam.fov*Math.PI/360, hf=Math.atan(Math.tan(vf)*innerWidth/innerHeight), ex=Math.abs(s.dot(sr))/2, ey=Math.abs(s.dot(su))/2, ez=Math.abs(s.dot(v))/2;
+  cvP.copy(tg).addScaledVector(v,-clamp(ez+Math.max(ey/Math.tan(vf*.74),ex/Math.tan(hf*.74))+.8,4.5,18));
+  if(!CL.kcOn){ CL.kcP.copy(cvP); CL.kcL.copy(tg); CL.kcOn=true; } else { CL.kcP.lerp(cvP,1-Math.exp(-2.5*dt)); CL.kcL.lerp(tg,1-Math.exp(-3.5*dt)); }
+  oP.copy(CL.kcP); oL.copy(CL.kcL); }
+
+/* ---------- the cliff, each frame: after the town has moved you and placed its camera ---------- */
+function cliffUpdate(dt,t){ if(!CLM) return; dt=Math.min(dt,.05); const P=player;
+  if(FIN.on||CUT.on){ if(CL.st!=='idle'||CL.k!=='home'||CL.ws>0||CL.wk>0) clReset(); clTagsUpdate(false); return; }
+  /* someone talks to you, or the camera goes over to Ahroon: you are up and the kite comes down */
+  if(TALK.p||GLN.t>=0){ clStand(); kiteEnd(); if(CL.st==='go') CL.st='idle'; if(CL.k==='go') CL.k='home'; }
+  else if(TALK.goal) clStand();   // their name clicked while you sit: you get up and go over
+  clGo(dt);
+  /* walking into the bench, from in front or round an end (not over its back), sits you down */
+  /* (once you have got up, only after you have stepped away from it: getting up and setting off is not walking into it) */
+  { const bx=P.x-CLF.x, bz=P.z-CLF.z, lx=bx*CLM.lx+bz*CLM.lz, lz=bx*CLM.fx+bz*CLM.fz, sx=clamp(lx,-.38,.38), dd=Math.hypot(lx-sx,lz); if(dd>1.3) CL.arm=true;
+  if(CL.arm&&CL.st==='idle'&&CL.k==='home'&&!P.path&&!TALK.goal&&P.speed>.4){
+    if(lz>-.3&&dd<.74&&P.f.dot(cv0.copy(CLM.bW).addScaledVector(CLM.lf,sx).sub(cv1.copy(P.u).multiplyScalar(R)).normalize())>.3){ began(); clSit(); } } }
+  if(CL.st==='sit'||CL.st==='sat'||CL.st==='up') clSeat(dt,t);
+  if(CL.k==='carry'||CL.k==='rise'||CL.k==='fly'||CL.k==='down') kiteUpdate(dt,t);
+  /* the camera: the view from the bench, or the kite and you, eased in slowly and handed back a little quicker */
+  const sitW=CL.st==='sat'||(CL.st==='sit'&&CL.t>.35)?1:0, kW_=CL.k==='rise'||CL.k==='fly'?1:0;
+  const ws=sitW?1.25:2.4, wk=2.1;
+  CL.vs+=(ws*ws*(sitW-CL.ws)-2*ws*CL.vs)*dt; CL.ws+=CL.vs*dt; if(CL.ws>=1){ CL.ws=1; CL.vs=Math.min(0,CL.vs); } if(CL.ws<=.001&&!sitW){ CL.ws=0; CL.vs=0; CL.lookOn=false; }
+  CL.vk+=(wk*wk*(kW_-CL.wk)-2*wk*CL.vk)*dt; CL.wk+=CL.vk*dt; if(CL.wk>=1){ CL.wk=1; CL.vk=Math.min(0,CL.vk); } if(CL.wk<=.001&&!kW_){ CL.wk=0; CL.vk=0; CL.kcOn=false; }
+  if(GLN.t>=0){ CL.ws=CL.vs=CL.wk=CL.vk=0; }
+  if(CL.ws>0){ seatCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.ws); st.camL.lerp(cvL,CL.ws); LU.uPly.value.lerp(st.camP,CL.ws);   // (nothing stands between: nothing is cut away)
+    stCam.fov+=6*CL.ws; stCam.updateProjectionMatrix();   // and a little wider (the town sets it back each frame)
+    if(CL.ws>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }   // the town's camera, out of sight, turns to look the same way, so giving it back is a short move
+  if(CL.wk>0){ kiteCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.wk); st.camL.lerp(cvL,CL.wk); if(CL.wk>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }
+  if(CLM.str.visible) stringMesh();
+  if(CL.hov&&(CL.st!=='idle'||CL.k!=='home')) clHover(null);   // the cursor's word goes once the bench or the kite is in use
+  const vw=CL.ws>.5; if(vw!==CL.view){ CL.view=vw; el.classList.toggle('clview',vw); }   // while you take in the view, the name tags step aside
+  clTagsUpdate(true); }
+/* back to how it was: entering or leaving Earth, and when the last flight begins */
+function clReset(){ if(!CLM) return; CL.st='idle'; CL.k='home'; CL.ws=CL.vs=CL.wk=CL.vk=0; CL.view=false; el.classList.remove('clview'); CL.drag=null; CL.tap=null; CL.held.clear(); CL.lookOn=false; CL.kcOn=false;
+  kiteHome(); me.userData.arms[0].quaternion.identity(); clPoseOff(); }
+{ const en=st.enter, ex=st.exit; st.enter=function(){ clReset(); return en.apply(this,arguments); }; st.exit=function(){ clReset(); clTagsUpdate(false); return ex.apply(this,arguments); }; }
+
+/* ---------- the cliff: tags, clicks, drags and keys ---------- */
+/* a tag over each when you are near, like the ones over the three of us: it says what to do there, and takes a click */
+{ const s=document.createElement('style'); s.textContent='.st-cr.clview #crLabels{opacity:0;transition:opacity .6s}.st-cr.clview #crLabels>*{pointer-events:none!important}'; document.head.appendChild(s); }
+const clTags=['Sit','Kite'].map((s,i)=>{ const e=document.createElement('span'); e.className='crl ui'; e.textContent=s; $('#crLabels',el).appendChild(e);
+  e.addEventListener('click',ev=>{ ev.stopPropagation(); if(S.st===st&&S.mode==='station') (i?clGoKite:clGoSit)(); }); return {e,on:false,can:false}; });
+function clTagsUpdate(live){ const P=player, free=live&&CLM&&clFree()&&CL.st==='idle'&&CL.k==='home';
+  clTags.forEach((g,i)=>{ let on=false, can=false;
+    const [x,z]=i?CLM.kb:CLM.b, d=free?Math.hypot(P.x-x,P.z-z):99;
+    if(d<7){ cv0.copy(i?CLM.tagK:CLM.tagB).project(stCam); on=cv0.z<1&&Math.abs(cv0.x)<.95&&Math.abs(cv0.y)<.95; can=d<(i?2.4:2.6);
+      if(on) g.e.style.transform=`translate(${((cv0.x*.5+.5)*innerWidth).toFixed(1)}px,${((-cv0.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
+    if(on!==g.on){ g.on=on; g.e.classList.toggle('on',on); } if(can!==g.can){ g.can=can; g.e.classList.toggle('can',can); } }); }
+/* what a click is on: the bench, the kite (at home), or neither; never through the ground on the far side of the world */
+const clRay=new T.Raycaster(), clBall=new T.Sphere(new T.Vector3(),R-.3), clHits=[];
+function clPick(e){ if(!CLM) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); clRay.setFromCamera(ndc,stCam);
+  const g=clRay.ray.intersectSphere(clBall,cv7)?clRay.ray.origin.distanceTo(cv7):1e9; let best=null, bd=g;
+  for(const [id,m] of [['bench',CLM.hitB],['kite',CLM.hitK]]){ if(id==='kite'&&CL.k!=='home') continue; clHits.length=0; m.raycast(clRay,clHits); for(const h of clHits) if(h.distance<bd){ bd=h.distance; best=id; } }
+  return best; }
+/* the station's own handler goes on doing what it did; while the kite flies every touch is the kite's, and sitting, a touch
+   first stands you up */
+{ const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&clDown(e)) return; return op.call(this,e); }; }
+function clDown(e){ CL.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p,stood:false};
+  if(CL.k==='rise'||CL.k==='fly'){ if(!CL.drag) CL.drag={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return true; }
+  if(CL.st==='sat'||CL.st==='sit'){ clStand(); CL.tap.stood=true; }
+  return false; }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return; const tp=CL.tap, dr=CL.drag;
+  if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
+  if(dr&&e.pointerId===dr.id&&e.pointerType==='mouse'&&!e.buttons){ CL.drag=null; return; }   // (a button let go of outside the window)
+  if(dr&&e.pointerId===dr.id){ kiteSteer(e.clientX-dr.lx,e.clientY-dr.ly); dr.lx=e.clientX; dr.ly=e.clientY; }
+  else if(e.pointerType==='mouse'&&!down&&!dr&&!look) clHover(e); },{passive:true});
+addEventListener('pointerup',e=>{ const tp=CL.tap, dr=CL.drag; if(dr&&e.pointerId===dr.id) CL.drag=null; if(!tp||e.pointerId!==tp.id) return; CL.tap=null;
+  if(S.st!==st||S.mode!=='station'||CUT.on||FIN.on||tp.moved||tp.talk||tp.stood) return;
+  const flying=CL.k==='rise'||CL.k==='fly'; if(flying) kiteEnd();   // a click while it flies brings it down
+  const p=pickPerson(e); if(p){ if(flying) goTalk(p); return; }   // (otherwise the station's own handler has already seen to them)
+  const h=clPick(e); if(h==='bench') clGoSit(); else if(h==='kite'&&!flying) clGoKite(); });
+addEventListener('pointercancel',e=>{ if(CL.drag&&e.pointerId===CL.drag.id) CL.drag=null; if(CL.tap&&e.pointerId===CL.tap.id) CL.tap=null; });
+/* the mouse over the bench or the kite: the cursor says what a click does there */
+function clHover(e){ const h=e&&CLM&&clFree()&&CL.st==='idle'&&CL.k==='home'&&!hov&&Math.hypot(player.x-CLF.x,player.z-CLF.z)<22?clPick(e):null;
+  if(h===CL.hov) return; CL.hov=h; const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return;
+  if(h){ ct.textContent=h==='bench'?'Sit':'Fly the kite'; ce.classList.add('big'); } else if(!hov) ce.classList.remove('big'); }
+/* keys: sitting, any key stands you up (one held since you sat down does not count, and its repeats are kept from walking
+   you); flying, E, Space, Enter or Escape bring it down; and E or Enter beside the bench or the kite, with nobody there to
+   talk to, sits you down or takes it */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||!CLM) return; const k=e.code, act=k==='Escape'||k==='KeyE'||k==='Enter'||k==='Space';
+  const typing=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
+  if(CL.st==='sat'||CL.st==='sit'){ if(CL.held.has(k)){ if(e.repeat) e.stopImmediatePropagation(); return; } if(/^(Shift|Control|Alt|Meta|Tab)/.test(k)) return;
+    clStand(); if(act&&!typing){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  if(CL.k==='rise'||CL.k==='fly'){ if(act&&!typing){ kiteEnd(); e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  if((k==='KeyE'||k==='Enter')&&!e.repeat&&!typing&&clFree()){ const P=player, db=Math.hypot(P.x-CLF.x,P.z-CLF.z), dk=Math.hypot(P.x-CLM.kb[0],P.z-CLM.kb[1]);
+    if(CL.k==='home'&&dk<2.4&&dk<db){ clGoKite(); e.preventDefault(); e.stopImmediatePropagation(); }
+    else if(CL.st==='idle'&&db<2.6){ clGoSit(); e.preventDefault(); e.stopImmediatePropagation(); } } },true);
+addEventListener('keyup',e=>{ CL.held.delete(e.code); });
+addEventListener('wheel',()=>{ if(S.st===st&&S.mode==='station'&&(CL.st==='sat'||CL.st==='sit')) clStand(); },{passive:true});   // (the wheel too)
+st._dbg.cliff={CL,get M(){ return CLM; },F:CLF,WEST:CLWEST,goSit:()=>clGoSit(),goKite:()=>clGoKite(),sit:()=>clSit(),stand:()=>clStand(),take:()=>kiteTake(),end:()=>kiteEnd(),steer:(dx,dy)=>kiteSteer(dx,dy),pick:e=>clPick(e),reset:()=>clReset(),tags:clTags};
 })();
 
 /* ===== station be ===== */

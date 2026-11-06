@@ -55,6 +55,8 @@ conversation finishes with a photo and a link, and a board outside the café boo
   December it snows) with a rainbow after, or sea fog rolls in with a foghorn; the trees turn in autumn and blossom in
   spring, and there are fairy lights at Christmas and pumpkins at Halloween. To see any of it now, open
   `/untamed/?time=21:30#land` (or `?date=12-24`, `?weather=fog`, together with `&`).
+- Out on the cliff there is a bench: sit down and the camera settles on the view over the sea, toward the sun. A kite
+  leans on it; pick it up and fly it, steering it with your hand.
 - By the lighthouse you can take the light and steer it over the water. The beam lights whatever it crosses and thins
   the fog, and a drone that has lost its way locks onto it and follows it home: Pharos in small.
 - At the start of the walk the stepping stones answer your hand: they tip toward it, ring the water and light up
@@ -103,8 +105,9 @@ listen to every stage and report how loud it is, and `untamed/test/leave.cjs` ch
 page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk. Each game has its own full
 check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
-the drone home, `postcard.cjs` takes a postcard, and `weather-sound.cjs` (with `--meter`) listens to the rain, the
-crickets and the foghorn; any of them takes `--query date=12-24` and the like.
+the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `postcard.cjs` takes a postcard, and
+`weather-sound.cjs` (with `--meter`) listens to the rain, the crickets and the foghorn; any of them takes
+`--query date=12-24` and the like.
 </details>
 
 <br>

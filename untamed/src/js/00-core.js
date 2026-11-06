@@ -344,6 +344,31 @@ const A=(()=>{
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
     /* Earth's music (see MUS above): music(v) sets its level; call it every frame while it should play */
     music(v){ MUS.want=clamp((v||0)/.55,0,1); },
+    /* ---------- the cliff on Earth: a bench and a kite. Each sound is short and soft, a tone or a narrow band, never a bed of noise ---------- */
+    /* the bench taking your weight: a dry creak of old wood, a slow buzz through the hollow ring of a plank (soft: getting up) */
+    creak(soft=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.08), d=soft?.24:.4, g=soft?.13:.22;
+      const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(46*v,t0); o.frequency.linearRampToValueAtTime(72*v,t0+d*.4); o.frequency.linearRampToValueAtTime(54*v,t0+d);
+      const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=860*v; b.Q.value=4.5; const a=ctx.createGain();
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.025); a.gain.setValueAtTime(g*.85,t0+d*.55); a.gain.exponentialRampToValueAtTime(.0001,t0+d);
+      o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+d+.05); },
+    /* the kite's cloth in the wind: a few quick flaps, low and muffled, quicker and louder the harder it flies (k from 0 to 1);
+       p places it left or right */
+    flutter(k=.5,p=0){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const t0=ctx.currentTime, n0=2+Math.round(k*3+Math.random()*.8), sp=.062-.024*k, g=(.08+.2*k)*vr(.15);
+      const s=shot(), b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=(380+300*k)*vr(.1); b.Q.value=1.3;
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200; const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); let ti=t0;
+      for(let i=0;i<n0;i++){ const gi=g*(1-i/(n0+1)); a.gain.setValueAtTime(0,ti); a.gain.linearRampToValueAtTime(gi,ti+.005); a.gain.exponentialRampToValueAtTime(gi*.03+1e-5,ti+sp*.7); ti+=sp*(.85+Math.random()*.3); }
+      let dst=comp; if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      s.connect(b); b.connect(lp); lp.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(ti+.05); },
+    /* the string pulled taut: a short plucked note in the town's key, higher the harder the pull (k from 0 to 1), over a soft
+       low thump; p places it left or right */
+    tug(k=.5,p=0){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const t0=ctx.currentTime, f=inKey(220*Math.pow(2,k*1.2)*vr(.03)), g=.014+.022*k; let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.2; pn.connect(sg); sg.connect(revIn); dst=pn; }
+      [[f,'triangle',.34,g,.004,1],[f*2,'sine',.14,g*.35,.003,1],[105,'sine',.11,g*.9,.006,.65]].forEach(([fr,ty,d,gg,at,dn])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type=ty;
+        o.frequency.setValueAtTime(dn<1?fr:fr*1.01,t0); o.frequency.exponentialRampToValueAtTime(fr*dn,t0+(dn<1?d:.04));
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(gg,t0+at); a.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(a); a.connect(dst); o.start(t0); o.stop(t0+d+.05); }); },
+    /* the kite taking the wind: a soft breath rising under three notes climbing in the town's key */
+    lift(){ if(!on||muted||!ctx) return; noise(1,.06,240,760,'bandpass',.9,0,.25);
+      [392,523.25,659.25].forEach((f,i)=>{ tone(f,1.1,.018,'sine',0,.08+i*.15,.5,.02); tone(f*2,.4,.005,'sine',0,.08+i*.15,.3,.01); }); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
@@ -422,15 +447,6 @@ const A=(()=>{
     beep(f=880){ tone(f*vr(.015),.07,.035,'square'); },
     dock(){ const v=vr(.03); tone(587*v,.7,.06,'sine',0,0,.5); tone(880*v,1,.05,'sine',0,.12,.5); },
     key(){ tone(1800+Math.random()*900,.025,.01,'triangle'); },
-    /* formant voice: syllables shaped by three resonances. who: 0 buyer, 1 you */
-    voice(who){ if(!ctx) return null; const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=who?118:182;
-      const g=ctx.createGain(); g.gain.value=0; const bs=[0,1,2].map(k=>{const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=who?7:9; b.frequency.value=[700,1200,2600][k]; o.connect(b); const bg=ctx.createGain(); bg.gain.value=[1,.7,.32][k]; b.connect(bg); bg.connect(g); return b;});
-      g.connect(comp); const sg=ctx.createGain(); sg.gain.value=.25; g.connect(sg); sg.connect(revIn); o.start();
-      return {o,g,bs, syl(dur,pitch,vowel){ const t0=ctx.currentTime; const F=[[730,1090,2440],[530,1840,2480],[270,2290,3010],[570,840,2410],[440,1020,2240],[660,1720,2410]][vowel%6];
-          bs.forEach((b,k)=>b.frequency.setTargetAtTime(F[k]*(who?.92:1.08),t0,.02)); o.frequency.setTargetAtTime(pitch,t0,.03);
-          g.gain.cancelScheduledValues(t0); g.gain.setTargetAtTime(on&&!muted?.16:0,t0,.012); g.gain.setTargetAtTime(0,t0+dur*.8,.03); },
-        hold(v,pitch){ const t0=ctx.currentTime; g.gain.setTargetAtTime(v*(on&&!muted?.13:0),t0,.03); if(pitch) o.frequency.setTargetAtTime(pitch,t0,.05); },
-        stop(){ try{ g.gain.setTargetAtTime(0,ctx.currentTime,.02); o.stop(ctx.currentTime+.2); }catch(e){} } }; }
   };
 })();
 function sndUI(){}
