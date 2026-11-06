@@ -259,8 +259,8 @@ const A=(()=>{
       const nb0=oc.createBuffer(1,Math.floor(oc.sampleRate*.05),oc.sampleRate), nd=nb0.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=(rnd()*2-1)*Math.pow(1-i/nd.length,3);
       for(let t=.02;t<L;t+=.01+rnd()*.032){ if(rnd()<.7){ const o=oc.createOscillator(), a=oc.createGain(), f=1700+rnd()*3600;
           o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*(.68+rnd()*.2),t+.03);
-          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.012+rnd()*.022,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
-        else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.08+rnd()*.1;
+          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.034+rnd()*.06,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
+        else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.22+rnd()*.26;
           s.connect(bp); bp.connect(a); a.connect(lp); s.start(t); } } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   let making=!!OAC;
@@ -328,7 +328,7 @@ const A=(()=>{
     cricket(p){ if(!on||muted||!ctx) return; const f=4300+Math.random()*600, n0=3+Math.floor(Math.random()*3); let pn=null;
       if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); }
       for(let k=0;k<n0;k++){ const t0=ctx.currentTime+k*.052, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*vr(.01);
-        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.009,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.035); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.05); } },
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.014,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.035); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.05); } },
     foghorn(g=.05){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, a=ctx.createGain(), lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700; lp.Q.value=.8;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.3); a.gain.setValueAtTime(g,t0+1.5); a.gain.exponentialRampToValueAtTime(.0001,t0+2.4);
       [[98,1],[147,.55],[196,.3]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(f*.96,t0); o.frequency.linearRampToValueAtTime(f,t0+.25); const kg=ctx.createGain(); kg.gain.value=k; o.connect(kg); kg.connect(lp); o.start(t0); o.stop(t0+2.5); });
@@ -4937,7 +4937,7 @@ function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
   if(XMAS){ XMAS.t+=dt; if(XMAS.t>.5){ XMAS.t=0; const k=.55+.45*nt; for(let i=0;i<XMAS.n;i++){ const c=XMAS.CL[(i+Math.floor(t*2))%4]; XMAS.m.setColorAt(i,V.set(c.r*k,c.g*k,c.b*k)); } XMAS.m.instanceColor.needsUpdate=true; } }
   PUMPS.forEach(m=>m.uniforms.uC.value.setRGB(lerp(.23,1,nt),lerp(.14,.72,nt),lerp(.07,.25,nt)));
   /* the foghorn, from the lighthouse when there is one, out at sea when not */
-  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.05*clamp(1.2-d0/24,.25,1)); } } }
+  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.1*clamp(1.3-d0/30,.55,1)); } } }
 /* ---------- the lighthouse: take the light and steer it ----------
    By the lighthouse you can take the light: drag (or the arrow keys) turns the beam out over the water, the camera up on
    the gallery behind it. The beam lights whatever it falls on and thins the fog along it, so at night and in fog it is

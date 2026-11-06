@@ -871,7 +871,7 @@ function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
   if(XMAS){ XMAS.t+=dt; if(XMAS.t>.5){ XMAS.t=0; const k=.55+.45*nt; for(let i=0;i<XMAS.n;i++){ const c=XMAS.CL[(i+Math.floor(t*2))%4]; XMAS.m.setColorAt(i,V.set(c.r*k,c.g*k,c.b*k)); } XMAS.m.instanceColor.needsUpdate=true; } }
   PUMPS.forEach(m=>m.uniforms.uC.value.setRGB(lerp(.23,1,nt),lerp(.14,.72,nt),lerp(.07,.25,nt)));
   /* the foghorn, from the lighthouse when there is one, out at sea when not */
-  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.05*clamp(1.2-d0/24,.25,1)); } } }
+  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.1*clamp(1.3-d0/30,.55,1)); } } }
 /* ---------- the lighthouse: take the light and steer it ----------
    By the lighthouse you can take the light: drag (or the arrow keys) turns the beam out over the water, the camera up on
    the gallery behind it. The beam lights whatever it falls on and thins the fog along it, so at night and in fog it is

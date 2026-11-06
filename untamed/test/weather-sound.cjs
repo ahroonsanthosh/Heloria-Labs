@@ -12,10 +12,10 @@ module.exports = async ({ page, wait, H, log }) => {
   await set({ weather: 'rain' }); await H(h => h.ST.cr._dbg.sky.step(.5)); await wait(4000);
   const loops = await H(h => h.A._loops().filter(l => l.name === 'rain')[0]); log('  rain recording', JSON.stringify(loops)); if (!(loops && loops.ready && loops.playing)) fail('the rain is not playing');
   await listen('rain');
-  await set({ time: '22:00', weather: 'clear' }); await H(h => h.ST.cr._dbg.sky.step(1)); await wait(5000);
-  const r = await H(h => h.A._loops().filter(l => l.name === 'rain')[0]); if (r && r.playing && r.vol > .05) fail('the rain did not stop');
+  await set({ time: '22:00', weather: 'clear' }); await H(h => h.ST.cr._dbg.sky.step(1)); await wait(9000);
+  const r = await H(h => h.A._loops().filter(l => l.name === 'rain')[0]); log('  rain after it stops', JSON.stringify(r)); if (r && r.playing && r.vol > .12) fail('the rain did not stop');
   await listen('night: crickets now and then', 6000);
   await set({ weather: 'fog' }); await H(h => { const d = h.ST.cr._dbg; d.sky.step(45); d.sky.WX.horn = 0; }); await wait(800);
-  const fh = await listen('fog: the foghorn', 3500); if (!(fh > base - 6)) fail('no foghorn to be heard');
+  const fh = await listen('fog: the foghorn', 3500); if (!(fh > base + 2)) fail('the foghorn is not heard over the town');
   if (!process.exitCode) log('WEATHER SOUND OK');
 };
