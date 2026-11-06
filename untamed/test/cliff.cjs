@@ -89,10 +89,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await frames(4); await shot(pre + 'cliff-seated');
   /* the sun: low over the sea to one side, the view turns to it; by night it looks west. (The sun is moved here by hand, as the
      day will move it) */
-  const sun = await C((c, d) => { const M = d.cliff.M, S = d.LU.uSun.value, s0 = S.clone(), dir = M.fw.clone().multiplyScalar(Math.cos(.6)).addScaledVector(M.lf, Math.sin(.6));
+  const sun = await C((c, d) => { d.sky.SKY.hold = true; const M = d.cliff.M, S = d.LU.uSun.value, s0 = S.clone(), dir = M.fw.clone().multiplyScalar(Math.cos(.6)).addScaledVector(M.lf, Math.sin(.6));
     S.copy(dir).multiplyScalar(Math.cos(.14)).addScaledVector(M.up, Math.sin(.14)).normalize(); c.run(240); const low = d.cliff.CL.look; const st = window.__heloria.ST.cr, cp = st.camP, cu = cp.clone().normalize(), v = st.camL.clone().sub(cp), vh = v.addScaledVector(cu, -v.dot(cu)).normalize(), sh = S.clone().addScaledVector(cu, -S.dot(cu)).normalize(); const p = [0, 0, 0, +Math.acos(Math.min(1, vh.dot(sh))).toFixed(3), 0];
     S.copy(dir).multiplyScalar(Math.cos(.4)).addScaledVector(M.up, -Math.sin(.4)).normalize(); c.run(300); const night = d.cliff.CL.look, west = d.cliff.WEST.clone().addScaledVector(M.up, -d.cliff.WEST.dot(M.up)).normalize(), wa = Math.atan2(west.dot(M.lf), west.dot(M.fw));
-    S.copy(s0); c.run(300); return { low: +low.toFixed(2), sunOn: [+p[3].toFixed(2), +p[4].toFixed(2)], night: +night.toFixed(2), wa: +wa.toFixed(2), back: +d.cliff.CL.look.toFixed(2) }; });
+    S.copy(s0); d.sky.SKY.hold = false; c.run(300); return { low: +low.toFixed(2), sunOn: [+p[3].toFixed(2), +p[4].toFixed(2)], night: +night.toFixed(2), wa: +wa.toFixed(2), back: +d.cliff.CL.look.toFixed(2) }; });
   rec(sun.low > .45 && sun.sunOn[0] < .2, 'a low sun over the sea: the view turns round to face it', JSON.stringify(sun));
   rec(Math.abs(sun.night - sun.wa) < .12, 'by night it looks to the western horizon', JSON.stringify(sun));
 

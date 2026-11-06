@@ -801,7 +801,7 @@ function skyApply(){ sunDir(SKY.h,SKY.doy,SUND,false); sunDir(SKY.h,SKY.doy,MOON
   const night=1-sstep(-8,-1,ed), dusk=sstep(-8,0,ed)*(1-sstep(4,16,ed)), sunOn=ed>-2.5;
   SKY.night=night; SKY.dusk=dusk;
   /* the light that casts: the sun, or the moon once the sun is well down; how strong it is fades to nothing at the hand-over */
-  SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed); direct*=1-.7*SKY.over-.4*WX.fog;
+  if(!SKY.hold) SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed);   // (hold: a test moving the light by hand) direct*=1-.7*SKY.over-.4*WX.fog;
   const K=['la','lb','sh','sky','fog'], out={};
   for(const k of K){ mixV(cA,SKYC.day[k],SKYC.gold[k],dusk); mixV(cB,[cA.x,cA.y,cA.z],SKYC.night[k],night); out[k]=cB.clone(); }
   LU.uShdC.value.copy(out.sh); LU.uLitA.value.copy(out.sh).lerp(out.la,direct); LU.uLitB.value.copy(out.sh).lerp(out.lb,direct);
@@ -2374,7 +2374,7 @@ function cliffUpdate(dt,t){ if(!CLM) return; dt=Math.min(dt,.05); const P=player
   if(CL.ws>0){ seatCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.ws); st.camL.lerp(cvL,CL.ws); LU.uPly.value.lerp(st.camP,CL.ws);   // (nothing stands between: nothing is cut away)
     stCam.fov+=6*CL.ws; stCam.updateProjectionMatrix();   // and a little wider (the town sets it back each frame)
     if(CL.ws>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }   // the town's camera, out of sight, turns to look the same way, so giving it back is a short move
-  if(CL.wk>0){ kiteCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.wk); st.camL.lerp(cvL,CL.wk); if(CL.wk>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }
+  if(CL.wk>0){ kiteCam(dt,cvP,cvL); st.camP.lerp(cvP,CL.wk); st.camL.lerp(cvL,CL.wk); LU.uPly.value.lerp(st.camP,CL.wk);   /* (as on the bench: nothing cut away, so no speckled ring round you) */ if(CL.wk>.95){ tang(P.u,cv0.subVectors(cvL,cvP),C.f); C.dragT=0; } }
   if(CLM.str.visible) stringMesh();
   if(CL.hov&&(CL.st!=='idle'||CL.k!=='home')) clHover(null);   // the cursor's word goes once the bench or the kite is in use
   const vw=CL.ws>.5; if(vw!==CL.view){ CL.view=vw; el.classList.toggle('clview',vw); }   // while you take in the view, the name tags step aside
