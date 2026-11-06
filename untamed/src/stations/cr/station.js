@@ -822,7 +822,7 @@ function buildSkyFx(){ skyClock(); skyWeather();
   { const N=LO?260:520, P=[], S=[], Cn=[], I=[]; for(let i=0;i<N;i++){ const s=[Math.random(),Math.random(),Math.random(),Math.random()];
       for(const [cx,cy] of [[-1,0],[1,0],[1,1],[-1,1]]){ P.push(0,0,0); S.push(...s); Cn.push(cx,cy); } const b=i*4; I.push(b,b+1,b+2, b,b+2,b+3); }
     const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('aS',new T.Float32BufferAttribute(S,4)); g.setAttribute('aC',new T.Float32BufferAttribute(Cn,2)); g.setIndex(I);
-    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,
+    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,side:T.DoubleSide,
       vertexShader:`attribute vec4 aS; attribute vec2 aC; uniform vec3 uCam,uUp; uniform float uTime,uSnow; varying vec2 vC; varying float vA;
         void main(){ vec3 e1=normalize(cross(uUp,abs(uUp.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.))), e2=cross(uUp,e1);
           float sp=mix(9.,.9,uSnow), y=fract(aS.y-uTime*sp/12.)*12.-5.; vec3 p=uCam+e1*(aS.x-.5)*18.+e2*(aS.z-.5)*18.+uUp*y;
@@ -1508,6 +1508,6 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
 st._dbg={steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
     step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
     get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
-      season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS},
+      season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS,get FALL(){ return FALL; }},
   began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();

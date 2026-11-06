@@ -4141,8 +4141,8 @@ const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uS
     if(uNight>.01){ vec3 L=vec3(0.); for(int i=0;i<8;i++){ vec3 tl=uLmp[i].xyz-w; float dd=length(tl), f=max(0.,1.-dd/5.5); L+=uLmp[i].w*f*f*(.3+.7*max(dot(n,tl/max(dd,.001)),0.)); } c+=base*vec3(1.,.74,.42)*L*1.7*uNight; }
     /* the lighthouse's beam lights whatever lies in its sweep below the lamp, and the fog thins along it */
     float bm=0.; if(uBmO.w>.01){ vec3 U=normalize(uBmO.xyz), v=w-uBmO.xyz, vh=v-U*dot(v,U); float L=length(vh);
-      if(L>.6&&dot(v,U)<.5) bm=smoothstep(uBmD.w,uBmD.w+.012,dot(vh/L,uBmD.xyz))*smoothstep(26.,7.,L)*smoothstep(.6,2.,L)*uBmO.w; }
-    c+=base*vec3(1.,.93,.74)*bm*(.16+1.2*uNight);
+      if(L>2.&&dot(v,U)<.5) bm=smoothstep(uBmD.w,uBmD.w+.012,dot(vh/L,uBmD.xyz))*smoothstep(26.,9.,L)*smoothstep(2.5,6.5,L)*uBmO.w; }
+    c+=base*vec3(1.,.93,.74)*bm*(.12+.85*uNight);
     return mix(c,uFog,smoothstep(uFogR.x,uFogR.y,distance(cameraPosition,w))*uFogA*uFogK*(1.-.7*bm)); }`;
 const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
   void main(){ vec4 p=vec4(position,1.); vec3 nn=normal; vC=vec3(1.); ${uv?'vUv=uv;':''}
@@ -4888,7 +4888,7 @@ function buildSkyFx(){ skyClock(); skyWeather();
   { const N=LO?260:520, P=[], S=[], Cn=[], I=[]; for(let i=0;i<N;i++){ const s=[Math.random(),Math.random(),Math.random(),Math.random()];
       for(const [cx,cy] of [[-1,0],[1,0],[1,1],[-1,1]]){ P.push(0,0,0); S.push(...s); Cn.push(cx,cy); } const b=i*4; I.push(b,b+1,b+2, b,b+2,b+3); }
     const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('aS',new T.Float32BufferAttribute(S,4)); g.setAttribute('aC',new T.Float32BufferAttribute(Cn,2)); g.setIndex(I);
-    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,
+    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,side:T.DoubleSide,
       vertexShader:`attribute vec4 aS; attribute vec2 aC; uniform vec3 uCam,uUp; uniform float uTime,uSnow; varying vec2 vC; varying float vA;
         void main(){ vec3 e1=normalize(cross(uUp,abs(uUp.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.))), e2=cross(uUp,e1);
           float sp=mix(9.,.9,uSnow), y=fract(aS.y-uTime*sp/12.)*12.-5.; vec3 p=uCam+e1*(aS.x-.5)*18.+e2*(aS.z-.5)*18.+uUp*y;
@@ -4967,7 +4967,8 @@ function buildSteer(){ if(!PH) return; PH.beam.parent.updateWorldMatrix(true,fal
 /* a thing at sea: on the water at its angle and distance from the lamp, bobbing */
 function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+.02+Math.sin(t*1.4+q.ph)*.03);
   const M=frameAt(...loc(up),q.a+Math.sin(t*.9+q.ph)*.08); M.setPosition(V); M.multiply(Mr.makeRotationZ(Math.sin(t*1.7+q.ph)*.07)); q.g.matrix.copy(M); q.g.matrixWorldNeedsUpdate=true; }
-function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); } else { PHS.drag=null; A.click(); } }
+function seaMid(){ const sa=PHS.lost?PHS.lost.sa:[]; if(!sa.length) return null; let x=0, y=0; for(const a of sa){ x+=Math.cos(a); y+=Math.sin(a); } return Math.atan2(y,x); }
+function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); PHS.aim=seaMid(); } else { PHS.drag=null; PHS.aim=null; A.click(); } }
 steerBtn.addEventListener('click',e=>{ e.stopPropagation(); steerSet(true); });
 $('#crSteerDone',el).addEventListener('click',e=>{ e.stopPropagation(); steerSet(false); });
 steerUI.addEventListener('pointerdown',e=>e.stopPropagation());
@@ -4975,6 +4976,7 @@ function steerUpdate(dt,t){ const nt=SKY.night;
   /* the beam: your hand on it, or turning by itself; longer and brighter at night and in fog */
   if(PHS.on){ const kd=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0); if(kd) PHS.v=kd*1.4;
     else if(!PHS.drag) PHS.v*=Math.exp(-3*dt); } else PHS.v=damp(PHS.v,.9,1.5,dt);
+  if(PHS.on&&PHS.aim!=null){ if(PHS.drag) PHS.aim=null; else { const d=angWrap(PHS.aim-PHS.yaw); PHS.v=clamp(d*3,-2.2,2.2); if(Math.abs(d)<.03) PHS.aim=null; } }   // out to sea first
   const dy=PHS.v*dt; PHS.yaw+=dy; if(PHS.on){ PHS.turned+=Math.abs(dy); if(PHS.turned>.21){ PHS.turned=0; A.tick(); } }   // the gear clicks as it turns
   PH.beam.rotation.set(0,PHS.yaw,-.1); PH.beam.scale.set(lerp(1.5,2.2,Math.max(nt,WX.fog)),1,1); PH.beam.material.uniforms.uOp.value=lerp(.14,.34,nt)+.12*WX.fog;
   /* what the beam falls on: its origin and which way it points, for the light it gives everything */
@@ -4998,7 +5000,8 @@ function steerUpdate(dt,t){ const nt=SKY.night;
 /* the camera up behind the lamp, looking out along the beam; handing back to the walking camera smoothly */
 function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002) return;
   const Lp=V.set(0,0,0).applyMatrix4(PHS.bgW), U=V3.copy(Lp).normalize(), Dh=V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
-  V4.copy(Lp).addScaledVector(Dh,-3.4).addScaledVector(U,1.3); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,9).addScaledVector(U,-4.2); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);
+  const pk=innerHeight>innerWidth?1.35:1;   // a phone held upright stands further back
+  V4.copy(Lp).addScaledVector(Dh,-2.4*pk).addScaledVector(U,3.6*pk); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,11).addScaledVector(U,-5.5); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);   // up over the gallery, looking out and down along the beam
   st.camP.lerp(PHS.cp,PHS.k); st.camL.lerp(PHS.cl,PHS.k); stUp.lerp(U,PHS.k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(PHS.k>.5) LU.uPly.value.copy(st.camP); S.stSnap=true; }
 /* ---------- birds circling over town ---------- */
 const BIRDS=[], BU=new T.Vector3();
@@ -5571,7 +5574,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
 st._dbg={steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
     step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
     get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
-      season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS},
+      season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS,get FALL(){ return FALL; }},
   began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();
 
