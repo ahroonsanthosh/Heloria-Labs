@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap">
-<link rel="stylesheet" href="../assets/untamed.css?v=feecea2032">
+<link rel="stylesheet" href="../assets/untamed.css?v=ae9e7ac5df">
 </head>
 <body>
 <canvas id="gl" aria-hidden="true"></canvas>
@@ -229,6 +229,8 @@
     </div>
     <span class="ui crhint" id="crHint"></span>
     <button class="btn pri hit crgo" id="crGo" type="button" data-cur="Fly" hidden>Let's fly</button>
+    <button class="btn hit crsteer" id="crSteer" type="button" data-cur="Steer" hidden>Steer the light</button>
+    <div class="crsteer-ui" id="crSteerUI" hidden><span class="ui">Drag to turn the light</span><button class="btn pri hit" id="crSteerDone" type="button" data-cur="Done">Done</button></div>
     <div class="crstick" id="crStick" hidden><i></i></div>
     <button class="crskip ui hit" id="crSkip" type="button" data-cur="Skip">Skip</button>
   </article>
@@ -267,6 +269,7 @@
   <div class="fc f1"><span class="ui">Heloria Labs</span></div>
   <div class="fc f2"><p>Ahroon Santhosh</p><p>Michael Sweeney Heffernan</p><p>Abraham Sabu Kurian</p></div>
   <div class="fc f3"><h2 class="disp">challenging what's impossible</h2>
+    <p class="ui fb">Backed by Andrena Ventures</p>
     <div class="fa"><a class="btn hit walk" id="finWalk" href="../" data-cur="Walk">Walk through our work</a><button class="btn hit" id="finAgain" type="button" data-cur="Again">Fly again</button><a class="ui" href="mailto:contact@helorialabs.com">contact@helorialabs.com</a></div></div>
 </section>
 
@@ -292,6 +295,6 @@
 
 
 <script src="../assets/vendor/three.min.js?v=ccabb6c3b0"></script>
-<script src="../assets/untamed.js?v=84d136b9e2"></script>
+<script src="../assets/untamed.js?v=705d750aaa"></script>
 </body>
 </html>

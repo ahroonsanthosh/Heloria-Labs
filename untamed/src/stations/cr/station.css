@@ -98,3 +98,11 @@ html.earth #back{transition:opacity .6s var(--ease)}
   .st-cr .crpj{left:16px;right:16px;top:calc(var(--gt) + 104px);width:auto;max-width:none;transform:translateY(-8px)}
   .st-cr .crpj-t{max-width:none}
 }
+/* the lighthouse: a button to take the light when you are by it, and while you hold it, how to turn it and how to let go */
+.st-cr .crsteer{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d}
+.st-cr .crgo:not([hidden]) ~ .crsteer{bottom:calc(var(--gb) + 92px)}
+.st-cr .crsteer-ui{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:7px 7px 7px 16px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;white-space:nowrap}
+.st-cr .crsteer[hidden],.st-cr .crsteer-ui[hidden]{display:none}
+.st-cr.fin .crsteer,.st-cr.fin .crsteer-ui{display:none!important}
+html.earth.crnight .brand{color:#efe8da}   /* the name stays readable once it is dark */
+html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}

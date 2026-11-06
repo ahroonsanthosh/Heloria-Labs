@@ -248,9 +248,20 @@ const A=(()=>{
         if(pos===5){ ch.slice(2).forEach((m,i)=>play(mf(m),t+i*.01,beat*1.3,.011,.02)); play(mf(BASS[bar%4]+7),t,beat*.9,.035,.02); }
         if([0,3,4,6].includes(pos)&&rnd()<.62){ mel=clamp(mel+Math.floor(rnd()*5)-2,0,SCALE.length-1); play(mf(SCALE[mel]),t,beat*1.5,.02,.006); }
         t+=beat*(k%2?.44:.56); k++; } }});
+  /* light rain on Earth: not a hiss (on a phone that is static) but a recording of separate drops, small bright plinks
+     and soft taps on roofs and leaves, spread out so you hear each one */
+  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.3), L=oc.length/oc.sampleRate;
+      const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=5600; lp.Q.value=.5; lp.connect(b.in);
+      let seed=97; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+      const nb0=oc.createBuffer(1,Math.floor(oc.sampleRate*.05),oc.sampleRate), nd=nb0.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=(rnd()*2-1)*Math.pow(1-i/nd.length,3);
+      for(let t=.02;t<L;t+=.01+rnd()*.032){ if(rnd()<.7){ const o=oc.createOscillator(), a=oc.createGain(), f=1700+rnd()*3600;
+          o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*(.68+rnd()*.2),t+.03);
+          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.012+rnd()*.022,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.018+rnd()*.024); o.connect(a); a.connect(lp); o.start(t); o.stop(t+.06); }
+        else { const s=oc.createBufferSource(); s.buffer=nb0; const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=480+rnd()*900; bp.Q.value=1.8; const a=oc.createGain(); a.gain.value=.08+rnd()*.1;
+          s.connect(bp); bp.connect(a); a.connect(lp); s.start(t); } } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   let making=!!OAC;
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL)]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -297,7 +308,7 @@ const A=(()=>{
       if(B&&B.ping&&ctx&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
     muffle(v){ muf=!!v; },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
-    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=0; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
+    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=RAINL.want=0; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
     /* a grain of rock against the hull: a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
@@ -309,6 +320,16 @@ const A=(()=>{
         o.frequency.setValueAtTime(base*(1+k*.08),t0); o.frequency.exponentialRampToValueAtTime(base*(1.35+k*.1),t0+.06);
         a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.022,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09);
         o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.12); } },
+    /* Earth's weather and nights: rain(v) its level, call it every frame; a cricket now and then in place of a bird; the foghorn */
+    rain(v){ RAINL.want=clamp(v||0,0,1); },
+    cricket(p){ if(!on||muted||!ctx) return; const f=4300+Math.random()*600, n0=3+Math.floor(Math.random()*3); let pn=null;
+      if(ctx.createStereoPanner){ pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); }
+      for(let k=0;k<n0;k++){ const t0=ctx.currentTime+k*.052, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*vr(.01);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.009,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+.035); o.connect(a); a.connect(pn||comp); o.start(t0); o.stop(t0+.05); } },
+    foghorn(g=.05){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, a=ctx.createGain(), lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700; lp.Q.value=.8;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.3); a.gain.setValueAtTime(g,t0+1.5); a.gain.exponentialRampToValueAtTime(.0001,t0+2.4);
+      [[98,1],[147,.55],[196,.3]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(f*.96,t0); o.frequency.linearRampToValueAtTime(f,t0+.25); const kg=ctx.createGain(); kg.gain.value=k; o.connect(kg); kg.connect(lp); o.start(t0); o.stop(t0+2.5); });
+      lp.connect(a); a.connect(comp); const sg=ctx.createGain(); sg.gain.value=.7; a.connect(sg); sg.connect(revIn); },
     /* a footstep: 0 a soft brush on grass, 1 a tap on the pavement, 2 a hollow knock on wooden boards */
     step(kind=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter();
       if(kind===1){ b.type='bandpass'; b.frequency.value=1500+Math.random()*700; b.Q.value=1.3; } else if(kind===2){ b.type='bandpass'; b.frequency.value=420+Math.random()*120; b.Q.value=2.2; tone(150+Math.random()*30,.09,.03,'sine',90); }

@@ -28,7 +28,8 @@ const PAD=[-3.2,-15.6], DOOR=[0,1], START=[-3.2,-12.0];
 const AHR=(()=>{ const l=Math.hypot(-.91,.42), fx=-.91/l, fz=.42/l, c=Math.cos(.55), sn=Math.sin(.55); return [START[0]+(fx*c-fz*sn)*4.6,START[1]+(fx*sn+fz*c)*4.6]; })();
 // you step off looking just past Ahroon, so he stands beside you in the picture (on a phone too), not behind you
 const FACE=(()=>{ let x=AHR[0]-START[0], z=AHR[1]-START[1]; const l=Math.hypot(x,z), c=Math.cos(.14), sn=Math.sin(.14); x/=l; z/=l; return [x*c-z*sn,x*sn+z*c]; })();
-const SKYBH={value:new T.Vector3(-.35,.75,.55).normalize()}, SPACEU={value:0};   // SPACEU: how far into the black the sky has gone, climbing out // where the hole hangs in the sky: set so the rocket comes down out of it
+const SKYBH={value:new T.Vector3(-.35,.75,.55).normalize()}, SPACEU={value:0};
+const SKYU={uSunD:{value:new T.Vector3(.38,.8,.46).normalize()},uMoonD:{value:new T.Vector3(-.3,.8,-.5).normalize()},uDusk:{value:0},uOver:{value:0},uBow:{value:0}};   // where the sun and the moon are, sunset, overcast, a rainbow   // SPACEU: how far into the black the sky has gone, climbing out // where the hole hangs in the sky: set so the rocket comes down out of it
 
 /* ---------- the island: the same noise in JavaScript (to build and to walk) and in the shaders ---------- */
 const fr=x=>x-Math.floor(x);
@@ -58,15 +59,25 @@ const NEAR=`uniform vec3 uPly; uniform float uCut;
       if(t>0.&&t<.95){ float r0=gl_FrontFacing?.5:1.1; k=min(k,smoothstep(r0,r0+.16,length(w-cameraPosition-ab*t))); } } }
     if(k<fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))))) discard; }`;
 const SHN=LO?1536:2048;
-const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0},uFogK:{value:1}};
-const LIGHT=`uniform vec3 uSun,uSky,uFog; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK;
+const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{value:C3('#9fd0d8')},uFog:{value:C3('#d3e6e2')},uShM:{value:null},uShP:{value:new T.Matrix4()},uShOn:{value:0},uFogK:{value:1},
+  /* the time of day (see the sky's block): the light's two tones and the shade's, night, the street lamps, fog's reach, rain and snow, the season */
+  uLitA:{value:new T.Vector3(.93,.92,.89)},uLitB:{value:new T.Vector3(1.05,1.02,.95)},uShdC:{value:new T.Vector3(.6,.66,.83)},uNight:{value:0},
+  uLmp:{value:Array.from({length:8},()=>new T.Vector4(0,-99,0,0))},uFogR:{value:new T.Vector2(16,52)},uFogA:{value:.55},uWet:{value:0},uSnow:{value:0},uSeason:{value:0},
+  uBmO:{value:new T.Vector4(0,0,0,0)},uBmD:{value:new T.Vector4(1,0,0,.985)}};   // the lighthouse's beam: where it starts (and how strong), which way it points
+const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK,uNight,uFogA,uWet,uSnow,uSeason; uniform vec2 uFogR; uniform vec4 uLmp[8],uBmO,uBmD;
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
   vec3 toon(vec3 base,vec3 n,vec3 w){ float d=dot(n,uSun), sh=shadowAt(w,.0006+.0024*(1.-clamp(d,0.,1.)));
     float k=min(smoothstep(-.03,.03,d),smoothstep(.35,.65,sh)), hi=smoothstep(.5,.56,d)*k;
-    vec3 c=mix(base*vec3(.6,.66,.83),mix(base*vec3(.93,.92,.89),base*vec3(1.05,1.02,.95),hi),k);
+    vec3 c=mix(base*uShdC,mix(base*uLitA,base*uLitB,hi),k);
     c+=base*uSky*.07*(.5+.5*dot(n,normalize(w))); c=mix(c,vec3(1.,0.,0.),(1.-sh)*uShDbg);
-    return mix(c,uFog,smoothstep(16.,52.,distance(cameraPosition,w))*.55*uFogK); }`;
+    /* at night, the street lamps: a warm pool round each, on whatever faces it */
+    if(uNight>.01){ vec3 L=vec3(0.); for(int i=0;i<8;i++){ vec3 tl=uLmp[i].xyz-w; float dd=length(tl), f=max(0.,1.-dd/5.5); L+=uLmp[i].w*f*f*(.3+.7*max(dot(n,tl/max(dd,.001)),0.)); } c+=base*vec3(1.,.74,.42)*L*1.7*uNight; }
+    /* the lighthouse's beam lights whatever lies in its sweep below the lamp, and the fog thins along it */
+    float bm=0.; if(uBmO.w>.01){ vec3 U=normalize(uBmO.xyz), v=w-uBmO.xyz, vh=v-U*dot(v,U); float L=length(vh);
+      if(L>.6&&dot(v,U)<.5) bm=smoothstep(uBmD.w,uBmD.w+.012,dot(vh/L,uBmD.xyz))*smoothstep(26.,7.,L)*smoothstep(.6,2.,L)*uBmO.w; }
+    c+=base*vec3(1.,.93,.74)*bm*(.16+1.2*uNight);
+    return mix(c,uFog,smoothstep(uFogR.x,uFogR.y,distance(cameraPosition,w))*uFogA*uFogK*(1.-.7*bm)); }`;
 const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
   void main(){ vec4 p=vec4(position,1.); vec3 nn=normal; vC=vec3(1.); ${uv?'vUv=uv;':''}
     #ifdef USE_INSTANCING
@@ -79,8 +90,19 @@ const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varyi
       vC*=color;
     #endif
     vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(mat3(modelMatrix)*nn); gl_Position=projectionMatrix*viewMatrix*w; }`;
-const TOON_F=`uniform vec3 uC; uniform float uOp; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
-  void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(toon(uC*vC,n,vW),uOp); }`;
+const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
+  void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC, E=vec3(0.);
+    if(uKit>.5){ float upn=dot(n,normalize(vW));
+      /* leaves turn with the season, tree by tree: reds and golds in autumn (uSeason up to 1), blossom in spring (down to -1) */
+      float lb=-1.; if(abs(vC.r-.31)<.006&&abs(vC.g-.498)<.006) lb=.29; else if(abs(vC.r-.373)<.006&&abs(vC.g-.573)<.006) lb=.337; else if(abs(vC.r-.435)<.006&&abs(vC.g-.635)<.006) lb=.373; else if(abs(vC.r-.498)<.006&&abs(vC.g-.682)<.006) lb=.4;
+      if(abs(uSeason)>.01&&lb>0.){ float hs=clamp((vC.b-lb)/.012,0.,1.);
+        vec3 au=mix(vec3(.86,.45,.2),mix(vec3(.9,.7,.3),vec3(.74,.3,.18),step(.7,hs)),step(.42,hs))*(.82+.4*vC.g);
+        b=uSeason>0.?mix(b,au,uSeason*.85*step(.2,hs)):mix(b,mix(vec3(.97,.78,.85),vec3(.99,.93,.94),hs),-uSeason*step(.55,hs)*.85); }
+      b=mix(b,vec3(.93,.95,.97),uSnow*smoothstep(.55,.8,upn));   // snow on whatever faces the sky
+      b*=1.-.2*uWet*smoothstep(.5,.9,upn);   // rain darkens it
+      if(uNight>.01&&distance(vC,vec3(.498,.639,.706))<.02){ float hw=fract(sin(dot(floor(vW*1.7),vec3(7.13,157.1,113.7)))*43758.5453); E+=vec3(1.,.76,.44)*step(.3,hw)*(.7+.4*hw)*uNight; }   // windows lit inside, not every one
+      if(distance(vC,vec3(1.,.949,.769))<.02){ float m=0.; for(int i=0;i<8;i++) m=max(m,uLmp[i].w*step(distance(vW,uLmp[i].xyz),.7)); E+=vec3(1.,.86,.55)*m*1.6*uNight; } }   // a lamp's glass, as bright as its lamp
+    gl_FragColor=vec4(toon(b,n,vW)+E,uOp); }`;
 const mcache=new Map();
 function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc?1:0)+'|'+(o.fig?1:0)+'|'+C3(color).getHexString(); if(!o.fresh&&mcache.has(key)) return mcache.get(key);
   const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op},uCut:{value:o.fig?0:1}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
@@ -151,7 +173,8 @@ function windowAt(M,x,y,z,ry,o={}){ const W=sub(M,x,y,z,ry), tr=o.trim||'#f6f1e7
   box(W,tr,0,-.36,.02,.76,.72,.06); box(W,'#7fa3b4',0,-.29,.04,.58,.56,.05); box(W,tr,0,-.29,.05,.04,.56,.04); box(W,tr,0,-.03,.05,.58,.04,.04); box(W,tr,0,-.42,.06,.88,.06,.16);
   if(o.flowers){ box(W,'#8a5a3c',0,-.56,.12,.72,.14,.18); for(let k=0;k<4;k++) put(W,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f'][k],-.24+k*.16,-.38,.14,.07,.07,.07); } }
 function door(M,x,z,ry,c,tr){ const D=sub(M,x,0,z,ry); box(D,tr,0,.2,.02,.78,1.26,.06); box(D,c,0,.2,.05,.6,1.12,.05); box(D,'#e7c36a',.2,.75,.09,.05,.05,.04); box(D,'#bdb6aa',0,0,.32,.96,.16,.56); }
-function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7';
+const HOUSES=[];
+function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat});
   box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(M,o.wall,0,.2,0,w,h-.2,d);
   if(o.flat){ box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3); }
   else { const rh=o.rh||1.3; put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,d/2+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-d/2-.04,w+.1,.12,.05);
@@ -161,14 +184,17 @@ function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o
   if(o.up) (o.win||[-w*.3,w*.3]).concat([o.doorX||0]).forEach(wx=>windowAt(M,wx,h-.85,d/2,0,{trim:tr}));
   windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
   if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+(o.flat?.35:(o.rh||1.3)+.3)); return M; }  // as tall as the ridge
-function lamp(x,z){ const M=frameAt(x,z,0); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
+const LAMPS=[];
+function lamp(x,z){ const M=frameAt(x,z,0); LAMPS.push({x,z,p:new T.Vector3(0,2.44,.38).applyMatrix4(M),k:0,hot:0}); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
   box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(x,z,.2,1.2); }
 function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
   for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obs(x,z,.6,1); }
 const LEAF=['#4f7f4a','#5f9256','#6fa25f','#7fae66'];
-function tree(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU), th=1.25*s;
+const TREES=[];
+function tree(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU), th=1.25*s; TREES.push([x,z,s]);
   put(M,'cyl8','#7a5a42',0,th/2,0,.12*s,th,.12*s); put(M,'cyl8','#7a5a42',.2*s,th*.82,0,.05*s,.62*s,.05*s,0,0,-.75);
-  const n=5+Math.floor(rnd()*3); for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0, bs=(k?.48+rnd()*.3:.82)*s; put(M,'blob',LEAF[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))],Math.cos(a)*rr,th+.45*s+(k?rnd()*.55*s-.1:.2*s),Math.sin(a)*rr,bs,bs*.86,bs); }
+  const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453), lc=LEAF.map(c=>{ const q=C3(c).clone(); q.b+=tk*.012; return q; });   // which colour this tree turns in autumn, hidden in its leaves' blue
+  const n=5+Math.floor(rnd()*3); for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0, bs=(k?.48+rnd()*.3:.82)*s; put(M,'blob',lc[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))],Math.cos(a)*rr,th+.45*s+(k?rnd()*.55*s-.1:.2*s),Math.sin(a)*rr,bs,bs*.86,bs); }
   obs(x,z,.26*s,3.5); }
 function pine(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); }
@@ -337,6 +363,9 @@ function buildGround(){
         float sand=clamp(smoothstep(.035,.012,vL)*(.25+.75*vB)+smoothstep(-.02,-.25,vH)*vB,0.,1.); c=mix(c,vec3(.91,.84,.66)*(.96+.06*vn2(xz*5.)),sand);
         vec3 rock=mix(vec3(.67,.61,.54),vec3(.56,.51,.47),step(.5,fract(vH*2.6+vn2(xz*.7)*.7)));
         c=mix(c,rock,smoothstep(.3,.5,steep)*(1.-vB*.85));
+        /* snow on the grass and the paths, thinner on the sand; in the rain the ground darkens and the paths hold puddles of sky */
+        { float upn=dot(n,up); c=mix(c,vec3(.93,.95,.97)*(.97+.04*p3),uSnow*smoothstep(.75,.9,upn)*(1.-sand*.6));
+          if(uWet>.01){ c*=1.-.16*uWet; float pud=smoothstep(.62,.7,vn2(xz*.8+7.3))*(1.-smoothstep(-fw,fw,pd)); c=mix(c,uSky*.9+vec3(.05),pud*uWet*.55); } }
         float ct=1.-smoothstep(0.,fwidth(vH)*1.3+.003,abs(vH+.05)); c=mix(c,vec3(.24,.22,.21),ct*(1.-vB)*step(.15,steep)*.9);
         gl_FragColor=vec4(toon(c,n,vW),1.); }`}));
   cap.userData.cast=true; sc.add(cap);
@@ -357,15 +386,31 @@ function buildGround(){
         gl_FragColor=vec4(toon(c,normalize(vN),vW),1.); }`}));
   sea.userData.cast=false; sc.add(sea);
   // the sky: blue overhead, pale at the horizon, flat painted clouds, the hole as a pale ring by day
-  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:{uUp:UPU,uBH:SKYBH,uTime:G.uTime,uSpace:SPACEU},side:T.BackSide,depthWrite:false,
+  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:Object.assign({uUp:UPU,uBH:SKYBH,uTime:G.uTime,uSpace:SPACEU,uNight:LU.uNight},SKYU),side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uUp,uBH; uniform float uTime,uSpace; varying vec3 vD; ${EARTH_GLSL}
-      void main(){ vec3 d=normalize(vD); float h=dot(d,uUp);
+    fragmentShader:`uniform vec3 uUp,uBH,uSunD,uMoonD; uniform float uTime,uSpace,uNight,uDusk,uOver,uBow; varying vec3 vD; ${EARTH_GLSL}
+      void main(){ vec3 d=normalize(vD); float h=dot(d,uUp), sa=dot(d,uSunD);
+        /* by day blue overhead and pale at the horizon; at sunrise and sunset warm low down, deepest by the sun; at night dark blue */
         vec3 c=mix(vec3(.85,.92,.9),vec3(.6,.82,.9),smoothstep(-.06,.22,h)); c=mix(c,vec3(.36,.64,.84),smoothstep(.22,.9,h));
-        vec3 q=vec3(d.x*1.8,d.y*3.6,d.z*1.8)+vec3(uTime*.006,0.,uTime*.003); float f=efbm(q), fw=fwidth(f)*1.2+.002, band=smoothstep(.0,.1,h)*(1.-smoothstep(.7,.9,h));
-        float cl=smoothstep(.57-fw,.57+fw,f)*band, top=smoothstep(.61-fw,.61+fw,efbm(q+vec3(.02,.06,-.02)));
-        c=mix(c,vec3(.86,.92,.93),cl); c=mix(c,vec3(.99,.99,.96),top*cl);
-        float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-(((a-.036)*120.)*((a-.036)*120.)))*.22;
+        vec3 k=mix(vec3(.98,.74,.54),vec3(.56,.56,.74),smoothstep(-.05,.42,h)); k=mix(k,vec3(.27,.33,.55),smoothstep(.42,.95,h)); k=mix(k,vec3(1.,.6,.38),pow(max(sa,0.),5.)*(1.-smoothstep(0.,.45,h))*.85);
+        c=mix(c,k,uDusk); c=mix(c,mix(vec3(.1,.14,.23),vec3(.025,.04,.09),smoothstep(-.05,.7,h)),uNight);
+        c=mix(c,mix(vec3(.66,.7,.72),vec3(.53,.58,.62),smoothstep(0.,.8,h))*(1.-.78*uNight),uOver*.85);   // overcast
+        /* the sun low in the sky, and the moon and the stars at night */
+        float sd=acos(clamp(sa,-1.,1.)), clear=1.-uOver, md=acos(clamp(dot(d,uMoonD),-1.,1.));
+        c+=vec3(1.,.68,.42)*exp(-sd*sd*40.)*.35*uDusk*clear; c=mix(c,vec3(1.,.9,.7),smoothstep(.052,.044,sd)*uDusk*clear*smoothstep(-.03,.01,h));
+        c+=vec3(.45,.55,.75)*exp(-md*md*300.)*.22*uNight*clear; c=mix(c,vec3(.95,.94,.86),smoothstep(.034,.028,md)*uNight*clear);
+        if(uNight>.01){ vec3 cell=floor(d*260.); float s=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
+          c+=step(.9965,s)*(.55+.45*sin(uTime*(.8+s*2.)+s*60.))*smoothstep(.02,.25,h)*clear*uNight*vec3(.95,.93,.86); }
+        /* flat painted clouds: white by day, pink at sunset, dark at night, grey and more of them under rain */
+        vec3 q=vec3(d.x*1.8,d.y*3.6,d.z*1.8)+vec3(uTime*.006,0.,uTime*.003); float f=efbm(q), fw=fwidth(f)*1.2+.002, band=smoothstep(.0,.1,h)*(1.-smoothstep(.7,.9,h)), th=.57-.13*uOver;
+        float cl=smoothstep(th-fw,th+fw,f)*band, top=smoothstep(th+.04-fw,th+.04+fw,efbm(q+vec3(.02,.06,-.02)));
+        vec3 c1=mix(mix(vec3(.86,.92,.93),vec3(.96,.72,.66),uDusk),vec3(.1,.13,.2),uNight), c2=mix(mix(vec3(.99,.99,.96),vec3(1.,.87,.72),uDusk),vec3(.17,.2,.28),uNight);
+        c1=mix(c1,vec3(.55,.6,.64)*(1.-.75*uNight),uOver); c2=mix(c2,vec3(.7,.74,.77)*(1.-.75*uNight),uOver);
+        c=mix(c,c1,cl); c=mix(c,c2,top*cl);
+        /* after the rain, with the sun behind you: a rainbow, red outside */
+        if(uBow>.01){ float ra=acos(clamp(dot(d,-uSunD),-1.,1.)), t=(.735-ra)/.036; float m=smoothstep(.7,.25,abs(t-.5))*smoothstep(-.02,.12,h);
+          vec3 rb=clamp(vec3(1.5-abs(t*4.-.4),1.5-abs(t*4.-1.8),1.5-abs(t*4.-3.2)),0.,1.); c=mix(c,rb,m*uBow*.32); }
+        float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-(((a-.036)*120.)*((a-.036)*120.)))*(.22+.4*uNight);
         if(uSpace>0.){ vec3 cell=floor(d*380.); float sh=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
           float star=step(.9965,sh)*(.5+.5*fract(sh*91.7))*smoothstep(.5,1.,uSpace);
           c=mix(c,vec3(.012,.014,.022)+star*vec3(.95,.92,.88),smoothstep(0.,1.,uSpace)); }
@@ -609,7 +654,17 @@ const B0=new T.Vector3(), B1=new T.Vector3(), B2=new T.Vector3(), B3=new T.Vecto
 // the hull is open where the hatch is; seen from inside it is dark
 const HULL_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
   void main(){ nearFade(vW); if(!gl_FrontFacing){ gl_FragColor=vec4(.13,.12,.13,1.); return; } gl_FragColor=vec4(toon(uC,normalize(vN),vW),1.); }`;
-function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); RK.g=g;
+/* Andrena on the rocket's side: a band of letters on the hull between the hatch's top and the orange ring */
+function rocketName(){ const cv=document.createElement('canvas'); cv.width=1536; cv.height=256; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+  const draw=()=>{ const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.fillStyle='#000'; c.textAlign='center'; c.textBaseline='middle';
+    let f=200; c.font=`900 ${f}px Doto, monospace`; const w=c.measureText('ANDRENA').width; if(w>cv.width*.92){ f*=cv.width*.92/w; c.font=`900 ${f}px Doto, monospace`; }
+    c.fillText('ANDRENA',cv.width/2,cv.height*.55); tx.needsUpdate=true; };
+  draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+  const y0=2.16, y1=2.41, th=1.1, m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#2a241d')},uMap:{value:tx},uCut:{value:1}},LU),vertexShader:TOON_V(true),
+    fragmentShader:`uniform vec3 uC; uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
+      void main(){ nearFade(vW); if(texture2D(uMap,vUv).a<.5) discard; gl_FragColor=vec4(toon(uC,normalize(vN),vW),1.); }`});
+  const g=new T.Mesh(new T.CylinderGeometry(rAt(y1)+.01,rAt(y0)+.01,y1-y0,48,1,true,-th,2*th),m); g.position.y=(y0+y1)/2; g.userData.noInk=true; RK.g.add(g); }
+function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); RK.g=g; rocketName();
   const add=(m,x,y,z)=>{ m.position.set(x,y,z); g.add(m); return m; };
   const hullM=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#EEE9DF')},uCut:{value:1}},LU),vertexShader:TOON_V(),fragmentShader:HULL_F,side:T.DoubleSide});
   add(new T.Mesh(new T.CylinderGeometry(rAt(BAND),rAt(RKB),BAND-RKB,40,1,true,GAP,TAU-2*GAP),hullM),0,(RKB+BAND)/2,0);
@@ -706,6 +761,179 @@ function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
   puffsUpdate(dt);
   if(c>=T_END) endCut(); }
 
+/* ---------- the sky over Earth: the visitor's own time of day, the weather now and then, the season ----------
+   The sun stands where it would at this hour and on this day of the year, at our latitude: up early and late in summer,
+   low and short in winter. At night the moon gives the light, the street lamps and the windows come on, and the stars are
+   out. Now and then it rains (and in December it snows instead), sea fog rolls in with the foghorn, and after the rain
+   there is a rainbow. Leaves turn in autumn and blossom in spring; there is snow and fairy lights in December and
+   pumpkins on the doorsteps at Halloween. ?time=21:30, ?date=12-24 and ?weather=rain|fog|clear set any of it. */
+const SKY={h:15,doy:200,md:'07-15',e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false}, SEA={};
+const QPS=new URLSearchParams(location.search), SKYSET={time:QPS.get('time'),date:QPS.get('date'),weather:QPS.get('weather')};
+const D2R=Math.PI/180, SOUTH=new T.Vector3(.38,0,.46).normalize(), WEST=new T.Vector3(SOUTH.z,0,-SOUTH.x);
+/* where the sun is: elevation from the hour angle, the sun's declination for the day and our latitude; the moon opposite */
+function sunDir(h,doy,out,moon){ const lat=50*D2R, dec=23.44*D2R*Math.sin(TAU*(doy-81)/365)*(moon?-1:1), H=((moon?h+12:h)-12.5)*15*D2R;
+  const se=Math.sin(lat)*Math.sin(dec)+Math.cos(lat)*Math.cos(dec)*Math.cos(H), e=Math.asin(clamp(se,-1,1)), ce=Math.max(1e-4,Math.cos(e));
+  let ca=clamp((se*Math.sin(lat)-Math.sin(dec))/(ce*Math.cos(lat)),-1,1), az=Math.acos(ca); if(H<0) az=-az;
+  return out.copy(SOUTH).multiplyScalar(ce*Math.cos(az)).addScaledVector(WEST,ce*Math.sin(az)).add(V4.set(0,se,0)).normalize(); }
+const doyOf=(m,d)=>Math.round([0,31,59,90,120,151,181,212,243,273,304,334][m-1]+d);
+const inRange=(md,a,b)=>a<=b?md>=a&&md<=b:md>=a||md<=b;   // month-day strings, wrapping the new year
+/* how much of a season there is on a day: ramps in and out over a few days at each end */
+function seasonK(doy,a,b,ramp){ const span=(b-a+365)%365, x=(doy-a+365)%365; if(x>span) return 0; return Math.min(1,x/ramp,(span-x)/ramp); }
+function skyClock(){ const now=new Date(); let h=now.getHours()+now.getMinutes()/60+now.getSeconds()/3600, m=now.getMonth()+1, d=now.getDate();
+  if(window.__TEST&&!SKYSET.time){ h=15; } if(window.__TEST&&!SKYSET.date){ m=7; d=15; }   // the tests see one fixed afternoon unless they ask
+  if(SKYSET.time){ const p=SKYSET.time.split(':'); h=clamp((+p[0]||0)+(+p[1]||0)/60,0,23.99); }
+  if(SKYSET.date){ const p=SKYSET.date.split('-'); m=clamp(+p[0]||1,1,12); d=clamp(+p[1]||1,1,31); }
+  SKY.h=h; SKY.doy=doyOf(m,d); SKY.md=String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+/* the weather for this visit: the same for everyone within the same three hours of the same day */
+function skyWeather(){ let k='clear'; const now=new Date(), seed=(now.getFullYear()*400+SKY.doy)*8+Math.floor(SKY.h/3), r=fract(Math.sin(seed*12.9898)*43758.5453);
+  if(r<.2) k='rain'; else if(r<.36) k='fog';
+  if(window.__TEST&&!SKYSET.weather) k='clear'; if(SKYSET.weather) k=SKYSET.weather;
+  WX.kind=k; WX.snow=inRange(SKY.md,'12-01','01-06'); WX.t=0; WX.rain=k==='rain'?1:0; WX.fog=0; WX.bow=0; WX.stop=70+r*400%60; WX.horn=10; WX.bowT=0; SKY.over=k==='rain'?1:0; }
+const fract=x=>x-Math.floor(x);
+const SUND=new T.Vector3(), MOOND=new T.Vector3(), LT=new T.Vector3(), LT2=new T.Vector3();
+const mixV=(o,a,b,k)=>o.set(a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k);
+const SKYC={day:{la:[.93,.92,.89],lb:[1.05,1.02,.95],sh:[.6,.66,.83],sky:[.62,.82,.85],fog:[.83,.9,.89]},
+  gold:{la:[1.,.85,.7],lb:[1.1,.93,.75],sh:[.52,.53,.72],sky:[.88,.72,.63],fog:[.89,.8,.73]},
+  night:{la:[.34,.4,.58],lb:[.4,.47,.66],sh:[.19,.23,.37],sky:[.17,.23,.36],fog:[.105,.145,.21]}};
+const cA=new T.Vector3(), cB=new T.Vector3();
+function skyApply(){ sunDir(SKY.h,SKY.doy,SUND,false); sunDir(SKY.h,SKY.doy,MOOND,true);
+  const ed=Math.asin(clamp(SUND.y,-1,1))/D2R; SKY.e=ed;
+  const night=1-sstep(-8,-1,ed), dusk=sstep(-8,0,ed)*(1-sstep(4,16,ed)), sunOn=ed>-2.5;
+  SKY.night=night; SKY.dusk=dusk;
+  /* the light that casts: the sun, or the moon once the sun is well down; how strong it is fades to nothing at the hand-over */
+  SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed); direct*=1-.7*SKY.over-.4*WX.fog;
+  const K=['la','lb','sh','sky','fog'], out={};
+  for(const k of K){ mixV(cA,SKYC.day[k],SKYC.gold[k],dusk); mixV(cB,[cA.x,cA.y,cA.z],SKYC.night[k],night); out[k]=cB.clone(); }
+  LU.uShdC.value.copy(out.sh); LU.uLitA.value.copy(out.sh).lerp(out.la,direct); LU.uLitB.value.copy(out.sh).lerp(out.lb,direct);
+  /* rain greys the air; sea fog closes in, pale by day and dark blue at night */
+  const grey=V4.set(.7,.75,.77).multiplyScalar(1-.85*night);
+  out.fog.lerp(grey,.6*SKY.over); out.sky.lerp(grey,.5*SKY.over); out.fog.lerp(V4.set(.8,.85,.87).multiplyScalar(1-.78*night),WX.fog*.9);
+  LU.uFog.value.setRGB(out.fog.x,out.fog.y,out.fog.z); LU.uSky.value.setRGB(out.sky.x,out.sky.y,out.sky.z);
+  const fg=WX.fog, ov=SKY.over; LU.uFogR.value.set(lerp(lerp(16,11,ov),2.5,fg),lerp(lerp(52,40,ov),16,fg)); LU.uFogA.value=lerp(lerp(.55,.65,ov),.92,fg);
+  LU.uNight.value=night; LU.uWet.value=Math.max(WX.rain,LU.uWet.value*.999); LU.uSnow.value=WX.snow?.8:0;
+  LU.uSeason.value=seasonK(SKY.doy,doyOf(9,18),doyOf(11,30),12)-seasonK(SKY.doy,doyOf(3,22),doyOf(5,18),10);
+  SKYU.uSunD.value.copy(SUND); SKYU.uMoonD.value.copy(MOOND); SKYU.uDusk.value=dusk*(1-night*.5); SKYU.uOver.value=Math.max(ov,fg*.5); SKYU.uBow.value=WX.bow*(ed>2?1:0);
+  /* the shadows are drawn again when the light has moved a degree or so */
+  if(SKY.baked.dot(SUN)<.9998){ SKY.baked.copy(SUN); baked=false; } }
+/* ---------- the things the sky brings: rain and snow, fireflies, fairy lights and pumpkins ---------- */
+let FALL=null, FLIES=null, XMAS=null; const PUMPS=[];
+function buildSkyFx(){ skyClock(); skyWeather();
+  /* rain and snow: a few hundred streaks or flakes in a box that travels with the camera, falling in the vertex shader */
+  { const N=LO?260:520, P=[], S=[], Cn=[], I=[]; for(let i=0;i<N;i++){ const s=[Math.random(),Math.random(),Math.random(),Math.random()];
+      for(const [cx,cy] of [[-1,0],[1,0],[1,1],[-1,1]]){ P.push(0,0,0); S.push(...s); Cn.push(cx,cy); } const b=i*4; I.push(b,b+1,b+2, b,b+2,b+3); }
+    const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('aS',new T.Float32BufferAttribute(S,4)); g.setAttribute('aC',new T.Float32BufferAttribute(Cn,2)); g.setIndex(I);
+    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,
+      vertexShader:`attribute vec4 aS; attribute vec2 aC; uniform vec3 uCam,uUp; uniform float uTime,uSnow; varying vec2 vC; varying float vA;
+        void main(){ vec3 e1=normalize(cross(uUp,abs(uUp.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.))), e2=cross(uUp,e1);
+          float sp=mix(9.,.9,uSnow), y=fract(aS.y-uTime*sp/12.)*12.-5.; vec3 p=uCam+e1*(aS.x-.5)*18.+e2*(aS.z-.5)*18.+uUp*y;
+          p+=(e1*sin(uTime*1.3+aS.w*20.)+e2*cos(uTime*1.1+aS.w*17.))*.35*uSnow;   // flakes drift
+          vec3 vd=normalize(p-cameraPosition), sd=normalize(cross(uUp,vd)); float L=mix(.42,.05,uSnow), W=mix(.022,.05,uSnow);
+          p+=sd*aC.x*W+(uSnow>.5?cross(vd,sd)*(aC.y-.5)*2.*W:uUp*aC.y*L); vC=aC; vA=smoothstep(18.,6.,distance(p,cameraPosition))*(.55+.45*aS.w);
+          gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
+      fragmentShader:`uniform float uK,uSnow,uNight; varying vec2 vC; varying float vA; void main(){ float a=uSnow>.5?smoothstep(1.,.5,length(vec2(vC.x,vC.y*2.-1.))):1.-abs(vC.x)*.6;
+        gl_FragColor=vec4(mix(vec3(.82,.88,.93),vec3(.97),uSnow)*(1.-.55*uNight),a*vA*uK*mix(.5,.9,uSnow)); }`});
+    FALL=new T.Mesh(g,m); FALL.frustumCulled=false; FALL.layers.set(1); FALL.renderOrder=5; FALL.visible=false; sc.add(FALL); }
+  /* fireflies by the trees on summer nights */
+  if(inRange(SKY.md,'05-15','09-15')){ const n=LO?16:28, m=new T.InstancedMesh(new T.SphereGeometry(.035,6,4),new T.MeshBasicMaterial({color:new T.Color(1,1,.6)}),n);
+    m.layers.set(1); m.frustumCulled=false; m.userData.f=Array.from({length:n},(_,i)=>{ const t=TREES[i%Math.max(1,TREES.length)]||[0,0,1]; return {x:t[0]+(Math.random()-.5)*2.4,z:t[1]+(Math.random()-.5)*2.4,ph:Math.random()*TAU,h:.5+Math.random()*1.4}; }); sc.add(m); FLIES=m; }
+  /* December: fairy lights along the front of every house */
+  if(inRange(SKY.md,'12-01','01-06')){ const pts=[]; for(const H of HOUSES){ const n=Math.max(4,Math.floor(H.w/.3)); for(let i=0;i<=n;i++) pts.push(V.set(-H.w/2+i*H.w/n,H.h-(H.flat?-.08:.16),H.d/2+.1).applyMatrix4(H.M).clone()); }
+    const m=new T.InstancedMesh(new T.SphereGeometry(.05,6,4),new T.MeshBasicMaterial(),pts.length), M4=new T.Matrix4(), CL=['#ff5a4a','#ffd05a','#5fd36a','#6fb4ff'].map(c=>new T.Color(c));
+    pts.forEach((p,i)=>{ M4.makeTranslation(p.x,p.y,p.z); m.setMatrixAt(i,M4); m.setColorAt(i,CL[i%4]); }); m.layers.set(1); m.frustumCulled=false; sc.add(m); XMAS={m,CL,n:pts.length,t:0}; }
+  /* Halloween: a carved pumpkin by every door, lit inside when it gets dark */
+  if(inRange(SKY.md,'10-20','11-02')){ for(const H of HOUSES){ const Mp=new T.Matrix4().multiplyMatrices(H.M,new T.Matrix4().makeTranslation(H.dx+.62,0,H.d/2+.42)), g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(Mp); sc.add(g);
+      const body=new T.Mesh(new T.SphereGeometry(.2,14,10),toonMat('#e8822e')); body.scale.set(1,.8,1); body.position.y=.17; g.add(body);
+      const stem=new T.Mesh(new T.CylinderGeometry(.025,.03,.08,6),toonMat('#5b6b33')); stem.position.y=.35; g.add(stem);
+      const face=flatMat('#3a2412'); [[-.07,.21,.12],[.07,.21,.12]].forEach(([x,y,s])=>{ const t=new T.Mesh(new T.CircleGeometry(.045,3),face); t.position.set(x,y,.17); t.rotation.z=Math.PI/2; g.add(t); });
+      const mo=new T.Mesh(new T.PlaneGeometry(.18,.045),face); mo.position.set(0,.11,.185); g.add(mo); PUMPS.push(face); } } }
+/* ---------- each frame ---------- */
+function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
+  /* the weather moves on: the rain stops after a while and the cloud clears, and with the sun out behind you a rainbow; fog rolls in */
+  WX.t+=dt;
+  if(WX.kind==='rain'){ if(WX.t>WX.stop){ WX.rain=Math.max(0,WX.rain-dt/8); SKY.over=Math.max(0,SKY.over-dt/22); if(!WX.bowT&&SKY.over<.5&&SKY.e>2&&!WX.snow){ WX.bowT=1; A.chime(4,0,.025); } } }
+  if(WX.bowT){ WX.bowT+=dt; WX.bow=sstep(1,9,WX.bowT)*(1-sstep(55,70,WX.bowT)); }
+  if(WX.kind==='fog') WX.fog=sstep(10,40,WX.t);
+  skyApply();
+  /* rain or snow round the camera */
+  const fall=WX.rain*(1-sstep(0,1,SPACEU.value)); FALL.visible=fall>.01; if(FALL.visible){ const u=FALL.material.uniforms; u.uCam.value.copy(stCam.position); u.uK.value=fall; u.uSnow.value=WX.snow?1:0; }
+  A.rain(WX.snow?0:fall*(FIN.on?.3:1));
+  /* the street lamps: dim at night, full as you come by, then easing back; a click as each one comes up */
+  const P=player, nt=SKY.night;
+  LAMPS.forEach((l,i)=>{ const near=Math.hypot(P.x-l.x,P.z-l.z)<6, want=nt>.15?(near?1:.4):0;
+    if(want>l.k){ l.k=Math.min(want,l.k+dt*(near?3.2:1)); } else l.k=Math.max(want,l.k-dt/5);
+    if(near&&nt>.15&&!l.hot&&l.k>.8){ l.hot=1; if(!TALK.p&&!CUT.on) A.tick(); } if(!near) l.hot=0;
+    const f=l.k*(near&&l.k<1?.85+.15*Math.sin(t*60+i):1); LU.uLmp.value[i].set(l.p.x,l.p.y,l.p.z,f); });
+  /* fireflies wander round the trees on a summer night */
+  document.documentElement.classList.toggle('crnight',nt>.5);
+  if(FLIES){ FLIES.visible=nt>.3&&inRange(SKY.md,'05-15','09-15'); if(FLIES.visible){ const M4=Mf; FLIES.userData.f.forEach((q,i)=>{ const a=t*.4+q.ph, x=q.x+Math.sin(a*1.3)*.6, z=q.z+Math.cos(a*.9)*.6, h=q.h+Math.sin(a*2.1)*.25, on=.5+.5*Math.sin(t*3+q.ph*5)>.35?1:.001;
+      at(x,z,V).multiplyScalar(R+standH(x,z)+h); M4.makeScale(on,on,on).setPosition(V); FLIES.setMatrixAt(i,M4); }); FLIES.instanceMatrix.needsUpdate=true; } }
+  /* the fairy lights twinkle; the pumpkins glow once it is dark */
+  if(XMAS){ XMAS.t+=dt; if(XMAS.t>.5){ XMAS.t=0; const k=.55+.45*nt; for(let i=0;i<XMAS.n;i++){ const c=XMAS.CL[(i+Math.floor(t*2))%4]; XMAS.m.setColorAt(i,V.set(c.r*k,c.g*k,c.b*k)); } XMAS.m.instanceColor.needsUpdate=true; } }
+  PUMPS.forEach(m=>m.uniforms.uC.value.setRGB(lerp(.23,1,nt),lerp(.14,.72,nt),lerp(.07,.25,nt)));
+  /* the foghorn, from the lighthouse when there is one, out at sea when not */
+  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.05*clamp(1.2-d0/24,.25,1)); } } }
+/* ---------- the lighthouse: take the light and steer it ----------
+   By the lighthouse you can take the light: drag (or the arrow keys) turns the beam out over the water, the camera up on
+   the gallery behind it. The beam lights whatever it falls on and thins the fog along it, so at night and in fog it is
+   what you see by. Out there are a fishing boat, a bell buoy, and a drone that has lost its way: hold the light on it and
+   it locks on and follows the beam home, which is Pharos in small. Let go and the light turns on by itself again. */
+const PHS={on:false,yaw:0,v:0,k:0,cp:new T.Vector3(),cl:new T.Vector3(),drag:null,turned:0,T:[],lost:null,lockT:0,state:'lost',st:0,home:new T.Vector3(),bgW:new T.Matrix4()};
+const steerBtn=$('#crSteer',el), steerUI=$('#crSteerUI',el);
+const phLocal=(a,r,y,o)=>o.set(Math.cos(a)*r,y,-Math.sin(a)*r).applyMatrix4(PHS.bgW);   // a point at an angle round the lighthouse, out from the lamp
+const angWrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+function seaAngles(){ const out=[]; for(let i=0;i<72;i++){ const a=i/72*TAU; let sea=true; for(const r of [6,8.5,11]){ if(isle(phLocal(a,r,0,V).normalize())>-.06){ sea=false; break; } } if(sea) out.push(a); } return out; }
+function seaThing(kind){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g);
+  if(kind==='boat'){ const hull=new T.Mesh(new T.BoxGeometry(1.05,.24,.42),toonMat('#8e3b2f')); hull.position.y=.12; g.add(hull);
+    const deck=new T.Mesh(new T.BoxGeometry(1.08,.05,.44),toonMat('#e9e2d4')); deck.position.y=.26; g.add(deck);
+    const cab=new T.Mesh(new T.BoxGeometry(.34,.28,.3),toonMat('#f2ede3')); cab.position.set(-.22,.42,0); g.add(cab);
+    const mast=new T.Mesh(new T.CylinderGeometry(.018,.018,.8,6),toonMat('#5a4636')); mast.position.set(.18,.66,0); g.add(mast);
+    const lan=new T.Mesh(new T.SphereGeometry(.05,8,6),flatMat('#ffd27a')); lan.position.set(.18,1.07,0); g.add(lan); g.userData.lan=lan; }
+  else { const b=new T.Mesh(new T.CylinderGeometry(.14,.18,.42,12),toonMat('#cf4a36')); b.position.y=.21; g.add(b);
+    const w=new T.Mesh(new T.CylinderGeometry(.145,.15,.09,12),toonMat('#f4efe6')); w.position.y=.3; g.add(w);
+    const c=new T.Mesh(new T.ConeGeometry(.12,.26,10),toonMat('#cf4a36')); c.position.y=.55; g.add(c);
+    const bell=new T.Mesh(new T.SphereGeometry(.055,8,6),toonMat('#d9b45a')); bell.position.y=.72; g.add(bell); }
+  return g; }
+function buildSteer(){ if(!PH) return; PH.beam.parent.updateWorldMatrix(true,false); PHS.bgW.copy(PH.beam.parent.matrixWorld);
+  const sa=seaAngles(); if(!sa.length) return; const pick=k=>sa[Math.floor(k*(sa.length-1))];
+  PHS.T=[{kind:'boat',a:pick(.3),r:9.5,g:seaThing('boat'),lit:false,ph:1.3},{kind:'buoy',a:pick(.75),r:6.6,g:seaThing('buoy'),lit:false,ph:.4}];
+  const d=drone('#ff5a4a'); d.scale.setScalar(1.7); sc.add(d); const ring=new T.Mesh(new T.TorusGeometry(.42,.025,6,32).rotateX(Math.PI/2),flatMat('#ffd27a')); ring.visible=false; sc.add(ring);
+  PHS.lost={g:d,ring,a:pick(.55),r:8.6,pos:new T.Vector3(),from:new T.Vector3(),sa}; phLocal(0,.95,-.15,PHS.home); }
+/* a thing at sea: on the water at its angle and distance from the lamp, bobbing */
+function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+.02+Math.sin(t*1.4+q.ph)*.03);
+  const M=frameAt(...loc(up),q.a+Math.sin(t*.9+q.ph)*.08); M.setPosition(V); M.multiply(Mr.makeRotationZ(Math.sin(t*1.7+q.ph)*.07)); q.g.matrix.copy(M); q.g.matrixWorldNeedsUpdate=true; }
+function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); } else { PHS.drag=null; A.click(); } }
+steerBtn.addEventListener('click',e=>{ e.stopPropagation(); steerSet(true); });
+$('#crSteerDone',el).addEventListener('click',e=>{ e.stopPropagation(); steerSet(false); });
+steerUI.addEventListener('pointerdown',e=>e.stopPropagation());
+function steerUpdate(dt,t){ const nt=SKY.night;
+  /* the beam: your hand on it, or turning by itself; longer and brighter at night and in fog */
+  if(PHS.on){ const kd=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0); if(kd) PHS.v=kd*1.4;
+    else if(!PHS.drag) PHS.v*=Math.exp(-3*dt); } else PHS.v=damp(PHS.v,.9,1.5,dt);
+  const dy=PHS.v*dt; PHS.yaw+=dy; if(PHS.on){ PHS.turned+=Math.abs(dy); if(PHS.turned>.21){ PHS.turned=0; A.tick(); } }   // the gear clicks as it turns
+  PH.beam.rotation.set(0,PHS.yaw,-.1); PH.beam.scale.set(lerp(1.5,2.2,Math.max(nt,WX.fog)),1,1); PH.beam.material.uniforms.uOp.value=lerp(.14,.34,nt)+.12*WX.fog;
+  /* what the beam falls on: its origin and which way it points, for the light it gives everything */
+  V.set(0,0,0).applyMatrix4(PHS.bgW); V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
+  LU.uBmO.value.set(V.x,V.y,V.z,PH?(.35+.65*Math.max(nt,WX.fog)):0); LU.uBmD.value.set(V2.x,V2.y,V2.z,.985);
+  /* the boat and the buoy ride the swell; each answers the light the first time it crosses them */
+  for(const q of PHS.T){ seaPose(q,t); const lit=Math.abs(angWrap(q.a-PHS.yaw))<.16; if(lit&&!q.lit&&PHS.on){ if(q.kind==='boat') A.ping(392,.03); else A.chime(5,0,.035); } q.lit=lit;
+    if(q.g.userData.lan) q.g.userData.lan.material.uniforms.uC.value.setRGB(1,lerp(.62,.86,lit?1:0),lerp(.3,.55,lit?1:0)); }
+  /* the lost drone: blinking out over the water; held in the light it locks on, then follows the beam home */
+  const L=PHS.lost; if(L){ PHS.st+=dt;
+    if(PHS.state==='lost'){ phLocal(L.a,L.r,1.7+Math.sin(t*1.1)*.12,L.pos); const on=PHS.on&&Math.abs(angWrap(L.a-PHS.yaw))<.14;
+      PHS.lockT=on?PHS.lockT+dt:Math.max(0,PHS.lockT-dt*2); if(PHS.lockT>.9){ PHS.state='lock'; PHS.st=0; A.lock(0,.05); } L.g.visible=true; }
+    else if(PHS.state==='lock'){ phLocal(L.a,L.r,1.7,L.pos); if(PHS.st>.6){ PHS.state='home'; PHS.st=0; L.from.copy(L.pos); } }
+    else if(PHS.state==='home'){ const u=sstep(0,1,PHS.st/3.4); L.pos.copy(L.from).lerp(PHS.home,u).addScaledVector(V.copy(PHS.home).normalize(),Math.sin(u*Math.PI)*1.2);
+      if(PHS.st>3.4){ PHS.state='gone'; PHS.st=0; L.g.visible=false; A.chord(); } }
+    else if(PHS.st>7){ PHS.state='lost'; PHS.st=0; PHS.lockT=0; let a=L.a; for(let i=0;i<20;i++){ a=L.sa[Math.floor(Math.random()*L.sa.length)]; if(Math.abs(angWrap(a-PHS.yaw))>.8) break; } L.a=a; L.r=7.5+Math.random()*3; }
+    const up=V.copy(L.pos).normalize(); const M=frameAt(...loc(up),t*.6); M.setPosition(L.pos); M.multiply(Mf.makeScale(1.7,1.7,1.7)); L.g.matrix.copy(M); L.g.matrixWorldNeedsUpdate=true;
+    L.g.userData.light.material.uniforms.uC.value.setStyle(PHS.state==='lost'?((t*2)%1<.5?'#ff5a4a':'#5a1a16'):'#7dff9a',T.LinearSRGBColorSpace);
+    L.ring.visible=PHS.state==='lock'; if(L.ring.visible){ const s=1+.25*Math.sin(PHS.st*20); L.ring.matrix.copy(M).multiply(Mf.makeScale(s/1.7,s/1.7,s/1.7)); L.ring.matrixAutoUpdate=false; L.ring.matrixWorldNeedsUpdate=true; } }
+  steerBtn.hidden=!(PJ.id==='ph'&&!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0); }
+/* the camera up behind the lamp, looking out along the beam; handing back to the walking camera smoothly */
+function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002) return;
+  const Lp=V.set(0,0,0).applyMatrix4(PHS.bgW), U=V3.copy(Lp).normalize(), Dh=V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
+  V4.copy(Lp).addScaledVector(Dh,-3.4).addScaledVector(U,1.3); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,9).addScaledVector(U,-4.2); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);
+  st.camP.lerp(PHS.cp,PHS.k); st.camL.lerp(PHS.cl,PHS.k); stUp.lerp(U,PHS.k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(PHS.k>.5) LU.uPly.value.copy(st.camP); S.stSnap=true; }
 /* ---------- birds circling over town ---------- */
 const BIRDS=[], BU=new T.Vector3();
 function buildBirds(){ for(let i=0;i<6;i++){ const g=new T.Group(), wl=mesh(BOXG,'#3b3a3c',-.17,0,0,.34,.02,.09), wr=mesh(BOXG,'#3b3a3c',.17,0,0,.34,.02,.09); g.add(wl,wr,mesh(BOXG,'#3b3a3c',0,0,0,.07,.05,.16)); sc.add(g);
@@ -775,9 +1003,9 @@ st.build=async function(){
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav();
+  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer();
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
-  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true});
+  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1};   // the seasons, snow, rain and lit windows are the kit's
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
   kitTo();
@@ -843,20 +1071,21 @@ function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight
 let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
 const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
+  if(PHS.drag&&e.pointerId===PHS.drag.id){ const dx=e.clientX-PHS.drag.x, now=performance.now(), dtm=Math.max(8,now-PHS.drag.t); PHS.drag.x=e.clientX; PHS.drag.t=now; const d=-dx*.0065; PHS.yaw+=d; PHS.v=clamp(d/(dtm/1000),-4,4); if(Math.abs(d)>0){ PHS.turned+=Math.abs(d); if(PHS.turned>.21){ PHS.turned=0; A.tick(); } } return; }
   if(look&&e.pointerId===look.id){ turnBy(e.clientX-look.lx,e.clientY-look.ly); look.lx=e.clientX; look.ly=e.clientY; return; }
   if(down&&e.pointerId===down.id){ const dx=e.clientX-down.lx; if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>(down.touch?8:13)) down.moved=true;
     if(down.touch){ const sx=clamp(e.clientX-down.x,-50,50), sy=clamp(e.clientY-down.y,-50,50); stickI.style.transform=`translate(${sx}px,${sy}px)`; down.ix=sx/50; down.iz=-sy/50; if(down.moved) began(); }
     else if(down.moved){ turnBy(dx,e.clientY-down.ly); began(); }
     down.lx=e.clientX; down.ly=e.clientY; }
   if(e.pointerType==='mouse'&&!down){ const p=pickPerson(e); if(p!==hov){ hov=p; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(p){ ct.textContent='Say hello'; ce.classList.add('big'); } else ce.classList.remove('big'); } } } },{passive:true});
-addEventListener('pointerup',e=>{ if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
+addEventListener('pointerup',e=>{ if(PHS.drag&&e.pointerId===PHS.drag.id){ PHS.drag=null; return; } if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
   const p=pickPerson(e); if(p) goTalk(p); });
-addEventListener('pointercancel',()=>{ down=null; look=null; stickOff(); });
+addEventListener('pointercancel',()=>{ down=null; look=null; PHS.drag=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
 function began(){ if(started) return; started=true; el.classList.add('walked'); hint.classList.add('gone'); }
@@ -910,6 +1139,7 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(FIN.on){ if(LKEYS.includes(e.code)) launchHold(true); e.preventDefault(); e.stopImmediatePropagation(); return; }   // the last flight takes no keys but the launch
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
+  if(PHS.on&&e.code==='Escape'){ steerSet(false); e.stopImmediatePropagation(); return; }
   if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     const P=player; let best=null, bd=3.4; for(const q of people){ const dq=Math.hypot(P.x-q.x,P.z-q.z); if(dq<bd){ bd=dq; best=q; } }
     if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; } }
@@ -1140,6 +1370,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
+  if(PHS.on){ ix=iz=0; P.tgt=null; }   // holding the light, you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -1198,7 +1429,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   stUp.lerp(P.u,1-Math.exp(-6*dt)).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp);
   rigPose(C.tgt,stUp,C.f,C.pEff,C.dist,st.camP,st.camL);
   LU.uPly.value.copy(P.u).multiplyScalar(R+P.h+1);   // what the camera must always see: you
-  glanceApply(dt);
+  glanceApply(dt); steerCam(dt);
   S.stSnap=true; // the camera does its own smoothing
   }
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
@@ -1225,11 +1456,11 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     const off=V.z>1||Math.abs(V.x)>.9||Math.abs(V.y)>.84, ed=edges[i], showE=owed&&off&&!busy&&d>6; ed.classList.toggle('on',showE);
     if(showE){ let ex=V.z>1?-V.x:V.x, ey=V.z>1?-V.y:V.y; const m=Math.max(Math.abs(ex)/.82,Math.abs(ey)/.74,1e-3); ex/=m; ey/=m;
       ed.style.transform=`translate(${((ex*.5+.5)*innerWidth).toFixed(1)}px,${((-ey*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-50%)`; ed.style.setProperty('--a',Math.atan2(-ey,ex).toFixed(3)+'rad'); } });
-  goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0);
+  goBtn.hidden=!(allMet()&&AH.heard&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on);
   /* walk up to a landmark and it says what it is, and where to find it */
   /* a landmark's card: only once you are out and walking, never on the way over to someone, and only when you stop by
      it for a moment, so passing one on your way somewhere does not flash it up */
-  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
+  { let near=null, bd=1; if(started&&!TALK.p&&!TALK.goal&&!CUT.on&&!FIN.on&&GLN.t<0&&!PHS.on) for(const id in INST){ if(MK[id]&&MK[id].st!=='on') continue; /* the café is always open, a landmark once it is built */ const q=INST[id], dq=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(dq<bd){ bd=dq; near=id; } }
     if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
     const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
@@ -1248,7 +1479,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       q.g.matrix.copy(Mf2); q.g.matrixWorldNeedsUpdate=true; });
     const mk=c>6&&c<8.65; AE.ring.visible=mk; if(mk){ const s=c>8?1-.45*sstep(8,8.6,c):1+.08*Math.sin(t*9); AE.ring.matrix.copy(AE.dr[0].g.matrix).multiply(Mf.makeScale(s,s,s)); AE.ring.matrixWorldNeedsUpdate=true; }
     if(!quiet&&d0<15){ if(c0<6&&c>=6) A.ping(1175,.016*(1-d0/15)); if(c0<8&&c>=8) A.ping(1568,.024*(1-d0/15)); } }
-  if(PH) PH.beam.rotation.y=t*.9;
+  if(PH) steerUpdate(dt,t);
   /* Pharos: once round the lighthouse every fifteen seconds; over open water there is nothing to match, and it says so */
   if(PH&&PH.dr&&MK.ph.st==='on'){ PH.a+=dt*.42; const lx=Math.cos(PH.a)*3.3, lz=Math.sin(PH.a)*3.3;
     PH.dr.matrix.copy(PH.M).multiply(Mf.makeTranslation(lx,3.3+Math.sin(t*1.1)*.12,lz)).multiply(Mr.makeRotationY(-PH.a-Math.PI/2)); PH.dr.matrixWorldNeedsUpdate=true;
@@ -1268,8 +1499,12 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music and birds now and then
-  A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)) A.chirp((Math.random()-.5)*1.6); }
+  A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
   A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
-st._dbg={began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+st._dbg={steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
+    step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
+    get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
+      season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS},
+  began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
 })();

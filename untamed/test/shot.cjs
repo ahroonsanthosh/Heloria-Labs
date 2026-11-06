@@ -35,7 +35,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const shot = async n => { await page.screenshot({ path: path.join(out, n + '.png'), timeout: 240000 }); console.log('shot', path.join(out, n + '.png')); };
   const H = (fn, arg) => page.evaluate(([src, a]) => (0, eval)('(' + src + ')')(window.__heloria, a), [fn.toString(), arg]);
   const log = (...a) => console.log(...a);
-  await page.goto('file://' + path.resolve(opt.html) + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the other ways in
+  await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the other ways in; --query time=21:30 and the like
   await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
   if (opt.station) { await H((h, id) => h.jump(id), opt.station); await W(+(opt.settle || 3000)); if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'menu'); }
   if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile }); }
