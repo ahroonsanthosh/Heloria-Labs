@@ -106,3 +106,27 @@ html.earth #back{transition:opacity .6s var(--ease)}
 .st-cr.fin .crsteer,.st-cr.fin .crsteer-ui{display:none!important}
 html.earth.crnight .brand{color:#efe8da}   /* the name stays readable once it is dark */
 html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}
+/* postcards: the camera in the corner, the frame while you choose a view, the flash, and the card that comes out */
+.st-cr .crpost{position:absolute;top:var(--gt);right:calc(var(--gr) + 6px);display:flex;gap:8px;align-items:center;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:3px 3px 0 #2a241d;padding:7px 12px}
+.st-cr .crpost svg{width:18px;height:15px}
+.st-cr .crpost[hidden],.st-cr .crframe[hidden],.st-cr .crcard[hidden]{display:none}
+.st-cr.cut .crpost,.st-cr.fin .crpost{display:none!important}
+.st-cr .crframe{position:absolute;inset:0;pointer-events:none;z-index:6}
+.st-cr .crframe-w{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:min(84vw,calc(68vh*1.5));aspect-ratio:3/2;box-shadow:0 0 0 200vmax rgba(20,18,16,.38);outline:2px solid rgba(251,246,236,.9)}
+.st-cr .crframe-w i{position:absolute;width:26px;height:26px;border:3px solid #fbf6ec}
+.st-cr .crframe-w i:nth-child(1){left:-9px;top:-9px;border-right:0;border-bottom:0}.st-cr .crframe-w i:nth-child(2){right:-9px;top:-9px;border-left:0;border-bottom:0}
+.st-cr .crframe-w i:nth-child(3){left:-9px;bottom:-9px;border-right:0;border-top:0}.st-cr .crframe-w i:nth-child(4){right:-9px;bottom:-9px;border-left:0;border-top:0}
+.st-cr .crframe-b{position:absolute;left:50%;bottom:calc(var(--gb) + 18px);transform:translateX(-50%);display:flex;gap:12px;align-items:center;pointer-events:auto;padding:7px 7px 7px 16px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;white-space:nowrap}
+.st-cr .crflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:7}
+.st-cr .crflash.go{animation:crflash .55s ease-out}
+@keyframes crflash{from{opacity:.85}to{opacity:0}}
+.st-cr .crcard{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:rgba(20,18,16,.45);padding:16px}
+.st-cr .crcard-b{display:grid;gap:14px;justify-items:center;max-width:min(920px,calc(100vw - 32px));animation:crcard .6s cubic-bezier(.2,.8,.2,1) both}
+.st-cr .crcard-b img{display:block;max-width:100%;max-height:calc(100vh - 150px);border:2px solid #2a241d;box-shadow:6px 6px 0 #2a241d;background:#fbf6ec;transform:rotate(-1.2deg)}
+.st-cr .crcard-a{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.st-cr .crcard-a .btn{background:#fbf6ec;color:#2a241d;border-color:#2a241d}
+.st-cr .crcard-a .btn.pri{background:#ef8a3c}
+@keyframes crcard{from{opacity:0;transform:translateY(24px) rotate(2deg)}to{opacity:1;transform:none}}
+.st-cr.post .card,.st-cr.post #crLabels,.st-cr.post .crhint,.st-cr.post .crpj,.st-cr.post .crgo,.st-cr.post .crsteer{opacity:0!important;pointer-events:none!important}
+html.crpost #back,html.crpost #chrome{opacity:0;pointer-events:none}
+@media (max-aspect-ratio:1/1){ .st-cr .crframe-w{width:min(86vw,calc(64vh*.8));aspect-ratio:4/5} }

@@ -4978,7 +4978,7 @@ function steerUpdate(dt,t){ const nt=SKY.night;
     else if(!PHS.drag) PHS.v*=Math.exp(-3*dt); } else PHS.v=damp(PHS.v,.9,1.5,dt);
   if(PHS.on&&PHS.aim!=null){ if(PHS.drag) PHS.aim=null; else { const d=angWrap(PHS.aim-PHS.yaw); PHS.v=clamp(d*3,-2.2,2.2); if(Math.abs(d)<.03) PHS.aim=null; } }   // out to sea first
   const dy=PHS.v*dt; PHS.yaw+=dy; if(PHS.on){ PHS.turned+=Math.abs(dy); if(PHS.turned>.21){ PHS.turned=0; A.tick(); } }   // the gear clicks as it turns
-  PH.beam.rotation.set(0,PHS.yaw,-.1); PH.beam.scale.set(lerp(1.5,2.2,Math.max(nt,WX.fog)),1,1); PH.beam.material.uniforms.uOp.value=lerp(.14,.34,nt)+.12*WX.fog;
+  const dk=Math.max(nt,WX.fog); PH.beam.rotation.set(0,PHS.yaw,-.1); PH.beam.scale.set(lerp(1,2.2,dk),1,1); PH.beam.material.uniforms.uOp.value=lerp(PHS.on?.16:.06,.34,nt)+.12*WX.fog;   // by day the beam is a faint thing; at night and in fog it reaches out
   /* what the beam falls on: its origin and which way it points, for the light it gives everything */
   V.set(0,0,0).applyMatrix4(PHS.bgW); V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
   LU.uBmO.value.set(V.x,V.y,V.z,PH?(.35+.65*Math.max(nt,WX.fog)):0); LU.uBmD.value.set(V2.x,V2.y,V2.z,.985);
@@ -5003,6 +5003,80 @@ function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002
   const pk=innerHeight>innerWidth?1.35:1;   // a phone held upright stands further back
   V4.copy(Lp).addScaledVector(Dh,-2.4*pk).addScaledVector(U,3.6*pk); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,11).addScaledVector(U,-5.5); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);   // up over the gallery, looking out and down along the beam
   st.camP.lerp(PHS.cp,PHS.k); st.camL.lerp(PHS.cl,PHS.k); stUp.lerp(U,PHS.k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(PHS.k>.5) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+/* ---------- postcards ----------
+   The camera in the corner frames whatever you are looking at; take it and it comes out as a postcard: your view inside a
+   paper border, "Greetings from Earth", a stamp for the landmark you are by, and a postmark with the moment it was taken,
+   the time and the weather as they are here. Save it, or on a phone share it straight on. The picture is taken from the
+   frame the page has just drawn, so nothing on top of the world (labels, buttons) is in it. */
+const PC={on:false,grab:false,busy:false,url:null,last:null,frame:null};
+const pcBtn=$('#crPost',el), pcUI=$('#crFrame',el), pcCard=$('#crCard',el), pcImg=$('#crCardImg',el), pcSave=$('#crCardSave',el), pcShare=$('#crCardShare',el);
+const PC_NAME={kr:'KRÍOS',ae:'AETOS',ph:'PHAROS',og:'OGIVE',be:'HELORIA LABS',cafe:'CAFÉ'};
+function pcOpen(on){ if(on===PC.on) return; PC.on=on; pcUI.hidden=!on; el.classList.toggle('post',on); document.documentElement.classList.toggle('crpost',on); A.click(); if(on) closeTalk(); }
+pcBtn.addEventListener('click',e=>{ e.stopPropagation(); pcOpen(!PC.on); });
+$('#crFrameCancel',el).addEventListener('click',e=>{ e.stopPropagation(); pcOpen(false); });
+$('#crFrameTake',el).addEventListener('click',e=>{ e.stopPropagation(); pcTake(); });
+$('#crCardAgain',el).addEventListener('click',e=>{ e.stopPropagation(); pcCard.hidden=true; pcOpen(true); });
+$('#crCardClose',el).addEventListener('click',e=>{ e.stopPropagation(); pcCard.hidden=true; });
+pcCard.addEventListener('click',e=>{ if(e.target===pcCard) pcCard.hidden=true; });   // a click on the dimmed world puts the card away
+[pcUI,pcCard].forEach(n=>['pointerdown','pointerup','click'].forEach(ev=>n.addEventListener(ev,e=>{ if(e.target.closest('button,a')) e.stopPropagation(); })));
+/* the shutter: ask for the next frame the page draws to the screen, and copy it the moment it is drawn */
+function pcTake(){ if(PC.busy) return; PC.busy=true; PC.grab=true; PC.frame=$('.crframe-w',el).getBoundingClientRect(); A.click(); A.pebble(0); }
+{ const R0=renderer.render.bind(renderer); renderer.render=function(s,c){ R0(s,c); if(PC.grab&&renderer.getRenderTarget()===null){ PC.grab=false; pcSnap(); } }; }
+function pcSnap(){ const src=renderer.domElement, k=src.width/innerWidth, f=PC.frame, shot=document.createElement('canvas');
+  shot.width=Math.round(f.width*k); shot.height=Math.round(f.height*k); shot.getContext('2d').drawImage(src,f.left*k,f.top*k,f.width*k,f.height*k,0,0,shot.width,shot.height);
+  const fl=$('.crflash',el); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
+  pcOpen(false); pcCompose(shot); }
+/* where, when and what the weather is, for the stamp and the postmark */
+function pcWhere(){ const P=player; let best='earth', bd=1.7; for(const id in INST){ const q=INST[id], d=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(d<bd){ bd=d; best=id; } } return best; }
+function pcWhen(){ const now=new Date(), M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'], m=+SKY.md.slice(0,2), d=+SKY.md.slice(3);
+  const hh=Math.floor(SKY.h), mm=Math.floor((SKY.h-hh)*60);
+  const wx=WX.snow&&WX.rain>.3?'SNOW':WX.rain>.3?'RAIN':WX.fog>.5?'SEA FOG':WX.bow>.3?'RAINBOW':SKY.night>.5?'CLEAR NIGHT':SKY.dusk>.5?(SKY.h<12?'SUNRISE':'SUNSET'):'CLEAR';
+  return {date:d+' '+M[m-1]+' '+now.getFullYear(),time:String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'),wx}; }
+const PC_INK='#2a241d', PC_PAPER='#fbf6ec', PC_OR='#ef8a3c';
+/* a small drawing for each landmark's stamp */
+function pcGlyph(g,id,x,y,s){ g.save(); g.translate(x,y); g.scale(s,s); g.lineWidth=3/s*s; g.lineJoin=g.lineCap='round'; g.strokeStyle=PC_INK; g.fillStyle=PC_INK;
+  const L=(...p)=>{ g.beginPath(); g.moveTo(p[0],p[1]); for(let i=2;i<p.length;i+=2) g.lineTo(p[i],p[i+1]); };
+  if(id==='ph'){ L(-14,40,-9,-22,9,-22,14,40); g.closePath(); g.fillStyle='#f4efe6'; g.fill(); g.stroke(); g.fillStyle='#cf4a36'; [[-12,22,24,10],[-11,0,22,9]].forEach(r=>g.fillRect(...r)); g.fillStyle=PC_INK; g.fillRect(-12,-34,24,12); L(-14,-34,0,-46,14,-34); g.closePath(); g.fillStyle='#cf4a36'; g.fill(); g.stroke();
+    g.strokeStyle=PC_OR; L(14,-28,46,-40); g.stroke(); L(14,-28,46,-16); g.stroke(); }
+  else if(id==='ae'){ g.beginPath(); g.arc(0,-6,30,Math.PI*.15,Math.PI*1.05); g.stroke(); L(0,-6,10,14,0,40); g.stroke(); L(-16,40,16,40); g.stroke(); [[30,-36],[-34,-30]].forEach(([a,b])=>{ L(a-7,b,a+7,b); g.stroke(); g.beginPath(); g.arc(a,b+4,2.5,0,TAU); g.fill(); }); }
+  else if(id==='og'){ L(0,-44,12,-18,12,26,-12,26,-12,-18); g.closePath(); g.fillStyle='#f4f0e8'; g.fill(); g.stroke(); g.fillStyle=PC_OR; L(-12,12,-24,34,-12,30); g.closePath(); g.fill(); g.stroke(); L(12,12,24,34,12,30); g.closePath(); g.fill(); g.stroke(); g.strokeStyle=PC_OR; L(-5,32,0,46,5,32); g.stroke(); }
+  else if(id==='kr'){ for(let i=0;i<5;i++){ const h=[10,26,40,26,14][i]; L(-24+i*12,-h/2,-24+i*12,h/2); g.stroke(); } g.beginPath(); g.arc(0,0,40,0,TAU); g.stroke(); }
+  else if(id==='be'){ L(0,40,0,-20); g.stroke(); L(-14,40,0,-6,14,40); g.stroke(); [14,24,34].forEach(r=>{ g.beginPath(); g.arc(0,-24,r,-Math.PI*.8,-Math.PI*.2); g.stroke(); }); }
+  else if(id==='cafe'){ L(-20,-4,-16,30,16,30,20,-4); g.closePath(); g.fillStyle='#f4efe6'; g.fill(); g.stroke(); g.beginPath(); g.arc(24,10,8,-Math.PI/2,Math.PI/2); g.stroke(); [-8,2,12].forEach(x=>{ g.beginPath(); g.moveTo(x,-12); g.bezierCurveTo(x-6,-20,x+6,-26,x,-34); g.stroke(); }); }
+  else { g.beginPath(); g.arc(0,0,22,0,TAU); g.fillStyle='#8fc7c0'; g.fill(); g.stroke(); g.beginPath(); g.ellipse(0,0,40,11,-.3,0,TAU); g.stroke(); }
+  g.restore(); }
+function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H=port?1500:1200, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d');
+  g.fillStyle=PC_PAPER; g.fillRect(0,0,W,H);
+  for(let i=0;i<2600;i++){ g.fillStyle=`rgba(42,36,29,${Math.random()*.035})`; g.fillRect(Math.random()*W,Math.random()*H,1.5,1.5); }   // the paper's grain
+  const m=port?48:56, pw=W-2*m, ph=H-2*m; g.drawImage(shot,0,0,shot.width,shot.height,m,m,pw,ph); g.lineWidth=3; g.strokeStyle=PC_INK; g.strokeRect(m,m,pw,ph);
+  const where=pcWhere(), when=pcWhen(); PC.last={where,...when,w:W,h:H};
+  /* the caption, on a paper label over the picture */
+  const disp=getComputedStyle(document.documentElement).getPropertyValue('--disp').trim()||'Doto, monospace', mono='ui-monospace, Menlo, monospace';
+  g.font=`900 ${port?64:72}px ${disp}`; const t1='Greetings from Earth', tw=g.measureText(t1).width, lx=m+34, ly=H-m-34, lh=port?150:160;
+  g.fillStyle=PC_PAPER; g.fillRect(lx,ly-lh,tw+56,lh); g.lineWidth=3; g.strokeRect(lx,ly-lh,tw+56,lh); g.fillStyle='rgba(42,36,29,.9)'; g.fillRect(lx+8,ly,tw+56,8); g.fillRect(lx+tw+56,ly-lh+8,8,lh);
+  g.fillStyle=PC_INK; g.textBaseline='alphabetic'; g.fillText(t1,lx+28,ly-lh*.42); g.font=`600 ${port?24:26}px ${mono}`; g.fillStyle='#6f6355'; g.fillText('HELORIALABS.COM',lx+30,ly-lh*.14);
+  /* the stamp: perforated, the landmark drawn on it, its name */
+  const sw=port?190:210, sh=port?230:250, sx=W-m-34-sw, sy=m+34;
+  g.save(); g.fillStyle='#fffdf7'; g.beginPath(); const pr=7; for(let x=sx;x<=sx+sw;x+=pr*2.2){ g.moveTo(x,sy); g.arc(x,sy,pr,0,TAU); g.moveTo(x,sy+sh); g.arc(x,sy+sh,pr,0,TAU); } for(let y=sy;y<=sy+sh;y+=pr*2.2){ g.moveTo(sx,y); g.arc(sx,y,pr,0,TAU); g.moveTo(sx+sw,y); g.arc(sx+sw,y,pr,0,TAU); }
+  g.rect(sx,sy,sw,sh); g.shadowColor='rgba(0,0,0,.25)'; g.shadowBlur=10; g.shadowOffsetY=3; g.fill(); g.restore();
+  g.fillStyle='#e9e2d4'; g.fillRect(sx+16,sy+16,sw-32,sh-80); pcGlyph(g,where,sx+sw/2,sy+16+(sh-80)/2,port?1.25:1.4);
+  g.fillStyle=PC_INK; g.font=`600 ${port?20:22}px ${mono}`; g.textAlign='center'; g.fillText(PC_NAME[where]||'EARTH',sx+sw/2,sy+sh-36); g.font=`600 16px ${mono}`; g.fillStyle='#6f6355'; g.fillText('HELORIA POST',sx+sw/2,sy+sh-16);
+  /* the postmark: a ring of ink over the stamp's corner, the place and date round the top, the time and weather round the bottom, wavy lines off to the side */
+  const cx=sx-10, cy=sy+sh*.58, r=port?92:104; g.save(); g.globalAlpha=.78; g.strokeStyle='#3b3a52'; g.fillStyle='#3b3a52'; g.lineWidth=4;
+  g.beginPath(); g.arc(cx,cy,r,0,TAU); g.stroke(); g.lineWidth=2; g.beginPath(); g.arc(cx,cy,r-34,0,TAU); g.stroke();
+  const arcText=(txt,rad,top)=>{ g.font=`700 ${port?17:19}px ${mono}`; g.textAlign='center'; const span=txt.length*.115; for(let i=0;i<txt.length;i++){ const a=(top?-Math.PI/2:Math.PI/2)+(top?1:-1)*(i-(txt.length-1)/2)*span/txt.length*1.9;
+    g.save(); g.translate(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad); g.rotate(a+(top?Math.PI/2:-Math.PI/2)); g.fillText(txt[i],0,top?0:12); g.restore(); } };
+  arcText('EARTH · '+when.date,r-22,true); arcText(when.time+' · '+when.wx,r-22,false);
+  g.font=`800 ${port?30:34}px ${mono}`; g.textAlign='center'; g.fillText(when.time,cx,cy+11);
+  g.lineWidth=3; for(let k=0;k<4;k++){ g.beginPath(); for(let x=0;x<=(port?150:210);x+=6){ const px=cx-r-14-x, py=cy-30+k*20+Math.sin(x/16)*6; x?g.lineTo(px,py):g.moveTo(px,py); } g.stroke(); }
+  g.restore();
+  cv.toBlob(b=>{ if(!b){ PC.busy=false; return; } if(PC.url) URL.revokeObjectURL(PC.url); PC.url=URL.createObjectURL(b); PC.blob=b; pcImg.src=PC.url; pcSave.href=PC.url;
+    pcSave.download='heloria-postcard-'+when.date.replace(/ /g,'-').toLowerCase()+'.jpg';
+    pcShare.hidden=!(navigator.canShare&&navigator.canShare({files:[new File([b],'heloria-postcard.jpg',{type:'image/jpeg'})]}));
+    pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
+pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
+/* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on)) pcOpen(false); }
 /* ---------- birds circling over town ---------- */
 const BIRDS=[], BU=new T.Vector3();
 function buildBirds(){ for(let i=0;i<6;i++){ const g=new T.Group(), wl=mesh(BOXG,'#3b3a3c',-.17,0,0,.34,.02,.09), wr=mesh(BOXG,'#3b3a3c',.17,0,0,.34,.02,.09); g.add(wl,wr,mesh(BOXG,'#3b3a3c',0,0,0,.07,.05,.16)); sc.add(g);
@@ -5209,6 +5283,10 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(PHS.on&&e.code==='Escape'){ steerSet(false); e.stopImmediatePropagation(); return; }
+  if(PC.on&&e.code==='Escape'){ pcOpen(false); e.stopImmediatePropagation(); return; }
+  if(!pcCard.hidden&&e.code==='Escape'){ pcCard.hidden=true; e.stopImmediatePropagation(); return; }
+  if(PC.on&&(e.code==='Space'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){ pcTake(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(e.code==='KeyP'&&!TALK.p&&!PHS.on&&!pcBtn.hidden){ pcOpen(!PC.on); e.stopImmediatePropagation(); return; }
   if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     const P=player; let best=null, bd=3.4; for(const q of people){ const dq=Math.hypot(P.x-q.x,P.z-q.z); if(dq<bd){ bd=dq; best=q; } }
     if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; } }
@@ -5548,7 +5626,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       q.g.matrix.copy(Mf2); q.g.matrixWorldNeedsUpdate=true; });
     const mk=c>6&&c<8.65; AE.ring.visible=mk; if(mk){ const s=c>8?1-.45*sstep(8,8.6,c):1+.08*Math.sin(t*9); AE.ring.matrix.copy(AE.dr[0].g.matrix).multiply(Mf.makeScale(s,s,s)); AE.ring.matrixWorldNeedsUpdate=true; }
     if(!quiet&&d0<15){ if(c0<6&&c>=6) A.ping(1175,.016*(1-d0/15)); if(c0<8&&c>=8) A.ping(1568,.024*(1-d0/15)); } }
-  if(PH) steerUpdate(dt,t);
+  if(PH) steerUpdate(dt,t); pcUpdate();
   /* Pharos: once round the lighthouse every fifteen seconds; over open water there is nothing to match, and it says so */
   if(PH&&PH.dr&&MK.ph.st==='on'){ PH.a+=dt*.42; const lx=Math.cos(PH.a)*3.3, lz=Math.sin(PH.a)*3.3;
     PH.dr.matrix.copy(PH.M).multiply(Mf.makeTranslation(lx,3.3+Math.sin(t*1.1)*.12,lz)).multiply(Mr.makeRotationY(-PH.a-Math.PI/2)); PH.dr.matrixWorldNeedsUpdate=true;
@@ -5571,7 +5649,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
   A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
-st._dbg={steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
+st._dbg={post:PC,steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
     step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
     get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
       season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS,get FALL(){ return FALL; }},

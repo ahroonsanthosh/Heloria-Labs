@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap">
-<link rel="stylesheet" href="../assets/untamed.css?v=ae9e7ac5df">
+<link rel="stylesheet" href="../assets/untamed.css?v=80aa9490e3">
 </head>
 <body>
 <canvas id="gl" aria-hidden="true"></canvas>
@@ -230,6 +230,10 @@
     <span class="ui crhint" id="crHint"></span>
     <button class="btn pri hit crgo" id="crGo" type="button" data-cur="Fly" hidden>Let's fly</button>
     <button class="btn hit crsteer" id="crSteer" type="button" data-cur="Steer" hidden>Steer the light</button>
+    <button class="btn hit crpost" id="crPost" type="button" data-cur="Postcard" aria-label="Take a postcard" hidden><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 5h3l1.6-2.4h6.8L15 5h3v9H2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10" cy="9.2" r="2.9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="ui">Postcard</span></button>
+    <div class="crframe" id="crFrame" hidden><div class="crframe-w"><i></i><i></i><i></i><i></i></div><div class="crframe-b"><span class="ui">Frame it, then take it</span><button class="btn hit" id="crFrameCancel" type="button">Cancel</button><button class="btn pri hit crshut" id="crFrameTake" type="button" data-cur="Take">Take it</button></div></div>
+    <div class="crflash" aria-hidden="true"></div>
+    <div class="crcard" id="crCard" role="dialog" aria-label="Your postcard" hidden><div class="crcard-b"><img id="crCardImg" alt="Your postcard from Earth"><div class="crcard-a"><a class="btn pri hit" id="crCardSave" href="#" download="heloria-postcard.jpg" data-cur="Save">Save</a><button class="btn hit" id="crCardShare" type="button" data-cur="Share" hidden>Share</button><button class="btn hit" id="crCardAgain" type="button">Take another</button><button class="btn hit" id="crCardClose" type="button" aria-label="Close">Close</button></div></div></div>
     <div class="crsteer-ui" id="crSteerUI" hidden><span class="ui">Drag to turn the light</span><button class="btn pri hit" id="crSteerDone" type="button" data-cur="Done">Done</button></div>
     <div class="crstick" id="crStick" hidden><i></i></div>
     <button class="crskip ui hit" id="crSkip" type="button" data-cur="Skip">Skip</button>
@@ -295,6 +299,6 @@
 
 
 <script src="../assets/vendor/three.min.js?v=ccabb6c3b0"></script>
-<script src="../assets/untamed.js?v=64b5fc34c0"></script>
+<script src="../assets/untamed.js?v=66093392bc"></script>
 </body>
 </html>
