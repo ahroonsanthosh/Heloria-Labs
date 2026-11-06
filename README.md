@@ -50,6 +50,13 @@ conversation finishes with a photo and a link, and a board outside the café boo
   overlap across the seam. Leave the page and the sound stops; come back and it picks up again.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
+- Earth keeps your time. The sun stands where it would at your hour and on your date, so an evening visit gets a sunset
+  and a late one the moon, the stars, lit windows and street lamps that come up as you pass. Now and then it rains (in
+  December it snows) with a rainbow after, or sea fog rolls in with a foghorn; the trees turn in autumn and blossom in
+  spring, and there are fairy lights at Christmas and pumpkins at Halloween. To see any of it now, open
+  `/untamed/?time=21:30#land` (or `?date=12-24`, `?weather=fog`, together with `&`).
+- By the lighthouse you can take the light and steer it over the water. The beam lights whatever it crosses and thins
+  the fog, and a drone that has lost its way locks onto it and follows it home: Pharos in small.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
   dark to a sales call that rises over a table as lines of light.
 - No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
@@ -92,6 +99,9 @@ node tools/site-smoke.cjs docs
 Add `--mobile` to any of them for a phone. `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`)
 listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
 page. Each game has its own full check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
+On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
+the drone home, and `weather-sound.cjs` (with `--meter`) listens to the rain, the crickets and the foghorn; any of them
+takes `--query date=12-24` and the like.
 </details>
 
 <br>
