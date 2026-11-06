@@ -525,6 +525,8 @@ function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F
   const nt=ey-(F.nose??.036), ns=F.ns??1; bump(B,S,-.03,.03,nt-.022,ey+.004,(x,y)=>{ const t=clamp((ey-.004-y)/(ey-.004-nt),0,1.6), w=(.005+.008*Math.min(t,1))*ns;
     return (.012*ns*(t<1?t**1.5:Math.exp(-(((t-1)/.24)**2)))*Math.exp(-((x/w)**2))+.006*ns*[-1,1].reduce((m,s)=>m+Math.exp(-(((x-s*.011*ns)/.006)**2+((y-nt-.002)/.006)**2)),0)); },o.skin,18);
   if(o.cheeks) [-1,1].forEach(s=>blot(B,S,oval(s*.088,ey-.042,.02,.012),C3(o.skin).clone().lerp(C3('#ee8f7c'),.38),.003));
+  /* stubble: the jaw, chin and upper lip a shade toward the colour of the beard, drawn under the mouth */
+  if(o.stubble){ const sc=C3(o.skin).clone().lerp(C3(o.stubble),.52); blot(B,S,[[-.084,ey-.052],[-.05,my+.024],[-.018,my+.03],[0,my+.026],[.018,my+.03],[.05,my+.024],[.084,ey-.052],[.088,my-.026],[.062,my-.066],[.03,my-.084],[0,my-.088],[-.03,my-.084],[-.062,my-.066],[-.088,my-.026]],sc,.0025); }
   const mc='#5a2822';
   if(o.mouth==='grin'){ const W=.046, top=x=>my+.004+.01*(x/W)**2, bot=x=>my+.01*(x/W)**2-.026*(1-(x/W)**2), xs=Array.from({length:11},(_,i)=>(i/10*2-1)*W);
     band(B,S,xs,top,bot,'#6b2a27',.003); band(B,S,xs.map(x=>x*.96),x=>top(x)-.001,x=>Math.min(top(x)-.001,Math.max(bot(x)+.004,top(x)-.011)),'#f6f0e6',.0042);
@@ -535,6 +537,11 @@ function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F
   if(o.goatee){ blot(B,S,[[-.009,my-.012],[.009,my-.012],[.006,my-.03],[-.006,my-.03]],hc,.004);
     blot(B,S,[[-.022,my-.036],[0,my-.03],[.022,my-.036],[.026,my-.062],[.016,my-.08],[0,my-.086],[-.016,my-.08],[-.026,my-.062]],hc,.004);
     const q=S(0,my-.066,0); B.put(FG.sph,hc,0,q.p.y-.006,q.p.z-.012,.024,.022,.02,.5); }
+  /* glasses: dark, squarish rims round the eyes, a bridge, and the arms going back toward the ears */
+  if(o.glasses){ const gc=o.glasses, gw=.031, gh=.02, cy=ey+.003;
+    [-1,1].forEach(sd=>{ const cx=sd*ex; line(B,S,[[cx-gw,cy+gh],[cx+gw,cy+gh*.94],[cx+gw*1.02,cy-gh*.8],[cx+gw*.8,cy-gh],[cx-gw*.8,cy-gh],[cx-gw*1.02,cy-gh*.8],[cx-gw,cy+gh]],.0048,gc,.0062);
+      line(B,S,[[cx+sd*gw,cy+gh*.7],[sd*(ex+gw+.03),cy+gh*.8]],.0045,gc,.006); });
+    line(B,S,[[-ex+gw,cy+gh*.45],[0,cy+gh*.62],[ex-gw,cy+gh*.45]],.0042,gc,.0062); }
   return ey; }
 /* each of us, a little more ourselves. build broadens the shoulders (arm: the arms); head is the shape of the head (half width,
    height, depth, how much the jaw narrows, how far the chin comes forward); funnel and zip make a quarter-zip (funnel: how far
@@ -556,6 +563,10 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
       [-1,1].forEach(s=>blot(bd,TS,[[s*.008,.986],[s*.05,.978],[s*.03,.944]],tint(o.under,.15),.0035)); }
     line(bd,TS,[[0,vb+.004],[0,.755]],.008,o.zip,.003); const q=TS(.0,vb-.012,.008); bd.put(FG.box,o.zip,q.p.x+.004,q.p.y,q.p.z,.011,.03,.006,0,0,.12);
     line(bd,TS,[[-.004,.755],[.004,.755]],.006,o.zip,.003); }
+  if(o.crew){   // a crew-neck jumper: a ribbed band round the neck; the shirt's collar points above it and its hem below
+    bd.grid(tube([[.952,.068,.06,.007],[.99,.058,.053,.007]],18),tint(sh,-.14),true);
+    if(o.under){ [-1,1].forEach(sd=>blot(bd,TS,[[sd*.004,.995],[sd*.058,.986],[sd*.036,.958]],o.under,.0075));
+      bd.grid(tube([[.448,.133*W,.096*D],[.47,.134*W,.097*D]],22),o.under,true); } }
   if(o.polo){   // a polo: a collar lying over the shoulders with its points on the chest, and a placket with two buttons
     bd.grid2(tube([[.995,.054,.05,.006],[.97,.074,.066,.006],[.955,.086,.074,.006]],18,.3,TAU-.3),sh,false);
     [-1,1].forEach(s=>{ const q=TS(s*.03,.948,.005); bd.put(FG.box,sh,q.p.x,q.p.y,q.p.z,.052,.04,.007,-.55,0,s*.42); });
@@ -644,15 +655,16 @@ const edges=CREW.map((c,i)=>{ const e=document.createElement('span'); e.classNam
 const Y_UP=new T.Vector3(0,1,0);
 
 /* ---------- Diarmuid, playing outside the café ----------
-   A busker on the pavement in front of the café, by the street lamp: tall and lanky, brown hair, an electric guitar
-   slung low, a small practice amp beside him with a lantern on it, and his case open in front of him. He plays all day.
+   A busker on the pavement in front of the café, by the street lamp: tall and lean, greying hair swept up, glasses and
+   stubble, a brown jumper over a green shirt, an electric guitar slung low, a small practice amp beside him with a lantern on it, and his case open in front of him. He plays all day.
    His guitar is made in the browser (BUSK in the core): as you come near it rises and the town's music dips under it,
    and as you walk away it all comes back. At night a string of lights hangs over his spot from the lamp post and his lantern
-   is lit, so he is a small warm pool of light in the dark town. Tap him (or press E beside him) and he looks up, nods and
-   plays you a short solo, then goes back to his piece. He does not talk, and he is not one of the three to meet.
+   is lit, so he is a small warm pool of light in the dark town. Tap him (or press E beside him) and he stops and talks, in
+   the same box as the three of us (he used to teach English, and left to play music); then he plays you his song, and
+   goes back to his piece. He is not one of the three to meet.
    Everything about how he looks is in DM_LOOK, so it is one place to change. */
-const DM_LOOK={shirt:'#6f7a5e',pants:'#3b4049',shoes:'#5a4535',sole:'#2f2823',skin:'#e3b496',build:.8,arm:.82,depth:.62,
-  head:[.144,.178,.154,.13,.022],face:{bw:.012,arch:.009,by:.052},mouth:'smile',hair:'tousled',hairC:'#6b4a32',
+const DM_LOOK={shirt:'#8a7161',crew:true,under:'#8aa48f',pants:'#2f3137',shoes:'#9b6234',sole:'#e2d4bc',skin:'#e7bea2',build:.8,arm:.82,depth:.62,
+  head:[.14,.184,.152,.16,.02],face:{bw:.012,arch:.006,by:.054},mouth:'smile',hair:'wavy',hairC:'#7d6d5f',glasses:'#25201d',stubble:'#857a70',mous:true,
   tall:{leg:1.22,torso:1.1,arm:1.17,fore:1.12,all:1.03},   // how much longer than the figure's own his legs, body and arms are, then all of him
   guitar:{body:'#b4512e',guard:'#efe6d2',neck:'#d4ad78',board:'#3b2a22',strap:'#3a2f28'}};
 /* his hair: brown, a bit long and tousled. A full cap heaped up in uneven clumps, a few pieces flicking out round the
@@ -669,9 +681,15 @@ const DM={x:4.42,z:-10.28,face:[.8,-4.6],lamp:[3.8,-11.2],pole:[5.75,-9.75],g:nu
 const dmM=new T.Matrix4(), dmM2=new T.Matrix4(), dmQ=new T.Quaternion(), dmE=new T.Euler(), dmV=new T.Vector3(), dmW=new T.Vector3(), DOWN=new T.Vector3(0,-1,0);
 /* the guitar's frets: where along the neck (from the nut, toward the bridge) the n-th one is */
 const NOTE_N=8, NOTE_L=2.4;
+/* talking to him: the same box as with the three of us, but he is not one of us (no photo, no page, not counted as met).
+   When you have heard him out he plays you a song; asked again later, he just plays */
+const DMP={guest:true,i:3,first:'Diarmuid',name:'Diarmuid',pitch:380,x:DM.x,z:DM.z,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,
+  L0:['Hey, I\'m Diarmuid. I used to be an English teacher.','I decided to chase my dream and play music.','This one\'s mine. Turn it up.'],
+  L1:['Back for another? Go on then.'],
+  onClose(done){ DM.att=1; DM.stT=0; if(done&&DM.g&&!FIN.on&&!CUT.on){ DM.st='nod'; DM.met=true; } else DM.st='play'; }};
 const NUT=.452, SCALE=.567, fretX=n=>NUT-SCALE*(1-Math.pow(2,-n/12));
 function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,DM.z,DM.face[0],DM.face[1]);
-  const spot=new T.Group(); spot.matrixAutoUpdate=false; spot.matrix.copy(frameAt(DM.x,DM.z,yaw,standH(DM.x,DM.z))); sc.add(spot); DM.spot=spot; DM.dir=at(DM.x,DM.z);
+  const spot=new T.Group(); spot.matrixAutoUpdate=false; spot.matrix.copy(frameAt(DM.x,DM.z,yaw,standH(DM.x,DM.z))); sc.add(spot); DM.spot=spot; DM.dir=at(DM.x,DM.z); DMP.dir.copy(DM.dir);
   /* lanky: the figure's own build, then longer legs, a longer body and longer, thinner arms; his head as it is */
   const g=figure(L), d=g.userData, b=d.body, mat=toonMat('#ffffff',{fig:true,vc:true,fresh:true}); DM.mat=mat;
   const torso=b.children.find(o=>o.isMesh); torso.scale.y=K.torso; torso.position.y=.5*(1-K.torso);
@@ -778,7 +796,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station') buskAsk(); });
   /* on a computer, pointing at him shows his name; E beside him (with none of us closer) asks him to play */
   addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||e.pointerType!=='mouse'||down) return; const on=!hov&&!CAFE.on&&!!pickBusk(e);
-    if(on!==DM.hov){ DM.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Listen'; ce.classList.add('big'); } else if(!hov) ce.classList.remove('big'); } } },{passive:true});
+    if(on!==DM.hov){ DM.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Say hello'; ce.classList.add('big'); } else if(!hov) ce.classList.remove('big'); } } },{passive:true});
   addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on||!(e.code==='KeyE'||e.code==='Enter')) return;
     if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
     if(DM.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ buskAsk(); e.preventDefault(); } },true);
@@ -788,7 +806,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
 function busEvents(N,S0,solo){ const n=N.slice().sort((a,b)=>a.t-b.t), out=[];
   for(let i=0;i<n.length;){ const g=[n[i]]; while(i+g.length<n.length&&n[i+g.length].t-n[i].t<.045) g.push(n[i+g.length]); i+=g.length;
     const ss=g.map(q=>q.s), strum=g.length>=3, top=g.reduce((a,q)=>q.s>a.s?q:a,g[0]);
-    let fr; if(solo) fr=strum?2.5:Math.max(1,top.m-S0.open[top.s])-.4; else { const bar=Math.floor((g[0].t+.05)/S0.bar)%4; fr=[7,5,3,2][bar]+1.2; }
+    let fr; if(solo) fr=strum?Math.max(1,g.reduce((a,q)=>Math.min(a,q.m-S0.open[q.s]),99))+.3:Math.max(1,top.m-S0.open[top.s])-.4; else { const bar=Math.floor((g[0].t+.05)/S0.bar)%4; fr=[7,5,3,2][bar]+1.2; }
     out.push({t:g[0].t,ss,strum,dir:strum?(ss[0]<ss[ss.length-1]?1:-1):0,mute:g.every(q=>q.d<.05),fr}); }
   return out; }
 /* what you tapped: him (or his amp or case) under the pointer, or close enough to him on the screen */
@@ -803,13 +821,12 @@ function pickBusk(e){ if(!DM.g||!DM.spot.visible) return null; ndc.set(e.clientX
 function buskTap(e,p){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return false; const k=pickBusk(e); if(!k) return false;
   if(p){ if(!k.direct) return false; hits.length=0; ray.intersectObject(p.g,true,hits); if(hits.length&&hits[0].distance<k.dist) return false; }
   buskAsk(); return true; }
-/* what his tag says: his name, or, as he starts to play for you, that this one is for you; lit while he is the one you are
-   going to or he plays for you (and at once, on the tap itself) */
-function buskSay(quiet){ const L=DM.lb; if(!L) return false; const forYou=DM.goal||DM.st==='nod'||DM.st==='solo', txt=DM.st==='nod'||(DM.st==='solo'&&DM.sct<3.2)?'Diarmuid: "This one\'s for you"':'Diarmuid';
-  if(txt!==DM.lbT){ DM.lbT=txt; L.textContent=txt; } L.classList.toggle('ask',forYou&&!quiet); return forYou; }
+/* his tag: lit while he is the one you are walking over to (and at once, on the tap itself) */
+function buskSay(quiet){ const L=DM.lb; if(!L) return false; const go=DM.goal; L.classList.toggle('ask',go&&!quiet); return go; }
 /* asking him to play: beside him he looks up and plays; from further off you walk over first */
 function buskAsk(){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
-  if(DM.d<3.2){ DM.goal=false; if(DM.st==='play'&&DM.cool<=0){ DM.st='nod'; DM.stT=0; A.tick(); } else DM.att=Math.max(DM.att,.6); if(buskSay(false)) DM.lb.classList.add('on'); return; }
+  if(DM.d<3.2){ DM.goal=false; buskSay(false); if(DM.st!=='play'||DM.cool>0){ DM.att=Math.max(DM.att,.6); return; }
+    DM.st='talk'; DM.stT=0; DMP.lines=DM.met?DMP.L1:DMP.L0; openTalk(DMP,0); return; }
   TALK.goal=null; const path=navPath(P.x,P.z,DM.x,DM.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(DM.x,DM.z).multiplyScalar(R); } DM.goal=true; P.stuck=0; A.tick(); buskSay(false); }
 const BEAT=60/72;
 /* how much of him you hear at (x, z): all of him within a couple of metres, none by ten, and next to nothing from inside a house */
@@ -823,12 +840,14 @@ function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM
   DM.cool=Math.max(0,DM.cool-dt); DM.stT+=dt;
   /* asked from across town: when you get there, he plays */
   if(DM.goal){ if(TALK.goal||TALK.p||busy) DM.goal=false; else if(d<2.8||(!P.path&&!P.tgt&&d<3.4)){ DM.goal=false; P.path=null; P.tgt=null; buskAsk(); } else if(!P.path&&!P.tgt) DM.goal=false; }
+  if(DM.st==='talk'&&TALK.p!==DMP){ DM.st='play'; DM.stT=0; }   // (the conversation went some other way than closing)
   if(DM.st==='nod'&&DM.stT>.95){ DM.st='solo'; DM.stT=0; DM.sct=0; }
-  if(DM.st==='solo'&&DM.sct>16){ DM.st='play'; DM.stT=0; DM.cool=1.2; }
-  A.busk&&A.busk(DM.st==='play'||(DM.st==='nod'&&DM.stT<.4)?lv:0,DM.st==='solo'?Math.max(1e-4,Math.min(1,lv*1.15)):0,lv);   // (the solo kept just above nothing while you are away, so it carries on rather than starting again)
+  if(DM.st==='solo'&&DM.sct>((DM.score&&DM.score.solo.P)||18)-2){ DM.st='play'; DM.stT=0; DM.cool=1.2; }
+  /* talking, he stops playing and the town's music comes back a little under the conversation */
+  A.busk&&A.busk(DM.st==='play'?lv:0,DM.st==='solo'?Math.max(1e-4,Math.min(1,lv*1.15)):0,DM.st==='talk'?lv*.3:lv);   // (the solo kept just above nothing while you are away, so it carries on rather than starting again)
   /* his clock: the recording's own time where it is playing, his own where it is not, so his hands keep time with what you hear */
   const S0=DM.score, aw=A.buskAt?A.buskAt():null;
-  if(S0){ const Pd=S0.P; DM.ct=(DM.ct+dt)%Pd; if(aw&&aw.loop>=0){ let e=aw.loop-DM.ct; if(e>Pd/2) e-=Pd; if(e<-Pd/2) e+=Pd; DM.ct=(DM.ct+(Math.abs(e)>.35?e:e*Math.min(1,dt*3))+Pd)%Pd; }
+  if(S0&&DM.st!=='talk'){ const Pd=S0.P; DM.ct=(DM.ct+dt)%Pd; if(aw&&aw.loop>=0){ let e=aw.loop-DM.ct; if(e>Pd/2) e-=Pd; if(e<-Pd/2) e+=Pd; DM.ct=(DM.ct+(Math.abs(e)>.35?e:e*Math.min(1,dt*3))+Pd)%Pd; }
     if(DM.st==='solo'){ DM.sct+=dt; if(aw&&aw.solo>=0){ const e=aw.solo-DM.sct; if(e>-.35) DM.sct+=e>.35?e:e*Math.min(1,dt*3); } } }   // (the solo's clock only ever goes forward)
   /* round the curve of the world (past about 26 m, below the horizon from where you stand) he and his lights are not drawn at all */
   const vis=d<26; if(DM.spot.visible!==vis){ DM.spot.visible=DM.bulbs.visible=vis; DM.nk=-1; }
@@ -866,7 +885,7 @@ const RPOLE=new T.Vector3(-.7,-.35,-.6).normalize(), LPOLE=new T.Vector3(.55,-.8
 function evAt(E,c){ let lo=0, hi=E.length-1; if(!E.length||c<E[0].t) return -1; while(lo<hi){ const m=(lo+hi+1)>>1; if(E[m].t<=c) lo=m; else hi=m-1; } return lo; }
 function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM.ev, c=solo?DM.sct:DM.ct, S0=DM.score;
   /* the beat he nods and taps to */
-  const bt=solo?(DM.sct-S0.solo.t1)/BEAT:DM.ct/BEAT, ph=((bt%1)+1)%1, nod=Math.exp(-ph*5)*(Math.floor(bt)%4===0?1.4:1), tap=.5-.5*Math.cos(TAU*ph);
+  const bt=solo?(DM.sct-S0.solo.t1)/(S0.solo.beat||BEAT):DM.ct/BEAT, ph=((bt%1)+1)%1, nod=Math.exp(-ph*5)*(Math.floor(bt)%4===0?1.4:1), tap=.5-.5*Math.cos(TAU*ph);
   /* the right hand: through the strings on each strum or note, back to where the next one starts in between */
   const ys=s=>(2.5-s)*.0068; let ry=0, rz=.04, rx=-.045, fr=E&&E.length?E[0].fr:8;
   if(E&&E.length){ const i=evAt(E,c), e0=i>=0?E[i]:E[E.length-1], e1=E[i+1]||null, k=i>=0?c-e0.t:9;
@@ -876,16 +895,17 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
     if(k<sw) rz=.026+.01*u; if(e0.strum) rx=-.025;
     fr=e0.fr; if(e1&&e1.fr!==e0.fr) fr=lerp(e0.fr,e1.fr,sstep(e1.t-.14,e1.t-.02,c)); }
   if(DM.st==='nod') ry=lerp(ry,.03,sstep(.2,.5,DM.stT)), rz=.07;
+  if(DM.st==='talk') ry=.03, rz=.07;   // talking: his picking hand off the strings
   dmH.set(rx,ry,rz).applyMatrix4(DM.GM); DM.rh.lerp(dmH,1-Math.exp(-28*dt)); reach(d.arms[0],d.fore[0],DM.rh,RPOLE);
   /* the left hand: on the neck at the fret, behind and under it */
   DM.fr=damp(DM.fr??fr,fr,16,dt); dmL.set(fretX(DM.fr)-.012,-.03,-.004+.004*Math.sin(t*7.3)).applyMatrix4(DM.GM); DM.lh.lerp(dmL,1-Math.exp(-22*dt)); reach(d.arms[1],d.fore[1],DM.lh,LPOLE);
   /* the rest of him: a sway every two bars, the nod and the foot on the beat */
-  const sway=Math.sin(Math.PI*bt/4), en=solo?1.5:1;
+  const sway=Math.sin(Math.PI*bt/4), en=solo?1.7:DM.st==='talk'?.3:1;
   d.body.position.y=DM.lift-.006*(1-tap)*en; d.body.rotation.set(.03+.012*nod*en,.05*Math.sin(Math.PI*bt/4+1)*en,.022*sway*en);
   d.legs[0].rotation.x=-.1*tap; d.legs[0].position.y=.5+.008*tap; d.legs[1].rotation.x=.02;
   /* where he looks: down at his hands mostly; up at you now and then when you are near, and when you ask him to play */
   DM.attT-=dt; let want=0;
-  if(DM.st==='nod') want=1; else if(solo&&DM.sct<1.6) want=.75; else if(DM.d<6&&DM.attT<0){ want=1; if(DM.attT<-1.8) DM.attT=5+Math.random()*6; }
+  if(DM.st==='nod'||DM.st==='talk') want=1; else if(solo&&DM.sct<1.6) want=.75; else if(DM.d<6&&DM.attT<0){ want=1; if(DM.attT<-1.8) DM.attT=5+Math.random()*6; }
   DM.att=damp(DM.att,want,want>DM.att?6:2.5,dt);
   DM.g.updateWorldMatrix(true,false); const lp=DM.g.worldToLocal(dmV.copy(P.u).multiplyScalar(R+P.h+1.1)); lp.y-=DM.hy+DM.lift;
   const ly=clamp(Math.atan2(lp.x,lp.z),-1,1), lpt=clamp(-Math.atan2(lp.y,Math.hypot(lp.x,lp.z)),-.35,.5);
@@ -1948,8 +1968,8 @@ PJ.el.addEventListener('click',e=>e.stopPropagation());
 const TALK={p:null,i:0,shown:0,txt:'',acc:0,L:null,ask:false,goal:null};
 const allMet=()=>MET.size>=3;
 function page(){ const p=TALK.p, L=TALK.L, last=TALK.i>=L.length-1; TALK.txt=L[TALK.i]; TALK.shown=0; TALK.acc=0; say(0);
-  tk.classList.toggle('last',last&&!TALK.ask); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
-  if(last&&!TALK.ask){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); }
+  tk.classList.toggle('last',last&&!TALK.ask&&!p.guest); tk.classList.toggle('ask',last&&TALK.ask); tk.classList.add('typing');
+  if(last&&!TALK.ask&&!p.guest){ MET.add(p.i); p.resume=0; tkImg.src=PHOTOS[p.i]||''; tkImg.alt=p.name; tkLink.href=p.li; tkLink.setAttribute('aria-label',p.name+' on LinkedIn'); }
   hug(); }
 function openTalk(p,i=0,L=null){ TALK.ask=!!L; TALK.walkT=0; TALK.held='?'; TALK.p=p; player.path=null; player.speed=0; TALK.L=L||p.lines; TALK.i=Math.min(i,TALK.L.length-1); TALK.goal=null; C.guide=null;
   tkN.textContent=!TALK.ask&&TALK.i>=TALK.L.length-1?p.name:p.first; page(); tk.classList.add('on'); tk.setAttribute('aria-hidden','false'); p.greeted=true; p.wave=1.6;
@@ -1959,6 +1979,7 @@ function nextTalk(){ if(!TALK.p) return; if(TALK.shown<TALK.txt.length){ TALK.sh
 /* closing a conversation: if someone is still to meet, the camera turns gently toward them; once all three are met, Ahroon comes over */
 function closeTalk(done=false){ if(!TALK.p) return; const was=TALK.p, ask=TALK.ask; if(!ask&&!MET.has(was.i)) was.resume=TALK.i;
   TALK.p=null; TALK.ask=false; tk.classList.remove('on','last','ask','typing'); tk.setAttribute('aria-hidden','true');
+  if(was.guest){ if(was.onClose) was.onClose(done); return; }   // (someone in town who is not one of the three: nothing to count, nobody to turn to next)
   if(ask){ AH.heard=true; if(GLN.t>=0) GLN.t=Math.max(GLN.t,G_IN+G_HOLD-.2); if(AH.st==='wait') ahroonCome(); return; }
   if(FIN.on) return;
   const left=people.filter(q=>!MET.has(q.i));
@@ -2318,7 +2339,8 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     if(near!==PJ.want){ PJ.want=near; PJ.dw=0; } else PJ.dw+=dt;
     const best=near&&(near===PJ.id||PJ.dw>.5)?near:null;
     if(best!==PJ.id){ PJ.id=best; if(best){ const c=CARD[best]; PJ.n.textContent=c[0]; PJ.k.textContent=c[1]; PJ.t.textContent=c[2]; PJ.el.href=c[3]; PJ.l.textContent=c[4]; PJ.el.target=/^mailto:/.test(c[3])?'_self':'_blank'; }
-      PJ.el.classList.toggle('on',!!best); PJ.el.setAttribute('aria-hidden',best?'false':'true'); PJ.el.tabIndex=best?0:-1; }
+      const show=!!best&&best!=='cafe';   // (at the café nothing is put up: you go in to book, and only the button to go in shows)
+      PJ.el.classList.toggle('on',show); PJ.el.setAttribute('aria-hidden',show?'false':'true'); PJ.el.tabIndex=show?0:-1; }
   }
   // talking: the words type out with a little voice
   if(TALK.p&&TALK.shown<TALK.txt.length){ TALK.acc+=dt*44; const n=Math.min(TALK.txt.length,Math.floor(TALK.acc)); if(n>TALK.shown){ if(Math.floor(n/2)>Math.floor(TALK.shown/2)&&TALK.txt[n-1]!==' ') A.voice(TALK.p.pitch); TALK.shown=n; say(n); if(n>=TALK.txt.length) tk.classList.remove('typing'); } }

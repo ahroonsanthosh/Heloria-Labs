@@ -23,7 +23,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await run(1.2); await frames(3);
   let s = await state();
   rec(s.button && await visible('#crCafeIn'), 'by the café there is a button to go in', JSON.stringify({ st: s.st, you: s.you }));
-  rec(await page.evaluate(() => document.querySelector('#crProj .crpj-n').textContent === 'Café'), 'and the café\'s own card is still there');
+  rec(await page.evaluate(() => !document.querySelector('#crProj').classList.contains('on')), 'and nothing else is put up outside it: you go in to book');
   await shot(P + 'cafe-street');
 
   /* on a computer, a click on the café from across the street walks you over (Escape stops that) */

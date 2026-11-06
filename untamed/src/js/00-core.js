@@ -278,8 +278,8 @@ const A=(()=>{
      to fizz with), a little more middle, then a small cabinet that rolls the top off steeply above 3 kHz, so it stays warm
      on a phone's speaker. His piece is in the town's key and at its tempo: the same four chords (Fmaj9, Em9, Dm9, Cmaj9),
      at 72 and swung. Sixteen bars that go round, eight picked with a tune on top and eight strummed under the same tune.
-     The solo he plays when you ask is a second recording: four bars of lead over the same chords, a little brighter, with
-     an echo, ending on the home chord and left to ring */
+     The song he plays you once you have talked is a second recording: his own blues-rock number around a riff in E, the amp
+     pushed harder, with his foot on a stomp box, ending on a big E chord left to ring */
   const GTR=[40,45,50,55,59,64], BK={duck:1,on:false,s:false,done:false};   // the open strings, low E to high e; how far the town's music is let through while he plays
   const BKS=(()=>{ const beat=60/72, bar=4*beat, sl=k=>beat*(Math.floor(k/2)+(k%2?.56:0)), len=(k,n)=>sl(k+n)-sl(k);   // where the k-th swung eighth of a bar falls, and how long n of them last
     let seed=4111; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647, hum=()=>(rnd()-.5)*.012;
@@ -298,16 +298,37 @@ const A=(()=>{
           if(dir==='X') return [1,2,3,4].forEach((s,i)=>note(t+i*.009,s,sh[s-1],.035,v,{br:.35}));
           (dir==='U'?[4,3,2]:k?[2,3,4]:[1,2,3,4]).forEach((s,i)=>note(t+i*(dir==='U'?.009:.012),s,sh[s-1],len(k,2)+.04,v*(dir==='U'?.85:1))); });   // each rings on until the next stroke
       TUNE[b%8].forEach(([k,m,n])=>note(t0+sl(k)+(b<8?0:.03),5,m,len(k,n)+.05,b<8?.85:.8,{br:.62})); }
-    /* the solo: a slide up into it, four bars of lead on the high string (a bend, a slide, the long notes sung with
-       vibrato), a low note under each of the first three bars, and the home chord rolled and left to ring */
-    const B=mk(), t1=.6, at=(b,k)=>t1+b*bar+sl(k);
-    [[0,-1,76,1,{sl:72}],[0,0,79,1],[0,1,79,2,{bd:[[0,0],[.1,2]],vb:.15}],[0,3,79,1],[0,4,76,2,{vb:.2}],[0,6,74,1],[0,7,76,1],
-     [1,0,79,3,{vb:.25}],[1,3,78,1],[1,4,76,2],[1,6,74,1],[1,7,71,1],
-     [2,0,72,1],[2,1,74,1],[2,2,76,1],[2,3,77,1],[2,4,81,3,{sl:79,vb:.28}],[2,7,79,1],
-     [3,0,76,1],[3,1,74,1],[3,2,72,2,{vb:.15}]].forEach(([b,k,m,n,o])=>B.note(k<0?t1-.44*beat:at(b,k),5,m,(k<0?.44*beat:len(k,n))+.04,.85,Object.assign({br:.7,pp:.14},o)));
-    [53,52,50].forEach((m,b)=>B.note(at(b,0),1,m,bar-.05,.5));
-    [48,52,59,62,64].forEach((m,i)=>B.note(at(3,4)+i*.035,i+1,m,4,.62));
-    return {beat,bar,P:16*bar,notes:A.N,solo:{P:18,notes:B.N,t1},open:GTR}; })();
+    /* his song, played when you have heard him out: his own, written the way the heavy blues-rock bands of the seventies
+       wrote, around a riff, and played the way they played it: a slow, heavy shuffle at 84, sitting just behind the beat.
+       The riff is the blues in E: the open low string hit hard, a curl on the minor third, a pull-off back to the open
+       string, up the A string through the flat fifth to the fifth and held, a hammer-on to the octave. It is answered by
+       power chords falling E, D, A and a walk back down. Then the same with his foot on the stomp box and a tambourine
+       strapped to the other, a turn through G and A, a chorus of big chords, a wailing lead in E with long bends and wide
+       vibrato over a low E, the riff again, and a last open E chord, rolled and left to ring. (It is his song, in that
+       manner: no one else's riff or tune) */
+    const B=mk(), t1=.5, sb=60/84, sbar=4*sb, at=(b,u)=>t1+b*sbar+u*sb/3+(rnd()-.5)*.006+.008, tu=sb/3, nb=(b,u,s,m,n,v,o)=>B.note(at(b,u),s,m,n*tu,v,o);   // u: triplets (a shuffle), 12 to a bar
+    const pc=(b,u,s,m,n,v,o)=>{ const t=at(b,u); [0,7,12].forEach((iv,i)=>B.note(t+i*.012,s+i,m+iv,n*tu,v*(i?.9:1),Object.assign({br:.5},o))); };   // a power chord: root, fifth, octave
+    const riff=b=>{ nb(b,0,0,40,2,1); nb(b,2,0,40,.7,.66,{br:.3}); nb(b,3,0,43,1,.86,{bd:[[0,0],[.07,.5]]}); nb(b,4,0,40,1,.74); nb(b,5,0,43,1,.8);
+      nb(b,6,1,45,1,.84); nb(b,7,1,46,1,.78); nb(b,8,1,47,2,.95,{vb:.16}); nb(b,10,2,50,1,.78); nb(b,11,2,52,1,.84); };
+    const answer=(b,turn)=>{ if(turn){ pc(b,0,0,43,3,.95); pc(b,3,0,45,3,1); pc(b,6,0,40,4,1,{vb:.08}); nb(b,10,0,43,1,.78); nb(b,11,0,45,1,.8); return; }
+      pc(b,0,0,40,2,1); pc(b,2,0,40,.7,.62,{br:.3}); pc(b,3,1,50,2,.92); pc(b,5,1,45,3,.96); nb(b,8,0,43,1,.8); nb(b,9,0,40,1,.74); nb(b,10,0,43,1,.8); nb(b,11,1,45,1,.82); };
+    riff(0); answer(1); riff(2); answer(3); riff(4); answer(5,true);
+    pc(6,0,0,45,6,1); pc(6,3,0,45,1,.7); pc(6,6,0,43,3,.95); pc(6,9,1,50,3,.95);   // the chorus: A, G, D, strummed hard
+    pc(7,0,0,40,6,1,{vb:.1}); nb(7,6,2,50,1,.78); nb(7,7,2,52,1,.8); nb(7,8,3,55,1,.82); nb(7,9,3,57,1,.86,{bd:[[0,0],[.08,1]]}); nb(7,10,3,55,1,.8); nb(7,11,2,52,1,.8);
+    /* the lead, on the top two strings, over a low E: a long bend that wails, the notes tumbling down, then up to the top E
+       sung with a wide vibrato, and down the scale in triplets back to the riff */
+    const ld={br:.72,pp:.13};
+    nb(8,0,4,69,3,.9,Object.assign({bd:[[0,0],[.14,2]],vb:.28},ld)); nb(8,3,4,69,1,.8,ld); nb(8,4,4,67,1,.8,ld); nb(8,5,4,64,1,.78,ld); nb(8,6,4,67,2,.84,Object.assign({vb:.2},ld));
+    nb(8,8,4,69,1,.82,ld); nb(8,9,5,71,1,.84,ld); nb(8,10,5,74,2,.88,Object.assign({bd:[[0,0],[.1,1]]},ld));
+    nb(9,0,5,76,4,.92,Object.assign({vb:.38},ld)); nb(9,4,5,74,1,.82,ld); nb(9,5,5,71,1,.82,ld); nb(9,6,4,69,1,.8,ld); nb(9,7,4,67,1,.8,ld); nb(9,8,4,64,1,.8,ld); nb(9,9,4,62,1,.78,ld); nb(9,10,4,59,1,.78,ld); nb(9,11,2,52,1,.8);
+    [8,9].forEach(b=>{ nb(b,0,0,40,5.6,.55,{br:.35}); nb(b,6,0,40,5.6,.5,{br:.35}); });
+    riff(10);
+    pc(11,0,0,40,2,1); pc(11,3,1,50,2,.92); pc(11,5,1,45,1,.9);
+    [40,47,52,56,59,64].forEach((m,i)=>B.note(at(11,6)+i*.034,i,m,7,.84,{vb:i>3?.14:0,br:.55}));   // the last open E, rolled and rung out
+    /* his feet: the stomp box on one and three (and the push before three), the tambourine on two and four, from the second
+       time round to the end */
+    const kick=[], tamb=[]; for(let b=2;b<=11;b++){ if(b===11){ kick.push(at(b,0),at(b,6)); continue; } kick.push(at(b,0),at(b,6)); if(b<8||b===10) kick.push(at(b,5)); tamb.push(at(b,3),at(b,9)); }
+    return {beat,bar,P:16*bar,notes:A.N,solo:{P:Math.ceil(t1+11*sbar+2*sb+6),notes:B.N,t1,beat:sb,kick,tamb},open:GTR}; })();
   /* one note into out: its string rings from its start until it is let go (d), then is damped quickly; stopped outright at
      end. sl slides into it from another note, bd bends it ([seconds, semitones] points), vb sings it with vibrato */
   function pluck(out,sr,t0s,n,end,rnd){ const f0=440*Math.pow(2,(n.m-69)/12), lo=440*Math.pow(2,(Math.min(n.m,n.sl||n.m)-69)/12), M=Math.ceil(sr/lo*1.03)+4, ring=new Float32Array(M);
@@ -338,15 +359,25 @@ const A=(()=>{
     const ws=oc.createWaveShaper(), K=o.drive, a=.18, n0=Math.tanh(K+a)-Math.tanh(a), n1=Math.tanh(a)-Math.tanh(a-K), cv=new Float32Array(1025);
     for(let i=0;i<cv.length;i++){ const x=i/512-1, y=Math.tanh(K*x+a)-Math.tanh(a); cv[i]=.9*y/(x>=0?n0:n1); }   // lopsided, so what it adds is the warm even harmonics
     ws.curve=cv; ws.oversample='4x';
-    const ch=[f('highpass',110,.7),f('lowpass',3400,.6),ws,f('peaking',720,.8,2.5),f('lowpass',o.cab,.7),f('lowpass',o.cab*1.3,.55),f('highpass',90,.6)], lv=oc.createGain(), B=bus(oc,o.wet,.3);
+    const ch=[f('highpass',110,.7),f('lowpass',3400,.6),ws,f('peaking',720,.8,2.5),f('lowpass',o.cab,.7),f('lowpass',o.cab*1.3,.55),f('highpass',90,.6)], lv=oc.createGain(), B=bus(oc,o.wet,o.room||.3);
     src.connect(ch[0]); for(let i=0;i<ch.length-1;i++) ch[i].connect(ch[i+1]); lv.gain.value=o.level; ch[ch.length-1].connect(lv); lv.connect(B.in); lv.connect(B.rv);
+    /* a stomp box under it: a soft low thump on each time given, the pitch falling as it fades, with no click above it */
+    if(o.kick&&o.kick.length){ const kb=oc.createBuffer(1,oc.length,sr), kd=kb.getChannelData(0);
+      for(const kt of o.kick){ const i0=Math.round((t0+kt)*sr); let ph=0; for(let i=0;i<sr*.32&&i0+i<kd.length;i++){ const u=i/sr, f=46+64*Math.exp(-u/.028); ph+=TAU*f/sr; kd[i0+i]+=Math.sin(ph)*Math.exp(-u/.11)*(u<.002?u/.002:1); } }
+      const ks=oc.createBufferSource(); ks.buffer=kb; ks.start(0); const kl=f('lowpass',420,.6), kg=oc.createGain(); kg.gain.value=o.kickLevel||.3; ks.connect(kl); kl.connect(kg); kg.connect(B.in); }
+    /* and a tambourine on the other foot: a short shake of jingles, each a few ringing partials over a little noise, soft
+       and kept under 6 kHz */
+    if(o.tamb&&o.tamb.length){ const tb=oc.createBuffer(1,oc.length,sr), td=tb.getChannelData(0), P=[3150,4170,5030,5660];
+      for(const tt of o.tamb){ const i0=Math.round((t0+tt)*sr); let lp=0; for(let i=0;i<sr*.16&&i0+i<td.length;i++){ const u=i/sr, en=Math.exp(-u/.045)*(u<.003?u/.003:1)*(1+.6*Math.exp(-(((u-.03)/.012)**2)));
+          lp+=.35*((rnd()*2-1)-lp); let v=lp*.5; for(let j=0;j<P.length;j++) v+=Math.sin(TAU*P[j]*(1+.003*j)*u+j)*.22; td[i0+i]+=v*en; } }
+      const ts=oc.createBufferSource(); ts.buffer=tb; ts.start(0); const thp=f('highpass',1800,.6), tlp=f('lowpass',5800,.6), tg=oc.createGain(); tg.gain.value=o.tambLevel||.04; ts.connect(thp); thp.connect(tlp); tlp.connect(tg); tg.connect(B.in); tg.connect(B.rv); }
     if(o.echo){ const dl=oc.createDelay(1), fb=oc.createGain(), el=f('lowpass',2000,.5), ew=oc.createGain(); dl.delayTime.value=o.echo; fb.gain.value=.26; ew.gain.value=.22;
       lv.connect(dl); dl.connect(el); el.connect(fb); fb.connect(dl); el.connect(ew); ew.connect(B.in); } }
   const BUSK=loop({name:'busk',sr:22050,P:BKS.P,H:.9,R:.2,fade:false,ref:1,tc:.45,tcOut:.3,gate:.3,make(oc,t0){ amp(oc,t0,BKS.notes,{drive:1.6,cab:2500,level:.22,wet:.3,cut:BKS.P}); }});
   /* the solo is played once: near its end (where only the last chord is still ringing) it is let go, even if the page has
      stalled, so it never goes round again */
   const soloEnd=()=>{ const a=SOLO.els[SOLO.cur]; if(a&&a._on&&a.currentTime>SOLO.P-2){ BK.done=true; SOLO.want=0; } };
-  const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ amp(oc,t0,BKS.solo.notes,{drive:2.2,cab:2700,level:.23,wet:.35,echo:.42}); }});
+  const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ amp(oc,t0,BKS.solo.notes,{drive:3.4,cab:2800,level:.1,wet:.42,room:.6,kick:BKS.solo.kick,kickLevel:.16,tamb:BKS.solo.tamb,tambLevel:.035}); }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   setInterval(soloEnd,100);
   let making=!!OAC;
@@ -363,7 +394,7 @@ const A=(()=>{
       mus:r(MUS.vol),musPlaying:MUS.els.some(e=>!e.paused&&!e.muted),bed:r(Object.values(BEDL).reduce((a,b)=>a+b.vol,0)),cb:r(CF.vol+CN.vol)}; }, // test hook: current levels
     /* test hooks: every recording (ready, its player's volume, how loud it is at full volume, playing), and how loud the
        recordings playing now are together */
-    _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
+    _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
     _loopRms(){ let q=0; for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
     /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */

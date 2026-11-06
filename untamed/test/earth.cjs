@@ -124,11 +124,11 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       e.run(24); out[id] = !early && c.classList.contains('on') && c.target && c.href && c.querySelector('.crpj-n').textContent; } return out; });
   rec(Object.values(cards).every(Boolean), 'stopping by each landmark shows what it is, with its link, after a moment', JSON.stringify(cards));
   const tgt = await page.evaluate(() => { const c = document.querySelector('#crProj'); return c.target; });
-  /* the café, where it is built: its card books a chat by email, in the same tab; and no board stands out front any more */
+  /* the café, where it is built: nothing is put up outside it (no card, no board); you go in to book, and the button to go in is there */
   const cafe = await E((e, d) => { const q = d.INST.cafe; if (!q) return null; d.began(); e.put(q.x + q.r * .55, q.z + q.r * .5, q.x, q.z); e.run(30); const c = document.querySelector('#crProj');
-    return { on: c.classList.contains('on'), n: c.querySelector('.crpj-n').textContent, href: c.getAttribute('href'), target: c.target, legs: d.OBS.filter(o => Math.hypot(o.x - q.x, o.z - q.z) < 4.6 && o.r === .15).length }; });
+    return { on: c.classList.contains('on'), btn: !document.querySelector('#crCafeIn').hidden, legs: d.OBS.filter(o => Math.hypot(o.x - q.x, o.z - q.z) < 4.6 && o.r === .15).length }; });
   if (cafe) {
-    rec(cafe.on && cafe.n === 'Café' && /^mailto:contact@helorialabs\.com\?subject=Booking/.test(cafe.href) && cafe.target === '_self', 'stopping by the café offers to book a chat by email', JSON.stringify({ ...cafe, href: cafe.href.slice(0, 70) }));
+    rec(!cafe.on && cafe.btn, 'stopping by the café puts up no card, only the button to go in', JSON.stringify(cafe));
     rec(cafe.legs === 0, 'no board stands on the pavement outside the café', String(cafe.legs));
   } else log('the café is not in this build');
   await E((e, d, h) => { h.ST.cr.land = false; d.marksEnter(); });
