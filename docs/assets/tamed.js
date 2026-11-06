@@ -3149,10 +3149,14 @@ let rsT=0; addEventListener('resize',()=>{ clearTimeout(rsT); rsT=setTimeout(res
    counts for nothing; while the sound is being made at the start only a really slow device steps down; it comes back up on an ordinary
    60 Hz screen (above the density it starts at only on a quicker one); and a density it has had to leave twice soon
    after reaching it is not tried again */
-const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
-  tick(ms){ if(TEST||HQ||!S.ready) return; const t=performance.now();
+const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},long:0,off:false,
+  tick(ms){ if(TEST||HQ||!S.ready||this.off) return; const t=performance.now();
     if(!this.lv){ const d0=QL.dpr, L=[d0]; for(let d=d0-.2;d>.61;d-=.2) L.unshift(+d.toFixed(3)); if(d0>.6) L.unshift(.6); for(let d=d0+.15;d<QL.dprMax-.01;d+=.15) L.push(+d.toFixed(3)); if(QL.dprMax>d0) L.push(QL.dprMax); this.lv=L; this.i=this.d0i=L.indexOf(d0); }
-    if(ms>250||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,t+1500); return; }
+    /* a frame over a quarter of a second is a hitch, or the gap after the tab was away; but six of them running, with the page
+       in view, is a device that cannot keep up: down a step at once (and again, until it can) */
+    if(ms>250||document.hidden){ this.long=document.hidden?0:this.long+1; this.buf.length=0;
+      if(this.long>=6&&this.i>0){ this.long=0; this.i--; QL.dpr=this.lv[this.i]; resize(); this.cool=t+1500; } else this.cool=Math.max(this.cool,t+1500); return; }
+    this.long=0;
     const busy=A.busy;   // while the sound is being made only a really slow device steps down, and nothing steps up
     this.buf.push(ms); if(this.buf.length>90) this.buf.shift(); if(this.buf.length<90||t<this.cool) return;
     const s=this.buf.slice().sort((a,b)=>a-b), mid=s[45], p75=s[67];
@@ -3178,7 +3182,8 @@ function enter(){
 
 /* ---------- the loop ---------- */
 let last=performance.now();
-function frame(tn){
+function frame(tn){ const f0=DIAG?performance.now():0; try{ frameBody(tn); } finally{ if(DIAG) DIAG.js.push(performance.now()-f0); } }
+function frameBody(tn){
   requestAnimationFrame(frame);
   const raw=Math.max(0,(tn-last)/1000); last=tn;
   const dt=Math.min(TEST?.25:.05,raw); S.dt=dt; S.t+=dt; S.frame++;
@@ -3254,18 +3259,30 @@ A.start().catch(()=>{});
 async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
 /* ?diag on the address: a small panel with how long each step of the loading takes, the graphics chip, and any error, so a
    slow load in a particular browser can be read off a screenshot. Nothing of it exists without ?diag */
-const DIAG=/[?&]diag(=|&|$)/.test(location.search)?{steps:[['page and scripts',Math.round(performance.now())]],cur:'start',last:performance.now(),errs:[]}:null;
+const DIAG=/[?&]diag(=|&|$)/.test(location.search)?{steps:[['page and scripts',Math.round(performance.now())]],cur:'start',last:performance.now(),errs:[],js:[],fr:[],bench:[],bt:null}:null;
 function diag(name){ if(!DIAG) return; const t=performance.now(); DIAG.steps.push([DIAG.cur,Math.round(t-DIAG.last)]); DIAG.cur=name; DIAG.last=t; }
 if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||e).slice(0,200)),true);
   addEventListener('unhandledrejection',e=>DIAG.errs.push('promise: '+String(e.reason&&e.reason.message||e.reason).slice(0,200)));
   const ce=console.error; console.error=(...a)=>{ DIAG.errs.push(a.map(x=>String(x&&x.message||x)).join(' ').slice(0,200)); ce.apply(console,a); };
   const el=document.createElement('pre'); el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;margin:0;padding:8px 10px;max-width:min(600px,calc(100vw - 16px));max-height:70vh;overflow:auto;background:rgba(0,0,0,.84);color:#e8f0e8;font:11px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;border-radius:6px';
   document.body.appendChild(el);
+  /* every frame's length, and after the page is ready a short test: three seconds each as it is, at lower sharpness, with no
+     edge smoothing, and with the page's blur effects off (then all put back), to see which of them a slow browser is held by */
+  let lf=0; const fr=t=>{ if(lf) DIAG.fr.push(t-lf); lf=t; if(DIAG.fr.length>240) DIAG.fr.shift(); if(DIAG.js.length>240) DIAG.js.shift(); requestAnimationFrame(fr); }; requestAnimationFrame(fr);
+  const med=a=>{ const q=a.slice().sort((x,y)=>x-y); return q.length?q[Math.floor(q.length/2)]:0; }, p90=a=>{ const q=a.slice().sort((x,y)=>x-y); return q.length?q[Math.floor(q.length*.9)]:0; };
+  const nob=document.createElement('style'); nob.textContent='#gate,#gate *,#ui,#ui *{filter:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}';
+  const setSmp=n=>{ for(const r of [rtA,rtB]) if(r&&r.samples!==n){ r.samples=n; r.dispose(); } resize(); };
+  const T0=[['as it is',()=>{},()=>{}],['at 0.65x sharpness',()=>{ DIAG.d0=QL.dpr; QL.dpr=.65; resize(); },()=>{ QL.dpr=DIAG.d0; resize(); }],
+    ['no edge smoothing',()=>{ DIAG.s0=rtA.samples; setSmp(0); },()=>setSmp(DIAG.s0)],['no blur effects',()=>document.head.appendChild(nob),()=>nob.remove()]];
+  const runBench=async()=>{ QM.off=true; for(const [n,on,off] of T0){ on(); await wait(600); DIAG.fr.length=0; DIAG.js.length=0; await wait(2600); DIAG.bench.push([n,med(DIAG.fr),p90(DIAG.fr),med(DIAG.js)]); off(); await wait(300); } QM.off=false; DIAG.bt='done'; };
   let gpu='?'; try{ const gl=renderer&&renderer.getContext(), ext=gl&&gl.getExtension('WEBGL_debug_renderer_info'); gpu=gl?(ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)):'no WebGL'; }catch(e){ gpu='error '+e.message; }
-  setInterval(()=>{ const now=performance.now();
+  setInterval(()=>{ const now=performance.now(); if(S.ready&&!DIAG.bt&&now-DIAG.last>3000){ DIAG.bt='running'; runBench(); }
     el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')+'\n\n'
       +DIAG.steps.map(([n,ms])=>(n+'                          ').slice(0,26)+String(ms).padStart(7)+' ms').join('\n')
       +'\n'+(S.ready?'READY':'now: '+DIAG.cur+' for '+Math.round(now-DIAG.last)+' ms')+'\ntotal '+Math.round(now)+' ms since the page opened'
+      +'\n\nframes now: '+med(DIAG.fr).toFixed(1)+' ms (1 in 10 over '+p90(DIAG.fr).toFixed(1)+' ms), script '+med(DIAG.js).toFixed(1)+' ms a frame'
+      +(DIAG.bench.length?'\n\ntest, ms a frame (typical, 1 in 10, script):\n'+DIAG.bench.map(([n,a,b,c])=>(n+'                    ').slice(0,20)+a.toFixed(1).padStart(7)+b.toFixed(1).padStart(8)+c.toFixed(1).padStart(7)).join('\n'):'')
+      +(DIAG.bt==='running'?'\n(testing, a few seconds...)':DIAG.bt==='done'?'\n(test done)':'')
       +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):''); },250); }
 async function boot(){
   if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
