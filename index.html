@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Heloria Labs</title>
+  <meta name="description" content="Heloria Labs is a software lab in Ireland. We build, run and keep our own products: Kríos, Ogive and Aetos.">
+  <link rel="canonical" href="https://www.helorialabs.com/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+
+  <meta property="og:site_name" content="Heloria Labs">
+  <meta property="og:title" content="Heloria Labs">
+  <meta property="og:description" content="A software lab in Ireland. We build our own products, run them, and keep them.">
+  <meta property="og:image" content="https://www.helorialabs.com/img/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://www.helorialabs.com/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Heloria Labs Limited",
+    "alternateName": "Heloria Labs",
+    "url": "https://www.helorialabs.com/",
+    "email": "contact@helorialabs.com",
+    "foundingDate": "2026-07-21",
+    "address": { "@type": "PostalAddress", "addressCountry": "IE" },
+    "identifier": "IE-CRO-821585",
+    "makesOffer": [
+      { "@type": "Offer", "itemOffered": { "@type": "SoftwareApplication", "name": "Kríos", "url": "https://krios.ie" } },
+      { "@type": "Offer", "itemOffered": { "@type": "SoftwareApplication", "name": "Ogive", "url": "https://github.com/michaelsheffernan/ogive" } },
+      { "@type": "Offer", "itemOffered": { "@type": "SoftwareApplication", "name": "Aetos", "url": "https://github.com/ahroonsanthosh/Aetos" } }
+    ]
+  }
+  </script>
+  <script>document.documentElement.classList.replace('no-js','js')</script>
+</head>
+<body>
+  <a class="skip" href="#krios">Skip to content</a>
+
+  <!-- The world. Decorative: every word it shows also exists in the document below. -->
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Entry gate -->
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <div class="gate-in">
+      <p class="mono gate-k">Heloria Labs · Ireland</p>
+      <h2 class="gate-t" id="gate-title"><span>Approaching</span> <span>the horizon</span></h2>
+      <div class="gate-load mono" aria-live="polite"><span id="load-n">000</span><span class="gate-bar"><i id="load-bar"></i></span><span>calibrating</span></div>
+      <div class="gate-actions" id="gate-actions" hidden>
+        <button class="btn" id="enter-sound" data-cursor="enter">Enter with sound</button>
+        <button class="btn ghost" id="enter-silent" data-cursor="enter">Enter in silence</button>
+      </div>
+      <p class="mono gate-hint">Best with headphones. Scroll to fall. Some things here want to be touched.</p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <header class="hud hud-top">
+    <a class="brand" href="#top" data-jump="0" aria-label="Heloria Labs, back to the horizon">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="6.5" fill="#000" stroke="currentColor" stroke-width="1.4"/><ellipse cx="16" cy="16" rx="14.5" ry="4.2" fill="none" stroke="currentColor" stroke-width="1" opacity=".7"/></svg>
+      <span>Heloria Labs</span>
+    </a>
+    <nav class="nav mono" aria-label="Chapters">
+      <a href="#krios" data-jump="krios">Work</a>
+      <a href="#team" data-jump="team">Team</a>
+      <a href="#join" data-jump="join">Join</a>
+      <a href="#contact" data-jump="contact">Contact</a>
+    </nav>
+    <button class="snd mono" id="snd" aria-pressed="false" data-cursor="sound"><span class="snd-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="snd-l">Sound off</span></button>
+  </header>
+
+  <div class="hud hud-bot mono" aria-hidden="true">
+    <div class="hud-ch"><span id="ch-n">00</span><span class="hud-sep">/</span><span>06</span><span id="ch-name">Horizon</span></div>
+    <div class="hud-depth"><span class="hud-lab">Depth</span><span id="depth">0</span><span class="hud-lab">km</span></div>
+    <div class="hud-found"><span class="hud-lab">Signals</span><span id="found">0</span><span>/5</span></div>
+    <div class="hud-rail"><i id="rail"></i></div>
+  </div>
+  <div class="toast mono" id="toast" aria-live="polite"></div>
+  <div class="cursor" id="cursor" aria-hidden="true"><i></i><span id="cursor-l"></span></div>
+  <div class="hold mono" id="hold" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle id="hold-c" cx="20" cy="20" r="17"/></svg></div>
+
+  <!-- Content. On a WebGL device these panels are pinned and faded by scroll; without it, they are a normal page. -->
+  <main id="top" class="story">
+    <section class="ch ch-hero" id="horizon" data-ch="horizon">
+      <p class="mono kicker">A software lab in Ireland</p>
+      <h1 class="hero-t"><span class="w">Heloria</span> <span class="w">Labs</span></h1>
+      <p class="hero-p">We build the things we wish existed. Then we run them, and keep them.</p>
+      <p class="mono scroll-cue" aria-hidden="true"><span>Scroll to fall in</span><i></i></p>
+    </section>
+
+    <section class="ch ch-fall" id="fall" data-ch="fall">
+      <p class="fall-t"><span>No clients.</span> <span>No pitch decks.</span> <span>Just our own products,</span> <span>built from nothing.</span></p>
+    </section>
+
+    <article class="ch ch-proj" id="krios" data-ch="krios">
+      <p class="mono idx">01 · Product</p>
+      <h2 class="proj-t">Kríos</h2>
+      <p class="proj-d">Voice practice for sales teams.</p>
+      <p class="proj-x">Talk through the hard call before it counts. Kríos listens, pushes back, and gets you ready.</p>
+      <a class="proj-l mono" href="https://krios.ie" target="_blank" rel="noopener" data-cursor="open">krios.ie <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+      <p class="mono try" aria-hidden="true">Touch the crystal</p>
+    </article>
+
+    <article class="ch ch-proj right" id="ogive" data-ch="ogive">
+      <p class="mono idx">02 · Open source</p>
+      <h2 class="proj-t">Ogive</h2>
+      <p class="proj-d">AI tools for OpenRocket.</p>
+      <p class="proj-x">Design, simulate and iterate amateur rockets faster, with a model that reads the sim for you.</p>
+      <a class="proj-l mono" href="https://github.com/michaelsheffernan/ogive" target="_blank" rel="noopener" data-cursor="open">github <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+      <p class="mono try" aria-hidden="true">Click to launch</p>
+    </article>
+
+    <article class="ch ch-proj" id="aetos" data-ch="aetos">
+      <p class="mono idx">03 · Open source</p>
+      <h2 class="proj-t">Aetos</h2>
+      <p class="proj-d">Counter-drone command software.</p>
+      <p class="proj-x">One picture of the sky. Every track, every threat, every decision, in one place.</p>
+      <a class="proj-l mono" href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener" data-cursor="open">github <span aria-hidden="true">↗</span><span class="sr"> (opens in a new tab)</span></a>
+      <p class="mono try" aria-hidden="true">Click a contact to intercept</p>
+    </article>
+
+    <section class="ch ch-team" id="team" data-ch="team">
+      <h2 class="mono idx">04 · The crew</h2>
+      <ul class="crew">
+        <li><a href="https://www.linkedin.com/in/michael-sweeney-heffernan-589155354" target="_blank" rel="noopener" data-cursor="open"><span class="crew-n">Michael Sweeney Heffernan</span><span class="mono crew-l">LinkedIn ↗<span class="sr"> (opens in a new tab)</span></span></a></li>
+        <li><a href="https://www.linkedin.com/in/ahroon-santhosh/" target="_blank" rel="noopener" data-cursor="open"><span class="crew-n">Ahroon Santhosh</span><span class="mono crew-l">LinkedIn ↗<span class="sr"> (opens in a new tab)</span></span></a></li>
+        <li><a href="https://www.linkedin.com/in/abraham-sabu-kurian/" target="_blank" rel="noopener" data-cursor="open"><span class="crew-n">Abraham Sabu Kurian</span><span class="mono crew-l">LinkedIn ↗<span class="sr"> (opens in a new tab)</span></span></a></li>
+      </ul>
+      <p class="mono try" aria-hidden="true">Move through them</p>
+    </section>
+
+    <section class="ch ch-join" id="join" data-ch="join">
+      <h2 class="mono idx">05 · Join</h2>
+      <p class="join-t">Always looking for builders.</p>
+      <p class="join-p">No CV, no job titles. Show us something you've built.</p>
+      <a class="btn" href="mailto:contact@helorialabs.com?subject=Something%20I%20built" data-cursor="mail">Show us your work</a>
+      <p class="mono try" aria-hidden="true">Press and hold anywhere</p>
+    </section>
+
+    <section class="ch ch-contact" id="contact" data-ch="contact">
+      <h2 class="mono idx">06 · Contact</h2>
+      <a class="mail" href="mailto:contact@helorialabs.com" data-cursor="mail">contact@helorialabs.com</a>
+      <footer class="legal mono">
+        <span>Heloria Labs Limited · Registered in Ireland · Company no. 821585</span>
+        <!-- TODO: add the registered office address (Companies Act 2014, s.151) -->
+        <span>© 2026</span>
+      </footer>
+    </section>
+  </main>
+
+  <div class="track" id="track" aria-hidden="true"></div>
+  <noscript><style>.gate,.hud-bot,.cursor,#gl{display:none!important}</style></noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
