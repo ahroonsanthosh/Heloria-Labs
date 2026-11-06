@@ -5027,10 +5027,14 @@ function pickBusk(e){ if(!DM.g||!DM.spot.visible) return null; ndc.set(e.clientX
 function buskTap(e,p){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return false; const k=pickBusk(e); if(!k) return false;
   if(p){ if(!k.direct) return false; hits.length=0; ray.intersectObject(p.g,true,hits); if(hits.length&&hits[0].distance<k.dist) return false; }
   buskAsk(); return true; }
+/* what his tag says: his name, or, as he starts to play for you, that this one is for you; lit while he is the one you are
+   going to or he plays for you (and at once, on the tap itself) */
+function buskSay(quiet){ const L=DM.lb; if(!L) return false; const forYou=DM.goal||DM.st==='nod'||DM.st==='solo', txt=DM.st==='nod'||(DM.st==='solo'&&DM.sct<3.2)?'Diarmuid: "This one\'s for you"':'Diarmuid';
+  if(txt!==DM.lbT){ DM.lbT=txt; L.textContent=txt; } L.classList.toggle('ask',forYou&&!quiet); return forYou; }
 /* asking him to play: beside him he looks up and plays; from further off you walk over first */
 function buskAsk(){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
-  if(DM.d<3.2){ DM.goal=false; if(DM.st==='play'&&DM.cool<=0){ DM.st='nod'; DM.stT=0; A.tick(); } else DM.att=Math.max(DM.att,.6); return; }
-  TALK.goal=null; const path=navPath(P.x,P.z,DM.x,DM.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(DM.x,DM.z).multiplyScalar(R); } DM.goal=true; P.stuck=0; A.tick(); }
+  if(DM.d<3.2){ DM.goal=false; if(DM.st==='play'&&DM.cool<=0){ DM.st='nod'; DM.stT=0; A.tick(); } else DM.att=Math.max(DM.att,.6); if(buskSay(false)) DM.lb.classList.add('on'); return; }
+  TALK.goal=null; const path=navPath(P.x,P.z,DM.x,DM.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(DM.x,DM.z).multiplyScalar(R); } DM.goal=true; P.stuck=0; A.tick(); buskSay(false); }
 const BEAT=60/72;
 /* how much of him you hear at (x, z): all of him within a couple of metres, none by ten, and next to nothing from inside a house */
 function buskLevel(x,z){ const d=Math.hypot(x-DM.x,z-DM.z); if(d>=10) return 0; let k=Math.pow(sstep(10,2.3,d),1.6);
@@ -5060,9 +5064,8 @@ function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM
   /* his name tag: when you point at him, or are near */
   const lb=DM.lb, hw=dmW.copy(DM.dir).multiplyScalar(R+standH(DM.x,DM.z)+1.82).project(stCam), quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GLN.t>=0||PHS.on;
   /* asked, he is the one you are going to; nodding he says so; and while he plays for you his tag stays lit */
-  const forYou=DM.goal||DM.st==='nod'||DM.st==='solo', txt=DM.st==='nod'||(DM.st==='solo'&&DM.sct<3.2)?'Diarmuid: "This one\'s for you"':'Diarmuid';
-  if(txt!==DM.lbT){ DM.lbT=txt; lb.textContent=txt; }
-  lb.classList.toggle('on',(DM.hov||d<5.5||forYou)&&hw.z<1&&!quiet); lb.classList.toggle('ask',forYou&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
+  const forYou=buskSay(quiet);
+  lb.classList.toggle('on',(DM.hov||d<5.5||forYou)&&hw.z<1&&!quiet); lb.classList.toggle('can',d<3.4&&!quiet&&DM.st==='play'&&DM.cool<=0);
   buskNotes(dt,vis&&!quiet&&(DM.st==='solo'||(DM.st==='nod'&&DM.stT>.5)),nk);
   lb.style.transform=`translate(${((hw.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hw.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
   if(!vis) return;
