@@ -60,7 +60,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(!!from, 'there is open ground on the town\'s side to set out from', JSON.stringify(from));
   await C((c, d, h, p) => { const F = d.cliff.F; c.put(p[0], p[1], F.x, F.z); d.began(); c.run(45); }, from);
   await frames(4); await shot(pre + 'cliff-spot');
-  const tags = await page.evaluate(() => [...document.querySelectorAll('#crLabels .crl')].slice(-2).map(e => ({ t: e.textContent, on: e.classList.contains('on'), pe: getComputedStyle(e).pointerEvents })));
+  const tags = await page.evaluate(() => [...document.querySelectorAll('#crLabels .crl')].filter(e => e.textContent === 'Sit' || e.textContent === 'Kite').map(e => ({ t: e.textContent, on: e.classList.contains('on'), pe: getComputedStyle(e).pointerEvents })));
   rec(tags.length === 2 && tags.every(t => t.on && t.pe !== 'none'), 'near it, a tag over the bench and one over the kite say what you can do', JSON.stringify(tags));
 
   /* ---- click the bench: you walk over, round its end, and sit ---- */

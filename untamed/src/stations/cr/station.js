@@ -2520,6 +2520,7 @@ function kiteUpdate(dt,t){ const P=player, K=CLM.kite, d=me.userData; CL.kt+=dt;
     cv4.copy(kVt).sub(CL.pv); CL.pv.copy(kVt); CL.acc=damp(CL.acc,cv4.length()/Math.max(dt,1e-3),10,dt); CL.sp=sp;
     cv5.copy(K.position).project(stCam); CL.pan=clamp(cv5.x*.7,-.7,.7);
     CL.tg-=dt; if(CL.k==='fly'&&CL.tg<=0&&(CL.acc>7||hit>1.2)){ A.tug(clamp(Math.max((CL.acc-7)/18,hit/4),0,1),CL.pan); CL.tg=.32; }
+    if(sp>2.1&&CL.fl>.5) CL.fl=.04+Math.random()*.08;   // (a swoop out of a lull is heard at once, not after the lull's long wait)
     CL.fl-=dt; if(CL.fl<=0){ const k=clamp(sp/7,0,1); A.flutter(.12+.88*k,CL.pan); CL.fl=k>.15?.13+.3*(1-k)+Math.random()*.06:1.1+Math.random()*1.4; }
     /* you face it, and hold the string up toward it */
     tang(P.u,cv6.subVectors(K.position,kO),cv7); const s=cv0.crossVectors(P.f,cv7).dot(P.u), c=P.f.dot(cv7); rot(P.f,P.u,clamp(Math.atan2(s,c),-4*dt,4*dt));
