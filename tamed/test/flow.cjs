@@ -80,7 +80,7 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
   }
   const last = await st(); check(last.place === 'contact', 'scrolling reaches Contact');
   check((await sectionIn()) === 'contact', 'Contact text is showing');
-  const mail = await page.evaluate(() => document.querySelector('.mail').href); check(mail === 'mailto:contact@helorialabs.com', 'contact mailto is right');
+  const mail = await page.evaluate(() => document.querySelector('.mail').href); check(mail === 'mailto:hello@krios.ie', 'contact mailto is right');
   const q = await page.evaluate(() => { const a = document.querySelector('.contact .quiet'); return { href: a.href, target: a.target }; });
   check(q.href === UNTAMED && q.target === '_blank', 'Contact has the quiet link to Fly');
   await shot('flow-contact');

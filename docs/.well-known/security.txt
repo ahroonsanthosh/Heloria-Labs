@@ -1,4 +1,4 @@
-Contact: mailto:contact@helorialabs.com
+Contact: mailto:hello@krios.ie
 Expires: 2027-11-01T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://helorialabs.com/.well-known/security.txt

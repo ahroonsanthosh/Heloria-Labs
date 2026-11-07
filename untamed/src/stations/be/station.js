@@ -126,7 +126,7 @@ st._dbg={get E(){return E;},get ready(){return ready;},lay,lamp:()=>{ _m.copy(LA
 
 /* ---------- beacon: mail + signals ---------- */
 (()=>{
-const EMAIL='contact@helorialabs.com';
+const EMAIL='hello@krios.ie';
 $('#mail').addEventListener('click',async()=>{ const out=$('#copied'), m=$('#mail');
   try{ await navigator.clipboard.writeText(EMAIL); out.textContent='Copied to clipboard'; }
   catch(e){ const r=document.createRange(); r.selectNodeContents(m); const s=getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent='Selected. Press Ctrl+C or ⌘C'; }

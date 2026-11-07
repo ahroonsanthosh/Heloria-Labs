@@ -4665,9 +4665,9 @@ const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the
   ae:['Aetos','Counter-drone command software','It reads a sky full of drones and marks the one that matters.','https://github.com/ahroonsanthosh/Aetos','View project'],
   ph:['Pharos','GPS-free drone navigation','No GPS, so the drone finds itself by matching what it sees to the map.','https://github.com/ahroonsanthosh/pharos','View project'],
   og:['Ogive','AI tools for OpenRocket','Name the height, and it reworks the rocket until it gets there.','https://github.com/michaelsheffernan/ogive','View project'],
-  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us'],
+  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: hello@krios.ie','mailto:hello@krios.ie','Email us'],
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
-    'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
+    'mailto:hello@krios.ie?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
 const CAFE_ON=true;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
@@ -5744,7 +5744,7 @@ function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE
    The room has its own warm light (lamps over the bar, and by day the sun through the windows), and the town's music is
    a little quieter in here. */
 /* the menu: each drink, what it is for, its sign in the foam, and where it takes you. The links are all here */
-const cafeMail=(s,b)=>'mailto:contact@helorialabs.com?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b);
+const cafeMail=(s,b)=>'mailto:hello@krios.ie?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b);
 const MENU=[
   {name:'Founders\' Flat White',what:'A coffee chat with the three of us',art:'heart',go:'Book the chat',head:'A coffee chat',
     href:cafeMail('Booking a coffee chat','Hi Ahroon, Michael and Abraham,\n\nI would like a coffee chat about:\n\nA few times that suit me:\n'),
@@ -7623,7 +7623,7 @@ st._dbg={get E(){return E;},get ready(){return ready;},lay,lamp:()=>{ _m.copy(LA
 
 /* ---------- beacon: mail + signals ---------- */
 (()=>{
-const EMAIL='contact@helorialabs.com';
+const EMAIL='hello@krios.ie';
 $('#mail').addEventListener('click',async()=>{ const out=$('#copied'), m=$('#mail');
   try{ await navigator.clipboard.writeText(EMAIL); out.textContent='Copied to clipboard'; }
   catch(e){ const r=document.createRange(); r.selectNodeContents(m); const s=getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent='Selected. Press Ctrl+C or ⌘C'; }
