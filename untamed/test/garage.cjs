@@ -80,7 +80,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let tg = await tagEl(); rec(tg.on && tg.txt === 'Go in' && tg.top, 'its tag now says Go in', JSON.stringify(tg));
   /* the landmark's card, beside it: how to reach us */
   const pj = await page.evaluate(() => { const e = document.querySelector('#crProj'); return { n: e.querySelector('.crpj-n').textContent, t: e.querySelector('.crpj-t').textContent, href: e.getAttribute('href') }; });
-  rec(pj.n === 'Heloria Labs' && /hello@krios\.ie/.test(pj.t) && pj.href === 'mailto:hello@krios.ie', 'the workshop\'s card says to email hello@krios.ie', JSON.stringify(pj));
+  rec(pj.n === 'Heloria Labs' && /contact@helorialabs\.com/.test(pj.t) && pj.href === 'mailto:contact@helorialabs.com', 'the workshop\'s card says to email contact@helorialabs.com', JSON.stringify(pj));
 
   /* ---- walk away and it rolls down after a moment; E (or the tag) beside it opens it again ---- */
   await W(w => { w.snd = []; w.put(.6, 10.2, .7, 20); w.run(15); });

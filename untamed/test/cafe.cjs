@@ -58,9 +58,9 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await shot(P + 'cafe-inside');
 
   const EXPECT = [
-    { href: /^mailto:hello@krios\.ie\?subject=Booking%20a%20coffee%20chat/, target: '_self', go: 'Book the chat' },
+    { href: /^mailto:contact@helorialabs\.com\?subject=Booking%20a%20coffee%20chat/, target: '_self', go: 'Book the chat' },
     { href: /^https:\/\/krios\.ie\/?$/, target: '_blank', rel: 'noopener', go: 'See Kríos' },
-    { href: /^mailto:hello@krios\.ie\?subject=Joining%20Heloria%20Labs/, target: '_self', go: 'Write to us' }];
+    { href: /^mailto:contact@helorialabs\.com\?subject=Joining%20Heloria%20Labs/, target: '_self', go: 'Write to us' }];
   for (let i = 0; i < 3; i++) {
     /* order: the menu's button, the drink on the chalkboard itself, or (on a computer) the keys */
     if (i === 2) { await press('#crMore'); rec(await visibleSoon('#crMenu .crdrink:nth-of-type(3)'), 'Another drink opens the menu again'); }
@@ -104,6 +104,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   s = await state(); rec(s.st === 'exit', 'leaving', s.st);
   await run(1.3); await frames(3); await shot(P + 'cafe-leaving');
   s = await until(s => s.st === 'out' && s.k < .01, 5);
+  if (!mobile) { await page.keyboard.press('Escape'); await page.waitForTimeout(400); rec(await H(h => h.S.stId === 'cr' && h.S.mode === 'station'), 'Escape again just after coming out does not send you up to orbit'); }
   const you = await C((c, d) => ({ you: c.state.you, near: d.player.x }));
   rec(s.st === 'out' && s.me && you.you[1] > 2.6, 'you are back out on the pavement, facing the street', JSON.stringify({ st: s.st, k: s.k, me: s.me, you: you.you }));
   rec(s.near === .1, 'the camera is the walking one again', 'near ' + s.near);

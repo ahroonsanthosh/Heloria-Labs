@@ -4687,9 +4687,9 @@ const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the
   ae:['Aetos','Counter-drone command software','It reads a sky full of drones and marks the one that matters.','https://github.com/ahroonsanthosh/Aetos','View project'],
   ph:['Pharos','GPS-free drone navigation','No GPS, so the drone finds itself by matching what it sees to the map.','https://github.com/ahroonsanthosh/pharos','View project'],
   og:['Ogive','AI tools for OpenRocket','Name the height, and it reworks the rocket until it gets there.','https://github.com/michaelsheffernan/ogive','View project'],
-  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: hello@krios.ie','mailto:hello@krios.ie','Email us'],
+  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us'],
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
-    'mailto:hello@krios.ie?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
+    'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
 const CAFE_ON=true;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
@@ -5770,7 +5770,7 @@ function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE
    The room has its own warm light (lamps over the bar, and by day the sun through the windows), and the town's music is
    a little quieter in here. */
 /* the menu: each drink, what it is for, its sign in the foam, and where it takes you. The links are all here */
-const cafeMail=(s,b)=>'mailto:hello@krios.ie?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b);
+const cafeMail=(s,b)=>'mailto:contact@helorialabs.com?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b);
 const MENU=[
   {name:'Founders\' Flat White',what:'A coffee chat with the three of us',art:'heart',go:'Book the chat',head:'A coffee chat',
     href:cafeMail('Booking a coffee chat','Hi Ahroon, Michael and Abraham,\n\nI would like a coffee chat about:\n\nA few times that suit me:\n'),
@@ -6009,7 +6009,11 @@ function cafeRest(){ const B=CAFE.bar; [B.x,B.z]=BP.home; B.fx=B.x; B.fz=B.z; B.
   CAFE.fu.uSw.value=0; CAFE.sw=0; CAFE.dv=0; CAFE.card=0; CAFE.lean=0; CAFE.yaw=0; CAFE.pitch=CAFE.p0; CAFE.wisps.forEach(q=>{ q.t=9; }); }
 
 /* ---------- the way in and the way out ---------- */
-function cset(s){ CAFE.st=s; CAFE.on=s==='enter'||s==='in'||s==='exit'; CAFE.t=0; el.classList.toggle('incafe',CAFE.on); if(CAFE.cur){ CAFE.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } cafeUI(); }
+/* Escape a moment after you come back out of the café or the workshop (or Escape held down) is still the one that took you out:
+   it does not also send you up to orbit */
+let ESCQ=0;
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||e.code!=='Escape') return; if(e.repeat||performance.now()-ESCQ<2500){ e.preventDefault(); e.stopImmediatePropagation(); } },true);
+function cset(s){ if(s==='out'&&CAFE.st==='exit') ESCQ=performance.now(); CAFE.st=s; CAFE.on=s==='enter'||s==='in'||s==='exit'; CAFE.t=0; el.classList.toggle('incafe',CAFE.on); if(CAFE.cur){ CAFE.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } cafeUI(); }
 const cbusy=()=>!CAFE.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0;
 /* where you are and which way you face, in the café's frame */
 function cafeYou(){ const P=player; clocal(cV.copy(P.u).multiplyScalar(R+P.h),CAFE.pl); cV2.copy(P.f).transformDirection(CAFE.Mi); return {x:CAFE.pl.x,z:CAFE.pl.z,fz:cV2.z}; }
@@ -7884,7 +7888,7 @@ function garUniforms(t){ const nt=SKY.night, day=1-nt, L=GU.uGL.value, lit=(GAR.
 function garYou(){ const P=player; wsL(gV.copy(P.u).multiplyScalar(R+P.h),GAR.pl); gV2.copy(P.f).transformDirection(GAR.Mi); return {x:GAR.pl.x,z:GAR.pl.z,fz:gV2.z,fx:gV2.x}; }
 const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||CL.st!=='idle'||CL.k!=='home';
 const garNear=()=>GAR.da<2.6&&GAR.you.z>GW.d/2+.15;
-function garSet(s){ GAR.st=s; GAR.on=s==='enter'||s==='in'||s==='exit'; GAR.t=0; el.classList.toggle('ingar',GAR.on); garOut.hidden=s!=='in'; if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } }
+function garSet(s){ if(s==='out'&&GAR.st==='exit') ESCQ=performance.now(); GAR.st=s; GAR.on=s==='enter'||s==='in'||s==='exit'; GAR.t=0; el.classList.toggle('ingar',GAR.on); garOut.hidden=s!=='in'; if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } }
 /* the tag, a click, E: up if it is down, in if it is up; from further off you walk over first */
 function garAct(){ if(GAR.st!=='out'||garBusy()) return false; if(GAR.shSt==='shut') return garGo('open'); if(GAR.shSt==='open') return garGo('in'); return false; }
 function garGo(then){ const P=player; if(garNear()||GAR.da<1.4){ began(); return then==='open'?garOpen():garEnter(); }
@@ -8158,7 +8162,7 @@ st._dbg={get E(){return E;},get ready(){return ready;},lay,lamp:()=>{ _m.copy(LA
 
 /* ---------- beacon: mail + signals ---------- */
 (()=>{
-const EMAIL='hello@krios.ie';
+const EMAIL='contact@helorialabs.com';
 $('#mail').addEventListener('click',async()=>{ const out=$('#copied'), m=$('#mail');
   try{ await navigator.clipboard.writeText(EMAIL); out.textContent='Copied to clipboard'; }
   catch(e){ const r=document.createRange(); r.selectNodeContents(m); const s=getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent='Selected. Press Ctrl+C or ⌘C'; }

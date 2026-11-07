@@ -56,7 +56,7 @@ HEADERS = """/*
 
 
 # where someone who finds a security problem in the site can tell us (RFC 9116); renew Expires before it lapses
-SECURITY_TXT = """Contact: mailto:hello@krios.ie
+SECURITY_TXT = """Contact: mailto:contact@helorialabs.com
 Expires: 2027-11-01T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://helorialabs.com/.well-known/security.txt
