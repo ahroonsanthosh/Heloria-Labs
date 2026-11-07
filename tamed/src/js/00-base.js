@@ -1,6 +1,17 @@
 /* ================= HELORIA TAMED =================
    A pavilion of pale stone standing in still water at golden hour. One evening, one walk:
    scroll moves you through the place and moves the sun down the sky with you. */
+/* ?diag on the address: a trail of what the page was doing, written into the browser as it goes, so that if a browser
+   gives up on the page (it crashes and reloads) the next visit with ?diag can say what was happening at that moment.
+   Nothing of it exists without ?diag */
+const TRAIL=/[?&]diag(=|&|$)/.test(location.search)?(()=>{ let prev=null, prevAt=''; try{ const s=localStorage.getItem('heloria.trail'); if(s){ const t=JSON.parse(s); if(t&&!t.end&&t.ev&&t.ev.length){ prev=t.ev; prevAt=t.at||''; } } }catch(e){}
+  const T0=performance.now(), ev=[], at=new Date().toLocaleTimeString(), save=end=>{ try{ localStorage.setItem('heloria.trail',JSON.stringify({ev:ev.slice(-48),end,at})); }catch(e){} };
+  const add=s=>{ ev.push(((performance.now()-T0)/1000).toFixed(2)+'s  '+s); if(ev.length>200) ev.splice(0,100); save(false); };
+  const who=e=>{ let t=e.target; return t&&t.closest?((t.closest('[id]')||{}).id||t.tagName||'?'):'page'; };
+  ['pointerdown','pointerup','click','keydown'].forEach(n=>addEventListener(n,e=>add(n+' on '+who(e)+' (before the page answers)'),{capture:true,passive:true}));
+  addEventListener('pagehide',()=>save(true)); addEventListener('error',e=>add('ERROR '+String(e.message||e.error||'').slice(0,140)),true);
+  addEventListener('unhandledrejection',e=>add('ERROR promise '+String(e.reason&&e.reason.message||e.reason).slice(0,140)));
+  add('page opened'); return {add,prev,prevAt}; })():null;
 /* the ways out of the walk, set by the build: on the site untamed/ (Fly), untamed/#land (Land) and untamed/#aetos (the
    rocket at the end of the walk, into orbit at Aetos); as an artifact, the other artifacts' links */
 const UNTAMED_URL='__UNTAMED__', LAND_URL='__LAND__', ROCKET_URL='__ROCKET__';

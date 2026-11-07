@@ -62,7 +62,7 @@ const A=(()=>{
   const CH=[[73.42,146.83,220,329.63,440],[65.41,130.81,196,293.66,392],[58.27,116.54,174.61,261.63,349.23],[55,110,164.81,246.94,329.63]];
   function init(){
     if(ctx) return;
-    try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // Safari: play like media, set before the sound starts (changing it mid-play interrupts it)
+    try{ if(IOS&&navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // an iPhone: play like media, set before the sound starts (changing it mid-play interrupts it); not on a Mac
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
@@ -138,7 +138,30 @@ const A=(()=>{
      off, it is made at ios, its usual level, and plays while the level asked for is above gate times that */
   const LOOPS=[];
   const loop=o=>{ const r=Object.assign({els:[],cur:0,url:null,rms:0,want:0,vol:0,ref:1,tc:.3,tcOut:0,gate:.04,rate:1,busy:false,blocked:false,R:1,H:2,fade:true,sr:22050},o); if(IOS&&r.ios) r.ref=r.ios; LOOPS.push(r); return r; };
-  const player=r=>{ const el=new Audio(); el.preload='auto'; el.src=r.url; el._on=false; el._primed=false;
+  /* desktop Safari (and any page opened with ?webaudio): the recordings play from buffers through the page's own sound
+     engine, not as a few dozen media players. Safari on a Mac can give up on the page when that many media players start
+     at once inside a click, and their sound then goes on after the tab is closed. A buffer player does what the mixer asks
+     of a media player and no more: play, pause, where it is, its volume and its speed, and that it has ended */
+  const BUFP=/[?&]webaudio(=|&|$)/.test(location.search)||(()=>{ const u=navigator.userAgent; return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Android/.test(u)&&!/iPhone|iPad|iPod/.test(u)&&!(navigator.maxTouchPoints>1); })();
+  function BufPlayer(get){ this._get=get; this._src=null; this._g=null; this._p=true; this._e=false; this._off=0; this._t0=0; this._r=1; this._v=1; this._m=false; this._ls=[]; this.preload='auto'; this.loop=false; this.preservesPitch=false; this.src=''; }
+  BufPlayer.prototype={
+    get paused(){ return this._p; }, get ended(){ return this._e; },
+    get currentTime(){ if(this._p||!ctx) return this._off; return Math.min(this._get().duration,this._off+Math.max(0,ctx.currentTime-this._t0)*this._r); },
+    set currentTime(t){ const on=!this._p; if(on) this._halt(); this._off=Math.max(0,+t||0); this._e=false; if(on) this._go(); },
+    get playbackRate(){ return this._r; },
+    set playbackRate(r){ if(!this._p&&ctx){ this._off=this.currentTime; this._t0=ctx.currentTime; if(this._src) this._src.playbackRate.value=r; } this._r=r; },
+    get volume(){ return this._v; }, set volume(v){ this._v=v; this._lvl(); },
+    get muted(){ return this._m; }, set muted(m){ this._m=!!m; this._lvl(); },
+    _lvl(){ if(this._g&&ctx&&this._g.context===ctx) this._g.gain.setTargetAtTime(this._m?0:this._v,ctx.currentTime,.012); },
+    addEventListener(t,f){ if(t==='ended') this._ls.push(f); }, removeEventListener(){},
+    _go(){ const b=this._get(); if(!this._g||this._g.context!==ctx){ this._g=ctx.createGain(); this._g.gain.value=this._m?0:this._v; this._g.connect(ctx.destination); }
+      const s=ctx.createBufferSource(); s.buffer=b; s.playbackRate.value=this._r; s.connect(this._g);
+      s.onended=()=>{ if(this._src!==s) return; this._src=null; this._off=b.duration; this._p=true; this._e=true; for(const f of this._ls){ try{ f(); }catch(e){} } };
+      this._t0=ctx.currentTime; s.start(0,Math.min(this._off,Math.max(0,b.duration-.001))); this._src=s; },
+    _halt(){ const s=this._src; this._src=null; if(s){ try{ s.stop(); }catch(e){} try{ s.disconnect(); }catch(e){} } },
+    play(){ if(!ctx) return Promise.reject(new Error('the sound has not started yet')); if(this._p){ if(this._e){ this._off=0; this._e=false; } this._p=false; try{ this._go(); }catch(e){ this._p=true; return Promise.reject(e); } } return Promise.resolve(); },
+    pause(){ if(this._p) return; this._off=this.currentTime; this._p=true; this._halt(); } };
+  const player=r=>{ const el=BUFP?new BufPlayer(()=>{ if(r.bb) return r.bb; const q=r.pcm, b=ctx.createBuffer(1,q.length,r.sr), ch=b.getChannelData(0); for(let i=0;i<q.length;i++){ const x=q[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } r.bb=b; return b; }):new Audio(); el.preload='auto'; if(!BUFP) el.src=r.url; el._on=false; el._primed=false;
     try{ el.preservesPitch=false; el.mozPreservesPitch=false; el.webkitPreservesPitch=false; }catch(e){}   // so a slower rate is a lower pitch, as on tape
     el.addEventListener('ended',()=>{ el._on=false; }); return el; };
   function render(r,next){ const fin=()=>{ r.busy=false; if(next) setTimeout(next,120); };
@@ -147,7 +170,7 @@ const A=(()=>{
     try{ oc=new OAC(1,R+N,sr); r.make(oc,r.R); }catch(e){ console.warn('sound',r.name,e); return fin(); }
     const done=b=>{ const d=b.getChannelData(0);
       if(r.fade) for(let i=0;i<H;i++){ const k=i/H*Math.PI/2; d[R+i]*=Math.sin(k); d[R+P+i]*=Math.cos(k); }   // in at the top, out over the overlap
-      const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; r.els=[player(r),player(r)]; fin(); };
+      const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; if(BUFP){ r.pcm=d.slice(R,R+N); r.sr=sr; } r.els=[player(r),player(r)]; fin(); };
     try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,fin); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ fin(); } }
   /* the mixer: every recording follows the level asked of it, and the two players hand over */
   let mixT=0;
@@ -166,7 +189,7 @@ const A=(()=>{
   /* leaving the page: another tab or app, the phone locked, or on a computer another window in front. The sound goes with
      you: at once when the page is hidden (a phone may freeze the page next, and would play its recordings on in the
      background), faded out by the mixer when it is only behind another window; and it comes back when you do */
-  function leave(){ const hid=document.hidden; away=true;
+  function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true;   // (the page closing is as final as hidden: everything stops at once)
     if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
     if(ctx){ set(out.gain,0,hid?.01:.15); if(hid) ctx.suspend().catch(()=>{}); } }
   function back(){ if(!away||document.hidden) return; away=false; wdT=-1; for(const r of LOOPS) r.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)

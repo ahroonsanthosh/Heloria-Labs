@@ -37,7 +37,7 @@ const A=(()=>{
   function init(){
     if(ctx) return;
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
-    try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps
+    try{ if(navigator.audioSession&&MX.ios) navigator.audioSession.type='playback'; }catch(e){}   // iOS: play like media, through the silent switch and other apps (only there: a Mac has no silent switch)
     n.master=ctx.createGain(); n.master.gain.value=0;
     n.comp=ctx.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=14; n.comp.ratio.value=3; n.comp.attack.value=.02; n.comp.release.value=.5;
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
@@ -83,6 +83,29 @@ const A=(()=>{
      inside, and the two are crossed by volume; the rocket the same, far and close. The score needs no second version (see
      the music bus above), and the Pharos air is worked out at its brightest and follows the beam by volume. */
   const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  /* desktop Safari (and any page opened with ?webaudio): the recordings play from buffers through the page's own sound
+     engine, not as a few dozen media players. Safari on a Mac can give up on the page when that many media players start
+     at once inside a click, and their sound then goes on after the tab is closed. A buffer player does what the mixer asks
+     of a media player and no more: play, pause, where it is, its volume and its speed, and that it has ended */
+  const BUFP=/[?&]webaudio(=|&|$)/.test(location.search)||(()=>{ const u=navigator.userAgent; return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Android/.test(u)&&!/iPhone|iPad|iPod/.test(u)&&!(navigator.maxTouchPoints>1); })();
+  function BufPlayer(get){ this._get=get; this._src=null; this._g=null; this._p=true; this._e=false; this._off=0; this._t0=0; this._r=1; this._v=1; this._m=false; this._ls=[]; this.preload='auto'; this.loop=false; this.preservesPitch=false; this.src=''; }
+  BufPlayer.prototype={
+    get paused(){ return this._p; }, get ended(){ return this._e; },
+    get currentTime(){ if(this._p||!ctx) return this._off; return Math.min(this._get().duration,this._off+Math.max(0,ctx.currentTime-this._t0)*this._r); },
+    set currentTime(t){ const on=!this._p; if(on) this._halt(); this._off=Math.max(0,+t||0); this._e=false; if(on) this._go(); },
+    get playbackRate(){ return this._r; },
+    set playbackRate(r){ if(!this._p&&ctx){ this._off=this.currentTime; this._t0=ctx.currentTime; if(this._src) this._src.playbackRate.value=r; } this._r=r; },
+    get volume(){ return this._v; }, set volume(v){ this._v=v; this._lvl(); },
+    get muted(){ return this._m; }, set muted(m){ this._m=!!m; this._lvl(); },
+    _lvl(){ if(this._g&&ctx&&this._g.context===ctx) this._g.gain.setTargetAtTime(this._m?0:this._v,ctx.currentTime,.012); },
+    addEventListener(t,f){ if(t==='ended') this._ls.push(f); }, removeEventListener(){},
+    _go(){ const b=this._get(); if(!this._g||this._g.context!==ctx){ this._g=ctx.createGain(); this._g.gain.value=this._m?0:this._v; this._g.connect(ctx.destination); }
+      const s=ctx.createBufferSource(); s.buffer=b; s.playbackRate.value=this._r; s.connect(this._g);
+      s.onended=()=>{ if(this._src!==s) return; this._src=null; this._off=b.duration; this._p=true; this._e=true; for(const f of this._ls){ try{ f(); }catch(e){} } };
+      this._t0=ctx.currentTime; s.start(0,Math.min(this._off,Math.max(0,b.duration-.001))); this._src=s; },
+    _halt(){ const s=this._src; this._src=null; if(s){ try{ s.stop(); }catch(e){} try{ s.disconnect(); }catch(e){} } },
+    play(){ if(!ctx) return Promise.reject(new Error('the sound has not started yet')); if(this._p){ if(this._e){ this._off=0; this._e=false; } this._p=false; try{ this._go(); }catch(e){ this._p=true; return Promise.reject(e); } } return Promise.resolve(); },
+    pause(){ if(this._p) return; this._off=this.currentTime; this._p=true; this._halt(); } };
   const LOOPS=[], LP={};
   /* the walk's own room, as long as it was before the live one had to be cut to a quarter of a second: a long tail costs
      nothing worked out ahead of time */
@@ -147,8 +170,10 @@ const A=(()=>{
       slices(N,(p,q)=>{ for(let i=p;i<q;i++){ let x=a[i0+i]*k; if(i<NH) x*=Math.sin(i/NH*Math.PI/2); else if(i>=NP) x*=Math.cos((i-NP)/NH*Math.PI/2); else sq+=x*x;
           const m=x<0?-x:x; if(m>.7) x=(x<0?-1:1)*(.7+.28*Math.tanh((m-.7)/.28)); const s=Math.round(x*32767); if(pcm) pcm[i]=s; else v.setInt16(44+i*2,s,true); } },()=>{
         L.rms=Math.sqrt(sq/Math.max(1,NP-NH)); L.bytes=ab.byteLength;
-        const url=URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
-        L.els=[0,1].map(()=>{ const e=new Audio(); e.preload='auto'; e.src=url; e.loop=false; e.volume=0; e._end=L.P+L.H-.03;
+        const url=BUFP?'':URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
+        let bb=null; const getB=()=>{ if(bb) return bb; bb=ctx.createBuffer(1,N,sr); const ch=bb.getChannelData(0);   // (the buffer player's copy, made the first time it plays)
+          if(pcm) for(let i=0;i<N;i++) ch[i]=pcm[i]/32768; else { const dv=new DataView(ab,44); for(let i=0;i<N;i++) ch[i]=dv.getInt16(i*2,true)/32768; } return bb; };
+        L.els=[0,1].map(()=>{ const e=BUFP?new BufPlayer(getB):new Audio(); e.preload='auto'; if(!BUFP) e.src=url; e.loop=false; e.volume=0; e._end=L.P+L.H-.03;
           if(L.tape){ e.preservesPitch=e.mozPreservesPitch=e.webkitPreservesPitch=false; L.canRate=('preservesPitch' in e)||('webkitPreservesPitch' in e)||('mozPreservesPitch' in e); }
           e.addEventListener('ended',()=>{ e.currentTime=0; }); return e; });
         next(); }); });
@@ -208,7 +233,7 @@ const A=(()=>{
   /* leaving the page: another tab or app, the phone locked, or on a computer another window in front. The sound goes with
      you: at once when the page is hidden (a phone may freeze the page next, and would play its recordings on in the
      background), faded out by the mixer when it is only behind another window; and it comes back when you do */
-  function leave(){ const hid=document.hidden; away=true; if(!ctx) return;
+  function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true; if(!ctx) return;   // (the page closing is as final as hidden: everything stops at once)
     set(n.master.gain,0,hid?.01:.15); MX.tc=.25;
     if(hid){ for(const L of LOOPS) if(L.run) halt(L); MX.v=0; ctx.suspend().catch(()=>{}); } }
   function back(){ if(!away||document.hidden) return; away=false; for(const L of LOOPS) L.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)

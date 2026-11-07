@@ -34,7 +34,7 @@ const THREE_LOCAL = path.join(ROOT, 'untamed', 'src', 'assets', 'vendor', 'three
   const check = (c, msg) => { if (c) console.log('PASS', msg); else { console.log('FAIL', msg); fails.push(msg); } };
   const log = (...a) => console.log(...a);
   const t0 = Date.now();
-  await page.goto('file://' + path.resolve(opt.html || path.join(ROOT, 'dist', 'tamed.html')));
+  await page.goto('file://' + path.resolve(opt.html || path.join(ROOT, 'dist', 'tamed.html')) + (opt.query ? '?' + opt.query : ''));
   await page.waitForFunction(() => window.__tamed && window.__tamed.S.ready, null, { timeout: 300000 });
   console.log('ready in', ((Date.now() - t0) / 1000).toFixed(1) + 's');
   if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, T, frames, settle, log, mobile, vp, errors, check, out, ctx }); }

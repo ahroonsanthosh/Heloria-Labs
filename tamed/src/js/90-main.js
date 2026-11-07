@@ -83,7 +83,8 @@ function enter(){
 
 /* ---------- the loop ---------- */
 let last=performance.now();
-function frame(tn){ const f0=DIAG?performance.now():0; try{ frameBody(tn); } finally{ if(DIAG) DIAG.js.push(performance.now()-f0); } }
+function frame(tn){ const f0=DIAG?performance.now():0; if(TRAIL&&(S.mode!==TRAIL.mode||S.frame%60===0)){ TRAIL.mode=S.mode; TRAIL.add('frame '+S.frame+', '+S.mode+(S.ready?'':' (loading)')+', at '+(S.s||0).toFixed(3)); }
+  try{ frameBody(tn); } finally{ if(DIAG) DIAG.js.push(performance.now()-f0); } }
 function frameBody(tn){
   requestAnimationFrame(frame);
   const raw=Math.max(0,(tn-last)/1000); last=tn;
@@ -167,6 +168,12 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
   const ce=console.error; console.error=(...a)=>{ DIAG.errs.push(a.map(x=>String(x&&x.message||x)).join(' ').slice(0,200)); ce.apply(console,a); };
   const el=document.createElement('pre'); el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;margin:0;padding:8px 10px;max-width:min(600px,calc(100vw - 16px));max-height:70vh;overflow:auto;background:rgba(0,0,0,.84);color:#e8f0e8;font:11px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;border-radius:6px';
   document.body.appendChild(el);
+  /* the sound starting, and the page's answer to a click, in the trail */
+  if(TRAIL){ for(const k of ['start','preview','click','leave']){ const f=A[k]; if(typeof f!=='function') continue;
+      A[k]=function(){ TRAIL.add('sound: '+k+(k==='start'?' (begins)':'')); const r=f.apply(this,arguments); if(r&&r.then) r.then(()=>TRAIL.add('sound: '+k+' done'),e=>TRAIL.add('sound: '+k+' failed '+(e&&e.message))); return r; }; }
+    ['pointerdown','pointerup','click'].forEach(n=>addEventListener(n,()=>TRAIL.add(n+' answered'),{capture:false,passive:true}));
+    canvas.addEventListener('webglcontextlost',()=>TRAIL.add('GRAPHICS LOST'),false); canvas.addEventListener('webglcontextrestored',()=>TRAIL.add('graphics restored'),false);
+    const en=enter; enter=function(){ TRAIL.add('entering the walk'); return en.apply(this,arguments); }; }
   /* every frame's length, and after the page is ready a short test: three seconds each as it is, at lower sharpness, with no
      edge smoothing, and with the page's blur effects off (then all put back), to see which of them a slow browser is held by */
   let lf=0; const fr=t=>{ if(lf) DIAG.fr.push(t-lf); lf=t; if(DIAG.fr.length>240) DIAG.fr.shift(); if(DIAG.js.length>240) DIAG.js.shift(); requestAnimationFrame(fr); }; requestAnimationFrame(fr);
@@ -185,7 +192,8 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
       +'\n\nframes now: '+med(DIAG.fr).toFixed(1)+' ms (1 in 10 over '+p90(DIAG.fr).toFixed(1)+' ms), script '+med(DIAG.js).toFixed(1)+' ms a frame'
       +(DIAG.bench.length?'\n\ntest, ms a frame (typical, 1 in 10, script):\n'+DIAG.bench.map(([n,a,b,c])=>(n+'                    ').slice(0,20)+a.toFixed(1).padStart(7)+b.toFixed(1).padStart(8)+c.toFixed(1).padStart(7)).join('\n'):'')
       +(DIAG.bt==='running'?'\n(testing, a few seconds...)':DIAG.bt==='done'?'\n(test done)':'')
-      +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):''); },250); }
+      +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):'')
+      +(TRAIL&&TRAIL.prev?'\n\nTHE LAST VISIT ('+TRAIL.prevAt+') STOPPED WITHOUT CLOSING. Its last steps:\n'+TRAIL.prev.slice(-16).join('\n'):'\n\n(the last visit closed normally)'); },250); }
 async function boot(){
   if(!GL_OK||!RT_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08); diag('fonts');
