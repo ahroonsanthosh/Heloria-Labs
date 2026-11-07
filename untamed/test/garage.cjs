@@ -7,8 +7,12 @@
    walk through anything on the way. Inside: nothing of the street over the room (no postcard either), a way out, the music a
    little quieter; drag (and on a computer the arrows) to look round. Out again by Escape (a phone: the button), and by a
    tap on the way out; back on the pavement with the walking camera. The last flight from inside, or just after opening it,
-   puts it all back. Opening it compiles nothing new (its shaders were made with Earth's). With --meter it listens to each
-   of its sounds against a footstep. The station's clock is stepped by hand where timing is not the point, as in earth.cjs. */
+   puts it all back. Opening it compiles nothing new (its shaders were made with Earth's). Inside, the big red button on
+   the bench (a click or a tap on it, or Space or Enter) runs a test fire of the rocket in the van: the warning, the coughs,
+   the roar, the flame with its shock diamonds out through the shutter, smoke billowing out, things shaking, the smoke alarm
+   after; it compiles nothing either, it can be run again once it is over, and walking out mid-fire, the last flight or
+   leaving Earth stops it. With --meter it listens to each of its sounds (the test fire's too) against a footstep. The
+   station's clock is stepped by hand where timing is not the point, as in earth.cjs. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
   const rec = (ok, name, info) => { if (ok) { pass++; console.log('PASS ' + name + (info ? '  (' + info + ')' : '')); } else { fail++; failed.push(name); console.log('FAIL ' + name + (info ? '  (' + info + ')' : '')); } };
@@ -37,11 +41,12 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       count(n) { return this.snd.filter(s => s.n === n).length; },
       lastMusic: null,
     };
-    for (const n of ['shutterMotor', 'ratchet', 'shutterEnd', 'tube', 'step']) { const f = h.A[n]; h.A[n] = function () { window.__W.snd.push({ n, t: h.S.t }); return f.apply(this, arguments); }; }
+    for (const n of ['shutterMotor', 'ratchet', 'shutterEnd', 'tube', 'step', 'tfClick', 'tfBeep', 'tfPop', 'tfRoar', 'tfChirp', 'tfThud', 'tfTink', 'tfHush']) { const f = h.A[n]; h.A[n] = function () { window.__W.snd.push({ n, t: h.S.t }); return f.apply(this, arguments); }; }
     { const f = h.A.music; h.A.music = function (v) { window.__W.lastMusic = v; return f.apply(this, arguments); }; }
   });
   const W = (fn, arg) => H((h, [src, a]) => (0, eval)('(' + src + ')')(window.__W, h.ST.cr._dbg.garage, h.ST.cr._dbg, h, a), [fn.toString(), arg]);
   const state = () => W((w, g) => g.state);
+  const tf = () => W((w, g) => g.tf);
   const frames = (n = 3) => page.evaluate(n => new Promise(r => { let k = 0; const f = () => (++k >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
   const tap = (x, y) => mobile ? page.touchscreen.tap(x, y) : page.mouse.click(x, y);
   const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
@@ -121,14 +126,69 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(Math.abs(y1 - y0) > .3 && (await state()).st === 'in', 'a drag looks round, and does not take you out', JSON.stringify({ y0: +y0.toFixed(2), y1: +y1.toFixed(2) }));
   if (!mobile) { await page.keyboard.down('ArrowLeft'); await W(w => w.run(20)); await page.keyboard.up('ArrowLeft'); const y2 = await W((w, g) => g.G.yaw); rec(y2 > y1 + .6, 'the arrows look round too', JSON.stringify({ y1: +y1.toFixed(2), y2: +y2.toFixed(2) })); }
   for (const [n, yaw, p] of [['bench', .02, -.05], ['flag', -.55, .05], ['engine', -1.8, -.12]]) { await W((w, g, d, h, a) => { g.G.yaw = a[0]; g.G.pitch = a[1]; w.run(2); }, [yaw, p]); await frames(3); await shot(pre + 'garage-6-' + n); }
-  /* and the same lens back after: no other key does anything in here */
-  await page.keyboard.press('KeyE'); await page.keyboard.press('Enter'); await W(w => w.run(3));
-  rec((await state()).st === 'in', 'E and Enter do nothing else in here');
+  /* and the same lens back after: E does nothing else in here */
+  await page.keyboard.press('KeyE'); await W(w => w.run(3));
+  rec((await state()).st === 'in' && !(await tf()).on, 'E does nothing else in here');
 
-  /* ---- out: Escape on a computer, the button on a phone ---- */
+  /* ---- the test fire: the big red button on the bench ---- */
+  const prog1 = await H(h => h.renderer.info.programs.length);
+  const toBtn = () => W((w, g) => { const [bx, bz] = g.GTF.btn, [sx, sz] = g.GW.S; g.G.yaw = Math.atan2(-(bx - sx), -(bz - sz)); g.G.pitch = -.12; w.run(2); return g.screen('btn'); });
+  await toBtn(); await frames(3);
+  const bxy = await W((w, g) => g.screen('btn'));
+  rec(bxy[2] < 1 && bxy[0] > 0 && bxy[0] < vp.width && bxy[1] > 0 && bxy[1] < vp.height && (await tf()).cap === 0, 'the big red button is on the bench, up, and on the screen', JSON.stringify(bxy.map(v => +v.toFixed(1))));
+  await shot(pre + 'garage-9-button');
+  /* (the page's own frames run the station too, so a fire goes on in real time between these steps: each step goes to a
+     moment in it rather than on by so many frames, and it is held still for each picture) */
+  const to = t => W((w, g, d, h, a) => w.until('g => g.TF.t >= ' + a, 30 * 10), t);
+  const still = async n => { await W((w, g) => { g.TF.hold = true; }); await frames(3); await shot(pre + n); await W((w, g) => { g.TF.hold = false; }); };
+  await W(w => { w.snd = []; });
+  await tap(bxy[0], bxy[1]); let f = await tf();
+  rec(f.on && f.fires === 1 && (await state()).st === 'in', (mobile ? 'a tap' : 'a click') + ' on it starts a test fire (and does not take you out)', JSON.stringify(f));
+  await to(.9); f = await tf();
+  const clicks = await W(w => [w.count('tfClick'), w.count('tfBeep')]);
+  rec(f.cap === 1 && clicks[0] === 1 && clicks[1] === 2, 'the button goes down with a clunk, and two warning beeps', JSON.stringify({ cap: f.cap, click: clicks[0], beeps: clicks[1] }));
+  await to(1.3);
+  const yawF = await W((w, g) => g.G.yaw);
+  rec(Math.abs(yawF - (mobile ? -2.05 : -1.85)) < .05, 'the view has turned to the engine', yawF.toFixed(2));
+  await W(w => w.until('g => g.TF.P > .5', 30 * 2)); await still('garage-10-cough');
+  await to(2.5); f = await tf();
+  const pops = await W(w => w.count('tfPop'));
+  rec(pops >= 4 && f.roar, 'it coughs and sputters a few times, then catches and roars', JSON.stringify({ pops, roar: f.roar, R: f.R }));
+  rec(f.R === 1 && f.core && f.glow && f.lt > .8 && f.smoke > 4 && f.pool && f.shook, 'full burn: the flame and its glow out of the bell, its light in the room and on the pavement, smoke, things shaking', JSON.stringify(f));
+  /* the flame and the smoke are where they should be: out of the bell, through the shutter */
+  const geo = await W((w, g) => { const b = g.GTF.BELL, q = g.TF.sm.filter(p => p.a < p.life), out = q.filter(p => p.p.z > g.GW.d / 2).length; return { len: +g.TF.U.core.uLen.value.toFixed(2), glow: +g.TF.U.glow.uLen.value.toFixed(2), tip: +(b[2] + g.TF.U.glow.uLen.value).toFixed(2), wall: g.GW.d / 2, puffs: q.length, outside: out }; });
+  rec(geo.len > 1.2 && geo.tip > geo.wall + .8 && geo.outside >= geo.puffs * .6, 'the plume reaches out through the open shutter, and the smoke is out in the street', JSON.stringify(geo));
+  const progF = await H(h => new Promise(r => { let k = 0; const f = () => (++k > 4 ? r(h.renderer.info.programs.length) : requestAnimationFrame(f)); requestAnimationFrame(f); }));
+  rec(progF === prog1 && progF === prog0, 'firing it compiles no new shader', prog0 + ', ' + prog1 + ' then ' + progF);
+  await to(3.2); await still('garage-11-fire');
+  /* the light it throws on the bench, behind you */
+  await W((w, g) => { g.G.yaw = .02; g.G.pitch = -.05; w.run(1); }); await still('garage-12-fire-bench');
+  await W((w, g, d, h, a) => { g.G.yaw = a; g.G.pitch = -.04; w.run(1); }, yawF);
+  await to(5); f = await tf();
+  const roars = await W(w => w.count('tfRoar'));
+  rec(!f.roar && !f.core && f.on && roars === 1, 'then it is shut off, and the flame is gone', JSON.stringify({ ...f, roars }));
+  await to(5.3); await still('garage-13-smoke');
+  const end = await W(w => { const r = w.until((g) => !g.TF.on, 30 * 6); return { ...r, chirps: w.count('tfChirp'), thud: w.count('tfThud'), tink: w.count('tfTink') }; }); f = await tf();
+  rec(end.done && end.chirps === 3 && end.thud === 1 && end.tink >= 1 && f.book && f.cap === 0 && !f.glow, 'after it: the book on the stool goes over, the bell ticks, the smoke alarm chirps three times, and it is over', JSON.stringify({ ...end, book: f.book, cap: f.cap }));
+  const gone = await W(w => w.until((g) => g.TF.alive === 0 && !g.TF.shook, 30 * 14));
+  rec(gone.done && !(await tf()).pool, 'the smoke drifts off, everything settles, and the light is gone', JSON.stringify(gone));
+  /* again: Space on a computer, the button on a phone; and while it runs, pressing it again does nothing */
+  await W(w => { w.snd = []; });
+  if (mobile) { await toBtn(); await frames(3); const b2 = await W((w, g) => g.screen('btn')); await tap(b2[0], b2[1]); }
+  else await page.keyboard.press('Space');
+  f = await tf(); rec(f.on && f.fires === 2, (mobile ? 'a tap on the button' : 'Space') + ' fires it again once it is over', JSON.stringify(f));
+  await to(.6); if (!mobile) await page.keyboard.press('Enter'); else await W((w, g) => g.fire());
+  await to(2.8); f = await tf();
+  rec(f.fires === 2 && f.roar && f.core && f.book, 'pressing it again while it runs does nothing, and it roars again (the book stays where it fell)', JSON.stringify(f));
+  await still('garage-14-refire');
+
+  /* ---- out (mid-fire): Escape on a computer, the button on a phone ---- */
   await W(w => { w.badCam = []; });
   if (mobile) await press('#crWsLeave'); else await page.keyboard.press('Escape');
   s = await state(); rec(s.st === 'exit' && await H(h => h.S.mode === 'station' && h.S.stId === 'cr'), (mobile ? 'Leave the workshop' : 'Escape') + ' takes you out (and does not leave Earth)', s.st);
+  f = await tf(); const hush = await W(w => w.count('tfHush'));
+  rec(!f.on && !f.roar && !f.core && !f.glow && f.lt === 0 && f.cap === 0 && hush === 1, 'walking out mid-fire stops it at once: no flame, no light, the roar and every other sound of it hushed', JSON.stringify({ ...f, hush }));
+  await W(w => w.run(12)); f = await tf(); rec(f.smoke === 0 && !f.shook && !f.pool, 'and its smoke is gone a moment later', JSON.stringify(f));
   await W(w => w.run(36, true)); await frames(3); await shot(pre + 'garage-7-coming-out');
   const out = await W((w, g, d) => { const r = w.until(g => g.G.st === 'out', 30 * 5, true); w.run(30, true); const P = d.player, l = g.toLocal(d.at(P.x, P.z).multiplyScalar(24));
     return { ...r, st: g.state, cam: w.badCam.slice(0, 3), you: [+l.x.toFixed(2), +l.z.toFixed(2)], face: +g.toLocal(P.f.clone().add(d.at(P.x, P.z).multiplyScalar(24))).sub(l).z.toFixed(2) }; });
@@ -155,16 +215,23 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const listen = async fn => { await H(fn); let pk = 0; const t0 = Date.now(); while (Date.now() - t0 < 900) { pk = Math.max(pk, (await page.evaluate(() => window.__meter())).pk); await wait(30); } await wait(300); return +pk.toFixed(4); };
     const lv = {};
     for (const [n, f] of [['step(0)', h => h.A.step(0)], ['step(1)', h => h.A.step(1)], ['ratchet', h => h.A.ratchet(.16, 1)], ['tube', h => h.A.tube(1)], ['end(up)', h => h.A.shutterEnd(true)], ['end(down)', h => h.A.shutterEnd(false)],
-      ['motor', h => { const m = h.A.shutterMotor(true); setTimeout(() => m.stop(), 700); }]]) lv[n] = await listen(f);
+      ['motor', h => { const m = h.A.shutterMotor(true); setTimeout(() => m.stop(), 700); }],
+      ['tf:click', h => h.A.tfClick()], ['tf:beep', h => h.A.tfBeep(false)], ['tf:beep(hi)', h => h.A.tfBeep(true)], ['tf:pop', h => h.A.tfPop(1)], ['tf:chirp', h => h.A.tfChirp()], ['tf:thud', h => h.A.tfThud()], ['tf:tink', h => h.A.tfTink()],
+      ['tf:roar', h => { const r = h.A.tfRoar(); r.set(1); setTimeout(() => r.stop(), 750); }]]) lv[n] = await listen(f);
     log('LEVELS (peak at the speakers) ' + JSON.stringify(lv));
-    const step = Math.max(lv['step(0)'], lv['step(1)']);
+    const step = Math.max(lv['step(0)'], lv['step(1)']), shut = Math.max(lv.ratchet, lv['end(up)'], lv['end(down)'], lv.motor);
     rec(step > 0 && ['ratchet', 'tube', 'end(up)', 'end(down)', 'motor'].every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each of its sounds is heard, and none is much louder than a footstep', JSON.stringify(lv));
+    const tfs = ['tf:click', 'tf:beep', 'tf:beep(hi)', 'tf:pop', 'tf:chirp', 'tf:thud', 'tf:tink'];
+    rec(tfs.every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each sound of the test fire is heard, and none is much louder than a footstep', JSON.stringify(tfs.map(n => n + ' ' + lv[n])));
+    rec(lv['tf:roar'] > shut && lv['tf:roar'] <= shut * 2.2 && lv['tf:roar'] < .2, 'the roar is the loudest of them, but no more than about twice the shutter (and far from clipping)', JSON.stringify({ roar: lv['tf:roar'], shutter: shut }));
   }
 
   /* ---- the last flight from inside: you are put back outside, the shutter down, and the scene has the camera ---- */
   await W((w, g) => { w.put(.15, 2.4, .7, 0); g.act(); w.until(g => g.G.shSt === 'open', 30 * 6); g.act(); w.until(g => g.G.st === 'in', 30 * 5); });
   const inside = (await state()).st;
+  const fin0 = await W((w, g) => { g.fire(); w.run(75); return g.tf; });
   await W((w, g, d) => { d.startFinale(); w.run(6); });
+  const fin1 = await tf(); rec(fin0.roar && !fin1.on && !fin1.roar && !fin1.core && !fin1.glow && fin1.smoke === 0 && fin1.lt === 0, 'the last flight in the middle of a test fire stops it, and nothing of it is left', JSON.stringify({ fin0, fin1 }));
   const f1 = await W((w, g, d, h) => ({ st: g.state, fin: d.FIN.on, pre: !!d.FIN.pre, near: h.stCam.near, ingar: document.querySelector('.st-cr').classList.contains('ingar'), leave: !document.querySelector('#crWsLeave').hidden }));
   rec(inside === 'in' && f1.fin && f1.st.st === 'out' && f1.st.shSt === 'shut' && !f1.st.vis && f1.st.k === 0 && f1.near === .1 && !f1.ingar && !f1.leave, 'the last flight from inside the workshop: it plays, and nothing of the workshop is left (you out, the shutter down, the lens back)', JSON.stringify(f1));
   await W((w, g, d) => { d.launch.skip(); w.run(10); }); await W((w, g, d, h) => h.ST.cr.finaleEnd());
@@ -176,6 +243,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(up2 === 'up' && f2.shSt === 'shut' && !f2.vis && f2.st === 'out' && !f2.tag.on, 'the last flight just after opening it puts the shutter back down', JSON.stringify({ up2, f2 }));
   await W((w, g, d) => { d.launch.skip(); w.run(5); }); await W((w, g, d, h) => h.ST.cr.finaleEnd());
   const f3 = await state(); rec(f3.shSt === 'shut' && !f3.vis && f3.st === 'out', 'and once the last flight is over, it is as it was', JSON.stringify(f3));
+  /* leaving Earth in the middle of a test fire puts it back too */
+  const lx = await W((w, g, d, h) => { w.put(.15, 2.4, .7, 0); g.act(); w.until(g => g.G.shSt === 'open', 30 * 6); g.act(); w.until(g => g.G.st === 'in', 30 * 5); g.fire(); w.run(75); const a = g.tf;
+    h.ST.cr.exit(); const b = g.tf; h.ST.cr.enter(); d.skipCut(); w.run(5); return { a, b, st: g.state }; });
+  rec(lx.a.roar && !lx.b.on && !lx.b.roar && !lx.b.core && lx.b.smoke === 0 && lx.st.shSt === 'shut' && lx.st.st === 'out', 'leaving Earth in the middle of a test fire stops it, and back on Earth all is as it was', JSON.stringify(lx));
 
   console.log('\nSUMMARY ' + pass + ' passed, ' + fail + ' failed' + (failed.length ? '\n  FAILED: ' + failed.join('; ') : ''));
   if (fail) process.exitCode = 1;

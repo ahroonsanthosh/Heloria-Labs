@@ -501,6 +501,14 @@ const A=(()=>{
       SC.el=BUFP?new BufPlayer(()=>{ if(SC.bb) return SC.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } SC.bb=b; return b; }):new Audio(); SC.el.preload='auto'; if(!BUFP) SC.el.src=SC.url; SC.el._want=false; try{ SC.el.preservesPitch=false; }catch(e){} };
     try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>{ SC.busy=false; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ SC.busy=false; } }
   const scoreStop=()=>{ if(SC.el){ SC.el._want=false; if(!SC.el.paused) SC.el.pause(); } };
+  /* the workshop's test fire: all of its sounds go through one gain of their own (and a little of it into the room), so
+     walking out mid-fire can silence every one of them at once, the ones already sounding as well. A fresh one is made
+     for the next fire */
+  const tfBus=()=>{ if(!n.tf){ n.tf=ctx.createGain(); n.tf.connect(comp); const s=ctx.createGain(); s.gain.value=.22; n.tf.connect(s); s.connect(revIn); } return n.tf; };
+  function tfT(f,dur,g,type='sine',f2=0,delay=0,atk=.004){ const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+    a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(tfBus()); o.start(t0); o.stop(t0+dur+.05); }
+  function tfN(dur,g,f0,f1,type='lowpass',q=.7,delay=0,atk=.004){ const t0=ctx.currentTime+delay, s=shot(), b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
+    const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(tfBus()); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -696,6 +704,42 @@ const A=(()=>{
     tube(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tone(3150*v,.02,.016*k,'sine',0,0,0,.001); tone(4700*v,.012,.006*k,'sine',0,0,0,.001);
       const t0=ctx.currentTime, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(); o.type='sawtooth'; o.frequency.value=100; b.type='bandpass'; b.frequency.value=720; b.Q.value=2.2;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.02*k,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+.12); },
+    /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
+       As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
+       plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */
+    /* the big red button going down: a chunky click and the knock of its plunger */
+    tfClick(){ if(!on||muted||!ctx) return; const v=vr(.05); tfT(1400*v,.025,.016,'sine',0,0,.001); tfT(190*v,.08,.03,'triangle',95*v,0,.002); tfN(.03,.012,2600,1800,'bandpass',2); },
+    /* the warning: a soft two-tone beep, the second one higher */
+    tfBeep(hi=false){ if(!on||muted||!ctx) return; const f=hi?1175:880; tfT(f,.2,.02,'triangle',0,0,.006); tfT(f*2,.14,.005,'sine',0,0,.006); },
+    /* a cough as it tries to light: a dull pop, a thump under it (k: how big) */
+    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.22,.03*k,1500*v,130,'lowpass',.8); tfT(88*v,.18,.03*k,'sine',42); tfN(.07,.01*k,700*v,450,'bandpass',1.2); },
+    /* the roar: two bands of low noise and a deep growl a fifth apart under a low pass that opens with the thrust, fluttering
+       a little. set(v) is how hard it burns (0 to 1); stop() lets it die away in a third of a second (it lets go by itself
+       after nine seconds, whatever happens) */
+    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.125*k;
+      env.gain.setValueAtTime(0,t0); env.gain.setValueAtTime(0,t0+8.6); env.gain.linearRampToValueAtTime(0,t0+9); env.connect(tfBus());
+      lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.6; lp2.type='lowpass'; lp2.frequency.value=1100; lp2.Q.value=.5; lp.connect(lp2); lp2.connect(body); body.gain.value=.84; body.connect(env);
+      { const s=shot(); s.connect(lp); src.push(s); }
+      { const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=120; b.Q.value=1.1; a.gain.value=1.4; s.connect(b); b.connect(a); a.connect(body); src.push(s); }
+      { const l=ctx.createBiquadFilter(), a=ctx.createGain(); l.type='lowpass'; l.frequency.value=240; a.gain.value=.16; l.connect(a); a.connect(body);
+        [[47,1],[70.5,.6]].forEach(([f,m])=>{ const o=ctx.createOscillator(), q=ctx.createGain(); o.type='sawtooth'; o.frequency.value=f*vr(.02); q.gain.value=m; o.connect(q); q.connect(l); src.push(o); }); }
+      [[7.3,.07],[11.9,.05]].forEach(([f,m])=>{ const o=ctx.createOscillator(), q=ctx.createGain(); o.frequency.value=f; q.gain.value=m; o.connect(q); q.connect(body.gain); src.push(o); });   // the flutter
+      src.forEach(s=>{ if(s.buffer) s.start(t0,Math.random()*8); else s.start(t0); s.stop(t0+9.1); });
+      /* (where it is now is held where the browser can (an automated gain's value can read as where it started), else
+         taken as where it was last sent) */
+      let done=false, cur=0; const hold=(p,t,v)=>{ if(p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(v,t); } };
+      return {set(x){ if(done) return; const t=ctx.currentTime, c=clamp(x,0,1); hold(env.gain,t,cur); cur=g*c; env.gain.setTargetAtTime(cur,t,.06); env.gain.setValueAtTime(cur,t+8.4); env.gain.linearRampToValueAtTime(0,t+8.6);
+          lp.frequency.setTargetAtTime(240+560*c,t,.08); },
+        stop(){ if(done) return; done=true; const t=ctx.currentTime; hold(env.gain,t,cur); env.gain.linearRampToValueAtTime(0,t+.32);
+          lp.frequency.setTargetAtTime(160,t,.1); src.forEach(s=>{ try{ s.stop(t+.4); }catch(e){} }); }}; },
+    /* the smoke alarm's chirp: its piezo, short and high */
+    tfChirp(){ if(!on||muted||!ctx) return; tfT(3250,.075,.014,'triangle',0,0,.003); tfT(3250,.07,.012,'sine',0,0,.003); },
+    /* a book landing on the concrete: a slap, a low knock and a smaller one as it settles */
+    tfThud(){ if(!on||muted||!ctx) return; const v=vr(.06); tfN(.06,.022,1500*v,350,'lowpass',.8); tfT(132*v,.14,.032,'sine',64); tfT(150*v,.08,.012,'sine',80,.085); tfN(.04,.008,1200*v,300,'lowpass',.8,.085); },
+    /* the bell ticking as it cools */
+    tfTink(){ if(!on||muted||!ctx) return; const f=2900*vr(.12); tfT(f,.06,.007,'sine',0,0,.001); tfT(f*2.71,.03,.0025,'sine',0,0,.001); },
+    /* walking out mid-fire: everything of it fades out in a few hundredths of a second */
+    tfHush(){ if(!ctx||!n.tf) return; const b=n.tf, t=ctx.currentTime; n.tf=null; b.gain.cancelScheduledValues(t); b.gain.setValueAtTime(b.gain.value,t); b.gain.linearRampToValueAtTime(0,t+.06); setTimeout(()=>{ try{ b.disconnect(); }catch(e){} },300); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
