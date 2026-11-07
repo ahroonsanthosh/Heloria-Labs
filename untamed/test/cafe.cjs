@@ -58,9 +58,9 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await shot(P + 'cafe-inside');
 
   const EXPECT = [
-    { href: /^mailto:contact@helorialabs\.com\?subject=Booking%20a%20coffee%20chat/, target: '_self', go: 'Book the chat' },
+    { href: /^mailto:hello@krios\.ie\?subject=Booking%20a%20coffee%20chat/, target: '_self', go: 'Book the chat' },
     { href: /^https:\/\/krios\.ie\/?$/, target: '_blank', rel: 'noopener', go: 'See Kríos' },
-    { href: /^mailto:contact@helorialabs\.com\?subject=Joining%20Heloria%20Labs/, target: '_self', go: 'Write to us' }];
+    { href: /^mailto:hello@krios\.ie\?subject=Joining%20Heloria%20Labs/, target: '_self', go: 'Write to us' }];
   for (let i = 0; i < 3; i++) {
     /* order: the menu's button, the drink on the chalkboard itself, or (on a computer) the keys */
     if (i === 2) { await press('#crMore'); rec(await visibleSoon('#crMenu .crdrink:nth-of-type(3)'), 'Another drink opens the menu again'); }
