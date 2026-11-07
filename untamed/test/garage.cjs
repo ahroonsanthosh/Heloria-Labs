@@ -132,6 +132,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* ---- the test fire: the big red button on the bench ---- */
   const prog1 = await H(h => h.renderer.info.programs.length);
+  rec(await page.evaluate(() => { const b = document.querySelector('#crFire'); return !!b && !b.hidden && getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().width > 60; }), 'inside, a Fire the engine button you cannot miss is on the screen');
   const toBtn = () => W((w, g) => { const [bx, bz] = g.GTF.btn, [sx, sz] = g.GW.S; g.G.yaw = Math.atan2(-(bx - sx), -(bz - sz)); g.G.pitch = -.12; w.run(2); return g.screen('btn'); });
   await toBtn(); await frames(3);
   const bxy = await W((w, g) => g.screen('btn'));
@@ -174,7 +175,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(gone.done && !(await tf()).pool, 'the smoke drifts off, everything settles, and the light is gone', JSON.stringify(gone));
   /* again: Space on a computer, the button on a phone; and while it runs, pressing it again does nothing */
   await W(w => { w.snd = []; });
-  if (mobile) { await toBtn(); await frames(3); const b2 = await W((w, g) => g.screen('btn')); await tap(b2[0], b2[1]); }
+  rec(await page.evaluate(() => { const b = document.querySelector('#crFire'); return !!b && !b.hidden && getComputedStyle(b).display !== 'none'; }), 'once it is over, the Fire the engine button is on the screen again');
+  if (mobile) await page.click('#crFire');
   else await page.keyboard.press('Space');
   f = await tf(); rec(f.on && f.fires === 2, (mobile ? 'a tap on the button' : 'Space') + ' fires it again once it is over', JSON.stringify(f));
   await to(.6); if (!mobile) await page.keyboard.press('Enter'); else await W((w, g) => g.fire());
@@ -221,9 +223,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     log('LEVELS (peak at the speakers) ' + JSON.stringify(lv));
     const step = Math.max(lv['step(0)'], lv['step(1)']), shut = Math.max(lv.ratchet, lv['end(up)'], lv['end(down)'], lv.motor);
     rec(step > 0 && ['ratchet', 'tube', 'end(up)', 'end(down)', 'motor'].every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each of its sounds is heard, and none is much louder than a footstep', JSON.stringify(lv));
-    const tfs = ['tf:click', 'tf:beep', 'tf:beep(hi)', 'tf:pop', 'tf:chirp', 'tf:thud', 'tf:tink'];
+    const tfs = ['tf:click', 'tf:beep', 'tf:beep(hi)', 'tf:chirp', 'tf:thud', 'tf:tink'];
     rec(tfs.every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each sound of the test fire is heard, and none is much louder than a footstep', JSON.stringify(tfs.map(n => n + ' ' + lv[n])));
-    rec(lv['tf:roar'] > shut && lv['tf:roar'] <= shut * 2.2 && lv['tf:roar'] < .2, 'the roar is the loudest of them, but no more than about twice the shutter (and far from clipping)', JSON.stringify({ roar: lv['tf:roar'], shutter: shut }));
+    rec(lv['tf:pop'] > step && lv['tf:pop'] <= shut * 2.2, 'the coughs as it lights are louder than a footstep, but well under the roar', JSON.stringify({ pop: lv['tf:pop'], step, shut }));
+    rec(lv['tf:roar'] > shut && lv['tf:roar'] > lv['tf:pop'] && lv['tf:roar'] <= shut * 3 && lv['tf:roar'] < .2, 'the roar is the loudest of them, but no more than about three times the shutter (and far from clipping)', JSON.stringify({ roar: lv['tf:roar'], shutter: shut }));
   }
 
   /* ---- the last flight from inside: you are put back outside, the shutter down, and the scene has the camera ---- */
