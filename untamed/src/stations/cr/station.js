@@ -64,13 +64,52 @@ const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{v
   uLitA:{value:new T.Vector3(.93,.92,.89)},uLitB:{value:new T.Vector3(1.05,1.02,.95)},uShdC:{value:new T.Vector3(.6,.66,.83)},uNight:{value:0},
   uLmp:{value:Array.from({length:8},()=>new T.Vector4(0,-99,0,0))},uFogR:{value:new T.Vector2(16,52)},uFogA:{value:.55},uWet:{value:0},uSnow:{value:0},uSeason:{value:0},
   uBmO:{value:new T.Vector4(0,0,0,0)},uBmD:{value:new T.Vector4(1,0,0,.985)}};   // the lighthouse's beam: where it starts (and how strong), which way it points
-const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK,uNight,uFogA,uWet,uSnow,uSeason; uniform vec2 uFogR; uniform vec4 uLmp[8],uBmO,uBmD;
+/* ----- the launch scene's light (see the launch scene, at the end) -----
+   uHole: the launch shaft's axis and radius (0 whenever the scene is not running, so nothing is cut); uLamp: how many rings
+   of the shaft's lamps are on; uQL: the scene's own lamps (where, how bright), uQR: how far each reaches.
+   The ground and the pad are cut where the shaft opens (uHoleOn 1); its doors show only inside it, the rest of them hidden
+   under the rim (uHoleOn -1) */
+Object.assign(LU,{uHole:{value:new T.Vector4(0,1,0,0)},uLamp:{value:0},uQL:{value:Array.from({length:3},()=>new T.Vector4(0,-99,0,0))},uQR:{value:new T.Vector3(1,1,1)}});
+const HOLE=`uniform vec4 uHole; uniform float uHoleOn;
+  void holeCut(vec3 w){ if(uHole.w>0.){ float a=dot(w,uHole.xyz); if(a>0.&&length(w-uHole.xyz*a)<uHole.w) discard; } }
+  void hole(vec3 w){ if(uHoleOn>.5) holeCut(w); else if(uHoleOn<-.5){ float a=dot(w,uHole.xyz); if(uHole.w<=0.||length(w-uHole.xyz*a)>uHole.w-.004) discard; } }`;
+/* (each part below is compiled into a shader only where its name is defined: QSHAFT, QLAMP, QHOLE. Only the scene's own
+   versions of the town's materials have them, worn while it plays; the rest of the time every shader is as it always was) */
+/* down the shaft: the sun gets in only through its mouth (and only where nothing up top, a tree, a house, shades the mouth
+   itself), the sky's light fades with depth, and the lamps light what passes them */
+const QSHAFT=`float sh=1., amb=1.; vec3 lamp=vec3(0.);
+#if defined(QFIG)
+    sh=1.;   // (the scene's two faces: never in a cast shadow, as a film lights its close-ups)
+#elif defined(QSHAFT)
+    float ha=1., hl=1e3; vec3 lat=vec3(0.); if(uHole.w>0.){ float a=dot(w,uHole.xyz); ha=a-${(R+.1).toFixed(2)}; lat=w-uHole.xyz*a; hl=length(lat); }
+    if(ha<.02&&hl<uHole.w+.02){ float su=dot(uSun,uHole.xyz); vec3 sl=uSun-uHole.xyz*su;
+      sh=su>.02?smoothstep(.03,-.05,length(lat+sl*(-min(ha,0.)/su))-uHole.w)*shadowAt(w+uSun*((.03-min(ha,0.))/su),.0006+.0024*(1.-su)):0.;
+      amb=mix(.1,1.,smoothstep(-2.6,-.05,ha)); float fw=.4+.6*max(dot(n,lat/max(hl,.001)),0.);
+      for(int i=0;i<4;i++){ float y=-.9-1.55*float(i); lamp+=vec3(1.,.74,.42)*exp(-pow((ha-y)/.6,2.))*step(float(i)+.5,uLamp)*fw; } }
+    else sh=shadowAt(w,.0006+.0024*(1.-clamp(d,0.,1.)));
+#else
+    sh=shadowAt(w,.0006+.0024*(1.-clamp(d,0.,1.)));
+#endif
+`;
+/* and the scene's own lamps: a warm light on whatever faces them, by night and at dusk (the street lamps' light, further) */
+const QLAMPS=`
+#ifdef QLAMP
+    if(uQL[0].w+uQL[1].w+uQL[2].w>.001){ vec3 L=vec3(0.); for(int i=0;i<3;i++){ vec3 tl=uQL[i].xyz-w; float dd=length(tl), f=max(0.,1.-dd/uQR[i]); L+=vec3(1.,.78,.5)*uQL[i].w*f*f*(.25+.75*max(dot(n,tl/max(dd,.001)),0.)); } c+=base*L; }
+#endif
+`;
+/* the cut, in the shaders that take it (compiled in only for the scene's own versions of them: see the launch scene) */
+const QCUT=`
+#ifdef QHOLE
+  hole(vW);
+#endif
+`;
+const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK,uNight,uFogA,uWet,uSnow,uSeason,uLamp; uniform vec2 uFogR; uniform vec4 uLmp[8],uBmO,uBmD,uQL[3]; uniform vec3 uQR; ${HOLE}
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
-  vec3 toon(vec3 base,vec3 n,vec3 w){ float d=dot(n,uSun), sh=shadowAt(w,.0006+.0024*(1.-clamp(d,0.,1.)));
+  vec3 toon(vec3 base,vec3 n,vec3 w){ float d=dot(n,uSun); ${QSHAFT}
     float k=min(smoothstep(-.03,.03,d),smoothstep(.35,.65,sh)), hi=smoothstep(.5,.56,d)*k;
-    vec3 c=mix(base*uShdC,mix(base*uLitA,base*uLitB,hi),k);
-    c+=base*uSky*.07*(.5+.5*dot(n,normalize(w))); c=mix(c,vec3(1.,0.,0.),(1.-sh)*uShDbg);
+    vec3 c=mix(base*uShdC*amb,mix(base*uLitA,base*uLitB,hi),k);
+    c+=base*uSky*.07*(.5+.5*dot(n,normalize(w)))*amb+base*lamp*.62; c=mix(c,vec3(1.,0.,0.),(1.-sh)*uShDbg); ${QLAMPS}
     /* at night, the street lamps: a warm pool round each, on whatever faces it */
     if(uNight>.01){ vec3 L=vec3(0.); for(int i=0;i<8;i++){ vec3 tl=uLmp[i].xyz-w; float dd=length(tl), f=max(0.,1.-dd/5.5); L+=uLmp[i].w*f*f*(.3+.7*max(dot(n,tl/max(dd,.001)),0.)); } c+=base*vec3(1.,.74,.42)*L*1.7*uNight; }
     /* the lighthouse's beam lights whatever lies in its sweep below the lamp, and the fog thins along it */
@@ -91,7 +130,7 @@ const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varyi
     #endif
     vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(mat3(modelMatrix)*nn); gl_Position=projectionMatrix*viewMatrix*w; }`;
 const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
-  void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC, E=vec3(0.);
+  void main(){ ${QCUT} nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC, E=vec3(0.);
     if(uKit>.5){ float upn=dot(n,normalize(vW));
       /* leaves turn with the season, tree by tree: reds and golds in autumn (uSeason up to 1), blossom in spring (down to -1) */
       float lb=-1.; if(abs(vC.r-.31)<.006&&abs(vC.g-.498)<.006) lb=.29; else if(abs(vC.r-.373)<.006&&abs(vC.g-.573)<.006) lb=.337; else if(abs(vC.r-.435)<.006&&abs(vC.g-.635)<.006) lb=.373; else if(abs(vC.r-.498)<.006&&abs(vC.g-.682)<.006) lb=.4;
@@ -108,7 +147,7 @@ function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc
   const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3(color).clone()},uOp:{value:op},uCut:{value:o.fig?0:1}},LU),vertexShader:TOON_V(),fragmentShader:TOON_F,transparent:op<1,depthWrite:op>=1,side:o.side||T.FrontSide,vertexColors:!!o.vc});
   if(!o.fresh) mcache.set(key,m); return m; }
 /* what the ink pass sees: the normal and the distance of every surface; what the sun sees: only depth */
-const INK_F=`varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
+const INK_F=`varying vec3 vN; varying vec3 vW; ${HOLE} ${NEAR} void main(){ ${QCUT} nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
 const SHD_F=`void main(){ gl_FragColor=vec4(1.); }`;
 const FLAT_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); gl_FragColor=vec4(uC,1.); }`;
 const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:TOON_V(),fragmentShader:FLAT_F});
@@ -330,7 +369,7 @@ function buildNature(){
   const gm=new T.ShaderMaterial({uniforms:Object.assign({uTime:G.uTime},LU),vertexShader:`uniform float uTime; varying vec3 vN; varying vec3 vW; varying vec3 vC;
     void main(){ vec4 p=instanceMatrix*vec4(position,1.); vC=instanceColor; vec3 base=(instanceMatrix*vec4(0.,0.,0.,1.)).xyz; float h=position.y/.2;
       p.xyz+=normalize(cross(normalize(base),vec3(.3,.1,.9)))*sin(uTime*1.6+base.x*2.+base.z*1.7)*.03*h; vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(base); gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} void main(){ gl_FragColor=vec4(toon(vC,normalize(vN),vW),1.); }`});
+    fragmentShader:`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} void main(){ ${QCUT} gl_FragColor=vec4(toon(vC,normalize(vN),vW),1.); }`}); gm.uniforms.uHoleOn={value:1};
   const gi=new T.InstancedMesh(blade,gm,NG), M=new T.Matrix4(), Qq=new T.Quaternion(), Y=new T.Quaternion(), Ss=new T.Vector3(), Pp=new T.Vector3(), C=new T.Color(); let k=0;
   for(let i=0;i<NG*4&&k<NG;i++){ const x=(rnd()-.5)*36, z=(rnd()-.5)*36, d=at(x,z); if(isle(d)<.04||!clearAt(x,z,.05)) continue; Qq.setFromUnitVectors(UPY,d); Y.setFromAxisAngle(UPY,rnd()*TAU); Qq.multiply(Y);
     const s=.7+rnd()*.9; Pp.copy(d).multiplyScalar(R); Ss.set(s,s,s); M.compose(Pp,Qq,Ss); gi.setMatrixAt(k,M); C.setRGB(.4+rnd()*.08,.58+rnd()*.08,.33+rnd()*.05); gi.setColorAt(k,C); k++; }
@@ -345,11 +384,11 @@ function buildGround(){
     if(i<CN-1&&j<CN-1){ const a=k, b=k+1, c=k+CN, e=k+CN+1; if(Math.max(GH[a],GH[b],GH[c],GH[e])>-1.55) idx.push(a,c,b, b,c,e); } } // the sea floor far out is hidden by the sea: skip it
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(P,3)); g.setAttribute('aL',new T.BufferAttribute(GL,1)); g.setAttribute('aB',new T.BufferAttribute(GB,1)); g.setAttribute('aH',new T.BufferAttribute(GH,1));
   g.setAttribute('aXZ',new T.BufferAttribute(XZ,2)); g.setIndex(idx); g.computeVertexNormals();
-  const cap=new T.Mesh(g,new T.ShaderMaterial({uniforms:Object.assign({uSeg:SEGU,uSegW:SEGW},LU),side:T.DoubleSide,
+  const cap=new T.Mesh(g,new T.ShaderMaterial({uniforms:Object.assign({uSeg:SEGU,uSegW:SEGW,uHoleOn:{value:1}},LU),side:T.DoubleSide,
     vertexShader:`attribute float aL,aB,aH; attribute vec2 aXZ; varying vec3 vN; varying vec3 vW; varying float vL,vB,vH; varying vec2 vXZ;
       void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*normal); vL=aL; vB=aB; vH=aH; vXZ=aXZ; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`uniform vec4 uSeg[12]; uniform float uSegW[12]; varying vec3 vN; varying vec3 vW; varying float vL,vB,vH; varying vec2 vXZ; ${N2} ${LIGHT}
-      void main(){ vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 up=normalize(vW); float steep=1.-dot(n,up); vec2 xz=vXZ;
+      void main(){ ${QCUT} vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 up=normalize(vW); float steep=1.-dot(n,up); vec2 xz=vXZ;
         // grass painted in two greens, with brushy streaks
         float p1=vn2(xz*.3+3.)*.7+vn2(xz*1.1)*.3, p2=vn2(xz*vec2(1.9,.5)+11.), p3=vn2(xz*2.6);
         vec3 c=mix(vec3(.55,.71,.43),vec3(.45,.62,.38),step(.56,p1)); c=mix(c,vec3(.63,.77,.48),step(.74,p2)*.55); c*=.97+.05*p3;
@@ -370,10 +409,10 @@ function buildGround(){
   // the sea: shallow and bright by the land, foam where it meets the shore, painted ripples
   const ld=new Uint16Array(CN*CN*4); for(let k=0;k<CN*CN;k++){ ld[k*4]=T.DataUtils.toHalfFloat(GL[k]); ld[k*4+1]=T.DataUtils.toHalfFloat(GH[k]); ld[k*4+2]=T.DataUtils.toHalfFloat(GB[k]); ld[k*4+3]=T.DataUtils.toHalfFloat(1); }
   const landTex=new T.DataTexture(ld,CN,CN,T.RGBAFormat,T.HalfFloatType); landTex.minFilter=landTex.magFilter=T.LinearFilter; landTex.needsUpdate=true;
-  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime},LU),
+  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime,uHoleOn:{value:1}},LU),
     vertexShader:TOON_V(),
     fragmentShader:`uniform sampler2D uLand; uniform float uTime; varying vec3 vN; varying vec3 vW; ${N2} ${LIGHT}
-      void main(){ vec3 d=normalize(vW); float a=acos(clamp(d.y,-1.,1.)); vec2 xz=d.xz*(a*${R}./max(sin(a),1e-4));
+      void main(){ ${QCUT} vec3 d=normalize(vW); float a=acos(clamp(d.y,-1.,1.)); vec2 xz=d.xz*(a*${R}./max(sin(a),1e-4));
         vec2 g=((xz+${CAPR}.)/${CS}+.5)/${CN}.; float hg=-1.6; if(d.y>0.&&g.x>0.&&g.x<1.&&g.y>0.&&g.y<1.) hg=texture2D(uLand,g).g;
         float dep=${WATER}-hg;
         vec3 c=mix(vec3(.5,.84,.8),vec3(.27,.66,.73),smoothstep(.0,.3,dep)); c=mix(c,vec3(.18,.5,.66),smoothstep(.3,.7,dep));
@@ -1869,7 +1908,7 @@ st.build=async function(){
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
-  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1};   // the seasons, snow, rain and lit windows are the kit's
+  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
   kitTo();
@@ -2002,7 +2041,7 @@ $('#crFly',el).addEventListener('click',e=>{ e.stopPropagation(); if(TALK.ask) s
 $('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); });
 goBtn.addEventListener('click',e=>{ e.stopPropagation(); if(allMet()&&!FIN.on) startFinale(); });
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
-  if(FIN.on){ if(LKEYS.includes(e.code)) launchHold(true); e.preventDefault(); e.stopImmediatePropagation(); return; }   // the last flight takes no keys but the launch
+  if(FIN.on){ if(FIN.pre){ if(e.code==='Escape'&&!e.repeat) csSkip(); } else if(LKEYS.includes(e.code)) launchHold(true); e.preventDefault(); e.stopImmediatePropagation(); return; }   // the last flight takes no keys but the launch (and Escape, to skip the launch scene)
   if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(PHS.on&&e.code==='Escape'){ steerSet(false); e.stopImmediatePropagation(); return; }
@@ -2121,7 +2160,8 @@ function buildLaunchFlame(){ const g=new T.CylinderGeometry(1,1,1,32,24,true).tr
         vec3 c=b>.66?vec3(1.,.98,.9):b>.42?vec3(1.,.86,.4):b>.16?vec3(1.,.58,.2):vec3(.9,.34,.13);
         gl_FragColor=vec4(c,1.); }`});
   LFLAME=new T.Mesh(g,m); LFLAME.position.y=.06; LFLAME.visible=false; LFLAME.frustumCulled=false; LFLAME.userData.dyn=true; RK.g.add(LFLAME); }
-function startFinale(){ if(FIN.on) return; closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,dawn:false,pr:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
+function startFinale(go){ if(FIN.on&&!(go===true&&FIN.pre)) return; if(go!==true&&csStart()) return;   // the launch scene plays first, and goes on here itself (see the launch scene, at the end)
+  closeTalk(); GLN.t=-1; goBtn.hidden=true; Object.assign(FIN,{on:true,pre:false,t:0,ign:false,shut:false,handed:false,cloud:false,lift:false,top:false,dawn:false,pr:false,ck:0,beat:0,clk:-1,vent:0,trail:0,st:0,ph:0,wave:0,mus:.55,alt:0,go:false,ask:false,wait:0,held:0,hold:false});
   S.fin=true; S.flash=1; document.documentElement.classList.add('fin'); el.classList.add('fin','walked'); hint.classList.add('gone'); cine(true); stickOff(); down=null; look=null;
   people.forEach((p,k)=>{ [p.x,p.z]=FOUND[k]; p.dir=at(p.x,p.z); if(p.ob){ p.ob.x=p.x; p.ob.z=p.z; } p.walk=0; tang(p.dir,padTop,p.f); });
   AH.st='done'; FIN.look.copy(padTop).addScaledVector(PADU,2.2); rocketLanded(); me.visible=true; player.tgt=null; player.speed=0; TALK.goal=null; C.guide=null;
@@ -2235,7 +2275,7 @@ function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(wal
 
 st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(cardT>7) el.classList.add('walked');
   const port=innerHeight>innerWidth, fov=FIN.on?FIN.fov*(port?1.3:1):port?58:45; if(stCam.fov!==fov){ stCam.fov=fov; stCam.updateProjectionMatrix(); }
-  if(FIN.on) finUpdate(dt,t); else if(CUT.on) cutUpdate(dt,t); else {
+  if(FIN.on) (FIN.pre?csUpdate:finUpdate)(dt,t); else if(CUT.on) cutUpdate(dt,t); else {   // (FIN.pre: the launch scene, the last flight's first part)
   // input, the same as flying: keys move you relative to the camera; on a touch screen, the stick
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
@@ -2303,6 +2343,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   S.stSnap=true; // the camera does its own smoothing
   }
   cliffUpdate(dt,t);   // the bench and the kite on the cliff (see the cliff, below)
+  launchUpdate(dt,t);   // the launch scene's things: Gideon and Owen at the desk in the last flight (see the launch scene, at the end)
   post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
   ahroonUpdate(dt);
@@ -2716,4 +2757,326 @@ addEventListener('keyup',e=>{ CL.held.delete(e.code); });
 addEventListener('wheel',()=>{ if(S.st===st&&S.mode==='station'&&(CL.st==='sat'||CL.st==='sit')) clStand(); },{passive:true});   // (the wheel too)
 st._dbg.cliff={CL,get M(){ return CLM; },F:CLF,WEST:CLWEST,goSit:()=>clGoSit(),goKite:()=>clGoKite(),sit:()=>clSit(),stand:()=>clStand(),take:()=>kiteTake(),end:()=>kiteEnd(),steer:(dx,dy)=>kiteSteer(dx,dy),pick:e=>clPick(e),reset:()=>clReset(),tags:clTags};
 st._dbg.cafe=cafeDbg;
+
+/* ===================== the launch scene: Gideon and Owen see you off =====================
+   Saying yes to Ahroon's last flight (Let's fly, in the conversation or on its own button) plays a short scene first. The
+   pad's doors slide apart over a dark shaft and the rocket comes up out of the ground on its lift, Andrena on its side.
+   Gideon, by the pad, turns and says his line, and the hatch drops. Cut to the launch desk: the board's lamps go green one
+   by one, the switch is thrown, and Owen turns and says his. Then the last flight as it always was, with the two of them
+   standing at the desk, Owen working the board while you hold to launch.
+   It is the last flight's first part (FIN.on with FIN.pre), so everything that keeps quiet for the last flight keeps quiet
+   for it: no conversation, the cliff and the café put back, Diarmuid silent, no tags, cards or buttons, and no input but
+   Skip (the landing's own button) and Escape, which go straight on to the last flight with everything as the scene leaves it.
+   The light is wherever the visitor's own clock has put it (the sun, or the moon), so the shots of the two of them are
+   planned when the scene starts, each taken from the side the light comes from, where there is ground to stand on and
+   nothing in the way. By night the scene has lamps of its own: the shaft's rings, the warning beacons, the glow of the board,
+   and a warm lamp by the camera for each face, as a film crew would set one.
+   Gideon and Owen are figures, not anyone's photograph: they are not among the three to meet, nobody clicks them, they have
+   no tags. They, the desk, the shaft, its doors and the lift are made only when first needed (in a quiet moment once all
+   three of us are met, or when the scene starts) and are not drawn at all before it; the shaft is cut out of the pad
+   (uHole) only while the scene plays. */
+/* the desk, on the town side of the pad and facing it */
+const DESK={at:[-5.4,-12.4]}; DESK.yaw=yawTo(DESK.at[0],DESK.at[1],PAD[0],PAD[1]);
+/* how they look: the same figures as the three of us (see figure) */
+const QLOOKS={gideon:{shirt:'#1f1f22',pants:'#d6c29a',shoes:'#2c2723',sole:'#4b433b',skin:'#eec3a2',build:1,depth:.72,head:[.152,.178,.16,.12,.024],face:{bw:.015,arch:.008},mouth:'smile',hair:'textured',hairC:'#2a1f1a'},
+  owen:{shirt:'#6e2431',funnel:.42,zipV:.915,zip:'#d4ccc2',pants:'#b6bac0',shoes:'#f1eee7',sole:'#d4cdc0',skin:'#f0c4a4',build:1.06,depth:.74,head:[.156,.172,.162,.12,.024],face:{bw:.012,arch:.01},mouth:'smile',cheeks:true,hair:'short',hairC:'#7d5f48',watch:'#3a3d42'}};
+const QLINES={gideon:'Fuelled and ready. Go and show them what you can do.',owen:'All green on the board. Hold it down when you\'re ready.'};
+/* who each of them is, the first time the camera is on them */
+const QID={gideon:['Gideon','Andrena Ventures · backs Heloria Labs'],owen:['Owen','Investor · backs Heloria Labs']};
+const QS={on:false,done:false,built:false,stage:0,t:0,hold:false,figs:{},doors:[],lights:[],lever:null,shaft:[],lift:null,desk:null,cp:new T.Vector3(),cl:new T.Vector3(),snap:true,said:{},talk:null,typed:0,acc:0,greens:0,arrived:false,shot:-1,bon:null,plan:null,key:new T.Vector3(),dark:0};
+const csV=new T.Vector3(), csU=new T.Vector3(), csF=new T.Vector3(), csA=new T.Vector3(), csB=new T.Vector3(), csM=new T.Matrix4(), csR=new T.Matrix4();
+const qease=x=>{ x=clamp(x,0,1); return x*x*(3-2*x); }, qsine=x=>.5-.5*Math.cos(Math.PI*clamp(x,0,1));
+/* the desk's frame: toward the pad, and across */
+const QDK=DESK.at, dirDP=(()=>{ const x=PAD[0]-QDK[0], z=PAD[1]-QDK[1], l=Math.hypot(x,z); return [x/l,z/l]; })(), sDP=[-dirDP[1],dirDP[0]];
+const QOW=[QDK[0]-dirDP[0]*.56,QDK[1]-dirDP[1]*.56], QGD=[QDK[0]-dirDP[0]*.62+sDP[0]*.95,QDK[1]-dirDP[1]*.62+sDP[1]*.95];   // Owen behind the desk; Gideon beside him for the launch
+/* five shots, hard cuts between them: the doors and the shaft from above; the rocket coming out, low; Gideon; the board; Owen */
+const Q_UNLATCH=.7, Q_SLIDE0=1.1, Q_SLIDE1=2.9, Q_RING0=1.3, Q_RISE0=2.9, Q_SH2=4.2, Q_RISE1=7.1, Q_HATCH=7.4, Q_CUT1=8.5, Q_TURN=8.6, Q_SAY_G=9.1, Q_CUT=12.9, Q_GREEN=13.2, Q_LEVER=14.9, Q_CUT2=15.5, Q_SAY_O=15.8, Q_END=19.6;
+const QRISE=6.3, QDEEP=7.7, QHR=1.85, QDROP=.2, QBEA=[];   // how far under the pad the rocket waits, how deep the shaft goes, its radius, how far the doors drop
+/* the sound's cues, from the same times: the horn with each flash of the lamps while the doors open, the latches, the doors
+   seating in their slots and rolling away, each ring of lamps, the lift, the moment the nose clears the rim, the hatch,
+   each lamp on the board and the switch */
+const QCUE=(()=>{ const horns=[]; for(let k=0;k/2.2<Q_SLIDE1-.1;k++) horns.push(k/2.2);
+  const u=Math.sqrt((1-4.85/QRISE)/2);   // where the lift's ease in brings the nose up to the rim
+  return {horns,unlatch:Q_UNLATCH,drop:Q_UNLATCH+.4,slide:[Q_SLIDE0,Q_SLIDE1],rings:[0,1,2,3].map(i=>Q_RING0+i*.3),rise:[Q_RISE0,Q_RISE1],surface:Q_RISE0+u*(Q_RISE1-Q_RISE0),
+    hatch:[Q_HATCH,Q_HATCH+.8],greens:Array.from({length:10},(_,i)=>Q_GREEN+i*.16),lever:Q_LEVER,end:Q_END}; })();
+const QPM=frameAt(PAD[0],PAD[1],0);
+/* building it, a piece at a time (one a frame while all is quiet, or all at once when the scene starts). Should any of it
+   fail, the scene is left out and the last flight simply goes on as it always did (bad) */
+function csBuild(all){ if(QS.built||QS.bad) return; const steps=[csFigures,csShaft,csDoors,csDesk,csWarm];
+  try{ do { const t0=performance.now(); steps[QS.stage](); (QS.ms||(QS.ms=[])).push(Math.round(performance.now()-t0)); QS.stage++; } while(all&&QS.stage<steps.length); }catch(e){ QS.bad=true; console.warn('launch scene',e); return; }
+  if(QS.stage>=steps.length) QS.built=true; }
+function csFigures(){ for(const k of ['gideon','owen']){ const g=figure(QLOOKS[k]); if(k==='gideon') g.scale.setScalar(1.035); g.visible=false; sc.add(g); QS.figs[k]=g; qOwn(g,{QFIG:''}); qInk(g); } }
+/* the shaft: concrete going dark with depth, panel seams, rings of lamps that come on one by one, and a floor; lit as the
+   town is (the sun only down to where its light reaches, the shade the colour of the hour), and in the fog as the town is */
+function csShaft(){ const shM=new T.ShaderMaterial({uniforms:Object.assign({uLit:LU.uLamp,uAx:{value:PADU.clone()},uCut:{value:0}},LU),side:T.BackSide,defines:{QSHAFT:'',QLAMP:''},
+    vertexShader:`varying vec3 vW; varying vec3 vN; varying vec2 vUv; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*normal); vUv=uv; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`uniform float uLit; uniform vec3 uAx; varying vec3 vW; varying vec3 vN; varying vec2 vUv; ${N2} ${LIGHT}
+      void main(){ float a=dot(vW,uAx), h=a-${(R+.1).toFixed(2)}; vec3 lat=vW-uAx*a, n=-lat/max(length(lat),.001);
+        vec3 base=vec3(.6,.59,.57)*(.93+.1*vn2(vec2(vUv.x*60.,h*3.)));
+        base*=1.-.32*max(step(.955,fract(-h/.85)),step(.972,fract(vUv.x*18.)));   // the panels
+        base*=1.-.85*step(-.35,h)*step(h,-.16);   // the slots the doors slide into
+        vec3 c=toon(base,n,vW);   // (the walls are inside the shaft: lit as everything down it is, see the light, above)
+        for(int i=0;i<4;i++){ float y=-.9-1.55*float(i), on=step(float(i)+.5,uLit), dy=h-y, fu=fract(vUv.x*10.+float(i)*.5)-.5;   // lamps round each ring, staggered ring to ring, a band of warm light along each
+          c+=vec3(.36,.25,.12)*on*exp(-pow(dy/.38,2.))*(.62+.25*exp(-pow(fu/.1,2.)));
+          float lens=smoothstep(.05,.025,abs(dy))*step(abs(fu),.06); c=mix(c,mix(vec3(.18,.17,.16),vec3(1.,.92,.7),on),lens); }
+        gl_FragColor=vec4(c,1.); }`});
+  const shaft=new T.Mesh(new T.CylinderGeometry(QHR+.005,QHR+.005,QDEEP+.1,48,1,true).translate(0,.1-(QDEEP+.1)/2,0),shM); shaft.matrixAutoUpdate=false; shaft.matrix.copy(QPM); shaft.renderOrder=-1; sc.add(shaft);
+  const floor=new T.Mesh(new T.CircleGeometry(QHR,40).rotateX(-Math.PI/2),flatMat('#0b0c0d')); floor.matrixAutoUpdate=false; floor.matrix.multiplyMatrices(QPM,new T.Matrix4().makeTranslation(0,-QDEEP+.1,0)); sc.add(floor);
+  /* a steel rim round the mouth, and four warning lamps on the pad that flash while anything moves */
+  const lip=new T.Mesh(new T.RingGeometry(QHR,QHR+.04,64).rotateX(-Math.PI/2),toonMat('#6d7479',{fresh:true})); lip.matrixAutoUpdate=false; lip.matrix.multiplyMatrices(QPM,new T.Matrix4().makeTranslation(0,.105,0)); sc.add(lip);
+  QS.shaft=[shaft,floor,lip]; QS.shM=shM;
+  for(let k=0;k<4;k++){ const a=(k*6+3.5)/24*TAU, g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.multiplyMatrices(QPM,new T.Matrix4().makeTranslation(Math.cos(a)*2.07,.1,Math.sin(a)*2.07)); sc.add(g);
+    g.add(new T.Mesh(new T.CylinderGeometry(.06,.07,.04,12).translate(0,.02,0),toonMat('#3a3e41'))); const m=flatMat('#a8742c'), b=new T.Mesh(new T.SphereGeometry(.048,14,8,0,TAU,0,Math.PI/2).translate(0,.04,0),m); g.add(b);
+    QBEA.push(m); QS.shaft.push(g); }
+  /* by night each beacon glows when it flashes, and the shaft's lamps light the air over the mouth */
+  { const P=[]; for(let k=0;k<4;k++){ const a=(k*6+3.5)/24*TAU; V.set(Math.cos(a)*2.07,.2,Math.sin(a)*2.07).applyMatrix4(QPM); P.push(V.x,V.y,V.z); }
+    const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3));
+    const halo=new T.Points(g,new T.ShaderMaterial({uniforms:{uK:{value:0},uH:{value:800}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+      vertexShader:`uniform float uH; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; gl_PointSize=.55*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); }`,
+      fragmentShader:`uniform float uK; void main(){ vec2 q=gl_PointCoord*2.-1.; float r=dot(q,q), a=exp(-r*5.)*(1.-smoothstep(.6,1.,r)); gl_FragColor=vec4(vec3(1.,.7,.25)*a*uK,1.); }`}));
+    halo.layers.set(1); halo.frustumCulled=false; halo.renderOrder=7; halo.visible=false; sc.add(halo); QS.halo=halo; }
+  /* the lift: a deck the rocket stands on and the ram under it; at the top the deck closes the shaft, flush with the pad */
+  const lift=new T.Group(); lift.matrixAutoUpdate=false; sc.add(lift);
+  lift.add(new T.Mesh(new T.CylinderGeometry(QHR-.02,QHR-.02,.16,48).translate(0,-.08,0),toonMat('#7c8388',{fresh:true})));
+  for(let k=0;k<4;k++){ const a=(k+.5)/4*TAU, cl=new T.Mesh(new T.BoxGeometry(.22,.1,.3),toonMat('#3d4245')); cl.position.set(Math.cos(a)*1.45,.05,Math.sin(a)*1.45); cl.rotation.y=-a; lift.add(cl); }
+  const ring=new T.Mesh(new T.TorusGeometry(QHR-.22,.04,6,48).rotateX(Math.PI/2),toonMat('#ef8a3c')); ring.position.y=.005; lift.add(ring);
+  lift.add(new T.Mesh(new T.CylinderGeometry(.55,.62,QDEEP,24).translate(0,-.12-QDEEP/2,0),toonMat('#5d6469')));
+  QS.lift=lift; [...QS.shaft,lift].forEach(o=>{ qOwn(o); qInk(o); }); setLift(0); showShaft(false); }
+/* the doors: two heavy halves that unlatch, drop into their recess and slide away under the rim */
+function csDoors(){ const dM=c=>{ const m=toonMat(c,{fresh:true}); m.uniforms.uHoleOn={value:-1}; return m; }, dPl=dM('#b8b4ab'), dEd=dM('#8d8a83'), dK=dM('#2a241d'), dY=dM('#f0a531'), dO=dM('#ef8a3c');
+  for(const sd of [-1,1]){ const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g);
+    g.add(new T.Mesh(new T.CylinderGeometry(QHR+.3,QHR+.3,.12,48,1,false,sd>0?-Math.PI/2:Math.PI/2,Math.PI).translate(0,-.06,0),dPl));
+    const edge=new T.Mesh(new T.BoxGeometry(2*QHR+.6,.12,.05).translate(0,-.06,0),dEd); edge.position.z=sd*.025; g.add(edge);
+    for(let k=-9;k<=9;k++){ const st=new T.Mesh(new T.BoxGeometry(.13,.01,.2),k&1?dK:dY); st.position.set(k*.2,.005,sd*.15); st.rotation.y=sd*.6; g.add(st); }   // hazard stripes along the seam
+    for(const x of [-1.05,-.35,.35,1.05]){ const st=new T.Mesh(new T.BoxGeometry(.3,.012,.07),dO); st.position.set(x,.006,sd*.85); g.add(st); }
+    QS.doors.push({g,sd}); qOwn(g,{QHOLE:''}); qInk(g); }
+  setDoors(0,0); }
+/* the desk: the town's own kit (a cabinet, its plinth, the sloping top), then two rows of lamps and a screen on the top,
+   and the big switch */
+function csDesk(){ const [dx,dz]=QDK, M=frameAt(dx,dz,DESK.yaw), g=new T.Group(); g.visible=false; sc.add(g);
+  kitTo('qdesk'); box(M,'#3f464b',0,0,.02,1.2,.78,.46); box(M,'#2c3236',0,0,.02,1.26,.06,.52); put(M,'box','#2b3135',0,.83,-.02,1.26,.07,.6,0,-.45);
+  const k=KITS.qdesk, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3)); kitTo(); delete KITS.qdesk;
+  { const m=toonMat('#ffffff',{vc:true,fresh:true}); m.uniforms.uKit={value:1}; g.add(new T.Mesh(kg,m)); }   // (the kit's own: rain darkens it, snow settles on it)
+  const PM=new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeTranslation(0,.865,-.02)).multiply(new T.Matrix4().makeRotationX(-.45));
+  for(let r=0;r<2;r++) for(let k2=0;k2<5;k2++){ const l=new T.Mesh(new T.BoxGeometry(.065,.025,.065),flatMat('#e8553f')); l.matrixAutoUpdate=false;
+    l.matrix.multiplyMatrices(PM,new T.Matrix4().makeTranslation(-.5+k2*.1,.045,-.1+r*.13)); g.add(l); QS.lights.push(l); }
+  const scr=new T.Mesh(new T.BoxGeometry(.3,.012,.2),flatMat('#9fd8c6')); scr.matrixAutoUpdate=false; scr.matrix.multiplyMatrices(PM,new T.Matrix4().makeTranslation(.12,.045,0)); g.add(scr);
+  const lv=new T.Group(); lv.matrixAutoUpdate=false; g.add(lv); const st0=new T.Mesh(new T.CylinderGeometry(.022,.022,.26,10),toonMat('#c9ced2')); st0.position.y=.13; lv.add(st0);
+  const kn=new T.Mesh(new T.SphereGeometry(.055,14,10),toonMat('#e0452f')); kn.position.y=.27; lv.add(kn); lv.add(new T.Mesh(new T.BoxGeometry(.16,.04,.12),toonMat('#1e2225')));
+  QS.lever={g:lv,PM}; QS.desk=g; QS.glow=new T.Vector3(.12,.3,.05).applyMatrix4(PM); qOwn(g); qInk(g); setLever(-.6); }
+/* the new materials are made ready for the screen now, out of sight, so the first frame of the scene does not wait on them */
+function csWarm(){ qSwaps(); const all=[QS.figs.gideon,QS.figs.owen,...QS.shaft,QS.halo,QS.lift,QS.desk,...QS.doors.map(d=>d.g)];
+  try{ for(const o of all){ renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.inkM) m.material=m.userData.inkM; }); renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.col) m.material=m.userData.col; }); }
+    for(const w of QS.swap){ w.o.material=w.v; renderer.compile(w.o,stCam,sc); if(w.iv){ w.o.material=w.iv; renderer.compile(w.o,stCam,sc); } w.o.material=w.m; } }
+  catch(e){ for(const o of all) o.traverse(m=>{ if(m.userData.col) m.material=m.userData.col; }); for(const w of QS.swap) w.o.material=w.m; } }
+/* the scene's own versions of the town's materials: the same uniforms (so the same light, the same hour), with the cut
+   (QHOLE), the shaft's light (QSHAFT) and the scene's lamps (QLAMP) compiled in. The ground, the sea, the grass and the
+   kit (the pad is in it) wear the cut while the scene plays; the rocket wears the shaft's light; the scene's own things
+   wear theirs always. Nothing else ever does, so outside the scene no shader carries any of it */
+const QVC=new Map();
+function qVar(m,defs){ const k=Object.keys(defs).sort().join(','); let c=QVC.get(m); if(!c) QVC.set(m,c={}); if(c[k]) return c[k];
+  const v=m.clone(); v.uniforms=m.uniforms; v.defines=Object.assign({},m.defines,defs); return c[k]=v; }
+const qToon=m=>m&&m.isShaderMaterial&&/toon\(/.test(m.fragmentShader||'');
+function qOwn(root,extra){ root.traverse(o=>{ if(o.isMesh&&qToon(o.material)) o.material=qVar(o.material,Object.assign({QSHAFT:'',QLAMP:''},extra)); }); }
+function qSwaps(){ if(QS.swap) return; QS.swap=[];
+  const add=(o,defs)=>{ const ink=INK.includes(o), v=qVar(o.material,defs); QS.swap.push({o,ink,m:o.material,v,im:ink?o.userData.inkM:null,iv:ink&&defs.QHOLE!=null?qInkM(v):null}); };
+  sc.traverse(o=>{ if(o.isMesh&&o.material&&o.material.isShaderMaterial&&o.material.uniforms&&o.material.uniforms.uHoleOn&&o.material.uniforms.uHoleOn.value===1&&!o.material.defines.QHOLE) add(o,{QHOLE:'',QLAMP:''}); });
+  RK.g.traverse(o=>{ if(o.isMesh&&qToon(o.material)) add(o,{QSHAFT:'',QLAMP:''}); }); }
+/* wearing them, or the town's own again */
+function qWear(on){ if(!QS.swap) return; for(const w of QS.swap){ const m=on?w.v:w.m; w.o.material=m; if(w.ink){ w.o.userData.col=m; if(w.iv) w.o.userData.inkM=on?w.iv:w.im; } } }
+/* the scene's own meshes join the ink pass as the rest of the world does, so their lines are drawn the same way */
+function qInk(root){ root.traverse(o=>{ if(!o.isMesh||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
+  o.userData.col=o.material; o.userData.inkM=qInkM(o.material); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide); INK.push(o); }); }
+function qInkM(m){ let k=inkC.get(m); if(!k){ k=new T.ShaderMaterial({uniforms:m.uniforms,vertexShader:m.vertexShader,fragmentShader:INK_F,side:m.side,vertexColors:m.vertexColors,defines:Object.assign({},m.defines)}); inkC.set(m,k); } return k; }
+function setDoors(drop,slide){ for(const d of QS.doors){ d.g.matrix.multiplyMatrices(QPM,csM.makeTranslation(0,.1-QDROP*drop,d.sd*slide*(QHR+.12))); d.g.matrixWorldNeedsUpdate=true; } }
+function setLift(y){ if(!QS.lift) return; QS.lift.matrix.multiplyMatrices(QPM,csM.makeTranslation(0,.1+y,0)); QS.lift.matrixWorldNeedsUpdate=true; }
+/* the shaft cut into the pad, or the pad whole: only ever whole outside the scene */
+function showShaft(on){ QS.shaft.forEach(m=>{ m.visible=on; }); QS.doors.forEach(d=>{ d.g.visible=on; }); if(QS.lift) QS.lift.visible=on; LU.uHole.value.set(PADU.x,PADU.y,PADU.z,on?QHR:0); if(!on){ LU.uLamp.value=0; if(QS.halo) QS.halo.visible=false; } }
+function setLever(a){ if(!QS.lever) return; QS.lever.g.matrix.multiplyMatrices(QS.lever.PM,csM.makeTranslation(.43,.045,0)).multiply(csR.makeRotationX(a)); QS.lever.g.matrixWorldNeedsUpdate=true; }
+const QVENT=new T.Vector3(), QVV=new T.Vector3();
+function vent(n,up,out,s=1){ for(let i=0;i<n;i++){ const a=Math.random()*TAU, r=QHR*(.94+Math.random()*.06); QVENT.set(Math.cos(a)*r,.14,Math.sin(a)*r).applyMatrix4(QPM);
+  QVV.set(Math.cos(a),0,Math.sin(a)).transformDirection(QPM).multiplyScalar(out*(.6+Math.random()*.8)).addScaledVector(PADU,up*(.7+Math.random()*.6)); puff(QVENT,QVV,(.13+Math.random()*.08)*s,.8+Math.random()*.5); } }
+const qLights=c=>QS.lights.forEach(l=>l.material.uniforms.uC.value.set(c));   // (as the preview had them: the colour as the screen shows it)
+
+/* ---------- planning the shots: from the side the light comes from ----------
+   Where Gideon stands round the pad (theta), and where the camera stands for his close-up (round from where he stands,
+   toward the pad's side, so the rocket is beside him in the picture); and where the camera stands for Owen's. Each place is
+   tried round the circle: it must be ground you could stand on, clear of trees, houses and rocks, with nothing between it
+   and the face, and it must still be clear where a phone held upright stands it further back. Of those, the one that sees
+   the face most in the light wins (the sun, or by night the moon); for Owen, better still with the rocket behind him. */
+const qFixed=()=>OBS.filter(o=>!people.some(p=>p.ob===o)&&!(o.x===PAD[0]&&o.z===PAD[1])).concat([{x:QDK[0],z:QDK[1],r:.75,h:1}]);   // (and the desk, which is not in the town's own list)
+/* (a tree is in the list by its trunk; its crown spreads some four times as wide as that, and hangs at a face's height) */
+const qWide=o=>o.r<.45&&o.h>=3?3.4*o.r:o.h>=3?.5:0;
+function qClear(x,z,m,obs){ if(!walkable(x,z)||grid(GH,x,z)<-.05) return false; for(const o of obs){ const mm=o.r+m+qWide(o); if((x-o.x)**2+(z-o.z)**2<mm*mm) return false; } return true; }
+function qSight(x0,z0,x1,z1,obs){ const ex=x1-x0, ez=z1-z0, L2=ex*ex+ez*ez||1;
+  for(const o of obs){ if(o.h<1.3) continue; const t=clamp(((o.x-x0)*ex+(o.z-z0)*ez)/L2,0,1), d=Math.hypot(o.x-x0-ex*t,o.z-z0-ez*t); if(d<o.r+.15+qWide(o)) return false; } return true; }
+/* how well a face turned toward (ux, uz) at (x, z) is lit: the light on its front, a little up from level */
+function qLit(x,z,ux,uz){ at(x,z,csU); at(x+ux*.5,z+uz*.5,csV); tang(csU,csV,csF); csF.multiplyScalar(.95).addScaledVector(csU,.3).normalize(); return csF.dot(SUN); }
+const qScore=d=>Math.min(1,Math.max(0,d)/.14)+.3*d;   // lit is what matters; then, a little, how brightly
+function csPlan(){ const obs=qFixed(), P={};
+  /* Gideon: on the pad's rim, never in front of the hatch (its ramp) and never between the low camera and the rocket */
+  let best=null;
+  for(let a=-70;a<=240;a+=10){ if(a>35&&a<145) continue; const th=a*Math.PI/180, gx=PAD[0]+Math.cos(th)*2.15, gz=PAD[1]+Math.sin(th)*2.15;
+    for(const dl of [50,63,-50,-63,38,-38]) for(const cd of [2.6,2.2]){ const ps=th+dl*Math.PI/180, ux=Math.cos(ps), uz=Math.sin(ps), cx=gx+ux*cd, cz=gz+uz*cd, lx=(gx*2+PAD[0])/3, lz=(gz*2+PAD[1])/3;   // (nearer, or more square on, only where the usual spot is taken)
+      const qx=gx+(lx-gx)*.35, qz=gz+(lz-gz)*.35, px=qx+(cx-qx)*1.45, pz=qz+(cz-qz)*1.45;   // a phone held upright looks nearer him (its picture is narrow), from further back
+      if(Math.hypot(cx-PAD[0],cz-PAD[1])<2.5||Math.hypot(px-PAD[0],pz-PAD[1])<2.5||!qClear(cx,cz,.5,obs)||!qClear(px,pz,.35,obs)||!qSight(cx,cz,gx,gz,obs)||!qSight(px,pz,gx,gz,obs)) continue;
+      const fin=Math.abs(angDiff(th,Math.round((th-Math.PI/4)/(Math.PI/2))*Math.PI/2+Math.PI/4));   // how far round from the nearest of the rocket's fins (they point between the hatch and its sides)
+      const d=qLit(gx,gz,ux,uz), s=qScore(d)-.0012*Math.abs(a+13)-.004*Math.max(0,a<100?a:0)-(dl!==63?.01:0)-(Math.abs(dl)<40?.04:0)-(cd<2.6?.04:0)-.6*Math.max(0,1-fin/.7);   // (all else equal: as the preview had it, east of the pad, not nearer the cameras over the hatch side, not by a fin)
+      if(!best||s>best.s) best={s,d,g:[gx,gz],cam:[cx,cz],look:[lx,lz],lookP:[qx,qz]}; } }
+  P.g=best||{d:0,g:[-1.1,-16.1],cam:[1.2,-14.4],look:[(-1.1*2+PAD[0])/3,(-16.1*2+PAD[1])/3],lookP:[-1.1+(PAD[0]+1.1)*.12,-16.1+(PAD[1]+16.1)*.12]};
+  /* Owen: behind the desk; the camera round him, clear of the desk */
+  best=null;
+  for(let a=0;a<360;a+=10){ const ps=a*Math.PI/180, ux=Math.cos(ps), uz=Math.sin(ps), cx=QOW[0]+ux*2.05, cz=QOW[1]+uz*2.05;
+    /* it looks past him a little, toward the rocket's side */
+    const vx=-ux, vz=-uz, sg=Math.sign(-vz*(PAD[0]-QOW[0])+vx*(PAD[1]-QOW[1]))||1, lx=QOW[0]+vx*.29-vz*sg*.49, lz=QOW[1]+vz*.29+vx*sg*.49;
+    const qx=QOW[0]+(lx-QOW[0])*.35, qz=QOW[1]+(lz-QOW[1])*.35, px=qx+(cx-qx)*1.45, pz=qz+(cz-qz)*1.45;   // (a phone: nearer him, from further back)
+    if(Math.hypot(cx-QDK[0],cz-QDK[1])<1.1||Math.hypot(px-QDK[0],pz-QDK[1])<1.1||Math.hypot(cx-PAD[0],cz-PAD[1])<2.5||!qClear(cx,cz,.45,obs)||!qClear(px,pz,.35,obs)||!qSight(cx,cz,QOW[0],QOW[1],obs)||!qSight(px,pz,QOW[0],QOW[1],obs)) continue;
+    let ra=Math.atan2(PAD[1]-cz,PAD[0]-cx)-Math.atan2(QOW[1]-cz,QOW[0]-cx); ra=Math.abs(Math.atan2(Math.sin(ra),Math.cos(ra)));   // how far off the line of sight the rocket is
+    const d=qLit(QOW[0],QOW[1],ux,uz), s=qScore(d)+.6*(1-sstep(.35,.75,ra))-.0008*Math.abs(angDiff(ps,1.45));
+    if(!best||s>best.s) best={s,d,cam:[cx,cz],look:[lx,lz],lookP:[qx,qz]}; }
+  P.o=best||{d:0,cam:[QOW[0]+.25,QOW[1]+2.05],look:[QOW[0]+.45,QOW[1]-.35],lookP:[QOW[0]+.16,QOW[1]-.12]};
+  /* the board: from the side where the switch is beyond the lamps and he is in profile behind them (from the other side
+     the switch stands in front of him and the lamps are seen edge on), unless something stands there */
+  P.side=qClear(QDK[0]+sDP[0]*1.95+dirDP[0]*.2,QDK[1]+sDP[1]*1.95+dirDP[1]*.2,.3,obs)?1:-1;
+  /* and for the dark: how much of the scene's own light it needs */
+  P.dark=sstep(.08,.55,SKY.night); return P; }
+
+/* ---------- the lines and the name cards: the conversation's own printed box, and a card like a landmark's ---------- */
+const QUI=(()=>{ const say=document.createElement('div'); say.className='crtalk crqsay'; say.setAttribute('aria-hidden','true');
+  say.innerHTML='<span class="crtk-n ui"></span><div class="crtk-b"><div class="crtk-m"><p class="crtk-t"><span></span><span class="crtk-r" aria-hidden="true"></span></p></div></div>';
+  const id=document.createElement('div'); id.className='crqid'; id.setAttribute('aria-hidden','true'); id.innerHTML='<span class="crqid-n disp"></span><span class="crqid-r ui"></span>';
+  const sk=$('#crSkip',el); el.insertBefore(say,sk); el.insertBefore(id,sk);
+  return {say,id,n:say.querySelector('.crtk-n'),t:say.querySelector('.crtk-t'),s:say.querySelector('.crtk-t span'),r:say.querySelector('.crtk-r'),in:id.firstChild,ir:id.lastChild}; })();
+/* the box the size of the whole line from the first letter, and no wider than it needs (as a conversation's) */
+function qhug(){ const t=QUI.t; t.style.width=''; const h=t.offsetHeight, w=t.offsetWidth; if(!w||!h) return; let lo=w*.35, hi=w;
+  for(let k=0;k<9;k++){ const m=(lo+hi)/2; t.style.width=m+'px'; if(t.offsetHeight>h) lo=m; else hi=m; } t.style.width=Math.ceil(hi)+1+'px'; }
+addEventListener('resize',()=>{ if(QS.talk) qhug(); });
+function qsay(who){ const b=QUI.say; if(!who){ b.classList.remove('on'); b.setAttribute('aria-hidden','true'); QS.talk=null; return; }
+  QS.talk=who; QS.typed=0; QS.acc=0; QUI.n.textContent=QID[who][0]; qsayN(0); b.setAttribute('aria-label',QID[who][0]+': '+QLINES[who]); b.setAttribute('aria-hidden','false'); b.classList.add('on'); qhug(); }
+function qsayN(n){ const t=QLINES[QS.talk]; QUI.s.textContent=t.slice(0,n); QUI.r.textContent=t.slice(n); }
+function qid(who){ const c=QUI.id; if(!who){ c.classList.remove('on'); c.setAttribute('aria-hidden','true'); return; } QUI.in.textContent=QID[who][0]; QUI.ir.textContent=QID[who][1]; c.setAttribute('aria-hidden','false'); c.classList.add('on'); }
+$('#crSkip',el).addEventListener('click',e=>{ if(!QS.on) return; e.stopPropagation(); csSkip(); });
+
+/* ---------- starting, skipping and ending it ---------- */
+/* Let's fly: the world goes quiet as for the last flight, under a white flash the rocket goes down into the ground, and the
+   scene starts. (false: the last flight goes straight on without it, which is only ever when Earth is not built yet) */
+function csStart(){ if(!st.built) return false; csBuild(true); if(!QS.built) return false; const P=player;
+  closeTalk(); GLN.t=-1; goBtn.hidden=true; TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  if(CAFE.st!=='out') cafeReset(); CAFE.mk=0; if(PHS.on) steerSet(false); if(PC.on) pcOpen(false); pcCard.hidden=true;
+  Object.assign(FIN,{on:true,pre:true,t:0,ask:false,go:false,hold:false,held:0,wave:0,mus:.55,fov:45,ign:false,shut:false});
+  S.fin=true; S.flash=Math.max(S.flash,.6); cine(true); el.classList.add('fin','crq','walked'); document.documentElement.classList.add('crq'); hint.classList.add('gone');
+  people.forEach(p=>{ p.g.visible=false; if(p.beam) p.beam.visible=false; }); me.visible=false;   // the three of us, and you, are off camera until the launch
+  Object.assign(QS,{on:true,done:false,t:0,snap:true,said:{},greens:0,arrived:false,shot:-1,bon:null,plan:csPlan()}); QS.dark=QS.plan.dark;
+  QS.figs.gideon.visible=QS.figs.owen.visible=true; QS.desk.visible=true; qLights('#e8553f'); setLever(-.6);
+  qWear(true); showShaft(true); setDoors(0,0); setLift(-QRISE); LU.uLamp.value=0; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=false; if(LFLAME) LFLAME.visible=false; RK.shadow.visible=false;
+  csPose(0,0); A.score(QCUE); return true; }
+function csSkip(){ if(QS.on) csFinish(); }
+/* the end, or Skip: everything as the scene leaves it (the doors open, the rocket up, the board green), the two of them at
+   the desk, and the last flight from its start, exactly as it always was */
+function csFinish(){ QS.on=false; QS.done=true; qsay(null); qid(null); el.classList.remove('crq'); document.documentElement.classList.remove('crq');
+  setDoors(1,1); setLift(0); showShaft(false); qWear(false); QBEA.forEach(m=>m.uniforms.uC.value.set('#a8742c')); qLights('#5fd36a'); setLever(.6);
+  A.whine(0); A.scoreStop(); csLamps(0,0,0); people.forEach(p=>{ p.g.visible=true; }); { const ce=$('#cur'); if(ce&&$('#curT').textContent==='Skip') ce.classList.remove('big'); }
+  startFinale(true); csDuring(0,S.t); }
+/* put away: entering or leaving Earth, and once the last flight is over */
+function csReset(){ if(FIN.pre){ FIN.pre=false; FIN.on=false; S.fin=false; el.classList.remove('fin'); people.forEach(p=>{ p.g.visible=true; }); if(me) me.visible=true; }   // (cut short: nothing of the last flight was begun)
+  QS.on=false; QS.done=false; qsay(null); qid(null); el.classList.remove('crq'); document.documentElement.classList.remove('crq'); A.scoreStop();
+  if(QS.built){ showShaft(false); qWear(false); QS.figs.gideon.visible=QS.figs.owen.visible=false; QS.desk.visible=false; } else LU.uHole.value.w=0; csLamps(0,0,0); }
+{ const en=st.enter, ex=st.exit, fe=st.finaleEnd; st.enter=function(){ csReset(); return en.apply(this,arguments); }; st.exit=function(){ csReset(); return ex.apply(this,arguments); };
+  st.finaleEnd=function(){ const r=fe.apply(this,arguments); csReset(); return r; }; }
+
+/* ---------- the scene's own lamps ---------- */
+/* k: the lamp by the camera for a face; b: the glow of the board on whoever stands at it; s: the light out of the open shaft */
+function csLamps(k,b,s){ const L=LU.uQL.value;
+  L[0].set(QS.key.x,QS.key.y,QS.key.z,k); L[1].set(QS.glow?QS.glow.x:0,QS.glow?QS.glow.y:-99,QS.glow?QS.glow.z:0,b); csV.copy(padTop).addScaledVector(PADU,.6); L[2].set(csV.x,csV.y,csV.z,s); LU.uQR.value.set(6,1.8,4.2); }
+/* the lamp for a face: up and to one side of the camera, toward the face */
+function csKey(cp,lp){ csV.copy(lp).sub(cp); csU.copy(cp).normalize(); csF.crossVectors(csV,csU).normalize(); QS.key.copy(cp).addScaledVector(csU,.7).addScaledVector(csF,.8).addScaledVector(csV.normalize(),.4); }
+
+/* ---------- each frame of the scene ---------- */
+const qat3=(x,z,h,o)=>camAt(x,z,h,o), qatG=(x,z,h,o)=>at(x,z,o).multiplyScalar(R+h);
+const QSHOTS=[0,Q_SH2,Q_CUT1,Q_CUT,Q_CUT2], qshot=c=>{ let i=0; while(i<QSHOTS.length-1&&c>=QSHOTS[i+1]) i++; return i; };
+function qstand(g,x,z,fx,fz){ at(x,z,csU); tang(csU,at(fx,fz,csV),csF); standOn(g,csU,csF,standH(x,z)); }
+/* the two of them where the scene has them at c (and the rocket, the doors and the lift with them) */
+function csPose(c,t){ const G=QS.figs.gideon, O=QS.figs.owen, Pl=QS.plan, gz=Pl.g.g;
+  { const tu=qease((c-Q_TURN)/.6); qstand(G,gz[0],gz[1],lerp(PAD[0],Pl.g.cam[0],tu),lerp(PAD[1],Pl.g.cam[1],tu)); animate(G,0,0,c>Q_SAY_G+.2&&c<Q_SAY_G+1.6?1:0,t,3); }
+  { const tu=qease((c-Q_CUT2-.1)/.5); qstand(O,QOW[0],QOW[1],lerp(PAD[0],Pl.o.cam[0],tu),lerp(PAD[1],Pl.o.cam[1],tu)); animate(O,0,0,c>Q_SAY_O+1.4&&c<Q_SAY_O+2.6?1:0,t,4); }
+  if(c>Q_LEVER-.45&&c<Q_LEVER+.5){ const d=O.userData; d.arms[1].rotation.x=-.95; d.fore[1].rotation.x=-.55; } }
+function csUpdate(dt,t){ const c=QS.t, Pl=QS.plan;
+  /* the warning lamps flash; the doors unlatch with a breath of vapour, drop into their slots and slide away under the rim;
+     the shaft's lamps come on one ring at a time down into the dark; the lift brings the rocket up, slowly, and locks */
+  const bon=c<Q_RISE1+.4&&(c*2.2)%1<.5; if(bon!==QS.bon){ QS.bon=bon; QBEA.forEach(m=>m.uniforms.uC.value.set(bon?'#ffc23a':'#a8742c')); }
+  const dd=qease((c-Q_UNLATCH)/.4), ds=qease((c-Q_SLIDE0)/(Q_SLIDE1-Q_SLIDE0)); setDoors(dd,ds);
+  if(c>=Q_UNLATCH&&!QS.said.door){ QS.said.door=true; vent(9,.25,.5); S.shake=Math.max(S.shake,.05); }
+  const lit=clamp(Math.floor((c-Q_RING0)/.3)+1,0,4); if(lit!==LU.uLamp.value) LU.uLamp.value=lit;
+  const u=clamp((c-Q_RISE0)/(Q_RISE1-Q_RISE0),0,1), ru=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2, y=-QRISE*(1-ru);   // a lift: easing in, easing to a stop
+  setLift(y); csA.copy(padTop).addScaledVector(PADU,y); rocketPose(csA,PADU,c>Q_RISE0&&c<Q_RISE1?Math.sin(c*23)*.002:0); RK.shadow.visible=ru>=1;
+  if(ru>=1&&!QS.arrived){ QS.arrived=true; vent(14,.2,.9,1.3); S.shake=Math.max(S.shake,.12); }
+  RK.door.rotation.x=lerp(DOOR_SHUT,DOOR_OPEN,qease((c-Q_HATCH)/.8));
+  /* Gideon by the pad, watching it come up, then he turns to you and says his line; Owen at the desk, the lamps going green
+     one by one, then the switch; then he turns to you */
+  csPose(c,t);
+  if(c>=Q_GREEN){ const n=Math.min(10,Math.floor((c-Q_GREEN)/.16)+1); while(QS.greens<n){ QS.lights[QS.greens].material.uniforms.uC.value.set('#5fd36a'); QS.greens++; } }
+  setLever(c>=Q_LEVER?lerp(-.6,.6,qease((c-Q_LEVER)/.22)):-.6);
+  /* who they are, the moment the camera is on them, and their lines */
+  if(c>=Q_CUT1+.15&&!QS.said.idg){ QS.said.idg=true; qid('gideon'); }
+  if(c>=Q_CUT-.4&&!QS.said.idg2){ QS.said.idg2=true; qid(null); }
+  if(c>=Q_CUT+.25&&!QS.said.ido){ QS.said.ido=true; qid('owen'); }
+  if(c>=Q_END-.5&&!QS.said.ido2){ QS.said.ido2=true; qid(null); }
+  if(c>=Q_SAY_G&&!QS.said.g){ QS.said.g=true; qsay('gideon'); }
+  if(c>=Q_CUT&&!QS.said.cut){ QS.said.cut=true; qsay(null); }
+  if(c>=Q_SAY_O&&!QS.said.o){ QS.said.o=true; qsay('owen'); }
+  if(QS.talk&&QS.typed<QLINES[QS.talk].length){ QS.acc+=dt*34; const n=Math.min(QLINES[QS.talk].length,Math.floor(QS.acc)); if(n>QS.typed){ if(Math.floor(n/2)>Math.floor(QS.typed/2)&&QLINES[QS.talk][n-1]!==' ') A.voice(QS.talk==='gideon'?455:405); QS.typed=n; qsayN(n); } }
+  /* the camera, shot by shot */
+  const port=innerHeight>innerWidth, g0=standH(QOW[0],QOW[1]), sh=qshot(c); if(sh!==QS.shot){ QS.shot=sh; QS.snap=true; }
+  if(sh===0){ const v=qsine(c/Q_SH2);   // high over the pad, pushing in and tipping down into the shaft as it opens
+    qat3(PAD[0]+lerp(2.7,1.5,v),PAD[1]+lerp(4.6,3.0,v),lerp(4.8,4.3,v),csA); qat3(PAD[0],PAD[1],lerp(-.3,-1.5,v),csB); }
+  else if(sh===1){ const v=qsine((c-Q_SH2)/(Q_CUT1-Q_SH2));   // low on the hatch side, tipping up with the nose as it comes out
+    qat3(PAD[0]+lerp(1.15,1.5,v),PAD[1]+lerp(4.1,4.8,v),lerp(1.75,1.5,v),csA); qat3(PAD[0]+.1,PAD[1],clamp(y+4.85-1.9,-.25,2.4),csB); }
+  else if(sh===2){ const v=qsine((c-Q_CUT1)/(Q_CUT-Q_CUT1)), k=lerp(1,.86,v), G=Pl.g;   // Gideon, from the light's side
+    const L=port?G.lookP:G.look; qat3(G.g[0]+(G.cam[0]-G.g[0])*k,G.g[1]+(G.cam[1]-G.g[1])*k,lerp(1.5,1.42,v),csA); qat3(L[0],L[1],1.55,csB); }
+  else if(sh===3){ const v=qease((c-Q_CUT)/(Q_CUT2-Q_CUT)), b=lerp(1.95,1.8,v)*Pl.side;   // the board from the side, then over to the rocket
+    qatG(QDK[0]+sDP[0]*b+dirDP[0]*.2,QDK[1]+sDP[1]*b+dirDP[1]*.2,g0+lerp(1.62,1.55,v),csA);
+    const lu=qease((c-Q_LEVER+.2)/.95); qatG(lerp(QDK[0]-dirDP[0]*.15,PAD[0],lu),lerp(QDK[1]-dirDP[1]*.15,PAD[1],lu),g0+lerp(.82,2.1,lu),csB); }
+  else { const v=qsine((c-Q_CUT2)/(Q_END-Q_CUT2)), k=lerp(1,.88,v), O=Pl.o;   // his face, lit, the rocket over his shoulder where the light allows
+    const L=port?O.lookP:O.look; qatG(QOW[0]+(O.cam[0]-QOW[0])*k,QOW[1]+(O.cam[1]-QOW[1])*k,g0+1.55,csA); qatG(L[0],L[1],g0+1.2,csB); }
+  if(port){ csV.copy(csA).sub(csB); csA.copy(csB).addScaledVector(csV,sh===0?1.22:1.45); csA.addScaledVector(csV.copy(csA).normalize(),sh===0?.3:.7); }
+  if(QS.snap){ QS.cp.copy(csA); QS.cl.copy(csB); QS.snap=false; } else { const k=1-Math.exp(-7*dt); QS.cp.lerp(csA,k); QS.cl.lerp(csB,k); }
+  st.camP.copy(QS.cp); st.camL.copy(QS.cl); csU.copy(QS.cl).normalize(); stUp.copy(csU); stCam.up.copy(csU); UPU.value.copy(csU); LU.uPly.value.copy(QS.cp); S.stSnap=true;   // (uPly at the camera: nothing is cut away)
+  /* by night (and a little at dusk): the shaft's light out of its mouth while it is open, the board's glow, and a lamp for each
+     face; by day that lamp is lit only for a face the sun barely reaches (more, the less it does), as a crew would hold up a
+     card to bounce the light */
+  const dk=QS.dark, open=ds*(1-sstep(Q_RISE1-1.2,Q_RISE1,c)), face=sh===2?Pl.g:sh===4?Pl.o:null;
+  if(face) csKey(QS.cp,csB); csLamps(face?dk*1.6+(1-dk)*.9*clamp((.25-face.d)/.2,0,1):0,dk*(c>=Q_GREEN-.3?1.1:.5),dk*1.3*open*lit/4);
+  if(QS.halo){ QS.halo.visible=dk>.02&&bon; QS.halo.material.uniforms.uK.value=dk; QS.halo.material.uniforms.uH.value=colRT.height||innerHeight; }
+  /* nothing in the world says hello to the pointer while it plays (only Skip does) */
+  { const ce=$('#cur'); if(ce&&ce.classList.contains('big')&&$('#curT').textContent!=='Skip') ce.classList.remove('big'); }
+  /* the sound: its recording in step with the scene, the town's music down while the machinery has the stage */
+  A.scoreAt(c); FIN.mus=c<Q_CUT1?.25:.55; FIN.fov=45;
+  if(!QS.hold){ QS.t+=dt; const ac=A.scoreClock(); if(ac!==null&&ac!==QS.ac&&Math.abs(ac-QS.t)<.4) QS.t+=(ac-QS.t)*Math.min(1,dt*4); QS.ac=ac; }   // (only a clock that has moved since the last frame is followed)
+  if(QS.t>=Q_END) csFinish(); }
+/* in the last flight: the two of them at the desk, Owen working the board while you hold, both waving as it lifts */
+function csDuring(dt,t){ const G=QS.figs.gideon, O=QS.figs.owen; qstand(G,QGD[0],QGD[1],PAD[0],PAD[1]); qstand(O,QOW[0],QOW[1],PAD[0],PAD[1]);
+  const wv=FIN.wave?1:0; animate(G,0,0,wv,t,3); animate(O,0,0,wv,t,4);
+  if(FIN.ask&&!FIN.go&&FIN.hold){ const d=O.userData; d.arms[1].rotation.x=-.95; d.fore[1].rotation.x=-.55; QS.lights.forEach((l,i)=>l.material.uniforms.uC.value.set((Math.floor(t*6)+i)%3?'#5fd36a':'#c9f7c9')); QS.tw=true; }
+  else if(QS.tw){ QS.tw=false; qLights('#5fd36a'); }
+  csLamps(0,sstep(.08,.55,SKY.night)*1.1,0); }
+/* every frame on Earth: the last flight's part of it, and building it all in a quiet moment once the invite is coming */
+function launchUpdate(dt,t){
+  if(FIN.on&&!FIN.pre&&QS.done) csDuring(dt,t);
+  else if(!FIN.on&&!QS.built&&st.built&&allMet()&&S.mode==='station'&&!CAFE.on){ csBuild(false); if(QS.stage===1) A.score(QCUE); } }
+st._dbg.launch={QS,QCUE,QLINES,QID,start:()=>startFinale(),skip:csSkip,plan:()=>csPlan(),build:()=>csBuild(true),
+  /* where the scene is, and to go to a moment of it (held there until let go: for a test to look at it) */
+  seek(c,hold=true){ QS.t=c; QS.snap=true; QS.hold=hold; const d=c>Q_HATCH+.8; QS.said={door:c>Q_UNLATCH,hatch:d,idg:c>Q_CUT1+.15,idg2:c>Q_CUT-.4,ido:c>Q_CUT+.25,ido2:c>Q_END-.5,g:c>Q_SAY_G,cut:c>Q_CUT,o:c>Q_SAY_O}; QS.arrived=c>Q_RISE1;
+    if(c<Q_GREEN){ QS.greens=0; qLights('#e8553f'); } qid(c>Q_CUT1+.15&&c<Q_CUT-.4?'gideon':c>Q_CUT+.25&&c<Q_END-.5?'owen':null);
+    if(c>Q_SAY_G&&c<Q_CUT){ qsay('gideon'); QS.acc=(c-Q_SAY_G)*34; } else if(c>Q_SAY_O){ qsay('owen'); QS.acc=(c-Q_SAY_O)*34; } else qsay(null); },
+  /* the machinery as it stands: how far the doors have gone (0 shut, about 2 under the rim), the lift and the rocket (metres
+     under the pad, 0 up), the hatch (0 shut, 1 down), where the two of them stand, and the desk */
+  get rig(){ const inv=new T.Matrix4().copy(QPM).invert(), p=o=>{ const [x,z]=loc(V.setFromMatrixPosition(o.matrixWorld).normalize()); return [+x.toFixed(2),+z.toFixed(2)]; };
+    if(!QS.built) return null; sc.updateMatrixWorld();
+    return {door:+Math.abs(V.setFromMatrixPosition(QS.doors[0].g.matrix).applyMatrix4(inv).z).toFixed(3),lift:+(V.setFromMatrixPosition(QS.lift.matrix).applyMatrix4(inv).y-.1).toFixed(3),
+      rocket:+V.setFromMatrixPosition(RK.g.matrix).sub(padTop).dot(PADU).toFixed(3),hatch:+((RK.door.rotation.x-DOOR_SHUT)/(DOOR_OPEN-DOOR_SHUT)).toFixed(3),
+      gideon:p(QS.figs.gideon),owen:p(QS.figs.owen),desk:[...QDK],deskAt:{owen:[...QOW],gideon:[...QGD]},shaft:QS.shaft[0].visible,doorsShown:QS.doors[0].g.visible,lever:+QS.lever.g.matrix.elements[6].toFixed(2)}; },
+  get state(){ return {on:QS.on,done:QS.done,built:QS.built,t:+QS.t.toFixed(2),shot:QS.shot,hole:+LU.uHole.value.w.toFixed(3),lamp:LU.uLamp.value,pre:!!FIN.pre,fin:FIN.on,talk:QS.talk,typed:QS.typed,
+    id:QUI.id.classList.contains('on')?QUI.in.textContent:null,say:QUI.say.classList.contains('on')?QUI.s.textContent:null,greens:QS.greens,figs:!!(QS.figs.gideon&&QS.figs.gideon.visible),desk:!!(QS.desk&&QS.desk.visible),
+    plan:QS.plan?{g:QS.plan.g.g.map(v=>+v.toFixed(2)),gcam:QS.plan.g.cam.map(v=>+v.toFixed(2)),gd:+QS.plan.g.d.toFixed(2),ocam:QS.plan.o.cam.map(v=>+v.toFixed(2)),od:+QS.plan.o.d.toFixed(2),side:QS.plan.side,dark:+QS.plan.dark.toFixed(2)}:null}; }};
+/* ===================== (the launch scene ends here) ===================== */
 })();

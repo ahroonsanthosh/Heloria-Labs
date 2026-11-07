@@ -43,7 +43,8 @@ module.exports = async ({ page, wait, H, log, mobile }) => {
   await H(h => h.ST.cr._dbg.closeTalk()); await wait(400);
   await H(h => { const d = h.ST.cr._dbg; h.ST.cr.land = true; d.marksEnter(); d.began(); const q = d.INST.ae, P = d.player; P.x = q.x + 2.6; P.z = q.z + 1.6; P.u.copy(d.at(P.x, P.z)); }); await step(60, 'cr'); await listen('Earth: by Aetos, at work');
   await H(h => { const d = h.ST.cr._dbg; const q = d.INST.kr, P = d.player; P.x = q.x + 2.4; P.z = q.z + 1.4; P.u.copy(d.at(P.x, P.z)); }); await step(60, 'cr'); await listen('Earth: by Kríos, at work');
-  await H(h => { h.ST.cr._dbg.startFinale(); h.S.finX = 3; }); await wait(600); await listen('last flight: up the ramp, the hatch, the ticks');
+  await H(h => { h.ST.cr._dbg.startFinale(); }); await wait(600); await listen('last flight: the launch scene, the doors and the lift');
+  await H(h => { h.ST.cr._dbg.launch.skip(); h.S.finX = 3; }); await wait(600); await listen('last flight: up the ramp, the hatch, the ticks');
   await until(h => h.ST.cr._dbg.FIN.ask, 240000); await H(h => { h.S.finX = 1; }); await listen('last flight: waiting on the pad');
   await page.keyboard.down('Space'); await wait(300); await listen('last flight: holding, the engines spooling');
   await until(h => h.ST.cr._dbg.FIN.ign, 120000); await page.keyboard.up('Space'); await listen('last flight: lit, lifting off');

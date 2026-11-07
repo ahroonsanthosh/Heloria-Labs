@@ -110,7 +110,8 @@ check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
 the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `cafe.cjs` goes into the café, orders
 every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
-`postcard.cjs` takes a postcard, and `weather-sound.cjs` (with `--meter`) listens
+`postcard.cjs` takes a postcard, `launch.cjs` says yes to Ahroon and plays the launch scene before the last flight (Skip,
+Escape, and nothing of it left behind), and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
 </details>
 
