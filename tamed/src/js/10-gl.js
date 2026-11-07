@@ -21,6 +21,21 @@ const QL={
   ao:MOBILE?3:5, shadow:HQ?4096:(MOBILE?1024:2048), seeds:MOBILE?500:1100, bloomLv:MOBILE?4:5,
 };
 QL.dpr=TEST?1:Math.min(QL.dprMax,MOBILE?1.25:1.3);
+/* whether this browser really draws into the kind of picture the page is made in: half-float, its edges smoothed by a few
+   samples. Checked once at the start by drawing red into a small one and reading it back through a plain one. Where the
+   smoothing fails (Safari on a Mac can draw such a picture black) the page is made without it; where half-float fails
+   too, the page shows its plain version rather than a black screen */
+function rtWorks(samples){ let a,b,m1,m2,g; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
+    a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,samples}); b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
+    const cc=new T.Color(), ca=renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000,1);
+    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); g=new T.PlaneGeometry(2,2);
+    m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); m2=new T.MeshBasicMaterial({map:a.texture,depthTest:false,depthWrite:false});
+    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(g,m1)); s2.add(new T.Mesh(g,m2));
+    renderer.setRenderTarget(a); renderer.render(s1,cam); renderer.setRenderTarget(b); renderer.render(s2,cam);
+    const px=new Uint8Array(4); renderer.readRenderTargetPixels(b,1,1,1,1,px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
+    return px[0]>180&&px[1]<80&&px[2]<80&&gl.getError()===gl.NO_ERROR; }
+  catch(e){ return false; } finally{ try{ renderer.setRenderTarget(null); a&&a.dispose(); b&&b.dispose(); m1&&m1.dispose(); m2&&m2.dispose(); g&&g.dispose(); }catch(e){} } }
+const RT_OK=GL_OK&&(()=>{ if(QL.samples>0&&!rtWorks(QL.samples)){ QL.samples=0; QL.noSmooth=true; } return rtWorks(0); })();
 /* functional tests can ask for cheap pixels: the page, the walk and the timing are the same */
 if(window.__LOWQ){ QL.dpr=QL.dprMax=.5; QL.ao=2; QL.refl=.3; QL.grass=.3; QL.sim=256; QL.shadow=512; QL.seeds=300; QL.bloomLv=4; }
 

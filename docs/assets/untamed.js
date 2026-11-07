@@ -270,7 +270,7 @@ const A=(()=>{
       for(let t=.1;t<L;t+=.22+rnd()*.7) plip(t,520+rnd()*620,.045+rnd()*.05);   // into puddles
       { let l1=0,l2=0,h1=0,g=.7,gt=.7; const c=Math.exp(-2*Math.PI*1300/sr), ch=Math.exp(-2*Math.PI*380/sr);   // further off: a dark band, in gusts
         for(let i=0;i<n;i++){ if(i%2048===0) gt=.45+.55*rnd(); g+=(gt-g)*.00004; const x=rnd()*2-1; l1=l1*c+x*(1-c); l2=l2*c+l1*(1-c); h1=h1*ch+l2*(1-ch); d[i]+=(l2-h1)*g*.5; } }
-      for(let i=0;i<n;i++) d[i]*=.33;   // (as loud as the rain was before)
+      for(let i=0;i<n;i++) d[i]*=.235;   // (soft: a little under where it was first set)
       const s=oc.createBufferSource(); s.buffer=buf; const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=180; hp.Q.value=.6;
       const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3800; lp.Q.value=.6; s.connect(hp); hp.connect(lp); lp.connect(b.in); s.start(0); }});
   /* ---------- Diarmuid's guitar, outside the café on Earth ----------
@@ -646,7 +646,23 @@ renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const hubCam=new T.PerspectiveCamera(36,1,.1,900), stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
+/* whether this browser really draws into the kind of picture the page is made in: half-float, its edges smoothed by a few
+   samples. Checked once at the start by drawing red into a small one and reading it back through a plain one. Where the
+   smoothing fails (Safari on a Mac can draw such a picture black) the page is made without it; where half-float fails
+   too, the page shows its plain version rather than a black screen */
+function rtWorks(samples){ let a,b,m1,m2,g; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
+    a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,samples}); b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
+    const cc=new T.Color(), ca=renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000,1);
+    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); g=new T.PlaneGeometry(2,2);
+    m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); m2=new T.MeshBasicMaterial({map:a.texture,depthTest:false,depthWrite:false});
+    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(g,m1)); s2.add(new T.Mesh(g,m2));
+    renderer.setRenderTarget(a); renderer.render(s1,cam); renderer.setRenderTarget(b); renderer.render(s2,cam);
+    const px=new Uint8Array(4); renderer.readRenderTargetPixels(b,1,1,1,1,px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
+    return px[0]>180&&px[1]<80&&px[2]<80&&gl.getError()===gl.NO_ERROR; }
+  catch(e){ return false; } finally{ try{ renderer.setRenderTarget(null); a&&a.dispose(); b&&b.dispose(); m1&&m1.dispose(); m2&&m2.dispose(); g&&g.dispose(); }catch(e){} } }
 let RTS=Q<1?0:2;   // how many samples a full-screen target smooths its edges with (the frame timer can take it to none)
+if(RTS>0&&!rtWorks(RTS)) RTS=0;
+if(!rtWorks(0)) noGL();
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:RTS});
 const rtA=mkRT(), rtB=mkRT();
 /* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
@@ -4713,7 +4729,10 @@ function tube(R0,n=16,a0=0,a1=TAU){ const full=a1-a0>TAU-1e-4, m=full?n:n+1, cy=
   return G; }
 /* a head: where each direction from its middle lands on the skin. w, h, d: half its width, height and depth; jaw: how much
    narrower it gets toward the chin; chin: how far the chin comes forward */
-const headF=(w,h,d,jaw,chin)=>u=>{ const lo=sstep(.15,-.95,u.y), fr=sstep(-.35,.35,u.z);
+/* a head: w, h, d its half width, height and depth; jaw how much it narrows to the chin, chin how far that comes forward; ang
+   squares it off (0 round, toward 1 angular: cheekbones, the corners of the jaw and a flatter brow and chin) */
+const headF=(w,h,d,jaw,chin,ang=0)=>u0=>{ let u=u0; if(ang){ const q=1-ang, sq=c=>Math.sign(c)*Math.pow(Math.abs(c),q); u={x:sq(u0.x),y:u0.y<0?-Math.pow(-u0.y,1-ang*.45):u0.y,z:sq(u0.z)}; }
+  const lo=sstep(.15,-.95,u.y), fr=sstep(-.35,.35,u.z);
   return v3(u.x*w*(1-jaw*lo),u.y*h,u.z*d*lerp(1.07,1-.05*(1-lo),fr)+chin*lo*Math.max(0,u.z)); };
 function fnorm(f,u){ const t1=v3().crossVectors(u,Math.abs(u.y)<.9?fY:fX).normalize(), t2=v3().crossVectors(u,t1), p=f(u),
   n=f(t1.multiplyScalar(.01).add(u).normalize()).sub(p).cross(f(t2.multiplyScalar(.01).add(u).normalize()).sub(p)).normalize(); return n.dot(p)<0?n.negate():n; }
@@ -4829,10 +4848,17 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   if(o.logo) blot(bd,TS,oval(.075*W,.86,.011,.006,8),o.logo,.003);
   if(o.pack){ bd.put(FG.box,o.pack,0,.79,-.17,.24,.3,.12); bd.put(FG.box,tint(o.pack,-.3),0,.93,-.205,.2,.05,.06); [-1,1].forEach(s=>bd.put(FG.box,tint(o.pack,-.3),s*.085,.83,0,.028,.2,.235)); }   // and its straps
   body.add(bd.mesh());
-  // legs: trousers tapering to the ankle, and shoes with a sole
+  // legs: trousers tapering to the ankle; and shoes: a sole rounded at the toe and the heel, a low toe and a heel cup on it,
+  // laces down the front, and the hem of the trousers resting on top. Toes turn out a touch, as people stand
+  const sole=o.sole||tint(o.shoes,-.35), lt=C3(o.shoes), lace=o.lace||tint(o.shoes,lt.r*.3+lt.g*.59+lt.b*.11>.55?-.28:.42);
   const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.074*W,.5,0); const L=part();
     L.put(FG.sph,o.pants,0,0,0,.07); L.put(FG.limb,o.pants,0,-.215,0,.069,.43,.069); L.put(FG.tube,o.pants,0,-.418,0,.058,.026,.06);
-    L.put(FG.box,o.sole||tint(o.shoes,-.35),0,-.488,.03,.098,.024,.21); L.put(FG.sph,o.shoes,0,-.458,.034,.052,.044,.102); L.put(FG.sph,o.shoes,0,-.445,-.012,.05,.05,.05);
+    const ry=s*.1, fz=(g,c,y,z,sx,sy,sz,rx=0)=>L.put(g,c,Math.sin(ry)*z,y,Math.cos(ry)*z,sx,sy,sz,rx,ry);   // (turned about the ankle)
+    fz(FG.box,sole,-.487,.025,.088,.026,.122); fz(FG.can,sole,-.487,-.036,.045,.026,.047); fz(FG.can,sole,-.487,.086,.045,.026,.047);
+    fz(FG.sph,o.shoes,-.469,.05,.045,.036,.072,-.05);   // the toe, low and long
+    fz(FG.sph,o.shoes,-.452,-.028,.047,.046,.052);   // the heel and the ankle
+    fz(FG.box,lace,-.44,.036,.03,.008,.056,-.38);   // the laces
+    L.put(FG.tube,tint(o.pants,-.12),0,-.432,0,.06,.01,.062);
     l.add(L.mesh()); body.add(l); return l; });
   // arms: a rounded shoulder and the upper arm in one piece, the forearm and hand in another, so a wave can bend at the elbow
   const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
@@ -4919,7 +4945,7 @@ const Y_UP=new T.Vector3(0,1,0);
    goes back to his piece. He is not one of the three to meet.
    Everything about how he looks is in DM_LOOK, so it is one place to change. */
 const DM_LOOK={shirt:'#8a7161',crew:true,under:'#8aa48f',pants:'#2f3137',shoes:'#9b6234',sole:'#e2d4bc',skin:'#e7bea2',build:.8,arm:.82,depth:.62,
-  head:[.14,.184,.152,.16,.02],face:{bw:.012,arch:.006,by:.054},mouth:'smile',hair:'wavy',hairC:'#7d6d5f',glasses:'#25201d',stubble:'#857a70',mous:true,
+  head:[.136,.19,.148,.27,.03,.32],face:{bw:.012,arch:.006,by:.054},mouth:'smile',hair:'wavy',hairC:'#7d6d5f',glasses:'#25201d',stubble:'#857a70',mous:true,
   tall:{leg:1.22,torso:1.1,arm:1.17,fore:1.12,all:1.03},   // how much longer than the figure's own his legs, body and arms are, then all of him
   guitar:{body:'#b4512e',guard:'#efe6d2',neck:'#d4ad78',board:'#3b2a22',strap:'#3a2f28'}};
 /* his hair: brown, a bit long and tousled. A full cap heaped up in uneven clumps, a few pieces flicking out round the
@@ -5533,7 +5559,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on)) pcOpen(false); }
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on)) pcOpen(false); }   // (none inside the café: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.

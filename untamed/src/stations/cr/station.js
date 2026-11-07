@@ -458,7 +458,10 @@ function tube(R0,n=16,a0=0,a1=TAU){ const full=a1-a0>TAU-1e-4, m=full?n:n+1, cy=
   return G; }
 /* a head: where each direction from its middle lands on the skin. w, h, d: half its width, height and depth; jaw: how much
    narrower it gets toward the chin; chin: how far the chin comes forward */
-const headF=(w,h,d,jaw,chin)=>u=>{ const lo=sstep(.15,-.95,u.y), fr=sstep(-.35,.35,u.z);
+/* a head: w, h, d its half width, height and depth; jaw how much it narrows to the chin, chin how far that comes forward; ang
+   squares it off (0 round, toward 1 angular: cheekbones, the corners of the jaw and a flatter brow and chin) */
+const headF=(w,h,d,jaw,chin,ang=0)=>u0=>{ let u=u0; if(ang){ const q=1-ang, sq=c=>Math.sign(c)*Math.pow(Math.abs(c),q); u={x:sq(u0.x),y:u0.y<0?-Math.pow(-u0.y,1-ang*.45):u0.y,z:sq(u0.z)}; }
+  const lo=sstep(.15,-.95,u.y), fr=sstep(-.35,.35,u.z);
   return v3(u.x*w*(1-jaw*lo),u.y*h,u.z*d*lerp(1.07,1-.05*(1-lo),fr)+chin*lo*Math.max(0,u.z)); };
 function fnorm(f,u){ const t1=v3().crossVectors(u,Math.abs(u.y)<.9?fY:fX).normalize(), t2=v3().crossVectors(u,t1), p=f(u),
   n=f(t1.multiplyScalar(.01).add(u).normalize()).sub(p).cross(f(t2.multiplyScalar(.01).add(u).normalize()).sub(p)).normalize(); return n.dot(p)<0?n.negate():n; }
@@ -574,10 +577,17 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   if(o.logo) blot(bd,TS,oval(.075*W,.86,.011,.006,8),o.logo,.003);
   if(o.pack){ bd.put(FG.box,o.pack,0,.79,-.17,.24,.3,.12); bd.put(FG.box,tint(o.pack,-.3),0,.93,-.205,.2,.05,.06); [-1,1].forEach(s=>bd.put(FG.box,tint(o.pack,-.3),s*.085,.83,0,.028,.2,.235)); }   // and its straps
   body.add(bd.mesh());
-  // legs: trousers tapering to the ankle, and shoes with a sole
+  // legs: trousers tapering to the ankle; and shoes: a sole rounded at the toe and the heel, a low toe and a heel cup on it,
+  // laces down the front, and the hem of the trousers resting on top. Toes turn out a touch, as people stand
+  const sole=o.sole||tint(o.shoes,-.35), lt=C3(o.shoes), lace=o.lace||tint(o.shoes,lt.r*.3+lt.g*.59+lt.b*.11>.55?-.28:.42);
   const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.074*W,.5,0); const L=part();
     L.put(FG.sph,o.pants,0,0,0,.07); L.put(FG.limb,o.pants,0,-.215,0,.069,.43,.069); L.put(FG.tube,o.pants,0,-.418,0,.058,.026,.06);
-    L.put(FG.box,o.sole||tint(o.shoes,-.35),0,-.488,.03,.098,.024,.21); L.put(FG.sph,o.shoes,0,-.458,.034,.052,.044,.102); L.put(FG.sph,o.shoes,0,-.445,-.012,.05,.05,.05);
+    const ry=s*.1, fz=(g,c,y,z,sx,sy,sz,rx=0)=>L.put(g,c,Math.sin(ry)*z,y,Math.cos(ry)*z,sx,sy,sz,rx,ry);   // (turned about the ankle)
+    fz(FG.box,sole,-.487,.025,.088,.026,.122); fz(FG.can,sole,-.487,-.036,.045,.026,.047); fz(FG.can,sole,-.487,.086,.045,.026,.047);
+    fz(FG.sph,o.shoes,-.469,.05,.045,.036,.072,-.05);   // the toe, low and long
+    fz(FG.sph,o.shoes,-.452,-.028,.047,.046,.052);   // the heel and the ankle
+    fz(FG.box,lace,-.44,.036,.03,.008,.056,-.38);   // the laces
+    L.put(FG.tube,tint(o.pants,-.12),0,-.432,0,.06,.01,.062);
     l.add(L.mesh()); body.add(l); return l; });
   // arms: a rounded shoulder and the upper arm in one piece, the forearm and hand in another, so a wave can bend at the elbow
   const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
@@ -664,7 +674,7 @@ const Y_UP=new T.Vector3(0,1,0);
    goes back to his piece. He is not one of the three to meet.
    Everything about how he looks is in DM_LOOK, so it is one place to change. */
 const DM_LOOK={shirt:'#8a7161',crew:true,under:'#8aa48f',pants:'#2f3137',shoes:'#9b6234',sole:'#e2d4bc',skin:'#e7bea2',build:.8,arm:.82,depth:.62,
-  head:[.14,.184,.152,.16,.02],face:{bw:.012,arch:.006,by:.054},mouth:'smile',hair:'wavy',hairC:'#7d6d5f',glasses:'#25201d',stubble:'#857a70',mous:true,
+  head:[.136,.19,.148,.27,.03,.32],face:{bw:.012,arch:.006,by:.054},mouth:'smile',hair:'wavy',hairC:'#7d6d5f',glasses:'#25201d',stubble:'#857a70',mous:true,
   tall:{leg:1.22,torso:1.1,arm:1.17,fore:1.12,all:1.03},   // how much longer than the figure's own his legs, body and arms are, then all of him
   guitar:{body:'#b4512e',guard:'#efe6d2',neck:'#d4ad78',board:'#3b2a22',strap:'#3a2f28'}};
 /* his hair: brown, a bit long and tousled. A full cap heaped up in uneven clumps, a few pieces flicking out round the
@@ -1278,7 +1288,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on)) pcOpen(false); }
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on)) pcOpen(false); }   // (none inside the café: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.

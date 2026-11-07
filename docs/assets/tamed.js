@@ -550,6 +550,21 @@ const QL={
   ao:MOBILE?3:5, shadow:HQ?4096:(MOBILE?1024:2048), seeds:MOBILE?500:1100, bloomLv:MOBILE?4:5,
 };
 QL.dpr=TEST?1:Math.min(QL.dprMax,MOBILE?1.25:1.3);
+/* whether this browser really draws into the kind of picture the page is made in: half-float, its edges smoothed by a few
+   samples. Checked once at the start by drawing red into a small one and reading it back through a plain one. Where the
+   smoothing fails (Safari on a Mac can draw such a picture black) the page is made without it; where half-float fails
+   too, the page shows its plain version rather than a black screen */
+function rtWorks(samples){ let a,b,m1,m2,g; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
+    a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,samples}); b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
+    const cc=new T.Color(), ca=renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000,1);
+    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); g=new T.PlaneGeometry(2,2);
+    m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); m2=new T.MeshBasicMaterial({map:a.texture,depthTest:false,depthWrite:false});
+    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(g,m1)); s2.add(new T.Mesh(g,m2));
+    renderer.setRenderTarget(a); renderer.render(s1,cam); renderer.setRenderTarget(b); renderer.render(s2,cam);
+    const px=new Uint8Array(4); renderer.readRenderTargetPixels(b,1,1,1,1,px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
+    return px[0]>180&&px[1]<80&&px[2]<80&&gl.getError()===gl.NO_ERROR; }
+  catch(e){ return false; } finally{ try{ renderer.setRenderTarget(null); a&&a.dispose(); b&&b.dispose(); m1&&m1.dispose(); m2&&m2.dispose(); g&&g.dispose(); }catch(e){} } }
+const RT_OK=GL_OK&&(()=>{ if(QL.samples>0&&!rtWorks(QL.samples)){ QL.samples=0; QL.noSmooth=true; } return rtWorks(0); })();
 /* functional tests can ask for cheap pixels: the page, the walk and the timing are the same */
 if(window.__LOWQ){ QL.dpr=QL.dprMax=.5; QL.ao=2; QL.refl=.3; QL.grass=.3; QL.sim=256; QL.shadow=512; QL.seeds=300; QL.bloomLv=4; }
 
@@ -3277,7 +3292,8 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
   const runBench=async()=>{ QM.off=true; for(const [n,on,off] of T0){ on(); await wait(600); DIAG.fr.length=0; DIAG.js.length=0; await wait(2600); DIAG.bench.push([n,med(DIAG.fr),p90(DIAG.fr),med(DIAG.js)]); off(); await wait(300); } QM.off=false; DIAG.bt='done'; };
   let gpu='?'; try{ const gl=renderer&&renderer.getContext(), ext=gl&&gl.getExtension('WEBGL_debug_renderer_info'); gpu=gl?(ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)):'no WebGL'; }catch(e){ gpu='error '+e.message; }
   setInterval(()=>{ const now=performance.now(); if(S.ready&&!DIAG.bt&&now-DIAG.last>3000){ DIAG.bt='running'; runBench(); }
-    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')+'\n\n'
+    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')
+      +'\npicture: '+(RT_OK?'draws':'does not draw (plain page)')+', edge smoothing '+(QL.samples?QL.samples+' samples':(QL.noSmooth?'off (this browser draws it black)':'off'))+'\n\n'
       +DIAG.steps.map(([n,ms])=>(n+'                          ').slice(0,26)+String(ms).padStart(7)+' ms').join('\n')
       +'\n'+(S.ready?'READY':'now: '+DIAG.cur+' for '+Math.round(now-DIAG.last)+' ms')+'\ntotal '+Math.round(now)+' ms since the page opened'
       +'\n\nframes now: '+med(DIAG.fr).toFixed(1)+' ms (1 in 10 over '+p90(DIAG.fr).toFixed(1)+' ms), script '+med(DIAG.js).toFixed(1)+' ms a frame'
@@ -3285,7 +3301,7 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
       +(DIAG.bt==='running'?'\n(testing, a few seconds...)':DIAG.bt==='done'?'\n(test done)':'')
       +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):''); },250); }
 async function boot(){
-  if(!GL_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
+  if(!GL_OK||!RT_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08); diag('fonts');
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
   await nextFrame(); diag('build outside');
@@ -3312,7 +3328,7 @@ requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
-window.__tamed={S,SC,A,QL,UI,PLACES,LAUNCH,POND,get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
+window.__tamed={S,SC,A,QL,UI,PLACES,LAUNCH,POND,rtWorks,get RT_OK(){ return RT_OK; },get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,

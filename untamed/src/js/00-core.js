@@ -267,7 +267,7 @@ const A=(()=>{
       for(let t=.1;t<L;t+=.22+rnd()*.7) plip(t,520+rnd()*620,.045+rnd()*.05);   // into puddles
       { let l1=0,l2=0,h1=0,g=.7,gt=.7; const c=Math.exp(-2*Math.PI*1300/sr), ch=Math.exp(-2*Math.PI*380/sr);   // further off: a dark band, in gusts
         for(let i=0;i<n;i++){ if(i%2048===0) gt=.45+.55*rnd(); g+=(gt-g)*.00004; const x=rnd()*2-1; l1=l1*c+x*(1-c); l2=l2*c+l1*(1-c); h1=h1*ch+l2*(1-ch); d[i]+=(l2-h1)*g*.5; } }
-      for(let i=0;i<n;i++) d[i]*=.33;   // (as loud as the rain was before)
+      for(let i=0;i<n;i++) d[i]*=.235;   // (soft: a little under where it was first set)
       const s=oc.createBufferSource(); s.buffer=buf; const hp=oc.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=180; hp.Q.value=.6;
       const lp=oc.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3800; lp.Q.value=.6; s.connect(hp); hp.connect(lp); lp.connect(b.in); s.start(0); }});
   /* ---------- Diarmuid's guitar, outside the café on Earth ----------
@@ -643,7 +643,23 @@ renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const hubCam=new T.PerspectiveCamera(36,1,.1,900), stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uPx:{value:800},uMouse:{value:new T.Vector2(9,9)},uAspect:{value:1}};
+/* whether this browser really draws into the kind of picture the page is made in: half-float, its edges smoothed by a few
+   samples. Checked once at the start by drawing red into a small one and reading it back through a plain one. Where the
+   smoothing fails (Safari on a Mac can draw such a picture black) the page is made without it; where half-float fails
+   too, the page shows its plain version rather than a black screen */
+function rtWorks(samples){ let a,b,m1,m2,g; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
+    a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,samples}); b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
+    const cc=new T.Color(), ca=renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000,1);
+    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); g=new T.PlaneGeometry(2,2);
+    m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); m2=new T.MeshBasicMaterial({map:a.texture,depthTest:false,depthWrite:false});
+    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(g,m1)); s2.add(new T.Mesh(g,m2));
+    renderer.setRenderTarget(a); renderer.render(s1,cam); renderer.setRenderTarget(b); renderer.render(s2,cam);
+    const px=new Uint8Array(4); renderer.readRenderTargetPixels(b,1,1,1,1,px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
+    return px[0]>180&&px[1]<80&&px[2]<80&&gl.getError()===gl.NO_ERROR; }
+  catch(e){ return false; } finally{ try{ renderer.setRenderTarget(null); a&&a.dispose(); b&&b.dispose(); m1&&m1.dispose(); m2&&m2.dispose(); g&&g.dispose(); }catch(e){} } }
 let RTS=Q<1?0:2;   // how many samples a full-screen target smooths its edges with (the frame timer can take it to none)
+if(RTS>0&&!rtWorks(RTS)) RTS=0;
+if(!rtWorks(0)) noGL();
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:RTS});
 const rtA=mkRT(), rtB=mkRT();
 /* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
