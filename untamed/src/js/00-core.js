@@ -516,7 +516,7 @@ const A=(()=>{
       BUSK.want=v; SOLO.want=s; BK.duck=1-.9*sstep(.25,.85,k); },
     /* how far into his piece and into the solo the recordings are now (seconds, -1 when not sounding), and what he plays,
        so his hands can keep time with what you hear */
-    buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS}; },
+    buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS,done:BK.done}; },
     /* ---------- the cliff on Earth: a bench and a kite. Each sound is short and soft, a tone or a narrow band, never a bed of noise ---------- */
     /* the bench taking your weight: a dry creak of old wood, a slow buzz through the hollow ring of a plank (soft: getting up) */
     creak(soft=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.08), d=soft?.24:.4, g=soft?.13:.22;

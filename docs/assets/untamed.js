@@ -519,7 +519,7 @@ const A=(()=>{
       BUSK.want=v; SOLO.want=s; BK.duck=1-.9*sstep(.25,.85,k); },
     /* how far into his piece and into the solo the recordings are now (seconds, -1 when not sounding), and what he plays,
        so his hands can keep time with what you hear */
-    buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS}; },
+    buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS,done:BK.done}; },
     /* ---------- the cliff on Earth: a bench and a kite. Each sound is short and soft, a tone or a narrow band, never a bed of noise ---------- */
     /* the bench taking your weight: a dry creak of old wood, a slow buzz through the hollow ring of a plank (soft: getting up) */
     creak(soft=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.08), d=soft?.24:.4, g=soft?.13:.22;
@@ -5123,7 +5123,7 @@ function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM
   if(DM.goal){ if(TALK.goal||TALK.p||busy) DM.goal=false; else if(d<2.8||(!P.path&&!P.tgt&&d<3.4)){ DM.goal=false; P.path=null; P.tgt=null; buskAsk(); } else if(!P.path&&!P.tgt) DM.goal=false; }
   if(DM.st==='talk'&&TALK.p!==DMP){ DM.st='play'; DM.stT=0; }   // (the conversation went some other way than closing)
   if(DM.st==='nod'&&DM.stT>.95){ DM.st='solo'; DM.stT=0; DM.sct=0; }
-  if(DM.st==='solo'&&DM.sct>((DM.score&&DM.score.solo.P)||18)-2){ DM.st='play'; DM.stT=0; DM.cool=1.2; }
+  if(DM.st==='solo'&&(DM.sct>((DM.score&&DM.score.solo.P)||18)-2||(DM.sct>3&&A.buskAt&&A.buskAt().done))){ DM.st='play'; DM.stT=0; DM.cool=1.2; }   // (or as soon as the recording has rung out, however slow the frames)
   /* talking, he stops playing and the town's music comes back a little under the conversation */
   A.busk&&A.busk(DM.st==='play'?lv:0,DM.st==='solo'?Math.max(1e-4,Math.min(1,lv*1.15)):0,DM.st==='talk'?lv*.3:lv);   // (the solo kept just above nothing while you are away, so it carries on rather than starting again)
   /* his clock: the recording's own time where it is playing, his own where it is not, so his hands keep time with what you hear */
