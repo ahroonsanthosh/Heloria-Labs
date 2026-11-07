@@ -674,6 +674,28 @@ const A=(()=>{
     /* the kite taking the wind: a soft breath rising under three notes climbing in the town's key */
     lift(){ if(!on||muted||!ctx) return; noise(1,.06,240,760,'bandpass',.9,0,.25);
       [392,523.25,659.25].forEach((f,i)=>{ tone(f,1.1,.018,'sine',0,.08+i*.15,.5,.02); tone(f*2,.4,.005,'sine',0,.08+i*.15,.3,.01); }); },
+    /* ---------- the workshop on Earth: its roller shutter and its strip lights. Every sound here is a ringing click, a knock
+       or a low hum, never a band of noise (on a phone that is static) ---------- */
+    /* the shutter's motor: two low saws a fifth apart and an octave, under a soft low pass, coming up to speed; the handle's
+       stop() lets it run down (it lets go by itself after six seconds, whatever happens) */
+    shutterMotor(open=true,k=1){ if(!on||muted||!ctx) return {stop(){}}; const t0=ctx.currentTime, v=vr(.04), f0=(open?58:52)*v, lp=ctx.createBiquadFilter(), a=ctx.createGain(), os=[], g=.033*k;
+      lp.type='lowpass'; lp.frequency.value=400; lp.Q.value=1.1; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.2); a.gain.setValueAtTime(g,t0+5.5); a.gain.linearRampToValueAtTime(0,t0+6);
+      lp.connect(a); a.connect(comp);
+      [[1,1],[1.5,.4],[2,.22]].forEach(([m,k])=>{ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sawtooth'; o.frequency.setValueAtTime(f0*m*.8,t0); o.frequency.linearRampToValueAtTime(f0*m,t0+.35); g.gain.value=k; o.connect(g); g.connect(lp); o.start(t0); o.stop(t0+6.1); os.push(o); });
+      let done=false; return {stop(){ if(done) return; done=true; const t=ctx.currentTime; a.gain.cancelScheduledValues(t); a.gain.setValueAtTime(a.gain.value,t); a.gain.linearRampToValueAtTime(0,t+.18);
+        os.forEach(o=>{ o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(o.frequency.value,t); o.frequency.linearRampToValueAtTime(o.frequency.value*.75,t+.18); try{ o.stop(t+.25); }catch(e){} }); }}; },
+    /* a slat going over the drum: a short ringing click and a little knock, then the pawl's two lighter ticks before the next
+       one (gap: seconds to the next slat) */
+    ratchet(gap=.18,k=1){ if(!on||muted||!ctx) return; const f=1850*vr(.09); tone(f,.035,.03*k,'sine',0,0,0,.001); tone(f*2.76,.02,.012*k,'sine',0,0,0,.001); tone(210*vr(.1),.05,.026*k,'triangle',120,0,0,.002);
+      const g=clamp(gap,.04,.4); [1/3,2/3].forEach(q=>tone(3300*vr(.06),.012,.008*k,'sine',0,g*q,0,.001)); },
+    /* the shutter at the end of its run: a clank up in the drum, or the bottom rail landing on the floor and a last rattle */
+    shutterEnd(open=true,k=1){ if(!on||muted||!ctx) return; const v=vr(.04);
+      if(open){ tone(620*v,.18,.026*k,'sine',0,0,.15,.002); tone(1490*v,.1,.01*k,'sine',0,0,0,.001); tone(95,.16,.034*k,'sine',60); }
+      else { tone(110*v,.22,.05*k,'sine',55); tone(240*v,.08,.024*k,'triangle',140); [.06,.11,.15].forEach((d,i)=>tone(1500*vr(.1),.03,.012*k*(1-i*.25),'sine',0,d,0,.001)); } },
+    /* a strip light catching: the starter's bright tink and the tube's short buzz (k: how strongly) */
+    tube(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tone(3150*v,.02,.016*k,'sine',0,0,0,.001); tone(4700*v,.012,.006*k,'sine',0,0,0,.001);
+      const t0=ctx.currentTime, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(); o.type='sawtooth'; o.frequency.value=100; b.type='bandpass'; b.frequency.value=720; b.Q.value=2.2;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.02*k,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+.12); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);

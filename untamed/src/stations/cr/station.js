@@ -297,9 +297,8 @@ function buildTown(){
   H(-10.6,10.4,{wall:'#e9d3b0',roof:'#7d5a8f',w:3,d:2.6});
   H(6.4,-12.6,{wall:'#dfe6ef',roof:'#c8664b',w:3.2,flowers:true});
   // the workshop: Heloria Labs
-  { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); house(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',flat:true,w:4.8,d:3.2,h:3,doorX:1.65,win:[-1.9],
-      extra:(M,w,d,h)=>{ box(M,'#8c9599',-.35,.2,d/2+.02,2.1,2.1,.05); for(let k=0;k<11;k++) box(M,'#a9b2b5',-.35,.3+k*.18,d/2+.05,2,.04,.03); box(M,'#59646a',-.35,2.3,d/2+.04,2.3,.12,.08);
-        sign(sub(M,-.35,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
+  { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); labHouse(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',w:4.8,d:3.2,h:3,   // (its roller shutter opens on the garage: see the workshop, at the end)
+      extra:(M,w,d,h)=>{ sign(sub(M,GW.ox,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
         [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4); obsAt(M,cx,cz,.42,.8); }); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
         /* Beacon: a mast on the roof that keeps calling out */
         const B=sub(M,1.4,h+.26,-.7), bw=new T.Vector3(1.4,h+.26,-.7).applyMatrix4(M); const mk=MK.be=mark('be',0,0); mk.base.copy(bw); kitTo('be');
@@ -1332,7 +1331,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on)) pcOpen(false); }   // (none inside the café: the room has its own things to do)
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on)) pcOpen(false); }   // (none inside the café or the workshop: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.
@@ -2081,7 +2080,7 @@ const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
 function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on){ a.walk=0; return; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
     if(d<7){ AH.st='here'; a.wave=2; openInvite(); return; }   // close enough: he just asks
@@ -2296,7 +2295,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
-  if(PHS.on||CAFE.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café), you stay put
+  if(PHS.on||CAFE.on||GAR.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, or the workshop), you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -2978,7 +2977,7 @@ $('#crSkip',el).addEventListener('click',e=>{ if(!QS.on) return; e.stopPropagati
    scene starts. (false: the last flight goes straight on without it, which is only ever when Earth is not built yet) */
 function csStart(){ if(!st.built) return false; csBuild(true); if(!QS.built) return false; const P=player;
   closeTalk(); GLN.t=-1; goBtn.hidden=true; TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
-  if(CAFE.st!=='out') cafeReset(); CAFE.mk=0; if(PHS.on) steerSet(false); if(PC.on) pcOpen(false); pcCard.hidden=true;
+  if(CAFE.st!=='out') cafeReset(); CAFE.mk=0; garReset(); if(PHS.on) steerSet(false); if(PC.on) pcOpen(false); pcCard.hidden=true;
   Object.assign(FIN,{on:true,pre:true,t:0,ask:false,go:false,hold:false,held:0,wave:0,mus:.55,fov:45,ign:false,shut:false});
   S.fin=true; S.flash=Math.max(S.flash,.6); cine(true); el.classList.add('fin','crq','walked'); document.documentElement.classList.add('crq'); hint.classList.add('gone');
   people.forEach(p=>{ p.g.visible=false; if(p.beam) p.beam.visible=false; }); me.visible=false;   // the three of us, and you, are off camera until the launch
@@ -3095,4 +3094,512 @@ st._dbg.launch={QS,QCUE,QLINES,QID,start:()=>startFinale(),skip:csSkip,plan:()=>
     id:QUI.id.classList.contains('on')?QUI.in.textContent:null,say:QUI.say.classList.contains('on')?QUI.s.textContent:null,greens:QS.greens,figs:!!(QS.figs.gideon&&QS.figs.gideon.visible),desk:!!(QS.desk&&QS.desk.visible),
     plan:QS.plan?{g:QS.plan.g.g.map(v=>+v.toFixed(2)),gcam:QS.plan.g.cam.map(v=>+v.toFixed(2)),gd:+QS.plan.g.d.toFixed(2),ocam:QS.plan.o.cam.map(v=>+v.toFixed(2)),od:+QS.plan.o.d.toFixed(2),side:QS.plan.side,dark:+QS.plan.dark.toFixed(2)}:null}; }};
 /* ===================== (the launch scene ends here) ===================== */
+
+/* ===================== the workshop: the shutter opens on the garage =====================
+   The workshop's roller shutter opens. Walk up to it and the tag over it says Open (or press E by it, or click or tap the
+   shutter, from across the street too): the motor hums, the slats rattle up over the drum one by one, and inside the strip
+   lights flicker and catch. In there is the garage where we build things: a little kei van with its back opened up and a
+   rocket engine where the boxes should be (the bell out past the bumper, two tanks and the plumbing in the bay), big red
+   tool chests, a pegboard of tools over a bench covered in parts, a vice and a lamp, a whiteboard of sketches, the
+   tricolour on the wall, a trophy fallen on its side, books and mugs, boxes, fins, spare wheels and oil on the floor.
+   Go in (the tag says Go in once it is up; or E, or click or tap the doorway, or just walk into it): as in the café you
+   walk in, and the camera comes down behind you, through the opening and into your own eyes, standing among it all. Drag
+   (or the arrows, or A and D) to look round; W leans in; S, Escape, Leave the workshop, or a tap on the way out takes you
+   back out onto the apron, turned round to look back in. It is a look round rather than a walk: the room is four and a
+   half metres by three with a car in it, too small for the town's camera to follow you round without going through a
+   wall, and in your own eyes it is close and busy, as a real garage is. Walk away and the shutter rolls down again.
+   It is lit by its own lamps (warm, warmer by night), by day by the street through the opening as well, and by night its
+   light spills out across the ramp and the pavement. Inside, the town's music is a little quieter and nothing of the
+   street (tags, cards, buttons, the postcard, as in the café) is drawn over the room, only the way out.
+   The room is built with the town and hidden until the shutter starts to go up, so it costs nothing until then, and its
+   shaders are made ready with the rest of Earth's. */
+/* where it all is, in the workshop's own frame (x across, y up from the ground, z out to the street): its size and walls,
+   the opening (its middle, width and head), the garage floor (the plinth's top), eye height, where you stand inside and
+   which way you look when you get there (on a phone held upright, straight at the engine), the apron outside the gap
+   beside the van, where you come back out onto the pavement, the way in past the van, and where the van stands */
+const GW={w:4.8,d:3.2,h:3,t:.1,FL:.22,ox:.7,ow:1.9,ot:2.2,EY:1.17,S:[-1.3,.75],AP:[.15,2.35],EX:[.58,2.85],WAY:[[.2,2.15],[.18,1.4],[-.45,.95]],CAR:[1.12,-.16],yaw0:-1.2,yawP:-1.62,p0:.02};
+const GIX=GW.w/2-GW.t, GIZ=GW.d/2-GW.t, GZI=GW.d/2+.09, GZO=GW.d/2+.62;   // the walls' inside faces; the ramp, from the plinth's edge to the pavement
+/* the shutter: twelve slats over a bottom rail, and how far it rolls up (the rail stays just showing under the drum's box) */
+const GSN=12, GRAIL=.07, GSP=(GW.ot-.2-GRAIL)/GSN, GLIFT=GW.ot-.2-GRAIL*.6, GSH_UP=2.5, GSH_DN=2.7, GT_IN=3, GT_OUT=2.9;
+/* st: out, go (walking over), enter, in, exit. sh: how far up the shutter is; shSt: shut, up, open, down */
+const GAR={st:'out',on:false,k:0,t:0,M:null,Mi:null,x:0,z:0,up:new T.Vector3(0,1,0),g:null,meshes:[],sh:0,shSt:'shut',shT:0,motor:null,q:0,away:0,then:null,go:0,
+  tubes:[0,0,0],lamp:0,lit:false,fl:null,flT:0,dodgy:14,yaw:0,pitch:0,lean:0,dragT:9,drag:null,tap:null,out:0,cur:false,kb:false,mk:0,da:99,you:{x:0,z:9,fz:0},
+  cp:new T.Vector3(),cl:new T.Vector3(),cu:new T.Vector3(0,1,0),pl:new T.Vector3(),c0:new T.Vector3(),curve:null,lcurve:null,wIn:null,fig:[0,0],fh:0,fph:0,fstep:0,
+  apW:[0,0],slats:null,rail:null,pool:null,pick:null,pickOut:null,solids:[],boards:[],clicks:0,tagOn:false,tagCan:false,warm:true,tagP:[0,0,9]};
+const gV=new T.Vector3(), gV2=new T.Vector3(), gV3=new T.Vector3(), gV4=new T.Vector3(), gR1=new T.Vector3(), gR2=new T.Vector3(), gS=new T.Vector3(), gQ=new T.Quaternion(), gE=new T.Euler(),
+  gM=new T.Matrix4(), gL=new T.Matrix4(), gI=new T.Matrix4(), gSM=new T.Matrix4(), gST=new T.Matrix4(), gRay=new T.Raycaster(), gNdc=new T.Vector2();
+const wsW=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(GAR.M);   // a point in the workshop's frame, in the world
+const wsD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(GAR.M);
+const wsL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(GAR.Mi);
+const wsXZ=(x,z)=>loc(wsW(x,0,z,gV4).normalize());   // on the town's map
+const wsTf=(Mx,x,y,z,ry=0,rx=0,rz=0)=>new T.Matrix4().multiplyMatrices(Mx,new T.Matrix4().compose(gR1.set(x,y,z),gQ.setFromEuler(gE.set(rx,ry,rz,'YXZ')),gS.set(1,1,1)));
+
+/* ---------- the building: as every other house (see house), but its front is open where the shutter is, with the drum's
+   box over it, the guides down either side, and a concrete ramp up to it from the pavement; the shutter rides in the guides ---------- */
+function labHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w, d=o.d, h=o.h, tr=o.trim||'#f6f1e7', t=GW.t, x0=GW.ox-GW.ow/2, x1=GW.ox+GW.ow/2, I=gI.identity();
+  Object.assign(GAR,{M,Mi:M.clone().invert(),x,z}); HOUSES.push({M,w,d,h,dx:-1.85,flat:true});
+  box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18);
+  slab(M,o.wall,'x',d/2-t/2,w,t,.2,h,[[GW.ox,GW.ow,0,GW.ot]]); slab(M,o.wall,'x',-d/2+t/2,w,t,.2,h,[]); slab(M,o.wall,'z',w/2-t/2,d-2*t,t,.2,h,[]); slab(M,o.wall,'z',-w/2+t/2,d-2*t,t,.2,h,[]);
+  box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3);
+  windowAt(M,-1.9,1.42,d/2,0,{trim:tr}); windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
+  box(M,'#59646a',GW.ox,GW.ot,d/2+.045,GW.ow+.22,.195,.09); box(M,'#4b555a',GW.ox,GW.ot+.185,d/2+.05,GW.ow+.26,.025,.1); [x0-.12,x1+.12].forEach(cx=>box(M,'#4b555a',cx,GW.ot-.01,d/2+.05,.04,.22,.1));
+  [x0-.035,x1+.035].forEach(gx=>box(M,'#7d878b',gx,.2,d/2+.024,.07,GW.ot-.2,.048));   // (their faces flush with the slats': a sliver of a face inks as dots)
+  { const xa=x0-.12, xb=x1+.12, gnd=lz=>lx=>{ const [mx,mz]=loc(wsW(lx,0,lz,gV).normalize()); return at(mx,mz).multiplyScalar(R+standH(mx,mz)+.006); };
+    const A0=wsW(xa,.22,GZI), B0=wsW(xb,.22,GZI), A1=gnd(GZO)(xa), B1=gnd(GZO)(xb), A2=gnd(GZI)(xa), B2=gnd(GZI)(xb), n=gV2.subVectors(B0,A0).cross(gV3.subVectors(A1,A0)).normalize(); if(n.dot(A0)<0) n.negate();
+    kquad(A0,B0,B1,A1,n.clone(),'#b9b2a6'); const s=wsD(-1,0,0); ktri(A0,A1,A2,s,'#a9a297'); ktri(B0,B2,B1,s.clone().negate(),'#a9a297'); }
+  kitTo('gslat'); box(I,'#a9b2b5',0,0,0,GW.ow,GSP-.018,.026); box(I,'#848d91',0,GSP-.018,0,GW.ow,.018,.026); const sg=kgeo('gslat');
+  kitTo('grail'); box(I,'#59646a',0,0,0,GW.ow,GRAIL,.026); box(I,'#2b2c2e',0,-.008,0,GW.ow,.01,.02); box(I,'#3a3f42',0,.02,.026,.22,.026,.016); [-.62,.62].forEach(hx=>box(I,'#3a3f42',hx,.018,.022,.05,.03,.012));
+  const rg=kgeo('grail'); kitTo(); delete KITS.gslat; delete KITS.grail;
+  const sm=toonMat('#ffffff',{vc:true,fresh:true,side:T.DoubleSide});
+  GAR.slats=new T.InstancedMesh(sg,sm,GSN); GAR.slats.frustumCulled=false; GAR.slats.userData.dyn=true; sc.add(GAR.slats);
+  GAR.rail=new T.Mesh(rg,sm); GAR.rail.matrixAutoUpdate=false; GAR.rail.frustumCulled=false; GAR.rail.userData.dyn=true; sc.add(GAR.rail); shutterPose(0,false);
+  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+.35); return M; }
+/* the shutter at sh (0 down, 1 up): the slats stacked on the rail up the guides; any that have gone over the drum are not
+   drawn. While it moves they rattle a little in the guides */
+function shutterPose(sh,jig){ if(!GAR.slats) return; const yb=.2+GLIFT*sh, z=GW.d/2+.035, S_=GAR.slats;
+  for(let i=0;i<GSN;i++){ const y=yb+GRAIL+i*GSP; gST.makeTranslation(GW.ox+(jig?(Math.random()-.5)*.003:0),y,z+(jig?(Math.random()-.5)*.006:0)); if(y>GW.ot+.001) gST.scale(gS.set(0,0,0)); S_.setMatrixAt(i,gSM.multiplyMatrices(GAR.M,gST)); }
+  S_.instanceMatrix.needsUpdate=true; GAR.rail.matrix.multiplyMatrices(GAR.M,gST.makeTranslation(GW.ox,yb,z)); GAR.rail.matrixWorldNeedsUpdate=true; }
+/* how many slats have gone over the drum */
+const garQ=sh=>GSN-clamp(Math.floor((GW.ot-(.2+GLIFT*sh)-GRAIL)/GSP+1e-6)+1,0,GSN);
+
+/* ---------- the garage's light: its own lamps (uGL: where each is, how bright; the strip lights, the lamp on the bench,
+   and by day the street through the opening), a little from above, and the sun where it comes in at the opening. The
+   strip lights' tubes, the bench lamp's bulb, the frosted windows, the laptop's screen and a lamp on the engine's box are
+   keyed by colour (uGT: how bright each tube and the bulb are). Inked like the town, but cut away only right at the lens ---------- */
+const GU={uGL:{value:[0,1,2,3,4].map(()=>new T.Vector4(0,-99,0,0))},uGT:{value:new T.Vector4()},uGU:{value:new T.Vector3(0,1,0)},uGPane:{value:new T.Vector3(.8,.85,.86)},uGDay:{value:0},uGNr:{value:.1},uGLed:{value:0}};
+const GDITH=`float gdith(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715)))); }`;
+const GAR_L=`uniform vec4 uGL[5],uGT; uniform vec3 uGU,uGPane; uniform float uGDay,uGNr,uGLed; ${GDITH}
+  void gnear(vec3 w){ if(smoothstep(uGNr*.4,uGNr,distance(cameraPosition,w))<gdith()) discard; }
+  vec3 gfog(vec3 c,vec3 w){ return mix(c,uFog,smoothstep(uFogR.x,uFogR.y,distance(cameraPosition,w))*uFogA*uFogK); }
+  vec3 garL(vec3 base,vec3 n,vec3 w){ float l=0.;
+    for(int i=0;i<5;i++){ vec3 d=uGL[i].xyz-w; float r=length(d); l+=uGL[i].w*(.3+.7*max(dot(n,d/max(r,1e-3)),0.))/(1.+r*r*.7); }
+    /* by night the lamps alone: the corners a little darker, and the light warmer, so from the dark street it glows */
+    float nt=uNight, f=l+.1*dot(n,uGU)+uGDay*(.14+.06*dot(n,uGU)), e=.05*nt, k=smoothstep(.42+e,.48+e,f), hi=smoothstep(.86+e*.5,.92+e*.5,f);
+    vec3 c=mix(base*mix(vec3(.52,.52,.58),vec3(.42,.35,.33),nt),mix(base*mix(vec3(.94,.9,.82),vec3(1.,.85,.64),nt),base*mix(vec3(1.06,1.02,.93),vec3(1.18,1.,.74),nt),hi),k);
+    float sd=dot(n,uSun); if(sd>0.){ float s=shadowAt(w,.0006+.0024*(1.-sd)); c+=base*uLitA*smoothstep(.35,.65,s)*smoothstep(0.,.12,sd)*.4*clamp((uLitA.g-uShdC.g)*2.4,0.,1.); }
+    return gfog(c,w); }`;
+const GAR_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${GAR_L}
+  void main(){ gnear(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC;
+    if(abs(b.g-.97)<.004&&abs(b.b-.95)<.004&&b.r<.2){ float key=floor(b.r*100.+.5); vec3 e, off=vec3(.72,.74,.74), on=vec3(1.32,1.28,1.12);
+      if(key<11.5) e=mix(off,on,uGT.x); else if(key<12.5) e=mix(off,on,uGT.y); else if(key<13.5) e=mix(off,on,uGT.z); else if(key<14.5) e=mix(vec3(.6,.56,.48),vec3(1.35,1.18,.84),uGT.w);
+      else if(key<15.5) e=vec3(.32,.66,.57)*(.5+.5*uGT.y)+.08; else if(key<16.5) e=uGPane; else e=mix(vec3(.12,.28,.14),vec3(.5,1.35,.55),uGLed);
+      gl_FragColor=vec4(gfog(e,vW),1.); return; }
+    gl_FragColor=vec4(garL(b,n,vW),1.); }`;
+const GBRD_F=`uniform sampler2D uMap; uniform float uSelf; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${GAR_L}
+  void main(){ gnear(vW); vec3 t=texture2D(uMap,vUv).rgb, n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(mix(garL(t,n,vW),gfog(t*(.6+.4*max(uGT.x,uGT.y)),vW),uSelf),1.); }`;
+const garMat=()=>new T.ShaderMaterial({uniforms:Object.assign({uC:{value:new T.Color(1,1,1)}},LU,GU),vertexShader:TOON_V(),fragmentShader:GAR_F,vertexColors:true});
+const GINK=new T.ShaderMaterial({uniforms:GU,vertexShader:TOON_V(),
+  fragmentShader:`uniform float uGNr; varying vec3 vN; varying vec3 vW; ${GDITH} void main(){ if(smoothstep(uGNr*.4,uGNr,distance(cameraPosition,vW))<gdith()) discard; vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`});
+
+/* ---------- the whiteboard, in marker: the van with its rocket, a flight's arc, the rocket equation, a list ---------- */
+function garWhite(cv){ const c=cv.getContext('2d'), W=cv.width, H=cv.height, r=seeded(77);
+  c.fillStyle='#f5f6f3'; c.fillRect(0,0,W,H); c.fillStyle='rgba(110,125,140,.07)'; for(let i=0;i<16;i++){ c.beginPath(); c.ellipse(r()*W,r()*H,40+r()*130,10+r()*30,r()*3,0,TAU); c.fill(); }   // old ink, wiped
+  const pen=(col,w)=>{ c.strokeStyle=c.fillStyle=col; c.lineWidth=w; c.lineCap=c.lineJoin='round'; }, L=(pts,close)=>{ c.beginPath(); pts.forEach(([x,y],i)=>{ const jx=(r()-.5)*2.4, jy=(r()-.5)*2.4; i?c.lineTo(x+jx,y+jy):c.moveTo(x+jx,y+jy); }); if(close) c.closePath(); c.stroke(); };
+  const ring=(x,y,rr)=>{ c.beginPath(); c.ellipse(x,y,rr,rr*(.92+r()*.1),r()*.4,0,TAU); c.stroke(); };
+  pen('#2c4f9e',6); L([[60,236],[60,128],[84,92],[262,92],[262,236]],true); L([[90,128],[90,104],[150,104],[150,128]],true); L([[170,104],[240,104],[240,128],[170,128]],true); ring(108,238,22); ring(222,238,22);
+  L([[262,140],[316,120],[316,214],[262,194]]); pen('#d0453a',6); L([[318,132],[372,146],[344,160],[392,170],[346,184],[384,196],[318,206]]);
+  pen('#2a241d',4); L([[110,60],[150,82]]); L([[150,82],[140,64]]); L([[150,82],[130,82]]);
+  pen('#2a241d',5); c.setLineDash([16,13]); c.beginPath(); c.moveTo(560,262); c.quadraticCurveTo(745,-50,930,262); c.stroke(); c.setLineDash([]); L([[540,262],[960,262]]);
+  pen('#d0453a',5); L([[745,96],[745,72]]); L([[733,84],[757,84]]);
+  const font=(s,w=800)=>`${w} ${s}px Doto, ui-monospace, Menlo, monospace`;
+  pen('#2a241d',4); c.font=font(34,900); c.textBaseline='middle'; c.fillText('APOGEE?',785,74);
+  pen('#2c4f9e',4); c.font=font(46,900); c.fillText('Δv = Isp g0 ln(m0/mf)',58,330); L([[58,362],[640,358]]);
+  pen('#2a241d',4); c.font=font(34,900); ['TANKS','PLUMBING','IGNITER','BRAKES??'].forEach((s,i)=>{ const y=420+i*44; L([[60,y-15],[86,y-15],[86,y+11],[60,y+11]],true); if(i<3){ pen('#2f8a56',5); L([[64,y-2],[72,y+8],[92,y-22]]); pen('#2a241d',4); } c.fillText(s,104,y); });
+  pen('#d0453a',6); c.font=font(48,900); c.fillText('TEST FIRE: FRI',560,470); c.beginPath(); c.ellipse(735,470,215,52,-.03,0,TAU); c.stroke(); L([[560,430],[360,250]]); L([[360,250],[386,256]]); L([[360,250],[368,276]]); }
+/* the pegboard: hardboard full of holes, the tools' shapes painted on it (the hammer's is empty: it is on the bench) */
+function garPeg(cv,tools){ const c=cv.getContext('2d'), W=cv.width, H=cv.height; c.fillStyle='#c2945f'; c.fillRect(0,0,W,H);
+  c.fillStyle='#6b4c30'; for(let y=10;y<H;y+=17) for(let x=10;x<W;x+=17){ c.beginPath(); c.arc(x,y,2.6,0,TAU); c.fill(); }
+  c.strokeStyle='#2a241d'; c.lineWidth=4; c.lineJoin='round'; for(const q of tools){ const x=q[0]*W, y=q[1]*H, w=(q[2]-q[0])*W, h=(q[3]-q[1])*H; c.beginPath(); if(c.roundRect) c.roundRect(x-6,y-6,w+12,h+12,9); else c.rect(x-6,y-6,w+12,h+12); c.stroke(); } }
+
+/* ---------- building the garage: everything in it is the town's own kit (boxes, cans, turned and swept shapes) merged
+   into one mesh, in the room's own light, inked like everything else ---------- */
+function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.025, iz=GIZ-.025, top=GW.h-.03, x0=GW.ox-GW.ow/2, x1=GW.ox+GW.ow/2, rnd=seeded(31), I=gI.identity();
+  GAR.up.copy(wsD(0,1,0)); GU.uGU.value.copy(GAR.up); GAR.c0.copy(wsW(0,1.4,0)); GAR.apW=wsXZ(GW.AP[0],GW.AP[1]);
+  const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false;
+  const add=(m,ink=true)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); GAR.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=GINK; m.userData.shdM=m.material; INK.push(m); } return m; };
+  const v=(x,y,z)=>new T.Vector3(x,y,z), solid=(xa,xb,za,zb,h)=>GAR.solids.push([xa,xb,za,zb,h]);
+  const rod=(Mx,c,a,b,r,geo='cyl8')=>{ const d=gR2.subVectors(b,a), L=d.length(); gQ.setFromUnitVectors(UPY,d.divideScalar(L||1)); gL.compose(gR1.addVectors(a,b).multiplyScalar(.5),gQ,gS.set(r,L,r)); kadd(GEO[geo],c,gM.multiplyMatrices(Mx,gL)); };
+  const pipe=(Mx,c,pts,r,seg=20)=>kadd(new T.TubeGeometry(new T.CatmullRomCurve3(pts.map(p=>v(...p))),seg,r,6,false).toNonIndexed(),c,Mx);
+  const lathe=(Mx,c,prof,seg=20)=>kadd(new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,y)),seg).toNonIndexed(),c,Mx);
+  const torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
+  const up=wsD(0,1,0), fq=(xa,za,xb,zb,y,c)=>kquad(wsW(xa,y,za),wsW(xb,y,za),wsW(xb,y,zb),wsW(xa,y,zb),up,c);
+  /* a stain on the floor: an uneven round of dark, wound to face up */
+  const blot=(x,z,r,y,c)=>{ const C=wsW(x,F+y,z), P=[]; for(let i=0;i<12;i++){ const a=-i/12*TAU, k=r*(.62+.38*rnd()); P.push(wsW(x+Math.cos(a)*k,F+y,z+Math.sin(a)*k)); } for(let i=0;i<12;i++) kquad(C,P[i],P[(i+1)%12],C,up,c); };
+  const mug=(Mx,x,y,z,c,ry=0)=>{ const B=wsTf(Mx,x,y,z,ry); cyl(B,c,0,0,0,.035,.085); cyl(B,'#3b2a20',0,.072,0,.031,.006); torus(wsTf(B,.035,.045,0,0,0,-Math.PI/2),c,.022,.006,10,Math.PI); };
+  const book=(Mx,x,y,z,ry,w,h,d,c)=>{ const B=wsTf(Mx,x,y,z,ry); box(B,c,0,0,0,w,h,d); box(B,'#f1eadb',0,.004,.003,w-.012,h-.008,d); };
+  const carton=(Mx,x,y,z,w,h,d,ry=0,open=false,c='#b98b58')=>{ const B=wsTf(Mx,x,y,z,ry); box(B,c,0,0,0,w,h,d); if(!open) box(B,'#d8c59c',0,h-.003,0,.07,.007,d+.006);
+    else [-1,1].forEach(s=>box(wsTf(B,0,h,s*d/2,0,-s*.9,0),c,0,0,s*d*.24,w-.01,.005,d*.48)); };
+  const fin=(Mx,c,s=1)=>{ const sh=new T.Shape(); sh.moveTo(0,0); sh.lineTo(.34*s,0); sh.lineTo(.25*s,.2*s); sh.lineTo(.07*s,.21*s); sh.closePath(); kadd(new T.ExtrudeGeometry(sh,{depth:.01,bevelEnabled:false}).translate(0,0,-.005),c,Mx); };
+  const tyre=(Mx)=>{ cyl(Mx,'#2c2d2f',0,0,0,.21,.15); cyl(Mx,'#c9ccca',0,-.004,0,.11,.158); cyl(Mx,'#8d9191',0,-.006,0,.04,.162,'cyl8'); };
+  const stool=(x,z,h=.56)=>{ const B=sub(M,x,F,z,rnd()); cyl(B,'#b8834f',0,h-.04,0,.16,.04); for(let k=0;k<3;k++){ const a=k/3*TAU; rod(B,'#4a4f53',v(Math.cos(a)*.1,h-.04,Math.sin(a)*.1),v(Math.cos(a)*.17,0,Math.sin(a)*.17),.012); } torus(wsTf(B,0,.2,0,0,Math.PI/2,0),'#4a4f53',.135,.008,16); solid(x-.18,x+.18,z-.18,z+.18,h); return B; };
+  const quad=(Mx,s=1,props=true)=>{ box(Mx,'#2f3337',0,0,0,.11*s,.03*s,.11*s); for(let k=0;k<4;k++){ const a=k*Math.PI/2+Math.PI/4, ax=Math.cos(a), az=Math.sin(a);
+      box(wsTf(Mx,ax*.085*s,.008*s,az*.085*s,-a),'#2f3337',0,0,0,.17*s,.014*s,.02*s); cyl(Mx,'#9aa0a3',ax*.16*s,0,az*.16*s,.022*s,.032*s,'cyl8'); if(props) box(wsTf(Mx,ax*.16*s,.034*s,az*.16*s,a*1.7),'#ef8a3c',0,0,0,.2*s,.004*s,.024*s); } };
+  /* a big red tool chest on casters, in its own frame (its front to +z): its drawers and their handles, one of them
+     pulled out with spanners in it; a chest of three drawers on top, its lid up or down */
+  const chest=(Mx,w,d,hc,ht,pull,lid)=>{ const RB='#b8302a', RF='#d64a3f', K='#2c2d2f', SL='#cfd2cf';
+    [-1,1].forEach(sx=>[-1,1].forEach(sz=>{ cyl(Mx,K,sx*(w/2-.06),0,sz*(d/2-.07),.03,.06,'cyl8'); box(Mx,'#5a5f62',sx*(w/2-.06),.055,sz*(d/2-.07),.05,.012,.05); }));
+    box(Mx,RB,0,.06,0,w,hc,d); const nd=5, dh=(hc-.04)/nd;
+    for(let i=0;i<nd;i++){ const y=.08+i*dh, pz=i===pull?.17:0; box(Mx,RF,0,y,d/2+.012+pz,w-.05,dh-.03,.024); box(Mx,SL,0,y+dh-.055,d/2+.03+pz,w-.16,.018,.02);
+      if(pz){ box(Mx,'#3d3f42',0,y+.005,d/2+pz/2-.03,w-.07,.012,pz+.05); [-1,1].forEach(s=>box(Mx,'#a82823',s*(w/2-.04),y+.005,d/2+pz/2-.03,.01,dh-.04,pz+.05)); for(let k=0;k<6;k++) box(Mx,'#9aa0a3',-w/2+.08+k*(w-.16)/5,y+.018,d/2+pz/2-.03,.022,.008,pz-.02+k*.006); } }
+    box(Mx,'#3a3c3e',0,.06+hc,0,w+.03,.02,d+.03);
+    const ty=.078+hc; box(Mx,RB,0,ty,-.03,w-.04,ht,d-.1); for(let i=0;i<3;i++){ box(Mx,RF,0,ty+.02+i*(ht-.04)/3,(d-.1)/2-.03+.012,w-.09,(ht-.04)/3-.014,.024); box(Mx,SL,0,ty+.02+(i+1)*(ht-.04)/3-.045,(d-.1)/2-.03+.028,w-.2,.016,.018); }
+    [-1,1].forEach(s=>box(Mx,K,s*(w/2-.02),ty+ht*.55,-.03,.012,.03,.12));
+    const LH=wsTf(Mx,0,ty+ht,-(d-.1)/2-.03,0,lid?-1.62:0,0); box(LH,RB,0,0,0,w-.03,.035,d-.09); box(LH,RF,0,0,d-.09-.012,w-.05,.035,.012);   // (its back edge on the hinge)
+    if(lid){ box(Mx,'#3d3f42',0,ty+ht-.004,-.03,w-.07,.005,d-.14); for(let k=0;k<7;k++) box(Mx,['#9aa0a3','#cf3a2f','#f0c22e','#9aa0a3','#2c4f9e','#9aa0a3','#9aa0a3'][k],-w/2+.07+k*(w-.14)/6,ty+ht,-.03,.022,.012,d-.2); } };
+  try{
+  kitTo('garin');
+  /* ---- the room: a concrete floor with its saw cuts and oil on it; walls painted grey-blue up to a rail and pale above;
+     the ceiling's joists; a steel frame round the opening and a plate over its sill ---- */
+  fq(-ix,-iz,ix,iz,F+.004,'#a6a299');
+  [-.55,.55].forEach(z=>fq(-ix,z-.01,ix,z+.01,F+.007,'#8f8b83')); [-1.2,0,1.2].forEach(x=>fq(x-.01,-iz,x+.01,iz,F+.007,'#8f8b83'));
+  blot(GW.CAR[0]+.04,.78,.46,.011,'#6f6a62'); blot(GW.CAR[0]+.1,.72,.22,.014,'#5c5852'); blot(.93,1.28,.1,.011,'#6f6a62'); blot(.86,1.43,.06,.011,'#6f6a62');
+  blot(.28,-.82,.24,.011,'#79746c'); blot(-1.22,-1.12,.26,.011,'#79746c'); blot(-.45,.1,.12,.011,'#86827a');
+  const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[GW.ox,GW.ow+.002,-1,GW.ot]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
+  lin('#56625f',F,F+.1,.02); lin('#8ba1a3',F+.1,F+.92,.02); lin('#66787b',F+.92,F+.98,.02); lin('#d9dcd3',F+.98,top,.02);
+  box(M,'#cfccc3',0,top,0,2*ix+.04,.03,2*iz+.04); for(let x=-2;x<=2.01;x+=.5) box(M,'#86705a',x,top-.12,0,.07,.12,2*iz);
+  box(M,'#6a7478',x0-.024,F,1.5225,.072,GW.ot-F+.012,.155); box(M,'#6a7478',x1+.024,F,1.5225,.072,GW.ot-F+.012,.155); box(M,'#6a7478',GW.ox,GW.ot-.012,1.5225,GW.ow+.144,.15,.155); box(M,'#7d8487',GW.ox,F,1.55,GW.ow,.008,.12);
+  put(M,'cyl','#4b555a',x0-.2,GW.ot+.3,iz-.12,.09,.2,.09,0,0,Math.PI/2); box(M,'#3a3f42',x0-.2,GW.ot+.1,iz-.06,.16,.24,.1); pipe(M,'#2c2d2f',[[x0-.2,GW.ot+.12,iz-.11],[x0-.25,GW.ot+.3,iz-.05],[x0-.3,top-.01,iz-.05]],.008,10);   // the shutter's motor, in over the opening
+  /* the windows from inside: frosted panes in white frames, a sill under each */
+  const PANE=new T.Color(.16,.97,.95), win=W=>{ box(W,PANE,0,-.29,.004,.58,.56,.008); [-.335,.335].forEach(x=>box(W,'#e4e1d8',x,-.36,.01,.09,.72,.02)); box(W,'#e4e1d8',0,.27,.01,.76,.09,.02); box(W,'#e4e1d8',0,-.36,.01,.76,.07,.02);
+    box(W,'#e4e1d8',0,-.29,.016,.035,.56,.012); box(W,'#e4e1d8',0,-.03,.016,.58,.035,.012); box(W,'#bdb7aa',0,-.42,.055,.84,.04,.11); };
+  win(sub(M,-1.9,1.42,iz-.02,Math.PI)); win(sub(M,ix-.02,1.42,0,-Math.PI/2)); win(sub(M,-ix+.02,1.42,0,Math.PI/2));
+  /* ---- the strip lights: a batten on two chains, its tube under it ---- */
+  const TUBE=[0,1,2].map(i=>new T.Color(.11+i*.01,.97,.95)), BULB=new T.Color(.14,.97,.95), SCRN=new T.Color(.15,.97,.95), LED=new T.Color(.17,.97,.95);
+  const batten=(x,z,ry,i)=>{ const B=sub(M,x,top-.12,z,ry); box(B,'#e6e7e2',0,-.2,0,.1,.05,1.28); box(B,'#c9cbc6',0,-.204,0,.08,.006,1.22); put(B,'cyl',TUBE[i],0,-.226,0,.022,1.18,.022,0,Math.PI/2);
+    [-.45,.45].forEach(cz=>box(B,'#5a5f62',0,-.15,cz,.01,.27,.01)); GU.uGL.value[i].set(...wsW(x,top-.12-.29,z).toArray(),0); };
+  batten(1.0,-.05,0,0); batten(-1.1,-.95,Math.PI/2,1); batten(-.9,.55,Math.PI/2,2);
+  GU.uGL.value[4].set(...wsW(GW.ox,1.45,GW.d/2+1.3).toArray(),0);   // the street, by day, through the opening
+
+  /* ---- the kei van: a little two-tone box on wheels with its back opened up, and in the bay, where the boxes should
+     go, a rocket engine: its bell out past the bumper, its two tanks behind it and the plumbing between ---- */
+  { const CM=sub(M,GW.CAR[0],F,GW.CAR[1]), TL='#77b4ac', CR='#efe8d8', K='#2c2d2f', GL='#4f636c', CH='#c9cdca', RD='#cf463b', OR='#ef8a3c';
+    for(const sx of [-1,1]) for(const wz of [-.78,.7]){ put(CM,'cyl',K,sx*.47,.2,wz,.2,.14,.2,0,0,Math.PI/2); put(CM,'cyl','#d4d7d3',sx*.542,.2,wz,.11,.012,.11,0,0,Math.PI/2); put(CM,'cyl8','#8d9191',sx*.55,.2,wz,.035,.012,.035,0,0,Math.PI/2); box(CM,K,sx*.536,.36,wz,.012,.05,.46); }
+    box(CM,TL,0,.3,-.68,1.06,.42,.94); box(CM,TL,0,.3,.42,1.06,.25,1.26);
+    /* the bay's sides: open windows on it, so you see in */
+    [-1,1].forEach(s=>{ box(CM,TL,s*.515,.55,.42,.03,.17,1.26); box(CM,CR,s*.515,.72,.42,.03,.08,1.26); box(CM,CR,s*.515,1.21,.42,.03,.09,1.26); [[-.17,.08],[.37,.06],[.96,.18]].forEach(([z,w])=>box(CM,CR,s*.515,.8,z,.03,.41,w));
+      box(CM,'#8c9093',s*.496,.562,.43,.008,.24,1.2); box(CM,'#8c9093',s*.496,1.21,.43,.008,.07,1.2); [[-.13,.87]].forEach(([a,b])=>{ box(CM,'#3a3c3e',s*.533,.79,(a+b)/2,.012,.02,b-a+.02); box(CM,'#3a3c3e',s*.533,1.2,(a+b)/2,.012,.02,b-a+.02); }); });
+    box(CM,CR,0,.72,-.68,1.06,.58,.92); box(CM,CR,0,1.3,-.045,1.06,.05,2.19);
+    [-1,1].forEach(s=>{ box(CM,CH,s*.536,.708,-.05,.016,.024,2.18); box(CM,OR,s*.536,.6,-.05,.014,.05,2.14); box(CM,GL,s*.536,.8,-.73,.016,.4,.6);
+      [-.42,-.18,.88].forEach(z=>box(CM,'#566064',s*.538,.32,z,.012,.98,.012)); box(CM,K,s*.542,.66,-.5,.016,.03,.1); box(CM,K,s*.542,.66,-.1,.016,.03,.1);
+      box(CM,K,s*.6,.84,-1.0,.05,.1,.07); rod(CM,K,v(s*.52,.88,-1.02),v(s*.58,.9,-1.0),.008);
+      box(CM,RD,s*.505,.58,1.055,.05,.24,.012); box(CM,OR,s*.505,.5,1.055,.05,.07,.012);
+      put(CM,'cyl','#f6f0d6',s*.36,.6,-1.153,.075,.016,.075,0,Math.PI/2); put(CM,'cyl',CH,s*.36,.6,-1.148,.088,.01,.088,0,Math.PI/2); box(CM,OR,s*.46,.44,-1.155,.07,.05,.01);
+      box(CM,K,s*.2,.8,-1.158,.3,.012,.01,0,0,s*.22); });
+    box(CM,K,0,.24,-1.2,1.08,.13,.1); box(CM,K,0,.24,1.09,1.08,.13,.1); box(CM,K,0,.44,-1.158,.34,.09,.012); box(CM,GL,0,.79,-1.146,.9,.44,.012);
+    box(CM,'#f3eee2',0,.255,-1.253,.3,.1,.008); box(CM,'#f3eee2',0,.36,1.058,.28,.12,.008);
+    box(CM,'#3a3c3e',0,.55,.43,.98,.012,1.22); box(CM,'#54585b',0,.55,-.2,.98,.74,.02); box(CM,CH,0,.548,1.04,.98,.012,.05);
+    [-.55,.45].forEach(z=>{ box(CM,K,0,1.37,z,1.0,.02,.03); [-1,1].forEach(s=>box(CM,K,s*.47,1.35,z,.03,.03,.03)); }); mug(CM,.22,1.35,-.15,'#f4efe6',.6);
+    /* the hatch, up on its struts */
+    const HR=new T.Matrix4().compose(v(0,1.31,1.05),new T.Quaternion().setFromEuler(new T.Euler(-2.72,0,0)),v(1,1,1)), HM=new T.Matrix4().multiplyMatrices(CM,HR);
+    box(HM,CR,0,-.74,0,1.0,.74,.03); box(HM,'#a2a5a6',0,-.7,-.025,.9,.64,.02); box(HM,GL,0,-.42,.019,.82,.3,.008); box(HM,K,0,-.76,0,1.0,.03,.034); put(CM,'cyl',K,0,1.31,1.05,.025,1.0,.025,0,0,Math.PI/2);
+    [-1,1].forEach(s=>rod(CM,'#9aa0a3',v(s*.47,.96,.98),v(s*.44,-.35,-.025).applyMatrix4(HR),.012));
+    /* the engine on its mount: the chamber, the injector and manifold at its head, the gimbal ring at the throat, the bell
+       (scorched near the throat, sooty inside, ringed with its cooling lines), and its lip */
+    const EY=.86; box(CM,'#5f6669',0,.562,.68,.62,.035,.46);
+    [[-.28,.5,-.1,.62],[.28,.5,.1,.62],[-.28,.86,-.1,.74],[.28,.86,.1,.74]].forEach(([fx,fz,tx,tz])=>rod(CM,'#7c8387',v(fx,.6,fz),v(tx,EY,tz),.014));
+    put(CM,'cyl','#c98a55',0,EY,.6,.125,.32,.125,0,Math.PI/2); put(CM,'cyl','#7c8387',0,EY,.445,.142,.02,.142,0,Math.PI/2); put(CM,'sph','#9ea5a9',0,EY,.43,.12,.12,.06);
+    torus(wsTf(CM,0,EY,.79),'#3d4246',.1,.016,20);
+    const NZ=.8, rr=u=>.068+(.235-.068)*Math.pow(u,1.35), pr=(u0,u1,dr=0,rev=false)=>{ const p=[]; for(let i=0;i<=8;i++){ const u=u0+(u1-u0)*i/8; p.push([rr(u)+dr,u*NZ]); } return rev?p.reverse():p; }, BM=wsTf(CM,0,EY,.76,0,Math.PI/2,0);
+    lathe(BM,'#a9653d',pr(0,.2)); lathe(BM,'#5f656c',pr(.2,1)); lathe(BM,'#2a2421',pr(0,.35,-.007,true)); lathe(BM,'#56463a',pr(.35,.72,-.007,true)); lathe(BM,'#7b736b',pr(.72,1,-.007,true));
+    { const tg=wsTf(CM,0,EY-rr(1)-.008,.76+NZ-.012,0,.1,0); torus(wsTf(tg,0,.006,0,Math.PI/2),'#c9ccca',.012,.003,10); box(tg,'#d23b30',0,-.24,0,.045,.24,.004); box(tg,'#f5f2ea',0,-.17,.002,.045,.04,.004); }   // a remove-before-flight tag on its lip
+    [.3,.5,.7,.88].forEach(u=>torus(wsTf(BM,0,u*NZ,0,0,Math.PI/2,0),'#9aa0a5',rr(u)+.006,.008,24)); torus(wsTf(BM,0,NZ,0,0,Math.PI/2,0),'#2f3337',rr(1)+.002,.012,28);
+    /* the tanks: liquid oxygen in white with a blue band, fuel in orange; strapped in, a valve on each */
+    [[-.25,'#eef0ee','#3f6fd0'],[.25,'#e8843c','#f3eee2']].forEach(([tx,c,b])=>{ cyl(CM,c,tx,.562,.02,.13,.5); put(CM,'sph',c,tx,1.062,.02,.13,.075,.13); cyl(CM,b,tx,.84,.02,.133,.07);
+      cyl(CM,'#9ea5a9',tx,1.12,.02,.026,.07,'cyl8'); put(CM,'cyl','#cf3a2f',tx,1.2,.02,.04,.012,.04); [.68,1.0].forEach(y=>torus(wsTf(CM,tx,y,.02,0,Math.PI/2,0),'#3a3c3e',.136,.01,20)); });
+    put(CM,'sph','#9aa3a8',0,.66,.25,.09,.09,.09); cyl(CM,'#9aa3a8',0,.74,.25,.02,.05,'cyl8');
+    pipe(CM,'#b9c1c7',[[-.25,.66,.14],[-.21,.68,.3],[-.13,.78,.39],[-.05,EY,.43]],.018); pipe(CM,'#c58b55',[[.25,.66,.14],[.21,.68,.3],[.13,.78,.39],[.05,EY,.43]],.018);
+    [-1,1].forEach(s=>{ box(CM,'#7d8488',s*.21,.645,.3,.05,.05,.05); box(CM,'#cf3a2f',s*.21,.698,.3,.08,.012,.014,.5); pipe(CM,'#d0d4d6',[[0,.78,.25],[s*.1,.98,.18],[s*.2,1.14,.08],[s*.25,1.16,.02]],.008,14); });
+    put(CM,'cyl','#eceae4',-.17,.79,.36,.03,.012,.03,0,-.6); put(CM,'cyl','#3a3c3e',-.17,.785,.36,.034,.01,.034,0,-.6);
+    box(CM,'#33373a',-.47,.8,.62,.04,.16,.22); box(CM,LED,-.448,.92,.56,.006,.018,.018); box(CM,'#9fd8c6',-.448,.87,.66,.006,.03,.06);
+    pipe(CM,'#c9352d',[[-.45,.86,.6],[-.3,.95,.62],[-.13,EY+.08,.6]],.006,12); pipe(CM,'#26272a',[[-.45,.84,.66],[-.32,.78,.5],[-.21,.7,.32]],.006,12); pipe(CM,'#26272a',[[-.45,.88,.55],[-.3,1.0,.3],[-.25,1.16,.06]],.006,12);
+    box(CM,'#f0c22e',0,.9,-.188,.13,.13,.004); [-1,0,1].forEach(k=>box(CM,'#2a241d',k*.04,.915,-.185,.016,.1,.003,0,0,.6));
+    solid(GW.CAR[0]-.56,GW.CAR[0]+.56,GW.CAR[1]-1.27,GW.CAR[1]+1.16,1.42); solid(GW.CAR[0]-.25,GW.CAR[0]+.25,GW.CAR[1]+1.16,GW.CAR[1]+1.58,EY+.24); }
+  /* the extension reel on the floor, its lead along the floor and up into the bay */
+  { const B=sub(M,-.3,F,-.55,.3); [-1,1].forEach(s=>put(B,'cyl','#ef8a3c',s*.07,.12,0,.12,.02,.12,0,0,Math.PI/2)); put(B,'cyl','#26272a',0,.12,0,.085,.12,.085,0,0,Math.PI/2); rod(B,'#4a4f53',v(-.09,.12,0),v(-.09,.29,0),.01); rod(B,'#4a4f53',v(.09,.12,0),v(.09,.29,0),.01); rod(B,'#4a4f53',v(-.1,.29,0),v(.1,.29,0),.014);
+    pipe(M,'#26272a',[[-.28,F+.05,-.43],[-.1,F+.012,-.1],[.38,F+.012,.5],[.46,F+.012,1.06],[.58,F+.36,1.04],[.62,F+.62,.88],[.6,F+.84,.5]],.011,40); solid(-.46,-.14,-.7,-.4,.3); }
+  /* the jack, its handle out to the room */
+  { const J=sub(M,.22,F,-1.12,1.95); box(J,'#cf3a2f',0,.03,0,.2,.06,.42); [-1,1].forEach(s=>[-.16,.16].forEach(z=>put(J,'cyl','#2c2d2f',s*.1,.035,z,.035,.03,.035,0,0,Math.PI/2))); box(J,'#cf3a2f',0,.08,.14,.12,.08,.12,0,-.4); cyl(J,'#2c2d2f',0,.15,.19,.05,.02); rod(J,'#2c2d2f',v(0,.08,-.2),v(0,.42,-.68),.012); solid(-.12,.42,-1.32,-.9,.2); }
+
+  /* ---- the bench along the back wall, the pegboard over it, and everything on it ---- */
+  const BX0=-1.85, BX1=-.68, BZ1=-.88, BT=F+.84;
+  box(M,'#b8834f',(BX0+BX1)/2,BT,(-iz+BZ1)/2,BX1-BX0,.05,BZ1+iz); [[BX0+.04,-iz+.04],[BX1-.04,-iz+.04],[BX0+.04,BZ1-.04],[BX1-.04,BZ1-.04]].forEach(([x,z])=>box(M,'#575d61',x,F,z,.05,BT-F,.05));
+  box(M,'#9a7048',(BX0+BX1)/2,F+.16,(-iz+BZ1)/2,BX1-BX0-.06,.03,BZ1+iz-.06); box(M,'#575d61',(BX0+BX1)/2,BT-.08,BZ1-.03,BX1-BX0-.08,.06,.02); solid(BX0,BX1,-iz,BZ1,BT+.05);
+  carton(M,-1.55,F+.19,-1.2,.34,.24,.3,.15); cyl(M,'#3f6fd0',-1.05,F+.19,-1.18,.08,.14); cyl(M,'#ddd8cc',-1.05,F+.33,-1.18,.082,.012); box(M,'#cf3a2f',-.92,F+.19,-1.05,.3,.14,.16,-.2);
+  const BY=BT+.05;
+  book(M,-1.74,BY,-1.32,.12,.22,.035,.16,'#b5473a'); book(M,-1.73,BY+.035,-1.32,-.1,.2,.03,.15,'#3e6a9a'); book(M,-1.74,BY+.065,-1.33,.3,.18,.028,.14,'#e6c35a');
+  lathe(wsTf(M,-1.52,BY,-1.36),'#c98a55',[[.016,0],[.02,.02],[.028,.05],[.046,.09]],14); lathe(wsTf(M,-1.52,BY,-1.36),'#2a2b2e',[[.042,.09],[.024,.05],[.017,.02],[.012,.002]],14);
+  mug(M,-1.4,BY,-1.36,'#ef8a3c',2.2); mug(M,-1.27,BY,-1.17,'#f4efe6',.4);
+  { const L_=sub(M,-1.18,BY,-1.31,.06); box(L_,'#3b3f44',0,0,0,.3,.016,.21); box(L_,'#55595e',0,.016,.02,.26,.002,.1); const S_=wsTf(L_,0,.016,-.105,0,-.26,0); box(S_,'#3b3f44',0,0,-.006,.3,.2,.012); box(S_,SCRN,0,.014,.001,.26,.16,.004); }
+  { const D_=wsTf(M,-1.64,BY+.034,-1.1,.4,0,Math.PI); quad(D_,1,false); [[-1.46,-1.0,.6],[-1.5,-1.22,2.1]].forEach(([x,z,r])=>box(wsTf(M,x,BY,z,r),'#ef8a3c',0,0,0,.2,.005,.024)); }
+  { const H_=wsTf(M,-1.42,BY,-.98,.5); box(H_,'#b8834f',0,.012,0,.28,.024,.03); box(H_,'#3a3c3e',.13,0,0,.035,.04,.1); }
+  torus(wsTf(M,-1.17,BY+.008,-.99,0,Math.PI/2,0),'#26272a',.065,.009,20); torus(wsTf(M,-1.17,BY+.02,-.99,0,Math.PI/2,0),'#26272a',.058,.009,20);
+  { const T_=wsTf(M,-.98,BY+.056,-1.06,.7,0,Math.PI/2+.06); box(T_,'#5a3d2c',0,0,0,.1,.035,.1); box(T_,'#c9a24a',0,.008,.0505,.06,.018,.003); cyl(T_,'#d9a93a',0,.035,0,.032,.012,'cyl8'); cyl(T_,'#d9a93a',0,.047,0,.011,.05,'cyl8');
+    lathe(wsTf(T_,0,.095,0),'#e0b343',[[.012,0],[.03,.012],[.048,.04],[.056,.085],[.058,.092]],16); cyl(T_,'#c99a33',0,.183,0,.054,.004); [-1,1].forEach(s=>torus(wsTf(T_,s*.06,.15,0,0,0,s>0?-Math.PI/2:Math.PI/2),'#e0b343',.026,.006,10,Math.PI)); }
+  { const Mm=wsTf(M,-.93,BY,-1.24,-.4); box(Mm,'#f0c22e',0,0,0,.08,.03,.14); box(Mm,'#2a2b2e',0,.03,-.03,.06,.002,.04); cyl(Mm,'#2a2b2e',0,.03,.03,.018,.006,'cyl8');
+    pipe(M,'#c9352d',[[-.92,BY+.02,-1.18],[-.86,BY+.005,-1.1],[-.82,BY+.005,-1.18]],.004,8); pipe(M,'#26272a',[[-.95,BY+.02,-1.18],[-.99,BY+.005,-1.1],[-1.06,BY+.005,-1.14]],.004,8); }
+  for(let k=0;k<7;k++) put(M,'cyl8',k%3?'#9aa0a3':'#c9a24a',-1.5+rnd()*.7,BY+.006,-1.25+rnd()*.3,.012,.012,.012,rnd()*3);
+  /* the vice at the bench's end, a fin in its jaws; the lamp on an arm over the bench */
+  { const V_=sub(M,-.79,BY,-.95,-.1); box(V_,'#4f6a7d',0,0,-.02,.12,.07,.16); box(V_,'#4f6a7d',0,.07,-.05,.12,.06,.06); box(V_,'#4f6a7d',0,.07,.05,.12,.06,.04); box(V_,'#2c2d2f',0,.075,.004,.13,.045,.006);
+    rod(V_,'#9aa0a3',v(0,.06,.07),v(0,.06,.2),.01); rod(V_,'#9aa0a3',v(-.07,.06,.2),v(.07,.06,.2),.008); fin(wsTf(V_,-.12,.1,0,Math.PI/2),'#ef8a3c',.8); }
+  { const a=v(-.78,BY,-1.4), b=v(-.8,BY+.44,-1.33), c=v(-1.06,BY+.5,-1.12); cyl(M,'#2f5f52',a.x,a.y,a.z,.06,.025); rod(M,'#2f5f52',v(a.x,a.y+.02,a.z),b,.012); rod(M,'#2f5f52',b,c,.012); put(M,'sph','#2f5f52',b.x,b.y,b.z,.02,.02,.02);
+    put(M,'cone','#2f5f52',c.x-.02,c.y-.05,c.z+.02,.07,.11,.07,0,Math.PI+.25,.3); put(M,'sph',BULB,c.x-.03,c.y-.1,c.z+.03,.03,.03,.03); GU.uGL.value[3].set(...wsW(c.x-.04,c.y-.16,c.z+.04).toArray(),0); }
+  /* the pegboard and its tools */
+  const PX0=-1.85, PX1=-.85, PY0=F+.98, PY1=F+2.0, PZ=-iz+.06, pegT=[];
+  box(M,'#8a6448',(PX0+PX1)/2,PY0-.03,-iz+.02,PX1-PX0+.06,PY1-PY0+.06,.025);
+  const pt=(xa,xb,ya,yb)=>pegT.push([(xa-PX0)/(PX1-PX0),(PY1-yb)/(PY1-PY0),(xb-PX0)/(PX1-PX0),(PY1-ya)/(PY1-PY0)]);
+  for(let k=0;k<6;k++){ const x=-1.8+k*.045, L=.13+k*.022, y1=PY1-.12; box(M,'#a7adb0',x,y1-L,PZ,.016,L,.008); put(M,'cyl8','#a7adb0',x,y1,PZ,.018,.01,.018,0,Math.PI/2); put(M,'cyl8','#a7adb0',x,y1-L,PZ,.015,.01,.015,0,Math.PI/2); }
+  pt(-1.82,-1.55,PY1-.37,PY1-.1); pt(-1.49,-1.36,PY1-.48,PY1-.12);   // (the hammer's: empty)
+  ['#cf3a2f','#f0c22e','#2c4f9e','#2c2d2f'].forEach((c,k)=>{ const x=-1.27+k*.05; put(M,'cyl',c,x,PY1-.17,PZ,.016,.09,.016); put(M,'cyl8','#a7adb0',x,PY1-.3,PZ,.004,.17,.004); }); pt(-1.3,-1.1,PY1-.4,PY1-.12);
+  { const Sw=wsTf(M,-1.62,PY0+.36,PZ); box(Sw,'#b9bfc2',0,0,0,.34,.1,.004,0,0,.04); box(Sw,'#8a6448',.2,-.01,0,.1,.1,.025); pt(-1.81,-1.42,PY0+.3,PY0+.48); }
+  { const Pl=wsTf(M,-1.3,PY0+.38,PZ); [-1,1].forEach(s=>{ box(wsTf(Pl,0,0,0,0,0,s*.14),'#5a5f62',0,0,0,.016,.18,.01); box(wsTf(Pl,s*.012,-.1,0,0,0,s*.14),'#cf3a2f',0,0,0,.022,.09,.014); }); pt(-1.36,-1.24,PY0+.26,PY0+.58); }
+  put(M,'cyl','#f0c22e',-1.05,PY0+.48,PZ+.01,.04,.035,.04,0,Math.PI/2); box(M,'#2a241d',-1.05,PY0+.47,PZ+.03,.02,.02,.004); pt(-1.1,-1.0,PY0+.43,PY0+.53);
+  torus(wsTf(M,-.98,PY1-.3,PZ+.01),'#ef8a3c',.085,.013,22); torus(wsTf(M,-.99,PY1-.32,PZ+.025),'#ef8a3c',.075,.013,22);
+  [-1.62,-1.5].forEach(x=>{ const Cl=wsTf(M,x,PY0+.62,PZ); box(Cl,'#ef8a3c',-.035,0,0,.015,.16,.02); box(Cl,'#ef8a3c',0,.15,0,.08,.015,.02); box(Cl,'#ef8a3c',0,0,0,.08,.015,.02); rod(Cl,'#9aa0a3',v(.035,-.04,0),v(.035,.12,0),.006); }); pt(-1.68,-1.44,PY0+.6,PY0+.8);
+  { const Gg=wsTf(M,-1.17,PY0+.66,PZ); [-1,1].forEach(s=>box(Gg,'#3a4a52',s*.04,0,0,.07,.045,.02)); box(Gg,'#2c2d2f',0,.01,-.004,.2,.014,.006); }
+  { const cv=document.createElement('canvas'); cv.width=cv.height=512; garPeg(cv,pegT); const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const m=add(new T.Mesh(new T.PlaneGeometry(PX1-PX0,PY1-PY0),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uSelf:{value:.12}},LU,GU),vertexShader:TOON_V(true),fragmentShader:GBRD_F})));
+    m.matrix.copy(sub(M,(PX0+PX1)/2,(PY0+PY1)/2,-iz+.036)); GAR.boards.push(tx); }
+  /* ---- the tricolour, hung from a rod: green at the hoist (on the left as you face it), white, orange; its cloth falling
+     in soft folds toward the bottom ---- */
+  { const FX0=-.62, FX1=.4, FY1=1.75, FH=.51, NX=18, NY=8, Z0=-iz+.035, C_=['#1f9a63','#f5f2ea','#f08a3a'].map(C3), P_=[];
+    const at2=(u,vv)=>v(lerp(FX0,FX1,u),FY1-vv*FH-.012*vv*Math.sin(Math.PI*u),Z0+.006+vv*(.016+.013*Math.sin(u*TAU*2.2+.8))+.004*vv*Math.sin(u*TAU*5.5));
+    for(let j=0;j<=NY;j++){ P_[j]=[]; for(let i=0;i<=NX;i++) P_[j][i]=at2(i/NX,j/NY); }
+    const nrm=(i,j)=>{ const a=P_[j][Math.min(NX,i+1)].clone().sub(P_[j][Math.max(0,i-1)]), b=P_[Math.max(0,j-1)][i].clone().sub(P_[Math.min(NY,j+1)][i]); return a.cross(b).normalize(); };
+    const push=(p,n,c)=>{ const w=wsW(p.x,p.y,p.z), wn=wsD(n.x,n.y,n.z); KP.push(w.x,w.y,w.z); KN.push(wn.x,wn.y,wn.z); KC.push(c.r,c.g,c.b); };
+    for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){ const c=C_[Math.floor(i/(NX/3))], q=[[i,j],[i,j+1],[i+1,j+1],[i,j],[i+1,j+1],[i+1,j]]; for(const [a,b] of q) push(P_[b][a],nrm(a,b),c); }
+    put(M,'cyl','#8a6448',(FX0+FX1)/2,FY1+.012,Z0+.01,.011,FX1-FX0+.08,.011,0,0,Math.PI/2); [FX0-.045,FX1+.045].forEach(x=>put(M,'sph','#6b4c34',x,FY1+.012,Z0+.01,.018,.018,.018));
+    rod(M,'#d8d0bf',v(FX0-.02,FY1+.015,Z0+.008),v((FX0+FX1)/2,FY1+.2,Z0-.004),.004); rod(M,'#d8d0bf',v(FX1+.02,FY1+.015,Z0+.008),v((FX0+FX1)/2,FY1+.2,Z0-.004),.004); put(M,'sph','#5a5f62',(FX0+FX1)/2,FY1+.2,Z0-.004,.012,.012,.012); }
+  /* fins leaning on the wall under it, and an open toolbox on the floor */
+  [[-.48,'#ef8a3c',1.1,-.2],[-.22,'#efe8d8',1,-.16],[.04,'#ef8a3c',.9,-.22]].forEach(([x,c,s,a])=>fin(wsTf(M,x,F,-iz+.04,0,a,0),c,s));
+  { const Tb=sub(M,-.3,F,-1.12,-.25); box(Tb,'#cf3a2f',0,0,0,.42,.16,.2); box(Tb,'#2c2d2f',0,.16,0,.42,.012,.2); [-1,1].forEach(s=>{ box(wsTf(Tb,0,.24,s*.13),'#cf3a2f',0,0,0,.38,.05,.12); rod(Tb,'#9aa0a3',v(-.18,.16,s*.05),v(-.18,.25,s*.13),.008); rod(Tb,'#9aa0a3',v(.18,.16,s*.05),v(.18,.25,s*.13),.008); });
+    for(let k=0;k<5;k++) box(wsTf(Tb,-.15+k*.075,.29,.13,k),'#9aa0a3',0,0,0,.05,.01,.02); solid(-.55,-.05,-1.28,-.96,.32); }
+  /* ---- the whiteboard over the van's nose ---- */
+  { const WX0=.5, WX1=1.62, WY0=F+1.5, WY1=F+2.14; box(M,'#c3c8cb',(WX0+WX1)/2,WY0-.02,-iz+.015,WX1-WX0+.05,WY1-WY0+.04,.025); box(M,'#aeb4b7',(WX0+WX1)/2,WY0-.04,-iz+.05,WX1-WX0-.1,.02,.07);
+    ['#2c4f9e','#d0453a','#2a241d'].forEach((c,k)=>put(M,'cyl',c,.7+k*.13,WY0-.012,-iz+.06,.01,.11,.01,0,0,Math.PI/2+k*.1));
+    const cv=document.createElement('canvas'); cv.width=1024; cv.height=600; garWhite(cv); const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ garWhite(cv); tx.needsUpdate=true; }).catch(()=>{});
+    const m=add(new T.Mesh(new T.PlaneGeometry(WX1-WX0,WY1-WY0),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uSelf:{value:.3}},LU,GU),vertexShader:TOON_V(true),fragmentShader:GBRD_F})));
+    m.matrix.copy(sub(M,(WX0+WX1)/2,(WY0+WY1)/2,-iz+.029)); GAR.boards.push(tx); }
+  /* ---- the shelves on the left wall: boxes, tins, a model rocket, fins, a radio, rolled-up drawings ---- */
+  { const SX=-2.09, Z0=-1.45, Z1=-.55, SW=.37, SZ=(Z0+Z1)/2;
+    [[SX-SW/2+.015,Z0+.015],[SX+SW/2-.015,Z0+.015],[SX-SW/2+.015,Z1-.015],[SX+SW/2-.015,Z1-.015]].forEach(([x,z])=>box(M,'#7b8286',x,F,z,.03,2.06,.03));
+    [.06,.52,.98,1.44,1.9].forEach(y=>box(M,'#9aa0a3',SX,F+y,SZ,SW,.025,Z1-Z0));
+    const s=y=>F+y+.025; cyl(M,'#3f6fd0',SX,s(.06),-1.32,.07,.13); cyl(M,'#e5e1d6',SX,s(.06),-1.15,.07,.13); box(M,'#cf3a2f',SX,s(.06),-.75,.14,.22,.2); box(M,'#2c2d2f',SX+.05,s(.06)+.22,-.7,.03,.04,.03);
+    carton(M,SX,s(.52),-1.25,.3,.2,.3,.1); carton(M,SX,s(.52),-.85,.28,.18,.26,-.12,true); torus(wsTf(M,SX,s(.52)+.02,-.62,0,Math.PI/2,0),'#2f8a56',.05,.012,16);
+    { const R_=wsTf(M,SX,s(.98)+.035,-1.05,0,Math.PI/2,0); cyl(R_,'#f4efe6',0,-.2,0,.03,.34); put(R_,'cone','#ef8a3c',0,.2,0,.03,.12,.03); for(let k=0;k<3;k++){ const a=k/3*TAU; box(wsTf(R_,Math.cos(a)*.03,-.2,Math.sin(a)*.03,-a),'#ef8a3c',.03,0,0,.06,.08,.006); } }
+    cyl(M,'#dfe9ea',SX,s(.98),-.68,.05,.12); cyl(M,'#7d8488',SX,s(.98)+.02,-.68,.045,.06,'cyl8');
+    carton(M,SX,s(1.44),-1.25,.3,.16,.28,0,true); [-.12,0,.12].forEach((dz,k)=>fin(wsTf(M,SX-.02,s(1.44)+.1,-1.25+dz,Math.PI/2,0,.1*k),k%2?'#efe8d8':'#ef8a3c',.75));
+    { const Rd=wsTf(M,SX+.02,s(1.44),-.78,Math.PI/2); box(Rd,'#3f6a5a',0,0,0,.26,.15,.09); put(Rd,'cyl','#2c2d2f',-.06,.075,.046,.045,.006,.045,0,Math.PI/2); box(Rd,'#e8e3d6',.07,.08,.046,.08,.03,.004); rod(Rd,'#9aa0a3',v(.1,.15,0),v(.17,.42,-.04),.004); }
+    [-1.2,-1.0,-.82].forEach((z,k)=>put(M,'cyl',k%2?'#f5f2ea':'#b9d3e8',SX,s(1.9)+.035,z,.035,.36,.035,0,Math.PI/2,.05*k)); carton(M,SX,s(1.9),-.66,.28,.2,.16,0);
+    solid(SX-SW/2,SX+SW/2,Z0,Z1,2.06); }
+  /* ---- a big red chest under the left window, a drawer pulled out; another in the far right corner, its lid up ---- */
+  { const B=sub(M,-ix+.26,F,-.02,Math.PI/2); chest(B,.84,.48,.86,.36,2,false); mug(B,.24,.86+.078+.36+.035,.0,'#3f6fd0',.8); carton(B,-.18,.86+.078+.36+.035,0,.22,.12,.18,.3); solid(-ix,-ix+.5,-.44,.4,1.32); }
+  { const B=sub(M,2.0,F,-iz+.25,0); chest(B,.5,.48,.8,.34,4,true); solid(1.75,2.25,-iz,-iz+.5,1.24); }
+  /* ---- the right-hand strip past the van: boxes, spare wheels, offcuts of ply, a drone hung up out of the way ---- */
+  carton(M,2.02,F,-.66,.38,.3,.34,.08); carton(M,2.02,F+.3,-.68,.3,.22,.28,-.15,true); solid(1.82,2.22,-.84,-.48,.52);
+  tyre(sub(M,2.02,F+.075,.98)); tyre(sub(M,2.04,F+.225,.97,.3)); tyre(wsTf(M,2.18,F+.21,.35,0,0,-1.38)); solid(1.8,2.25,.76,1.2,.3); solid(2.05,2.27,.13,.57,.42);
+  [[-.25,.0],[-.05,.04]].forEach(([z,a],k)=>box(wsTf(M,2.22-k*.03,F,z,0,0,.16+a),k?'#c9b48a':'#d8c49a',0,0,0,.018,.7,.5)); solid(2.08,2.27,-.5,.2,.7);
+  { const D_=wsTf(M,1.95,top-.62,.3,.5); quad(D_,2.2); [-1,1].forEach(s=>rod(M,'#d8d0bf',wsL(v(s*.12,.02,0).applyMatrix4(D_)),v(1.95+s*.12,top-.12,.3),.004)); }
+  /* ---- the front corner by the window: boxes stacked up, a vacuum, a broom, the fire extinguisher by the door ---- */
+  carton(M,-1.62,F,1.24,.42,.32,.36,.12); carton(M,-1.6,F+.32,1.26,.34,.26,.3,-.2,true); carton(M,-1.25,F,1.3,.3,.24,.28,.5); solid(-1.86,-1.05,1.04,1.47,.6);
+  { cyl(M,'#f0c22e',-2.02,F,1.15,.15,.36); cyl(M,'#2c2d2f',-2.02,F+.36,1.15,.152,.06); pipe(M,'#2c2d2f',[[-1.92,F+.36,1.12],[-1.75,F+.5,1.02],[-1.7,F+.06,.82],[-1.55,F+.03,.7]],.022,16); solid(-2.2,-1.84,.97,1.33,.42); }
+  { rod(M,'#b8834f',v(-2.2,F+.06,1.4),v(-2.24,F+1.3,1.43),.014); box(wsTf(M,-2.2,F,1.39,.8,0,-.03),'#3a3c3e',0,0,0,.26,.06,.06); }
+  { const X=sub(M,-.55,F,iz-.09,Math.PI); box(X,'#3a3c3e',0,.42,-.07,.08,.05,.02); cyl(X,'#cf3a2f',0,.12,0,.068,.42); put(X,'sph','#cf3a2f',0,.54,0,.068,.04,.068); cyl(X,'#2c2d2f',0,.56,0,.025,.06,'cyl8'); box(X,'#2c2d2f',.02,.62,0,.1,.016,.03); pipe(X,'#2c2d2f',[[.03,.58,0],[.09,.5,.04],[.08,.22,.06]],.01,10); box(X,'#f5f2ea',0,.28,.066,.07,.09,.004); solid(-.65,-.45,1.33,1.48,.62); }
+  /* ---- stools (an open book on one), papers on the floor ---- */
+  stool(-1.25,-.58,.6); { const B=stool(.16,-.42,.56); const O=wsTf(B,0,.56,0,.4); [-1,1].forEach(s=>{ const H_=wsTf(O,0,0,0,0,0,s*.1); box(H_,'#3e6a9a',s*.075,0,0,.15,.008,.22); box(H_,'#f6f0e2',s*.07,.008,0,.125,.014,.18); }); }
+  [[-1.0,-.62,.6],[-.62,-.76,2.1],[-1.78,-.3,.3],[.32,.18,1.2]].forEach(([x,z,r])=>box(wsTf(M,x,F+.016,z,r),'#f7f4ec',0,0,0,.21,.002,.29));
+  kitTo(); add(new T.Mesh(kgeo('garin'),garMat())); delete KITS.garin;
+  }finally{ kitTo(); }
+  /* ---- by night the light from the open shutter on the ramp and the pavement: a warm fan out from the sill ---- */
+  { const NX=10, NZ=12, P_=[], K_=[], I_=[];
+    for(let j=0;j<=NZ;j++) for(let i=0;i<=NX;i++){ const vv=j/NZ, u=i/NX-.5, z=GW.d/2+.06+vv*3.4, hw=GW.ow/2+.12+vv*1.7, x=GW.ox+u*2*hw, y=garFloor(x,z)+.014; wsW(x,y,z,gV); P_.push(gV.x,gV.y,gV.z); K_.push(Math.pow(1-vv,1.5)*(1-Math.pow(Math.abs(u)*2,3))); }
+    for(let j=0;j<NZ;j++) for(let i=0;i<NX;i++){ const a=j*(NX+1)+i, b=a+1, c=a+NX+1, d=c+1; I_.push(a,c,b, b,c,d); }
+    const pg=new T.BufferGeometry(); pg.setAttribute('position',new T.Float32BufferAttribute(P_,3)); pg.setAttribute('aK',new T.Float32BufferAttribute(K_,1)); pg.setIndex(I_);
+    GAR.pool=new T.Mesh(pg,new T.ShaderMaterial({uniforms:{uK:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+      vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+      fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.68,.38)*vK*uK*.75,1.); }`}));
+    GAR.pool.layers.set(1); GAR.pool.renderOrder=2; GAR.pool.frustumCulled=false; GAR.pool.visible=false; sc.add(GAR.pool); }
+  /* what a click finds: the front of the workshop from outside, the way out from inside (boxes, never drawn) */
+  GAR.pick=new T.Mesh(new T.BoxGeometry(GW.ow+.5,GW.ot+.75,.5)); GAR.pick.matrixAutoUpdate=false; GAR.pick.matrixWorld.copy(M).multiply(gM.makeTranslation(GW.ox,(GW.ot+.75)/2,GW.d/2+.12));
+  GAR.pickOut=new T.Mesh(new T.BoxGeometry(GW.ow,GW.ot-F,.3)); GAR.pickOut.matrixAutoUpdate=false; GAR.pickOut.matrixWorld.copy(M).multiply(gM.makeTranslation(GW.ox,(GW.ot+F)/2,GW.d/2));
+  /* its shaders are made ready with the rest of Earth's: it is drawn, out of sight, the once Earth is warmed up behind the
+     loader (see garStep), and after that only while the shutter is up */
+  GAR.boards.forEach(tx=>{ try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} });
+  sc.add(g); GAR.g=g;
+  /* no rain or snow falls inside it (the streaks round the camera are dropped wherever they fall in the building) */
+  if(FALL&&FALL.material){ const m=FALL.material; m.uniforms.uDryM={value:new T.Matrix4().copy(M).multiply(gM.makeTranslation(0,GW.h/2+.1,0)).invert()}; m.uniforms.uDryH={value:new T.Vector3(GW.w/2+.08,GW.h/2+.2,GW.d/2+.08)};
+    m.vertexShader=m.vertexShader.replace('attribute vec4 aS;','attribute vec4 aS; uniform mat4 uDryM; uniform vec3 uDryH;').replace('vec3 vd=normalize(p-cameraPosition)','{ vec3 q=(uDryM*vec4(p,1.)).xyz; if(all(lessThan(abs(q),uDryH))){ vC=vec2(0.); vA=0.; gl_Position=vec4(2.,2.,2.,1.); return; } } vec3 vd=normalize(p-cameraPosition)'); m.needsUpdate=true; } }
+
+/* ---------- the shutter going up and down: the motor's hum while it runs, a click each time a slat goes over the drum, a
+   clank at the top or the rail on the floor at the bottom ---------- */
+const gTrap=u=>{ const a=.14, w=1/(1-a); return u<a?.5*w*u*u/a:u<1-a?.5*w*a+w*(u-a):1-.5*w*(1-u)*(1-u)/a; };   // up to speed, steady, and down again
+const garK=()=>clamp(1.25-GAR.da/14,.25,1);   // how loud, for how far off you are
+function garOpen(){ if(GAR.shSt!=='shut'||!GAR.g) return false; GAR.shSt='up'; GAR.shT=0; GAR.q=0; GAR.away=0; if(GAR.motor) GAR.motor.stop(); GAR.motor=A.shutterMotor(true,garK()); garFlick(); return true; }
+function garClose(){ if(GAR.shSt!=='open') return false; GAR.shSt='down'; GAR.shT=0; GAR.q=GSN; if(GAR.motor) GAR.motor.stop(); GAR.motor=A.shutterMotor(false,garK()); return true; }
+function garShutter(dt){ const up=GAR.shSt==='up'; GAR.shT+=dt; const u=clamp(GAR.shT/(up?GSH_UP:GSH_DN),0,1), s0=GAR.sh; GAR.sh=up?gTrap(u):1-gTrap(u);
+  const sp=Math.abs(GAR.sh-s0)*GLIFT/Math.max(dt,1e-3), q=garQ(GAR.sh);
+  if(q!==GAR.q){ GAR.q=q; GAR.clicks++; A.ratchet(GSP/Math.max(sp,.3),garK()); }
+  if(u>=1){ GAR.sh=up?1:0; GAR.shSt=up?'open':'shut'; if(GAR.motor){ GAR.motor.stop(); GAR.motor=null; } A.shutterEnd(up,garK()); if(!up) garLightsOff(); }
+  shutterPose(GAR.sh,u<1); }
+/* the strip lights: as the shutter goes up each tube flickers a few times and catches, the one over the bench first; the
+   lamp on the bench comes on with it. The tube over the door is on its way out: now and then it blinks */
+function garFlick(){ GAR.lit=true; GAR.flT=0; GAR.fl=[.95,.7,1.18].map(s=>{ let t=s+Math.random()*.12; const ev=[], n=1+Math.floor(Math.random()*3);
+    for(let k=0;k<n;k++){ const on=.04+Math.random()*.07; ev.push([t,.8],[t+on,0]); t+=on+.08+Math.random()*.15; } ev.push([t,1]); return {ev,j:0}; }); GAR.dodgy=12+Math.random()*10; }
+function garLightsOff(){ GAR.lit=false; GAR.fl=null; GAR.tubes[0]=GAR.tubes[1]=GAR.tubes[2]=0; GAR.lamp=0; }
+function garLights(dt){ if(GAR.fl){ GAR.flT+=dt; let done=true; GAR.fl.forEach((f,i)=>{ let s=0; while(f.j<f.ev.length&&f.ev[f.j][0]<=GAR.flT){ const vv=f.ev[f.j++][1]; if(vv>GAR.tubes[i]) s=Math.max(s,vv); GAR.tubes[i]=vv; }
+      if(s&&GAR.da<14) A.tube(s>.9?.9:.55); if(f.j<f.ev.length) done=false; }); if(done) GAR.fl=null; }
+  else if(GAR.lit&&GAR.shSt==='open'&&GAR.da<12){ GAR.dodgy-=dt; if(GAR.dodgy<=0){ GAR.dodgy=12+Math.random()*14; GAR.flT=0; GAR.fl=[{ev:[],j:0},{ev:[],j:0},{ev:[[0,0],[.06,.7],[.11,0],[.2,1]],j:0}]; } }
+  GAR.lamp=GAR.lit&&(GAR.tubes[1]>.9||GAR.lamp>.5)?Math.min(1,GAR.lamp+dt*6):Math.max(0,GAR.lamp-dt*6); }
+function garUniforms(t){ const nt=SKY.night, day=1-nt, L=GU.uGL.value, lit=(GAR.tubes[0]+GAR.tubes[1]+GAR.tubes[2])/3;
+  for(let i=0;i<3;i++) L[i].w=GAR.tubes[i]*1.45*(1+.25*nt); L[3].w=GAR.lamp*.55*(1+.3*nt); L[4].w=GAR.sh*day*(1-.5*SKY.over)*1.1;
+  GU.uGT.value.set(GAR.tubes[0],GAR.tubes[1],GAR.tubes[2],GAR.lamp); GU.uGDay.value=day*(.3+.7*GAR.sh)*(1-.35*SKY.over);
+  GU.uGPane.value.set(lerp(.86,.15,nt)+.12*lit*nt,lerp(.91,.18,nt)+.09*lit*nt,lerp(.93,.26,nt)+.05*lit*nt); GU.uGLed.value=(t*1.4)%1<.5?1:.2;
+  if(GAR.pool){ const k=nt*GAR.sh*lit; GAR.pool.visible=k>.01; GAR.pool.material.uniforms.uK.value=k; } }
+
+/* ---------- where you are, and going over ---------- */
+function garYou(){ const P=player; wsL(gV.copy(P.u).multiplyScalar(R+P.h),GAR.pl); gV2.copy(P.f).transformDirection(GAR.Mi); return {x:GAR.pl.x,z:GAR.pl.z,fz:gV2.z,fx:gV2.x}; }
+const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||CL.st!=='idle'||CL.k!=='home';
+const garNear=()=>GAR.da<2.6&&GAR.you.z>GW.d/2+.15;
+function garSet(s){ GAR.st=s; GAR.on=s==='enter'||s==='in'||s==='exit'; GAR.t=0; el.classList.toggle('ingar',GAR.on); garOut.hidden=s!=='in'; if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } }
+/* the tag, a click, E: up if it is down, in if it is up; from further off you walk over first */
+function garAct(){ if(GAR.st!=='out'||garBusy()) return false; if(GAR.shSt==='shut') return garGo('open'); if(GAR.shSt==='open') return garGo('in'); return false; }
+function garGo(then){ const P=player; if(garNear()||GAR.da<1.4){ began(); return then==='open'?garOpen():garEnter(); }
+  const path=navPath(P.x,P.z,GAR.apW[0],GAR.apW[1],1.3); if(!path) return false;
+  closeTalk(); TALK.goal=null; C.guide=null; P.path=path.concat([GAR.apW.slice()]); P.tgt=null; P.stuck=0; GAR.then=then; GAR.go=0; garSet('go'); began(); A.tick(); return true; }
+function garGoing(dt){ const P=player; GAR.go+=dt;
+  if(garBusy()||TALK.goal||GAR.go>25){ garSet('out'); return; }
+  if(GAR.da<.35||(!P.path&&!P.tgt&&GAR.da<1.6)){ P.path=null; P.tgt=null; garSet('out'); tang(P.u,wsW(GW.ox,0,0,gV),P.f); if(GAR.then==='open') garOpen(); else garEnter(); return; }
+  if(!P.path&&!P.tgt) garSet('out'); }
+/* out in the street: walking into the open shutter takes you in; walked away, it rolls down after a moment */
+function garOutside(dt){ const P=player, y=GAR.you;
+  if(GAR.shSt==='open'&&!garBusy()&&!TALK.goal&&!P.path&&P.speed>.35&&Math.abs(y.x-GW.ox)<GW.ow/2-.15&&y.z>GW.d/2+.2&&y.z<GW.d/2+1.2&&y.fz<-.55) garEnter();
+  if(GAR.shSt==='open'&&(GAR.da>7||(y.z<GW.d/2&&GAR.da>3.5))){ GAR.away+=dt; if(GAR.away>1.2) garClose(); } else GAR.away=0; }
+
+/* ---------- the way in and the way out ---------- */
+function garEye(o,lean=0){ const p=cport(), [sx,sz]=GW.S, k=lean*.55; return wsW(clamp(sx-Math.sin(GAR.yaw)*k,-1.45,.25),GW.FL+GW.EY+(p?.04:0)-lean*.03,clamp(sz-Math.cos(GAR.yaw)*k,-.45,1.15),o); }
+function garDir(yaw,pitch,o){ return wsD(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch),o); }
+const garYawTo=(x,z)=>Math.atan2(-(x-GW.S[0]),-(z-GW.S[1]));
+function garGroundY(x,z){ const [mx,mz]=wsXZ(x,z); return wsL(at(mx,mz,gR2).multiplyScalar(R+standH(mx,mz)),gR2).y; }
+function garFloor(x,z){ if(z<=GZI) return GW.FL; const g=garGroundY(x,z); return z>=GZO?g:lerp(GW.FL,g,(z-GZI)/(GZO-GZI)); }
+/* you (the figure) walking in or out, in the workshop's frame: on the pavement, up the ramp, on the garage floor */
+function garFig(dt,t,x,z,sp,face){ const [ox,oz]=GAR.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); GAR.fig=[x,z];
+  const want=face!=null?face:dd>1e-4?Math.atan2(dx,dz):null; if(want!=null){ const a=angWrap(want-GAR.fh); GAR.fh+=a*Math.min(1,dt*(face!=null?7:9)); }
+  const [mx,mz]=wsXZ(x,z); wsW(x,garFloor(x,z),z,gV); if(z<GW.d/2) gV2.copy(GAR.up); else at(mx,mz,gV2); wsD(Math.sin(GAR.fh),0,Math.cos(GAR.fh),gV3);
+  sT.crossVectors(gV2,tang(gV2,gV3,gV3)).normalize(); Mf.makeBasis(sT,gV2,gV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(gV);
+  GAR.fph+=dt*sp*4.6; animate(me,GAR.fph,clamp(sp/2.7,0,1),0,t,9); GAR.fstep+=sp*dt; if(GAR.fstep>.62){ GAR.fstep=0; A.step(1); } }
+function garEnter(){ if(GAR.on||GAR.shSt!=='open'||garBusy()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  const y=garYou(); GAR.fig=[y.x,y.z]; GAR.fh=Math.atan2(gV2.x,gV2.z); GAR.fph=P.ph; GAR.fstep=0; GAR.yaw=cport()?GW.yawP:GW.yaw0; GAR.pitch=GW.p0; GAR.lean=0; GAR.dragT=9; GAR.out=0;
+  const E_=garEye(new T.Vector3()); GAR.wIn=[GAR.fig.slice(),...GW.WAY,GW.S.slice()];
+  GAR.curve=new T.CatmullRomCurve3([st.camP.clone(),wsW(.36,GW.FL+1.8,GW.d/2+2.4),wsW(.2,GW.FL+1.45,GW.d/2+.3),wsW(-.5,GW.FL+GW.EY+.08,1.18),E_],false,'centripetal');
+  GAR.lcurve=new T.CatmullRomCurve3([st.camL.clone(),wsW(.2,1.35,.9),wsW(-.2,1.4,-.1),E_.clone().add(garDir(GAR.yaw,GW.p0,gV3))],false,'centripetal');
+  GAR.u0=stUp.clone(); GAR.k=1; me.visible=true; garSet('enter'); return true; }
+function garWayIn(dt,t){ const c=GAR.t+=dt;
+  /* you walk up the ramp and in beside the van to where you will stand, the camera behind you down to eye height, through
+     the opening and on into your own eyes (you fade as it comes up behind you) */
+  const W=GAR.wIn, wk=sstep(0,2.5,c), [x,z,L]=cpoly(W,wk), sp=L*6*wk*(1-wk)/2.5;
+  const s=E.io(clamp(c/(GT_IN-.1),0,1)); GAR.curve.getPointAt(s,GAR.cp); GAR.lcurve.getPointAt(Math.min(1,s*1.04),GAR.cl); GAR.cu.copy(GAR.u0).lerp(GAR.up,sstep(.2,.8,s)).normalize();
+  if(me.visible){ garFig(dt,t,x,z,sp); if(c>1.2&&me.position.distanceTo(GAR.cp)<.85||c>2.6) me.visible=false; }
+  if(c>=GT_IN){ GAR.wIn=null; GAR.curve=GAR.lcurve=null; garSet('in'); } }
+function garLeave(){ if(GAR.st!=='in') return; const P=player, [ax,az]=wsXZ(...GW.EX);
+  /* you walk back out past the van onto the pavement, facing the street, and the walking camera takes over just where this
+     one ends: just inside the doorway, behind you */
+  P.x=ax; P.z=az; P.u.copy(at(ax,az)); tang(P.u,wsW(GW.EX[0],0,9,gV),P.f); P.h=standH(ax,az); P.speed=0; P.path=null; P.tgt=null;
+  const D=rigLimit(ax,az,P.u,P.f,C.PITCH,C.D0()), head=gV.copy(P.u).multiplyScalar(R+P.h+C.HEAD); GAR.endP=new T.Vector3(); GAR.endL=new T.Vector3(); rigPose(head,P.u,P.f,C.PITCH,D,GAR.endP,GAR.endL); GAR.endD=D;
+  GAR.y0=GAR.yaw; GAR.p0x=GAR.pitch; GAR.curve=null; GAR.fig=[GW.S[0]+.5,GW.S[1]+.18]; GAR.fh=Math.atan2(1,.3); garSet('exit'); A.step(1); }
+function garWayOut(dt,t){ const c=GAR.t+=dt, P=player;
+  /* you turn to the opening; you are seen walking out ahead of the camera, which comes after you as far as the doorway */
+  if(c<.6){ const k=E.io(c/.6), to=garYawTo(GW.EX[0],GW.EX[1]); GAR.yaw=GAR.y0+angWrap(to-GAR.y0)*k; GAR.pitch=lerp(GAR.p0x,-.06,k); garEye(GAR.cp); garDir(GAR.yaw,GAR.pitch,gV).add(GAR.cp); GAR.cl.copy(gV); GAR.cu.copy(GAR.up); }
+  else { if(!GAR.curve){ GAR.curve=new T.CatmullRomCurve3([GAR.cp.clone(),wsW(-.5,GW.FL+GW.EY+.14,1.0),GAR.endP.clone()],false,'centripetal'); GAR.lc0=GAR.cl.clone(); }
+    const s=E.io(clamp((c-.6)/(GT_OUT-.65),0,1)); GAR.curve.getPointAt(s,GAR.cp); gV4.copy(me.position).addScaledVector(GAR.up,1.25);
+    GAR.cl.copy(GAR.lc0).lerp(gV4,sstep(0,.25,s)).lerp(GAR.endL,sstep(.45,1,s)); GAR.cu.copy(GAR.up).lerp(P.u,s).normalize(); }
+  const Wp=[[GW.S[0]+.5,GW.S[1]+.18],GW.WAY[2],[.2,GW.d/2-.2],[GW.EX[0],GW.d/2+.5],GW.EX], u=clamp((c-.25)/2.2,0,1), wk=u*u*(3-2*u), [x,z,L]=cpoly(Wp,wk), sp=L*6*u*(1-u)/2.2;
+  if(c>.25){ me.visible=true; garFig(dt,t,x,z,sp); }
+  if(c>=GT_OUT){ const [mx,mz]=wsXZ(...GW.EX); P.x=mx; P.z=mz; P.u.copy(at(mx,mz)); tang(P.u,wsW(GW.EX[0],0,9,gV),P.f); P.h=standH(mx,mz); P.ph=GAR.fph;
+    C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.dist=GAR.endD; C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dragT=9; C.tk=0; stUp.copy(P.u);
+    GAR.curve=null; garSet('out'); GAR.cp.copy(GAR.endP); GAR.cl.copy(GAR.endL); GAR.cu.copy(P.u); me.visible=true; } }
+/* inside: drag, or the arrows (A, D), to look round, all the way round; W leans in, or takes you out if you face the way
+   out; S takes you out */
+function garInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0); if(kx){ GAR.yaw+=kx*1.6*dt; GAR.dragT=0; }
+  const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown'), out=Math.abs(angWrap(GAR.yaw-garYawTo(.2,GW.d/2)))<.7;
+  if(bk||fw&&out){ GAR.out+=dt; if(GAR.out>.3){ GAR.out=0; garLeave(); return; } } else GAR.out=0;
+  GAR.lean=damp(GAR.lean,fw&&!out?1:0,1.6,dt); GAR.dragT+=dt;
+  garEye(GAR.cp,GAR.lean); garDir(GAR.yaw,GAR.pitch,gV).add(GAR.cp); GAR.cl.copy(gV); GAR.cu.copy(GAR.up); me.visible=false; }
+
+/* ---------- each frame: after the town has moved you and placed its camera ---------- */
+function garStep(dt,t){ if(!GAR.g) return; const P=player;
+  if(FIN.on||CUT.on){ if(GAR.st!=='out'||GAR.shSt!=='shut'||GAR.k>0||GAR.g.visible) garReset(); garTagUpdate(false); return; }
+  GAR.you=garYou(); GAR.da=Math.hypot(P.x-GAR.apW[0],P.z-GAR.apW[1]);
+  if(GAR.shSt==='up'||GAR.shSt==='down') garShutter(dt);
+  garLights(dt);
+  if(GAR.st==='go') garGoing(dt); else if(GAR.st==='enter') garWayIn(dt,t); else if(GAR.st==='exit') garWayOut(dt,t); else if(GAR.st==='in') garInside(dt); else garOutside(dt);
+  const vis=GAR.warm||GAR.sh>.0005||GAR.on; if(GAR.g.visible!==vis) GAR.g.visible=vis; if(vis) garUniforms(t); else if(GAR.pool.visible) GAR.pool.visible=false;
+  if(GAR.warm){ if(S.ready) GAR.warm=false; else GAR.pool.visible=true; }   // (the first time, behind the loader: drawn once, so its shaders are made for Earth's own drawing)
+  /* the camera: this one while you are in there (and on the way in and out), handed back smoothly after */
+  if(!GAR.on) GAR.k=damp(GAR.k,0,7,dt);
+  if(GAR.k>.001){ const k=GAR.on?1:GAR.k; st.camP.lerp(GAR.cp,k); st.camL.lerp(GAR.cl,k); stUp.lerp(GAR.cu,k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(GAR.on) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+  /* a wider lens in here, eased in as you go in and out as you come out; and a nearer one, for the things right by you */
+  GAR.fk=GAR.st==='enter'?sstep(.15,.95,GAR.t/GT_IN):GAR.st==='exit'?1-sstep(.25,.9,GAR.t/GT_OUT):GAR.st==='in'?1:0;
+  if(GAR.fk>.001){ const fv=lerp(stCam.fov,cport()?70:56,GAR.fk); if(Math.abs(stCam.fov-fv)>.01){ stCam.fov=fv; stCam.updateProjectionMatrix(); } }
+  const nr=GAR.on?.02:.1; if(GAR.on||GAR.nr){ GAR.nr=GAR.on; if(stCam.near!==nr){ stCam.near=nr; stCam.updateProjectionMatrix(); } }
+  /* the town's music is a little quieter in here */
+  GAR.mk=damp(GAR.mk,GAR.st==='in'?1:GAR.on?.6:0,2.5,dt); if(GAR.mk>.002) A.music(.55*(1-.42*GAR.mk));
+  garTagUpdate(true); }
+/* back to how it was: entering or leaving Earth, the launch scene, the end of the last flight */
+function garReset(leaving){ if(GAR.motor){ GAR.motor.stop(); GAR.motor=null; } const was=GAR.on||GAR.k>0; if(leaving) GAR.warm=false;
+  GAR.drag=GAR.tap=null; GAR.curve=GAR.lcurve=null; GAR.wIn=null; GAR.k=0; GAR.mk=0; GAR.out=0; GAR.away=0; GAR.sh=0; GAR.shSt='shut'; GAR.shT=0; GAR.q=0; garLightsOff(); shutterPose(0,false);
+  if(GAR.g) GAR.g.visible=false; if(GAR.pool) GAR.pool.visible=false; garSet('out'); if((was||GAR.nr)&&stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } GAR.nr=false; GAR.fk=0; if(me&&!FIN.on&&!CUT.on) me.visible=true; garTagUpdate(false); }
+
+/* ---------- the tag over the shutter, the way out, clicks, drags and keys ---------- */
+const garTag=document.createElement('span'); garTag.className='crwt ui'; $('#crLabels',el).appendChild(garTag);
+garTag.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'){ GAR.kb=e.detail===0; garAct(); } });
+const garOut=document.createElement('button'); garOut.className='btn hit crleave crwout'; garOut.type='button'; garOut.id='crWsLeave'; garOut.dataset.cur='Leave'; garOut.textContent='Leave the workshop'; garOut.hidden=true; el.insertBefore(garOut,$('#crSkip',el));
+garOut.addEventListener('click',e=>{ e.stopPropagation(); GAR.kb=e.detail===0; garLeave(); }); garOut.addEventListener('pointerdown',e=>e.stopPropagation());
+function garTagUpdate(live){ const P=player; let on=false, can=false, txt='';
+  if(live&&GAR.M&&started&&GAR.st==='out'&&!garBusy()&&(GAR.shSt==='shut'||GAR.shSt==='open')&&GAR.da<7&&GAR.you.z>GW.d/2+.15){ wsW(GW.ox,cport()?1.45:GW.ot-.12,GW.d/2+.2,gV).project(stCam);   // (on a phone held upright, lower down the shutter, clear of the landmark's card across the top)
+    on=gV.z<1&&Math.abs(gV.x)<.95&&Math.abs(gV.y)<.95; can=garNear(); txt=GAR.shSt==='shut'?'Open':'Go in'; GAR.tagP=[+gV.x.toFixed(2),+gV.y.toFixed(2),+gV.z.toFixed(3)];
+    if(on) garTag.style.transform=`translate(${((gV.x*.5+.5)*innerWidth).toFixed(1)}px,${((-gV.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
+  if(txt&&garTag.textContent!==txt) garTag.textContent=txt;
+  if(on!==GAR.tagOn){ GAR.tagOn=on; garTag.classList.toggle('on',on); } if(can!==GAR.tagCan){ GAR.tagCan=can; garTag.classList.toggle('can',can); } }
+/* what a click is on: the workshop's front from the street (never from round the back), the way out from inside */
+function garPick(e){ if(!GAR.pick) return null; gNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); gRay.setFromCamera(gNdc,stCam);
+  if(GAR.on) return gRay.intersectObject(GAR.pickOut,false).length?'out':null;
+  if(stCam.position.distanceTo(GAR.c0)>24||wsL(stCam.position,gV).z<GW.d/2) return null; return gRay.intersectObject(GAR.pick,false).length?'front':null; }
+{ const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&GAR.g){ if(GAR.on){ GAR.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; return; }
+    GAR.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; } return op.call(this,e); }; }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g) return; const D=GAR.drag, tp=GAR.tap;
+  if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
+  if(D&&e.pointerId===D.id){ if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>(e.pointerType==='mouse'?6:9)) D.moved=true;
+    if(D.moved&&GAR.st==='in'){ GAR.yaw-=(e.clientX-D.lx)*.0042; GAR.pitch=clamp(GAR.pitch-(e.clientY-D.ly)*.0034,-.75,.7); GAR.dragT=0; } D.lx=e.clientX; D.ly=e.clientY; return; }
+  if(e.pointerType!=='mouse') return;
+  /* the cursor says what a click would do: Open, Go in, or (inside, over the way out) Leave */
+  let lab=null; if(GAR.on){ if(hov) hov=null; if(GAR.st==='in'&&garPick(e)==='out') lab='Leave'; }
+  else if(GAR.st==='out'&&!garBusy()&&!down&&!hov&&!DM.hov&&!CL.hov&&(GAR.shSt==='shut'||GAR.shSt==='open')&&garPick(e)==='front') lab=GAR.shSt==='shut'?'Open':'Go in';
+  const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); GAR.cur=true; } else if(GAR.cur||GAR.on){ ce.classList.remove('big'); GAR.cur=false; } },{passive:true});
+addEventListener('pointerup',e=>{ const D=GAR.drag, tp=GAR.tap;
+  if(D&&e.pointerId===D.id){ GAR.drag=null; if(!D.moved&&S.st===st&&S.mode==='station'&&GAR.st==='in'&&garPick(e)==='out'){ GAR.kb=false; garLeave(); } return; }
+  if(!tp||e.pointerId!==tp.id) return; GAR.tap=null; if(S.st!==st||S.mode!=='station'||tp.moved||tp.talk||FIN.on||CUT.on||GAR.st!=='out'||garBusy()) return;
+  if(pickPerson(e)||pickBusk(e)) return; if(garPick(e)){ GAR.kb=false; garAct(); } });
+addEventListener('pointercancel',()=>{ GAR.drag=null; GAR.tap=null; });
+addEventListener('pointerdown',()=>{ GAR.kb=false; },true);
+/* keys: E or Enter by the shutter opens it, or takes you in; inside, Escape takes you out (and E, Enter and Space do
+   nothing else); on the way over, Escape stops you */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g||FIN.on||CUT.on) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
+  if(GAR.on){ if(k==='Escape'){ if(GAR.st==='in'){ GAR.kb=true; garLeave(); } e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  if(GAR.st==='go'&&k==='Escape'){ garSet('out'); player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&GAR.st==='out'&&!garBusy()&&garNear()&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ GAR.kb=true; if(garAct()){ e.preventDefault(); e.stopImmediatePropagation(); } } },true);
+/* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
+{ const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
+  st.build=async function(){ await b.apply(this,arguments); try{ buildLab(); }catch(err){ GAR.err=String(err&&err.stack||err); console.warn('workshop',err); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) garStep(dt,t); return r; };
+  st.enter=function(){ garReset(); return en.apply(this,arguments); }; st.exit=function(){ garReset(true); return ex.apply(this,arguments); };
+  st.finaleEnd=function(){ const r=fe.apply(this,arguments); garReset(); return r; }; }
+st._dbg.garage={G:GAR,GW,get err(){ return GAR.err||null; },open:garOpen,close:garClose,act:garAct,go:garGo,enter:garEnter,leave:garLeave,reset:garReset,local:(x,z)=>wsXZ(x,z),world:(x,y,z)=>wsW(x,y,z),toLocal:w=>wsL(w),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  get state(){ return {st:GAR.st,on:GAR.on,sh:+GAR.sh.toFixed(3),shSt:GAR.shSt,k:+GAR.k.toFixed(3),tubes:GAR.tubes.map(v=>+v.toFixed(2)),lamp:+GAR.lamp.toFixed(2),lit:GAR.lit,vis:!!(GAR.g&&GAR.g.visible),me:me.visible,near:stCam.near,
+    you:[+GAR.you.x.toFixed(2),+GAR.you.z.toFixed(2)],da:+GAR.da.toFixed(2),tag:{on:GAR.tagOn,can:GAR.tagCan,txt:garTag.textContent,p:GAR.tagP},leave:!garOut.hidden,clicks:GAR.clicks,pool:!!(GAR.pool&&GAR.pool.visible),mk:+GAR.mk.toFixed(2)}; },
+  /* where on the screen the shutter and the way out are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const p=what==='out'?wsW(GW.ox-.35,1.15,GW.d/2,gV):wsW(GW.ox,1.15,GW.d/2+.05,gV), q=p.project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; },
+  /* what is solid in there, in its frame: [x0, x1, z0, z1, height] */
+  get solids(){ return GAR.solids; }};
+/* ===================== (the workshop ends here) ===================== */
 })();

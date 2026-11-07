@@ -221,3 +221,13 @@ html.crq #back,html.crq #chrome,html.crq #guide{opacity:0!important;pointer-even
   .st-cr .crtalk.crqsay{bottom:calc(var(--gb) + 62px)}   /* over Skip, not on it */
   .st-cr .crqsay .crtk-b{padding-right:18px}
 }
+/* ===== the workshop (see the workshop at the end of station.js): a tag over the shutter when you are by it, Open or Go in,
+   drawn as the name tags are; inside, nothing of the street over the room, and a way out ===== */
+.st-cr .crwt{position:absolute;left:0;top:0;padding:5px 9px 4px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;white-space:nowrap;opacity:0;transition:opacity .4s;will-change:transform;pointer-events:none;cursor:pointer}
+.st-cr .crwt.on{opacity:1;pointer-events:auto}
+.st-cr .crwt.can::after{content:'E';display:inline-block;margin-left:8px;padding:1px 5px 0;background:#2a241d;color:#fbf6ec}
+@media (pointer:coarse){.st-cr .crwt.can::after{content:'Tap'}}
+.st-cr.ingar #crLabels,.st-cr.ingar .cre,.st-cr.ingar .crhint,.st-cr.ingar .crpj,.st-cr.ingar .crgo,.st-cr.ingar .crsteer,.st-cr.ingar .crcafein{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+.st-cr.ingar .crstick{display:none}
+.st-cr .crwout[hidden]{display:none}
+.st-cr.post .crwout,.st-cr.fin .crwout,.st-cr.cut .crwout{display:none!important}
