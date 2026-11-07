@@ -419,7 +419,7 @@ const A=(()=>{
        recordings playing now are together */
     _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
-    _loopRms(){ let q=0; for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
+    _loopRms(){ let q=0; if(BUFP) return 0; /* (buffer players are heard by the page's own meter already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
     /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
     update(t,p){ if(!p) return; if(p.sub!=null) SUB.want=Math.max(0,p.sub)*.26; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045*(muf?.5:1); },
     tick(){ tone(2600*vr(),.02,.01,'square'); },
