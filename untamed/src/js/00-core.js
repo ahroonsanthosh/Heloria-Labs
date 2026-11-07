@@ -515,7 +515,7 @@ const A=(()=>{
        recordings playing now are together */
     _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
-    _loopRms(){ let q=0; if(BUFP) return 0; /* (buffer players, the score's too, are heard by the page's own meter already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
+    _loopRms(){ let q=0; if(BUFP&&window.__meter) return 0; /* (where a meter listens to the page, buffer players, the score's too, are heard by it already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
       if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to
       return Math.sqrt(q); },
     /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
