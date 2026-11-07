@@ -504,6 +504,14 @@ const A=(()=>{
       SC.el=BUFP?new BufPlayer(()=>{ if(SC.bb) return SC.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } SC.bb=b; return b; }):new Audio(); SC.el.preload='auto'; if(!BUFP) SC.el.src=SC.url; SC.el._want=false; try{ SC.el.preservesPitch=false; }catch(e){} };
     try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>{ SC.busy=false; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ SC.busy=false; } }
   const scoreStop=()=>{ if(SC.el){ SC.el._want=false; if(!SC.el.paused) SC.el.pause(); } };
+  /* the workshop's test fire: all of its sounds go through one gain of their own (and a little of it into the room), so
+     walking out mid-fire can silence every one of them at once, the ones already sounding as well. A fresh one is made
+     for the next fire */
+  const tfBus=()=>{ if(!n.tf){ n.tf=ctx.createGain(); n.tf.connect(comp); const s=ctx.createGain(); s.gain.value=.22; n.tf.connect(s); s.connect(revIn); } return n.tf; };
+  function tfT(f,dur,g,type='sine',f2=0,delay=0,atk=.004){ const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+    a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(tfBus()); o.start(t0); o.stop(t0+dur+.05); }
+  function tfN(dur,g,f0,f1,type='lowpass',q=.7,delay=0,atk=.004){ const t0=ctx.currentTime+delay, s=shot(), b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
+    const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(tfBus()); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -699,6 +707,42 @@ const A=(()=>{
     tube(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tone(3150*v,.02,.016*k,'sine',0,0,0,.001); tone(4700*v,.012,.006*k,'sine',0,0,0,.001);
       const t0=ctx.currentTime, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(); o.type='sawtooth'; o.frequency.value=100; b.type='bandpass'; b.frequency.value=720; b.Q.value=2.2;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.02*k,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+.12); },
+    /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
+       As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
+       plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */
+    /* the big red button going down: a chunky click and the knock of its plunger */
+    tfClick(){ if(!on||muted||!ctx) return; const v=vr(.05); tfT(1400*v,.025,.016,'sine',0,0,.001); tfT(190*v,.08,.03,'triangle',95*v,0,.002); tfN(.03,.012,2600,1800,'bandpass',2); },
+    /* the warning: a soft two-tone beep, the second one higher */
+    tfBeep(hi=false){ if(!on||muted||!ctx) return; const f=hi?1175:880; tfT(f,.2,.02,'triangle',0,0,.006); tfT(f*2,.14,.005,'sine',0,0,.006); },
+    /* a cough as it tries to light: a dull pop, a thump under it (k: how big) */
+    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.22,.03*k,1500*v,130,'lowpass',.8); tfT(88*v,.18,.03*k,'sine',42); tfN(.07,.01*k,700*v,450,'bandpass',1.2); },
+    /* the roar: two bands of low noise and a deep growl a fifth apart under a low pass that opens with the thrust, fluttering
+       a little. set(v) is how hard it burns (0 to 1); stop() lets it die away in a third of a second (it lets go by itself
+       after nine seconds, whatever happens) */
+    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.125*k;
+      env.gain.setValueAtTime(0,t0); env.gain.setValueAtTime(0,t0+8.6); env.gain.linearRampToValueAtTime(0,t0+9); env.connect(tfBus());
+      lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.6; lp2.type='lowpass'; lp2.frequency.value=1100; lp2.Q.value=.5; lp.connect(lp2); lp2.connect(body); body.gain.value=.84; body.connect(env);
+      { const s=shot(); s.connect(lp); src.push(s); }
+      { const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=120; b.Q.value=1.1; a.gain.value=1.4; s.connect(b); b.connect(a); a.connect(body); src.push(s); }
+      { const l=ctx.createBiquadFilter(), a=ctx.createGain(); l.type='lowpass'; l.frequency.value=240; a.gain.value=.16; l.connect(a); a.connect(body);
+        [[47,1],[70.5,.6]].forEach(([f,m])=>{ const o=ctx.createOscillator(), q=ctx.createGain(); o.type='sawtooth'; o.frequency.value=f*vr(.02); q.gain.value=m; o.connect(q); q.connect(l); src.push(o); }); }
+      [[7.3,.07],[11.9,.05]].forEach(([f,m])=>{ const o=ctx.createOscillator(), q=ctx.createGain(); o.frequency.value=f; q.gain.value=m; o.connect(q); q.connect(body.gain); src.push(o); });   // the flutter
+      src.forEach(s=>{ if(s.buffer) s.start(t0,Math.random()*8); else s.start(t0); s.stop(t0+9.1); });
+      /* (where it is now is held where the browser can (an automated gain's value can read as where it started), else
+         taken as where it was last sent) */
+      let done=false, cur=0; const hold=(p,t,v)=>{ if(p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(v,t); } };
+      return {set(x){ if(done) return; const t=ctx.currentTime, c=clamp(x,0,1); hold(env.gain,t,cur); cur=g*c; env.gain.setTargetAtTime(cur,t,.06); env.gain.setValueAtTime(cur,t+8.4); env.gain.linearRampToValueAtTime(0,t+8.6);
+          lp.frequency.setTargetAtTime(240+560*c,t,.08); },
+        stop(){ if(done) return; done=true; const t=ctx.currentTime; hold(env.gain,t,cur); env.gain.linearRampToValueAtTime(0,t+.32);
+          lp.frequency.setTargetAtTime(160,t,.1); src.forEach(s=>{ try{ s.stop(t+.4); }catch(e){} }); }}; },
+    /* the smoke alarm's chirp: its piezo, short and high */
+    tfChirp(){ if(!on||muted||!ctx) return; tfT(3250,.075,.014,'triangle',0,0,.003); tfT(3250,.07,.012,'sine',0,0,.003); },
+    /* a book landing on the concrete: a slap, a low knock and a smaller one as it settles */
+    tfThud(){ if(!on||muted||!ctx) return; const v=vr(.06); tfN(.06,.022,1500*v,350,'lowpass',.8); tfT(132*v,.14,.032,'sine',64); tfT(150*v,.08,.012,'sine',80,.085); tfN(.04,.008,1200*v,300,'lowpass',.8,.085); },
+    /* the bell ticking as it cools */
+    tfTink(){ if(!on||muted||!ctx) return; const f=2900*vr(.12); tfT(f,.06,.007,'sine',0,0,.001); tfT(f*2.71,.03,.0025,'sine',0,0,.001); },
+    /* walking out mid-fire: everything of it fades out in a few hundredths of a second */
+    tfHush(){ if(!ctx||!n.tf) return; const b=n.tf, t=ctx.currentTime; n.tf=null; b.gain.cancelScheduledValues(t); b.gain.setValueAtTime(b.gain.value,t); b.gain.linearRampToValueAtTime(0,t+.06); setTimeout(()=>{ try{ b.disconnect(); }catch(e){} },300); },
     /* a station going past at speed, on the side it passes */
     passby(p,g){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.Q.value=1.4;
       b.frequency.setValueAtTime(1900,t0); b.frequency.exponentialRampToValueAtTime(320,t0+.9); const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.18); a.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
@@ -7562,6 +7606,13 @@ const wsD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(GAR.M);
 const wsL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(GAR.Mi);
 const wsXZ=(x,z)=>loc(wsW(x,0,z,gV4).normalize());   // on the town's map
 const wsTf=(Mx,x,y,z,ry=0,rx=0,rz=0)=>new T.Matrix4().multiplyMatrices(Mx,new T.Matrix4().compose(gR1.set(x,y,z),gQ.setFromEuler(gE.set(rx,ry,rz,'YXZ')),gS.set(1,1,1)));
+/* the test fire (see its own block, after the way in and out): where its button, the smoke alarm and the engine's bell
+   are in the workshop's frame, the colours that key the alarm's lamp and the button's, and where the book on the stool
+   sits; the flag's rod and the pegboard are filled in as the room is built. TF is how a fire is going */
+const GTF={btn:[-.97,-.955],alarm:[-.25,.3],ALM:new T.Color(.18,.97,.95),LAMP:new T.Color(.19,.97,.95),BELL:[GW.CAR[0],GW.FL+.86,GW.CAR[1]+1.54],book:[.16,GW.FL+.56,-.42],
+  drone:[1.95,GW.h-.15,.3],flag:[0,0,0],peg:[0,0,0]};
+const TF={on:false,t:0,ev:0,roar:null,rv:-1,R:0,P:0,pop:0,popK:0,lt:0,emit:0,tail:0,tink:0,al:0,cap:0,book:0,bookT:-1,booked:false,turn:null,fade:1,fading:false,alive:0,fires:0,hold:false,shook:false,
+  mv:{},dr:[0,0,0,0],fg:[0,0],core:null,glow:null,smoke:null,sm:[],pick:null,U:null};
 
 /* ---------- the building: as every other house (see house), but its front is open where the shutter is, with the drum's
    box over it, the guides down either side, and a concrete ramp up to it from the pavement; the shutter rides in the guides ---------- */
@@ -7595,9 +7646,12 @@ const garQ=sh=>GSN-clamp(Math.floor((GW.ot-(.2+GLIFT*sh)-GRAIL)/GSP+1e-6)+1,0,GS
    and by day the street through the opening), a little from above, and the sun where it comes in at the opening. The
    strip lights' tubes, the bench lamp's bulb, the frosted windows, the laptop's screen and a lamp on the engine's box are
    keyed by colour (uGT: how bright each tube and the bulb are). Inked like the town, but cut away only right at the lens ---------- */
-const GU={uGL:{value:[0,1,2,3,4].map(()=>new T.Vector4(0,-99,0,0))},uGT:{value:new T.Vector4()},uGU:{value:new T.Vector3(0,1,0)},uGPane:{value:new T.Vector3(.8,.85,.86)},uGDay:{value:0},uGNr:{value:.1},uGLed:{value:0}};
+const GU={uGL:{value:[0,1,2,3,4].map(()=>new T.Vector4(0,-99,0,0))},uGT:{value:new T.Vector4()},uGU:{value:new T.Vector3(0,1,0)},uGPane:{value:new T.Vector3(.8,.85,.86)},uGDay:{value:0},uGNr:{value:.1},uGLed:{value:0},
+  /* the test fire: its flame as a light along the plume (where it starts, and how bright; where it ends), and the smoke
+     alarm's lamp and the button's */
+  uGF0:{value:new T.Vector4(0,-99,0,0)},uGF1:{value:new T.Vector3(0,-99,0)},uGAux:{value:new T.Vector2()}};
 const GDITH=`float gdith(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715)))); }`;
-const GAR_L=`uniform vec4 uGL[5],uGT; uniform vec3 uGU,uGPane; uniform float uGDay,uGNr,uGLed; ${GDITH}
+const GAR_L=`uniform vec4 uGL[5],uGT,uGF0; uniform vec3 uGU,uGPane,uGF1; uniform vec2 uGAux; uniform float uGDay,uGNr,uGLed; ${GDITH}
   void gnear(vec3 w){ if(smoothstep(uGNr*.4,uGNr,distance(cameraPosition,w))<gdith()) discard; }
   vec3 gfog(vec3 c,vec3 w){ return mix(c,uFog,smoothstep(uFogR.x,uFogR.y,distance(cameraPosition,w))*uFogA*uFogK); }
   vec3 garL(vec3 base,vec3 n,vec3 w){ float l=0.;
@@ -7606,12 +7660,16 @@ const GAR_L=`uniform vec4 uGL[5],uGT; uniform vec3 uGU,uGPane; uniform float uGD
     float nt=uNight, f=l+.1*dot(n,uGU)+uGDay*(.14+.06*dot(n,uGU)), e=.05*nt, k=smoothstep(.42+e,.48+e,f), hi=smoothstep(.86+e*.5,.92+e*.5,f);
     vec3 c=mix(base*mix(vec3(.52,.52,.58),vec3(.42,.35,.33),nt),mix(base*mix(vec3(.94,.9,.82),vec3(1.,.85,.64),nt),base*mix(vec3(1.06,1.02,.93),vec3(1.18,1.,.74),nt),hi),k);
     float sd=dot(n,uSun); if(sd>0.){ float s=shadowAt(w,.0006+.0024*(1.-sd)); c+=base*uLitA*smoothstep(.35,.65,s)*smoothstep(0.,.12,sd)*.4*clamp((uLitA.g-uShdC.g)*2.4,0.,1.); }
+    /* the test fire's flame: lit from the nearest point along the plume, warm orange, in two bands as the rest is */
+    if(uGF0.w>.001){ vec3 ab=uGF1-uGF0.xyz, d=uGF0.xyz+ab*clamp(dot(w-uGF0.xyz,ab)/dot(ab,ab),0.,1.)-w; float r=length(d), fl=min(uGF0.w*(.3+.7*max(dot(n,d/max(r,1e-3)),0.))/(1.+r*r*.4),1.2);
+      c+=base*vec3(1.,.37,.11)*(.3*smoothstep(.12,.2,fl)+.2*smoothstep(.45,.55,fl)+.1*fl)*(1.+.45*nt); }
     return gfog(c,w); }`;
 const GAR_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${GAR_L}
   void main(){ gnear(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC;
     if(abs(b.g-.97)<.004&&abs(b.b-.95)<.004&&b.r<.2){ float key=floor(b.r*100.+.5); vec3 e, off=vec3(.72,.74,.74), on=vec3(1.32,1.28,1.12);
       if(key<11.5) e=mix(off,on,uGT.x); else if(key<12.5) e=mix(off,on,uGT.y); else if(key<13.5) e=mix(off,on,uGT.z); else if(key<14.5) e=mix(vec3(.6,.56,.48),vec3(1.35,1.18,.84),uGT.w);
-      else if(key<15.5) e=vec3(.32,.66,.57)*(.5+.5*uGT.y)+.08; else if(key<16.5) e=uGPane; else e=mix(vec3(.12,.28,.14),vec3(.5,1.35,.55),uGLed);
+      else if(key<15.5) e=vec3(.32,.66,.57)*(.5+.5*uGT.y)+.08; else if(key<16.5) e=uGPane; else if(key<17.5) e=mix(vec3(.12,.28,.14),vec3(.5,1.35,.55),uGLed);
+      else if(key<18.5) e=mix(vec3(.34,.1,.08),vec3(1.5,.3,.22),uGAux.x); else e=mix(vec3(.45,.3,.1),vec3(1.5,1.05,.4),uGAux.y);
       gl_FragColor=vec4(gfog(e,vW),1.); return; }
     gl_FragColor=vec4(garL(b,n,vW),1.); }`;
 const GBRD_F=`uniform sampler2D uMap; uniform float uSelf; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${GAR_L}
@@ -7639,6 +7697,44 @@ function garWhite(cv){ const c=cv.getContext('2d'), W=cv.width, H=cv.height, r=s
 function garPeg(cv,tools){ const c=cv.getContext('2d'), W=cv.width, H=cv.height; c.fillStyle='#c2945f'; c.fillRect(0,0,W,H);
   c.fillStyle='#6b4c30'; for(let y=10;y<H;y+=17) for(let x=10;x<W;x+=17){ c.beginPath(); c.arc(x,y,2.6,0,TAU); c.fill(); }
   c.strokeStyle='#2a241d'; c.lineWidth=4; c.lineJoin='round'; for(const q of tools){ const x=q[0]*W, y=q[1]*H, w=(q[2]-q[0])*W, h=(q[3]-q[1])*H; c.beginPath(); if(c.roundRect) c.roundRect(x-6,y-6,w+12,h+12,9); else c.rect(x-6,y-6,w+12,h+12); c.stroke(); } }
+
+/* ---------- the test fire's flame: drawn shapes, as the launch flame is. Down the middle a string of shock diamonds,
+   fattest just out of the bell, narrowing and cooling along the jet and closing to a point, banded pale where you look
+   straight in and orange at its edges, with the town's ink round it; over it a glow, added to whatever is behind it, hot
+   at the bell and reddening as it widens out through the shutter. Both are a tube along z out of the bell, shaped here ---------- */
+const TF_NZ=`float tfh(float n){ return fract(sin(n)*43758.5453); } float tfn(float x){ float i=floor(x), f=fract(x); f=f*f*(3.-2.*f); return mix(tfh(i),tfh(i+1.),f); }`;
+const TF_CV=`uniform float uTime,uLen,uR,uDia; varying vec3 vN,vW,vA; varying float vU,vD; ${TF_NZ}
+  void main(){ vec3 p=position; float u=clamp(p.z,0.,1.), a=atan(p.y,p.x); vec2 dir=p.xy/max(length(p.xy),1e-4);
+    float tri=1.-abs(2.*fract(u*uDia+.5)-1.), r=uR*(1.-.6*u)*(.36+.64*pow(tri,.75))*sqrt(clamp((1.-u)/.1,0.,1.));
+    r*=1.+.14*(tfn(uTime*31.+u*13.+a*2.)-.5); p.xy=dir*r; p.z=u*uLen*(1.+.05*(tfn(uTime*17.)-.5));
+    vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*vec3(dir,0.)); vA=normalize(mat3(modelMatrix)*vec3(0.,0.,1.)); vU=u; vD=tri; gl_Position=projectionMatrix*viewMatrix*w; }`;
+const TF_FACE=`vec3 V=normalize(cameraPosition-vW), A=normalize(vA), Vp=V-A*dot(V,A); float lp=length(Vp), f=mix(1.,abs(dot(normalize(vN),Vp))/max(lp,1e-3),smoothstep(.06,.28,lp));`;   // how far in from the edge as you see it
+const TF_CF=`uniform float uTime; varying vec3 vN,vW,vA; varying float vU,vD;
+  void main(){ ${TF_FACE} float b=f*.78+.24*vD-.52*vU+.1+.03*sin(uTime*29.+vU*9.);
+    gl_FragColor=vec4(b>.74?vec3(1.,.99,.94):b>.5?vec3(1.,.9,.56):b>.27?vec3(1.,.66,.3):vec3(.96,.44,.17),1.); }`;
+const TF_CI=`varying vec3 vN,vW; void main(){ vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
+const TF_GV=`uniform float uTime,uLen,uR0,uR1; varying vec3 vN,vW,vA; varying float vU; ${TF_NZ}
+  void main(){ vec3 p=position; float u=clamp(p.z,0.,1.), a=atan(p.y,p.x); vec2 dir=p.xy/max(length(p.xy),1e-4);
+    float r=mix(uR0,uR1,pow(u,.7))*(1.+.22*(tfn(uTime*23.+u*6.+a*1.7)-.5))*sqrt(clamp((1.-u)/.25,0.,1.)); p.xy=dir*r; p.z=u*uLen*(1.+.08*(tfn(uTime*13.+3.)-.5));
+    p.y+=u*u*uLen*.06;   // (the hot gas lifting a little as it goes)
+    vec4 w=modelMatrix*vec4(p,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*vec3(dir,0.)); vA=normalize(mat3(modelMatrix)*vec3(0.,0.,1.)); vU=u; gl_Position=projectionMatrix*viewMatrix*w; }`;
+const TF_GF=`uniform float uTime,uK; varying vec3 vN,vW,vA; varying float vU;
+  void main(){ ${TF_FACE} float k=uK*pow(f,1.6)*pow(1.-vU,1.3)*(.85+.15*sin(uTime*37.+vU*11.)); gl_FragColor=vec4(mix(vec3(1.,.74,.36),vec3(1.,.36,.1),vU)*k,1.); }`;
+const TF_NS=64, TF_Z=new T.Matrix4().makeScale(0,0,0), tC=new T.Color(), tM=new T.Matrix4(), tM2=new T.Matrix4(), tV=new T.Vector3(), tE=new T.Euler();
+/* built with the room (add puts a thing in it): the flame and its glow at the bell, the smoke (one mesh of puffs, each its
+   own size and grey, in the room's light), the flame's light along the plume, and what a click on the button finds */
+function tfBuild(add){ const M=GAR.M, b=GTF.BELL, tube=new T.CylinderGeometry(1,1,1,18,40,true).translate(0,.5,0).rotateX(Math.PI/2), at0=new T.Matrix4().multiplyMatrices(M,tM.makeTranslation(b[0],b[1],b[2]));
+  const cu={uTime:G.uTime,uLen:{value:0},uR:{value:.18},uDia:{value:4.2}}, gu={uTime:G.uTime,uLen:{value:0},uR0:{value:.19},uR1:{value:.4},uK:{value:0}};
+  const core=add(new T.Mesh(tube,new T.ShaderMaterial({uniforms:cu,vertexShader:TF_CV,fragmentShader:TF_CF,side:T.DoubleSide})),false); core.matrix.copy(at0);
+  Object.assign(core.userData,{noInk:true,col:core.material,shdM:core.material,inkM:new T.ShaderMaterial({uniforms:cu,vertexShader:TF_CV,fragmentShader:TF_CI,side:T.DoubleSide})}); INK.push(core);
+  const glow=add(new T.Mesh(tube,new T.ShaderMaterial({uniforms:gu,vertexShader:TF_GV,fragmentShader:TF_GF,side:T.DoubleSide,transparent:true,depthWrite:false,blending:T.AdditiveBlending})),false);
+  glow.matrix.copy(at0); glow.layers.set(1); glow.renderOrder=6; glow.userData.noInk=true;
+  const bg=GEO.blob.clone(); bg.setAttribute('color',new T.Float32BufferAttribute(new Float32Array(bg.attributes.position.count*3).fill(1),3));
+  const sm=add(new T.InstancedMesh(bg,garMat(),TF_NS)); sm.matrix.copy(M); sm.instanceMatrix.setUsage(T.DynamicDrawUsage);
+  for(let i=0;i<TF_NS;i++){ sm.setMatrixAt(i,TF_Z); sm.setColorAt(i,tC.setScalar(.85)); TF.sm.push({i,p:new T.Vector3(),v:new T.Vector3(),s:.2,life:0,a:0,on:false}); }
+  GU.uGF0.value.set(...wsW(b[0],b[1],b[2]+.2).toArray(),0); GU.uGF1.value.copy(wsW(b[0],b[1]+.05,b[2]+1.9));
+  TF.pick=new T.Mesh(new T.BoxGeometry(.26,.2,.24)); TF.pick.matrixAutoUpdate=false; TF.pick.matrixWorld.copy(M).multiply(tM.makeTranslation(GTF.btn[0],GW.FL+.96,GTF.btn[1]));
+  Object.assign(TF,{core,glow,smoke:sm,U:{core:cu,glow:gu}}); }
 
 /* ---------- building the garage: everything in it is the town's own kit (boxes, cans, turned and swept shapes) merged
    into one mesh, in the room's own light, inked like everything else ---------- */
@@ -7697,6 +7793,8 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   const batten=(x,z,ry,i)=>{ const B=sub(M,x,top-.12,z,ry); box(B,'#e6e7e2',0,-.2,0,.1,.05,1.28); box(B,'#c9cbc6',0,-.204,0,.08,.006,1.22); put(B,'cyl',TUBE[i],0,-.226,0,.022,1.18,.022,0,Math.PI/2);
     [-.45,.45].forEach(cz=>box(B,'#5a5f62',0,-.15,cz,.01,.27,.01)); GU.uGL.value[i].set(...wsW(x,top-.12-.29,z).toArray(),0); };
   batten(1.0,-.05,0,0); batten(-1.1,-.95,Math.PI/2,1); batten(-.9,.55,Math.PI/2,2);
+  /* the smoke alarm, between two joists: its lamp blinks red when it chirps */
+  cyl(M,'#f1efe9',GTF.alarm[0],top-.036,GTF.alarm[1],.062,.036); cyl(M,'#dedbd3',GTF.alarm[0],top-.042,GTF.alarm[1],.04,.008); put(M,'sph',GTF.ALM,GTF.alarm[0]+.025,top-.043,GTF.alarm[1],.007,.007,.007);
   GU.uGL.value[4].set(...wsW(GW.ox,1.45,GW.d/2+1.3).toArray(),0);   // the street, by day, through the opening
 
   /* ---- the kei van: a little two-tone box on wheels with its back opened up, and in the bay, where the boxes should
@@ -7757,16 +7855,24 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   const BY=BT+.05;
   book(M,-1.74,BY,-1.32,.12,.22,.035,.16,'#b5473a'); book(M,-1.73,BY+.035,-1.32,-.1,.2,.03,.15,'#3e6a9a'); book(M,-1.74,BY+.065,-1.33,.3,.18,.028,.14,'#e6c35a');
   lathe(wsTf(M,-1.52,BY,-1.36),'#c98a55',[[.016,0],[.02,.02],[.028,.05],[.046,.09]],14); lathe(wsTf(M,-1.52,BY,-1.36),'#2a2b2e',[[.042,.09],[.024,.05],[.017,.02],[.012,.002]],14);
-  mug(M,-1.4,BY,-1.36,'#ef8a3c',2.2); mug(M,-1.27,BY,-1.17,'#f4efe6',.4);
+  kitTo('gbench'); mug(M,-1.4,BY,-1.36,'#ef8a3c',2.2); mug(M,-1.27,BY,-1.17,'#f4efe6',.4); kitTo('garin');   // (these, the tape and the bolts rattle in a test fire: a mesh of their own)
   { const L_=sub(M,-1.18,BY,-1.31,.06); box(L_,'#3b3f44',0,0,0,.3,.016,.21); box(L_,'#55595e',0,.016,.02,.26,.002,.1); const S_=wsTf(L_,0,.016,-.105,0,-.26,0); box(S_,'#3b3f44',0,0,-.006,.3,.2,.012); box(S_,SCRN,0,.014,.001,.26,.16,.004); }
   { const D_=wsTf(M,-1.64,BY+.034,-1.1,.4,0,Math.PI); quad(D_,1,false); [[-1.46,-1.0,.6],[-1.5,-1.22,2.1]].forEach(([x,z,r])=>box(wsTf(M,x,BY,z,r),'#ef8a3c',0,0,0,.2,.005,.024)); }
   { const H_=wsTf(M,-1.42,BY,-.98,.5); box(H_,'#b8834f',0,.012,0,.28,.024,.03); box(H_,'#3a3c3e',.13,0,0,.035,.04,.1); }
-  torus(wsTf(M,-1.17,BY+.008,-.99,0,Math.PI/2,0),'#26272a',.065,.009,20); torus(wsTf(M,-1.17,BY+.02,-.99,0,Math.PI/2,0),'#26272a',.058,.009,20);
+  kitTo('gbench'); torus(wsTf(M,-1.17,BY+.008,-.99,0,Math.PI/2,0),'#26272a',.065,.009,20); torus(wsTf(M,-1.17,BY+.02,-.99,0,Math.PI/2,0),'#26272a',.058,.009,20); kitTo('garin');
   { const T_=wsTf(M,-.98,BY+.056,-1.06,.7,0,Math.PI/2+.06); box(T_,'#5a3d2c',0,0,0,.1,.035,.1); box(T_,'#c9a24a',0,.008,.0505,.06,.018,.003); cyl(T_,'#d9a93a',0,.035,0,.032,.012,'cyl8'); cyl(T_,'#d9a93a',0,.047,0,.011,.05,'cyl8');
     lathe(wsTf(T_,0,.095,0),'#e0b343',[[.012,0],[.03,.012],[.048,.04],[.056,.085],[.058,.092]],16); cyl(T_,'#c99a33',0,.183,0,.054,.004); [-1,1].forEach(s=>torus(wsTf(T_,s*.06,.15,0,0,0,s>0?-Math.PI/2:Math.PI/2),'#e0b343',.026,.006,10,Math.PI)); }
   { const Mm=wsTf(M,-.93,BY,-1.24,-.4); box(Mm,'#f0c22e',0,0,0,.08,.03,.14); box(Mm,'#2a2b2e',0,.03,-.03,.06,.002,.04); cyl(Mm,'#2a2b2e',0,.03,.03,.018,.006,'cyl8');
     pipe(M,'#c9352d',[[-.92,BY+.02,-1.18],[-.86,BY+.005,-1.1],[-.82,BY+.005,-1.18]],.004,8); pipe(M,'#26272a',[[-.95,BY+.02,-1.18],[-.99,BY+.005,-1.1],[-1.06,BY+.005,-1.14]],.004,8); }
-  for(let k=0;k<7;k++) put(M,'cyl8',k%3?'#9aa0a3':'#c9a24a',-1.5+rnd()*.7,BY+.006,-1.25+rnd()*.3,.012,.012,.012,rnd()*3);
+  kitTo('gbench'); for(let k=0;k<7;k++) put(M,'cyl8',k%3?'#9aa0a3':'#c9a24a',-1.5+rnd()*.7,BY+.006,-1.25+rnd()*.3,.012,.012,.012,rnd()*3); kitTo('garin');
+  /* the big red button for a test fire, at the front of the bench: a yellow box with hazard stripes, a black collar, an
+     amber lamp that lights while it runs, and its lead hanging down the front of the bench. Its cap is a mesh of its
+     own, so it can go down */
+  { const B=sub(M,GTF.btn[0],BY,GTF.btn[1],-.12); box(B,'#f0c22e',0,0,0,.16,.075,.13); box(B,'#2a241d',0,.075,0,.165,.006,.135);
+    [-1,0,1].forEach(k=>box(wsTf(B,k*.04+.02,.012,.066,0,0,.62),'#2a241d',0,0,0,.016,.07,.003)); put(B,'cyl','#2c2d2f',.0,.081,-.005,.055,.014,.055);
+    put(B,'sph',GTF.LAMP,.062,.086,-.045,.012,.012,.012); box(B,'#f5f2ea',-.05,.081,.048,.05,.002,.018);
+    pipe(B,'#26272a',[[-.08,.02,.02],[-.11,.006,.05],[-.12,-.01,.085],[-.125,-.25,.095],[-.14,-.6,.1],[-.2,-.88,.16]],.006,16);   // (its lead, down the front of the bench)
+    kitTo('gbtn'); put(B,'cyl','#c9352d',0,.095,-.005,.05,.022,.05); put(B,'sph','#d8443a',0,.106,-.005,.05,.024,.05); kitTo('garin'); }
   /* the vice at the bench's end, a fin in its jaws; the lamp on an arm over the bench */
   { const V_=sub(M,-.79,BY,-.95,-.1); box(V_,'#4f6a7d',0,0,-.02,.12,.07,.16); box(V_,'#4f6a7d',0,.07,-.05,.12,.06,.06); box(V_,'#4f6a7d',0,.07,.05,.12,.06,.04); box(V_,'#2c2d2f',0,.075,.004,.13,.045,.006);
     rod(V_,'#9aa0a3',v(0,.06,.07),v(0,.06,.2),.01); rod(V_,'#9aa0a3',v(-.07,.06,.2),v(.07,.06,.2),.008); fin(wsTf(V_,-.12,.1,0,Math.PI/2),'#ef8a3c',.8); }
@@ -7776,6 +7882,7 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   const PX0=-1.85, PX1=-.85, PY0=F+.98, PY1=F+2.0, PZ=-iz+.06, pegT=[];
   box(M,'#8a6448',(PX0+PX1)/2,PY0-.03,-iz+.02,PX1-PX0+.06,PY1-PY0+.06,.025);
   const pt=(xa,xb,ya,yb)=>pegT.push([(xa-PX0)/(PX1-PX0),(PY1-yb)/(PY1-PY0),(xb-PX0)/(PX1-PX0),(PY1-ya)/(PY1-PY0)]);
+  kitTo('gpeg');   // (the tools on the board, to rattle in a test fire)
   for(let k=0;k<6;k++){ const x=-1.8+k*.045, L=.13+k*.022, y1=PY1-.12; box(M,'#a7adb0',x,y1-L,PZ,.016,L,.008); put(M,'cyl8','#a7adb0',x,y1,PZ,.018,.01,.018,0,Math.PI/2); put(M,'cyl8','#a7adb0',x,y1-L,PZ,.015,.01,.015,0,Math.PI/2); }
   pt(-1.82,-1.55,PY1-.37,PY1-.1); pt(-1.49,-1.36,PY1-.48,PY1-.12);   // (the hammer's: empty)
   ['#cf3a2f','#f0c22e','#2c4f9e','#2c2d2f'].forEach((c,k)=>{ const x=-1.27+k*.05; put(M,'cyl',c,x,PY1-.17,PZ,.016,.09,.016); put(M,'cyl8','#a7adb0',x,PY1-.3,PZ,.004,.17,.004); }); pt(-1.3,-1.1,PY1-.4,PY1-.12);
@@ -7785,6 +7892,7 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   torus(wsTf(M,-.98,PY1-.3,PZ+.01),'#ef8a3c',.085,.013,22); torus(wsTf(M,-.99,PY1-.32,PZ+.025),'#ef8a3c',.075,.013,22);
   [-1.62,-1.5].forEach(x=>{ const Cl=wsTf(M,x,PY0+.62,PZ); box(Cl,'#ef8a3c',-.035,0,0,.015,.16,.02); box(Cl,'#ef8a3c',0,.15,0,.08,.015,.02); box(Cl,'#ef8a3c',0,0,0,.08,.015,.02); rod(Cl,'#9aa0a3',v(.035,-.04,0),v(.035,.12,0),.006); }); pt(-1.68,-1.44,PY0+.6,PY0+.8);
   { const Gg=wsTf(M,-1.17,PY0+.66,PZ); [-1,1].forEach(s=>box(Gg,'#3a4a52',s*.04,0,0,.07,.045,.02)); box(Gg,'#2c2d2f',0,.01,-.004,.2,.014,.006); }
+  kitTo('garin'); GTF.peg=[(PX0+PX1)/2,PY1-.05,PZ];
   { const cv=document.createElement('canvas'); cv.width=cv.height=512; garPeg(cv,pegT); const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const m=add(new T.Mesh(new T.PlaneGeometry(PX1-PX0,PY1-PY0),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uSelf:{value:.12}},LU,GU),vertexShader:TOON_V(true),fragmentShader:GBRD_F})));
     m.matrix.copy(sub(M,(PX0+PX1)/2,(PY0+PY1)/2,-iz+.036)); GAR.boards.push(tx); }
   /* ---- the tricolour, hung from a rod: green at the hoist (on the left as you face it), white, orange; its cloth falling
@@ -7794,8 +7902,10 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
     for(let j=0;j<=NY;j++){ P_[j]=[]; for(let i=0;i<=NX;i++) P_[j][i]=at2(i/NX,j/NY); }
     const nrm=(i,j)=>{ const a=P_[j][Math.min(NX,i+1)].clone().sub(P_[j][Math.max(0,i-1)]), b=P_[Math.max(0,j-1)][i].clone().sub(P_[Math.min(NY,j+1)][i]); return a.cross(b).normalize(); };
     const push=(p,n,c)=>{ const w=wsW(p.x,p.y,p.z), wn=wsD(n.x,n.y,n.z); KP.push(w.x,w.y,w.z); KN.push(wn.x,wn.y,wn.z); KC.push(c.r,c.g,c.b); };
+    kitTo('gflag');   // (the cloth and its rod: a mesh of their own, to flutter in a test fire)
     for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){ const c=C_[Math.floor(i/(NX/3))], q=[[i,j],[i,j+1],[i+1,j+1],[i,j],[i+1,j+1],[i+1,j]]; for(const [a,b] of q) push(P_[b][a],nrm(a,b),c); }
-    put(M,'cyl','#8a6448',(FX0+FX1)/2,FY1+.012,Z0+.01,.011,FX1-FX0+.08,.011,0,0,Math.PI/2); [FX0-.045,FX1+.045].forEach(x=>put(M,'sph','#6b4c34',x,FY1+.012,Z0+.01,.018,.018,.018));
+    put(M,'cyl','#8a6448',(FX0+FX1)/2,FY1+.012,Z0+.01,.011,FX1-FX0+.08,.011,0,0,Math.PI/2); [FX0-.045,FX1+.045].forEach(x=>put(M,'sph','#6b4c34',x,FY1+.012,Z0+.01,.018,.018,.018)); kitTo('garin');
+    GTF.flag=[(FX0+FX1)/2,FY1+.012,Z0+.01];
     rod(M,'#d8d0bf',v(FX0-.02,FY1+.015,Z0+.008),v((FX0+FX1)/2,FY1+.2,Z0-.004),.004); rod(M,'#d8d0bf',v(FX1+.02,FY1+.015,Z0+.008),v((FX0+FX1)/2,FY1+.2,Z0-.004),.004); put(M,'sph','#5a5f62',(FX0+FX1)/2,FY1+.2,Z0-.004,.012,.012,.012); }
   /* fins leaning on the wall under it, and an open toolbox on the floor */
   [[-.48,'#ef8a3c',1.1,-.2],[-.22,'#efe8d8',1,-.16],[.04,'#ef8a3c',.9,-.22]].forEach(([x,c,s,a])=>fin(wsTf(M,x,F,-iz+.04,0,a,0),c,s));
@@ -7827,26 +7937,28 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   carton(M,2.02,F,-.66,.38,.3,.34,.08); carton(M,2.02,F+.3,-.68,.3,.22,.28,-.15,true); solid(1.82,2.22,-.84,-.48,.52);
   tyre(sub(M,2.02,F+.075,.98)); tyre(sub(M,2.04,F+.225,.97,.3)); tyre(wsTf(M,2.18,F+.21,.35,0,0,-1.38)); solid(1.8,2.25,.76,1.2,.3); solid(2.05,2.27,.13,.57,.42);
   [[-.25,.0],[-.05,.04]].forEach(([z,a],k)=>box(wsTf(M,2.22-k*.03,F,z,0,0,.16+a),k?'#c9b48a':'#d8c49a',0,0,0,.018,.7,.5)); solid(2.08,2.27,-.5,.2,.7);
-  { const D_=wsTf(M,1.95,top-.62,.3,.5); quad(D_,2.2); [-1,1].forEach(s=>rod(M,'#d8d0bf',wsL(v(s*.12,.02,0).applyMatrix4(D_)),v(1.95+s*.12,top-.12,.3),.004)); }
+  { kitTo('gdrone'); const D_=wsTf(M,1.95,top-.62,.3,.5); quad(D_,2.2); [-1,1].forEach(s=>rod(M,'#d8d0bf',wsL(v(s*.12,.02,0).applyMatrix4(D_)),v(1.95+s*.12,top-.12,.3),.004)); kitTo('garin'); }   // (it swings in a test fire)
   /* ---- the front corner by the window: boxes stacked up, a vacuum, a broom, the fire extinguisher by the door ---- */
   carton(M,-1.62,F,1.24,.42,.32,.36,.12); carton(M,-1.6,F+.32,1.26,.34,.26,.3,-.2,true); carton(M,-1.25,F,1.3,.3,.24,.28,.5); solid(-1.86,-1.05,1.04,1.47,.6);
   { cyl(M,'#f0c22e',-2.02,F,1.15,.15,.36); cyl(M,'#2c2d2f',-2.02,F+.36,1.15,.152,.06); pipe(M,'#2c2d2f',[[-1.92,F+.36,1.12],[-1.75,F+.5,1.02],[-1.7,F+.06,.82],[-1.55,F+.03,.7]],.022,16); solid(-2.2,-1.84,.97,1.33,.42); }
   { rod(M,'#b8834f',v(-2.2,F+.06,1.4),v(-2.24,F+1.3,1.43),.014); box(wsTf(M,-2.2,F,1.39,.8,0,-.03),'#3a3c3e',0,0,0,.26,.06,.06); }
   { const X=sub(M,-.55,F,iz-.09,Math.PI); box(X,'#3a3c3e',0,.42,-.07,.08,.05,.02); cyl(X,'#cf3a2f',0,.12,0,.068,.42); put(X,'sph','#cf3a2f',0,.54,0,.068,.04,.068); cyl(X,'#2c2d2f',0,.56,0,.025,.06,'cyl8'); box(X,'#2c2d2f',.02,.62,0,.1,.016,.03); pipe(X,'#2c2d2f',[[.03,.58,0],[.09,.5,.04],[.08,.22,.06]],.01,10); box(X,'#f5f2ea',0,.28,.066,.07,.09,.004); solid(-.65,-.45,1.33,1.48,.62); }
   /* ---- stools (an open book on one), papers on the floor ---- */
-  stool(-1.25,-.58,.6); { const B=stool(.16,-.42,.56); const O=wsTf(B,0,.56,0,.4); [-1,1].forEach(s=>{ const H_=wsTf(O,0,0,0,0,0,s*.1); box(H_,'#3e6a9a',s*.075,0,0,.15,.008,.22); box(H_,'#f6f0e2',s*.07,.008,0,.125,.014,.18); }); }
+  stool(-1.25,-.58,.6); { const B=stool(.16,-.42,.56); const O=wsTf(B,0,.56,0,.4); kitTo('gbook'); [-1,1].forEach(s=>{ const H_=wsTf(O,0,0,0,0,0,s*.1); box(H_,'#3e6a9a',s*.075,0,0,.15,.008,.22); box(H_,'#f6f0e2',s*.07,.008,0,.125,.014,.18); }); kitTo('garin'); }   // (the book goes over in a test fire)
   [[-1.0,-.62,.6],[-.62,-.76,2.1],[-1.78,-.3,.3],[.32,.18,1.2]].forEach(([x,z,r])=>box(wsTf(M,x,F+.016,z,r),'#f7f4ec',0,0,0,.21,.002,.29));
   kitTo(); add(new T.Mesh(kgeo('garin'),garMat())); delete KITS.garin;
+  { const mm=garMat(); for(const id of ['gdrone','gflag','gpeg','gbench','gbook','gbtn']){ TF.mv[id]=add(new T.Mesh(kgeo(id),mm)); delete KITS[id]; } }
   }finally{ kitTo(); }
   /* ---- by night the light from the open shutter on the ramp and the pavement: a warm fan out from the sill ---- */
   { const NX=10, NZ=12, P_=[], K_=[], I_=[];
     for(let j=0;j<=NZ;j++) for(let i=0;i<=NX;i++){ const vv=j/NZ, u=i/NX-.5, z=GW.d/2+.06+vv*3.4, hw=GW.ow/2+.12+vv*1.7, x=GW.ox+u*2*hw, y=garFloor(x,z)+.014; wsW(x,y,z,gV); P_.push(gV.x,gV.y,gV.z); K_.push(Math.pow(1-vv,1.5)*(1-Math.pow(Math.abs(u)*2,3))); }
     for(let j=0;j<NZ;j++) for(let i=0;i<NX;i++){ const a=j*(NX+1)+i, b=a+1, c=a+NX+1, d=c+1; I_.push(a,c,b, b,c,d); }
     const pg=new T.BufferGeometry(); pg.setAttribute('position',new T.Float32BufferAttribute(P_,3)); pg.setAttribute('aK',new T.Float32BufferAttribute(K_,1)); pg.setIndex(I_);
-    GAR.pool=new T.Mesh(pg,new T.ShaderMaterial({uniforms:{uK:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+    GAR.pool=new T.Mesh(pg,new T.ShaderMaterial({uniforms:{uK:{value:0},uF:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
       vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-      fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.68,.38)*vK*uK*.75,1.); }`}));
+      fragmentShader:`uniform float uK,uF; varying float vK; void main(){ gl_FragColor=vec4((vec3(1.,.68,.38)*uK*.75+vec3(1.,.47,.15)*uF)*vK,1.); }`}));   // (uF: a test fire's flame, by day as well)
     GAR.pool.layers.set(1); GAR.pool.renderOrder=2; GAR.pool.frustumCulled=false; GAR.pool.visible=false; sc.add(GAR.pool); }
+  tfBuild(add);
   /* what a click finds: the front of the workshop from outside, the way out from inside (boxes, never drawn) */
   GAR.pick=new T.Mesh(new T.BoxGeometry(GW.ow+.5,GW.ot+.75,.5)); GAR.pick.matrixAutoUpdate=false; GAR.pick.matrixWorld.copy(M).multiply(gM.makeTranslation(GW.ox,(GW.ot+.75)/2,GW.d/2+.12));
   GAR.pickOut=new T.Mesh(new T.BoxGeometry(GW.ow,GW.ot-F,.3)); GAR.pickOut.matrixAutoUpdate=false; GAR.pickOut.matrixWorld.copy(M).multiply(gM.makeTranslation(GW.ox,(GW.ot+F)/2,GW.d/2));
@@ -7882,7 +7994,7 @@ function garUniforms(t){ const nt=SKY.night, day=1-nt, L=GU.uGL.value, lit=(GAR.
   for(let i=0;i<3;i++) L[i].w=GAR.tubes[i]*1.45*(1+.25*nt); L[3].w=GAR.lamp*.55*(1+.3*nt); L[4].w=GAR.sh*day*(1-.5*SKY.over)*1.1;
   GU.uGT.value.set(GAR.tubes[0],GAR.tubes[1],GAR.tubes[2],GAR.lamp); GU.uGDay.value=day*(.3+.7*GAR.sh)*(1-.35*SKY.over);
   GU.uGPane.value.set(lerp(.86,.15,nt)+.12*lit*nt,lerp(.91,.18,nt)+.09*lit*nt,lerp(.93,.26,nt)+.05*lit*nt); GU.uGLed.value=(t*1.4)%1<.5?1:.2;
-  if(GAR.pool){ const k=nt*GAR.sh*lit; GAR.pool.visible=k>.01; GAR.pool.material.uniforms.uK.value=k; } }
+  if(GAR.pool){ const k=nt*GAR.sh*lit, f=TF.lt*(.35+.65*nt), u=GAR.pool.material.uniforms; GAR.pool.visible=k>.01||f>.01; u.uK.value=k; u.uF.value=f; } }
 
 /* ---------- where you are, and going over ---------- */
 function garYou(){ const P=player; wsL(gV.copy(P.u).multiplyScalar(R+P.h),GAR.pl); gV2.copy(P.f).transformDirection(GAR.Mi); return {x:GAR.pl.x,z:GAR.pl.z,fz:gV2.z,fx:gV2.x}; }
@@ -7928,7 +8040,7 @@ function garWayIn(dt,t){ const c=GAR.t+=dt;
   const s=E.io(clamp(c/(GT_IN-.1),0,1)); GAR.curve.getPointAt(s,GAR.cp); GAR.lcurve.getPointAt(Math.min(1,s*1.04),GAR.cl); GAR.cu.copy(GAR.u0).lerp(GAR.up,sstep(.2,.8,s)).normalize();
   if(me.visible){ garFig(dt,t,x,z,sp); if(c>1.2&&me.position.distanceTo(GAR.cp)<.85||c>2.6) me.visible=false; }
   if(c>=GT_IN){ GAR.wIn=null; GAR.curve=GAR.lcurve=null; garSet('in'); } }
-function garLeave(){ if(GAR.st!=='in') return; const P=player, [ax,az]=wsXZ(...GW.EX);
+function garLeave(){ if(GAR.st!=='in') return; const P=player, [ax,az]=wsXZ(...GW.EX); tfStop(false);
   /* you walk back out past the van onto the pavement, facing the street, and the walking camera takes over just where this
      one ends: just inside the doorway, behind you */
   P.x=ax; P.z=az; P.u.copy(at(ax,az)); tang(P.u,wsW(GW.EX[0],0,9,gV),P.f); P.h=standH(ax,az); P.speed=0; P.path=null; P.tgt=null;
@@ -7947,7 +8059,7 @@ function garWayOut(dt,t){ const c=GAR.t+=dt, P=player;
     GAR.curve=null; garSet('out'); GAR.cp.copy(GAR.endP); GAR.cl.copy(GAR.endL); GAR.cu.copy(P.u); me.visible=true; } }
 /* inside: drag, or the arrows (A, D), to look round, all the way round; W leans in, or takes you out if you face the way
    out; S takes you out */
-function garInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0); if(kx){ GAR.yaw+=kx*1.6*dt; GAR.dragT=0; }
+function garInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0); if(kx){ GAR.yaw+=kx*1.6*dt; GAR.dragT=0; GAR.look=(GAR.look||0)+1; }
   const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown'), out=Math.abs(angWrap(GAR.yaw-garYawTo(.2,GW.d/2)))<.7;
   if(bk||fw&&out){ GAR.out+=dt; if(GAR.out>.3){ GAR.out=0; garLeave(); return; } } else GAR.out=0;
   GAR.lean=damp(GAR.lean,fw&&!out?1:0,1.6,dt); GAR.dragT+=dt;
@@ -7958,7 +8070,7 @@ function garStep(dt,t){ if(!GAR.g) return; const P=player;
   if(FIN.on||CUT.on){ if(GAR.st!=='out'||GAR.shSt!=='shut'||GAR.k>0||GAR.g.visible) garReset(); garTagUpdate(false); return; }
   GAR.you=garYou(); GAR.da=Math.hypot(P.x-GAR.apW[0],P.z-GAR.apW[1]);
   if(GAR.shSt==='up'||GAR.shSt==='down') garShutter(dt);
-  garLights(dt);
+  garLights(dt); tfStep(dt,t);
   if(GAR.st==='go') garGoing(dt); else if(GAR.st==='enter') garWayIn(dt,t); else if(GAR.st==='exit') garWayOut(dt,t); else if(GAR.st==='in') garInside(dt); else garOutside(dt);
   const vis=GAR.warm||GAR.sh>.0005||GAR.on; if(GAR.g.visible!==vis) GAR.g.visible=vis; if(vis) garUniforms(t); else if(GAR.pool.visible) GAR.pool.visible=false;
   if(GAR.warm){ if(S.ready) GAR.warm=false; else GAR.pool.visible=true; }   // (the first time, behind the loader: drawn once, so its shaders are made for Earth's own drawing)
@@ -7973,9 +8085,96 @@ function garStep(dt,t){ if(!GAR.g) return; const P=player;
   GAR.mk=damp(GAR.mk,GAR.st==='in'?1:GAR.on?.6:0,2.5,dt); if(GAR.mk>.002) A.music(.55*(1-.42*GAR.mk));
   garTagUpdate(true); }
 /* back to how it was: entering or leaving Earth, the launch scene, the end of the last flight */
-function garReset(leaving){ if(GAR.motor){ GAR.motor.stop(); GAR.motor=null; } const was=GAR.on||GAR.k>0; if(leaving) GAR.warm=false;
+function garReset(leaving){ if(GAR.motor){ GAR.motor.stop(); GAR.motor=null; } const was=GAR.on||GAR.k>0; if(leaving) GAR.warm=false; tfStop(true);
   GAR.drag=GAR.tap=null; GAR.curve=GAR.lcurve=null; GAR.wIn=null; GAR.k=0; GAR.mk=0; GAR.out=0; GAR.away=0; GAR.sh=0; GAR.shSt='shut'; GAR.shT=0; GAR.q=0; garLightsOff(); shutterPose(0,false);
   if(GAR.g) GAR.g.visible=false; if(GAR.pool) GAR.pool.visible=false; garSet('out'); if((was||GAR.nr)&&stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } GAR.nr=false; GAR.fk=0; if(me&&!FIN.on&&!CUT.on) me.visible=true; garTagUpdate(false); }
+
+/* ---------- the test fire ----------
+   The big red button on the bench (a click or a tap on it, or Space or Enter anywhere in there): it goes down with a clunk
+   and its lamp blinks, two warning beeps, and the view turns to the van. The engine coughs and sputters a few times, catches,
+   and for a little over two seconds it roars, its flame and its shock diamonds out through the open shutter, lighting the
+   room and the pavement orange; smoke billows out into the street, the drone and the flag swing, the tools on the board
+   and the things on the bench rattle, the dodgy tube over the door blinks, and the camera shakes a little. Then it is shut
+   off with a last cough, the book on the stool (which has been creeping to its edge) goes over, the bell ticks as it cools,
+   and the smoke alarm, late as ever, chirps three times. Once it is all over it can be fired again. Walking out stops it at
+   once, sound and all; the last flight or leaving Earth puts it all back. Nothing in it makes a shader: the flame, its
+   glow, the smoke and what moves were built with the room and drawn the once behind the loader */
+const TF_CATCH=1.95, TF_OFF=4.45, TF_END=7.3, TF_POPT=.14;
+function tfPop(k){ A.tfPop(k); TF.pop=TF_POPT; TF.popK=k; S.shake=Math.max(S.shake,.2*k); const b=GTF.BELL;
+  for(let i=0;i<2;i++) tfPuff(b[0]+(Math.random()-.5)*.12,b[1]+(Math.random()-.5)*.1,b[2]+.1+Math.random()*.15,(Math.random()-.5)*.4,.15+Math.random()*.3,.8+Math.random()*.6,.12+Math.random()*.08,1.4+Math.random()*.5,.42+Math.random()*.1); }
+function tfChirp(){ A.tfChirp(); TF.al=1; }
+const TF_EV=[[0,()=>A.tfClick()],[.22,()=>A.tfBeep(false)],[.72,()=>A.tfBeep(true)],
+  [1.25,()=>tfPop(.55)],[1.43,()=>tfPop(.8)],[1.55,()=>tfPop(.45)],[1.76,()=>tfPop(1)],
+  [TF_CATCH,()=>{ if(TF.roar) TF.roar.stop(); TF.roar=A.tfRoar(); TF.rv=-1; S.shake=Math.max(S.shake,.45); }],
+  [2.9,()=>{ if(GAR.lit&&!GAR.fl){ GAR.flT=0; GAR.fl=[{ev:[],j:0},{ev:[],j:0},{ev:[[0,0],[.07,.75],[.12,0],[.26,1]],j:0}]; } }],   // (knocked, the dodgy tube blinks)
+  [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.3,()=>tfPop(.4)],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],
+  [5.5,tfChirp],[6.1,tfChirp],[6.7,tfChirp],[TF_END,()=>{ TF.on=false; }]];
+function tfFire(){ if(GAR.st!=='in'||TF.on||garBusy()||!TF.core) return false;
+  Object.assign(TF,{on:true,t:0,ev:0,rv:-1,pop:0,emit:0,tail:0,tink:0,fade:1,fading:false,fires:TF.fires+1});
+  /* the view turns to the engine (unless you are looking at it already, or look round yourself while it turns) */
+  const y1=cport()?-2.05:-1.85, p1=cport()?-.06:-.04; TF.turn=Math.abs(angWrap(GAR.yaw-y1))>.2||Math.abs(GAR.pitch-p1)>.25?{t:0,y0:GAR.yaw,p0:GAR.pitch,y1,p1,look:GAR.look||0}:null;
+  if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } return true; }
+/* a puff of smoke at x, y, z (in the workshop's frame), moving off at vx, vy, vz, of size s, lasting life seconds, its grey */
+function tfPuff(x,y,z,vx,vy,vz,s,life,grey){ if(!TF.smoke) return; let q=TF.sm.find(p=>p.a>=p.life); if(!q) q=TF.sm.reduce((a,b)=>a.a/a.life>b.a/b.life?a:b);
+  q.p.set(x,y,z); q.v.set(vx,vy,vz); q.s=s; q.life=life; q.a=0; TF.smoke.setColorAt(q.i,tC.setScalar(grey)); TF.smoke.instanceColor.needsUpdate=true; }
+/* a moving thing's pose: turned (rx, rz) about p and moved (j), all in the workshop's frame */
+function tfPose(m,p,rx,rz,jx=0,jy=0,jz=0){ tE.set(rx,0,rz,'XYZ'); tM.makeRotationFromEuler(tE).setPosition(p[0]+jx,p[1]+jy,p[2]+jz); tM.multiply(tM2.makeTranslation(-p[0],-p[1],-p[2]));
+  m.matrix.multiplyMatrices(GAR.M,tM).multiply(GAR.Mi); m.matrixWorldNeedsUpdate=true; }
+function tfRest(m){ if(!m) return; m.matrix.identity(); m.matrixWorldNeedsUpdate=true; }
+function tfStep(dt,t){ if(!TF.core||TF.hold) return; const U=TF.U, b=GTF.BELL;   // (hold: a test keeps it still for a picture)
+  if(TF.on){ TF.t+=dt; while(TF.ev<TF_EV.length&&TF_EV[TF.ev][0]<=TF.t) TF_EV[TF.ev++][1](); }
+  const c=TF.t, on=TF.on;
+  /* how hard it burns (R), and a cough (P); the flame flickers */
+  TF.R=on?sstep(TF_CATCH,TF_CATCH+.3,c)*(1-sstep(TF_OFF,TF_OFF+.28,c)):0; TF.pop=Math.max(0,TF.pop-dt); TF.P=TF.pop>0?TF.popK*TF.pop/TF_POPT:0;
+  const R=TF.R, P=TF.P, fl=.92+.08*Math.sin(t*41)*Math.sin(t*17.3), Ar=Math.max(R,P*.6);
+  if(TF.roar&&(Math.abs(R-TF.rv)>.04||(R>=1&&TF.rv<1))){ TF.rv=R; TF.roar.set(R); }
+  const cv=R>.01||P>.05||GAR.warm, gv=R>.01||P>.01||GAR.warm; if(TF.core.visible!==cv) TF.core.visible=cv; if(TF.glow.visible!==gv) TF.glow.visible=gv;
+  if(cv){ U.core.uLen.value=Math.max(1.5*Math.pow(R,.7),.5*P)*fl; U.core.uR.value=.18*(.55+.45*Math.max(R,P)); U.core.uDia.value=R>.05?4.2:1.3; }   // (a cough: a short fat burst out of the bell)
+  if(gv){ U.glow.uLen.value=Math.max(2.5*Math.pow(R,.8),.6*P)*fl; U.glow.uR0.value=.19+.06*P; U.glow.uR1.value=.42*R+.32*P; U.glow.uK.value=Math.max(.95*R*fl,1.1*P); }
+  TF.lt=Math.max(R*fl,.85*P); GU.uGF0.value.w=TF.lt*1.3;
+  if(R>.01) S.shake=Math.max(S.shake,.24*R);
+  /* the view turning to the engine */
+  if(TF.turn){ const q=TF.turn; q.t+=dt; if(GAR.st!=='in'||(GAR.look||0)!==q.look) TF.turn=null; else { const k=E.io(clamp(q.t/1.1,0,1)); GAR.yaw=q.y0+angWrap(q.y1-q.y0)*k; GAR.pitch=lerp(q.p0,q.p1,k); if(k>=1) TF.turn=null; } }
+  /* smoke: billowing off the flame out into the street while it burns, and some of it rising round the bell and rolling
+     out under the head of the doorway; rolling out of the bell after; and a dark puff with each cough */
+  if(R>.25){ TF.emit-=dt; while(TF.emit<=0){ TF.emit+=.045; const L=2.3*R, k=Math.random();
+    if(k<.72) tfPuff(b[0]+(Math.random()-.5)*.25,b[1]+(Math.random()-.3)*.2,b[2]+L*(.35+.65*Math.sqrt(Math.random())),(Math.random()-.5)*.9,.15+Math.random()*.45,1.1+Math.random()*1.1,.2+Math.random()*.16,2.2+Math.random()*1.1,.8+Math.random()*.12);
+    else tfPuff(b[0]+(Math.random()-.5)*.3,b[1]+.15,b[2]+.2+Math.random()*.4,(Math.random()-.5)*.5,.7+Math.random()*.4,-.1+Math.random()*.3,.15+Math.random()*.1,2.4+Math.random()*.8,.74+Math.random()*.1); } }
+  if(on&&c>TF_OFF&&c<TF_OFF+1.6){ TF.tail-=dt; if(TF.tail<=0){ TF.tail=.17; tfPuff(b[0]+(Math.random()-.5)*.1,b[1],b[2]+.15,(Math.random()-.5)*.2,.2+Math.random()*.2,.5+Math.random()*.4,.13+Math.random()*.07,2+Math.random()*.6,.78+Math.random()*.1); } }
+  if(TF.fading){ TF.fade-=dt/.3; if(TF.fade<=0){ TF.fade=1; TF.fading=false; for(const q of TF.sm) q.a=q.life; } }
+  let alive=0, dirty=false; const e=Math.exp(-1.7*dt);
+  for(const q of TF.sm){ if(q.a>=q.life){ if(q.on){ q.on=false; TF.smoke.setMatrixAt(q.i,TF_Z); dirty=true; } continue; }
+    q.a+=dt; const k=Math.min(1,q.a/q.life); q.v.x*=e; q.v.y=.3+(q.v.y-.3)*e; q.v.z=.32+(q.v.z-.32)*e; q.p.addScaledVector(q.v,dt);
+    const s=q.s*(.45+.8*Math.sqrt(k))*(1-sstep(.7,1,k))*(TF.fading?TF.fade:1);
+    if(q.p.z<GW.d/2+.15) q.p.y=Math.min(q.p.y,(q.p.z>GW.d/2-.45?GW.ot:GW.h)-.03-s*.7);   // (under the ceiling, and under the head of the doorway)
+    tM.makeScale(s,s*.86,s).setPosition(q.p); TF.smoke.setMatrixAt(q.i,tM); q.on=true; alive++; dirty=true; }
+  if(dirty) TF.smoke.instanceMatrix.needsUpdate=true; TF.alive=alive; const smv=alive>0||GAR.warm; if(TF.smoke.visible!==smv) TF.smoke.visible=smv;
+  /* what shakes: the drone, a pendulum on its two cords, knocked about; the flag, drawn toward the shutter by the jet's
+     draught and fluttering; the tools on the board and the things on the bench rattling; the book creeping to the stool's
+     edge, and over it goes */
+  const d=TF.dr, f=TF.fg, mv=TF.mv;
+  for(const i of [0,2]){ d[i+1]+=(-19.6*d[i]-1.6*d[i+1]+(Math.random()-.5)*Ar*30)*dt; d[i]+=d[i+1]*dt; }
+  { const want=-Ar*(.07+.04*Math.sin(t*13.1)*Math.sin(t*7.7)); f[1]+=((want-f[0])*90-f[1]*9)*dt; f[0]+=f[1]*dt; }
+  const moving=Ar>0||Math.abs(d[0])+Math.abs(d[2])+Math.abs(d[1])+Math.abs(d[3])>4e-4||Math.abs(f[0])+Math.abs(f[1])>1e-4;
+  if(moving||TF.shook){ TF.shook=moving;
+    if(mv.gdrone) tfPose(mv.gdrone,GTF.drone,d[0],d[2]); if(mv.gflag) tfPose(mv.gflag,GTF.flag,f[0],0);
+    if(Ar>0){ const r=()=>Math.random()-.5; if(mv.gpeg) tfPose(mv.gpeg,GTF.peg,0,r()*.012*Ar,r()*.003*Ar,r()*.002*Ar,0); if(mv.gbench) tfPose(mv.gbench,GTF.peg,0,0,r()*.003*Ar,Math.random()*.002*Ar,r()*.003*Ar); }
+    else { tfRest(mv.gpeg); tfRest(mv.gbench); } }
+  if(mv.gbook){ if(!TF.booked) TF.book=Math.min(1,TF.book+dt*Ar*.4);
+    let u=0; if(TF.bookT>=0&&TF.bookT<1){ TF.bookT=Math.min(1,TF.bookT+dt/.42); if(TF.bookT>=1) A.tfThud(); } if(TF.booked) u=Math.max(0,TF.bookT);
+    if(TF.book>0){ const o=GTF.book, dx=-.78, dz=.62, m=.08*TF.book+.34*u, th=.95*Math.sin(Math.PI*Math.min(1,u*1.12));
+      tM.makeRotationAxis(tV.set(dz,0,-dx),th).setPosition(o[0]+dx*m,o[1]-.556*u*u+(u?0:Math.random()*.0015*Ar),o[2]+dz*m); tM.multiply(tM2.makeTranslation(-o[0],-o[1],-o[2]));
+      mv.gbook.matrix.multiplyMatrices(GAR.M,tM).multiply(GAR.Mi); mv.gbook.matrixWorldNeedsUpdate=true; } }
+  /* the button down while it runs, its lamp blinking through the warning and lit after; the smoke alarm's lamp; the bell
+     ticking as it cools */
+  const cap=on&&c<TF_OFF+.4?1:0; if(cap!==TF.cap&&mv.gbtn){ TF.cap=cap; wsD(0,-1,0,tV).multiplyScalar(.012*cap); mv.gbtn.matrix.makeTranslation(tV.x,tV.y,tV.z); mv.gbtn.matrixWorldNeedsUpdate=true; }
+  TF.al=Math.max(0,TF.al-dt*5); GU.uGAux.value.set(TF.al,on?(c<TF_CATCH?(c*4%1<.5?1:.2):1):0);
+  if(on&&c>TF_OFF+.8){ TF.tink-=dt; if(TF.tink<=0){ TF.tink=.45+Math.random()*.7; A.tfTink(); } } }
+/* stopped: walking out mid-fire (the smoke goes in a moment), or put back (hard: at once) */
+function tfStop(hard){ if(TF.roar){ TF.roar.stop(); TF.roar=null; } if(TF.on) A.tfHush(); TF.on=false; TF.turn=null; TF.R=TF.P=TF.pop=TF.lt=TF.al=0; TF.book=0; TF.bookT=-1; TF.booked=false; TF.cap=0; TF.dr.fill(0); TF.fg.fill(0); TF.shook=false;
+  GU.uGF0.value.w=0; GU.uGAux.value.set(0,0); for(const k in TF.mv) tfRest(TF.mv[k]); if(TF.core){ TF.core.visible=TF.glow.visible=false; }
+  if(hard){ TF.fading=false; TF.fade=1; for(const q of TF.sm){ q.a=q.life; q.on=false; if(TF.smoke) TF.smoke.setMatrixAt(q.i,TF_Z); } if(TF.smoke){ TF.smoke.instanceMatrix.needsUpdate=true; TF.smoke.visible=false; } TF.alive=0; }
+  else if(TF.sm.some(q=>q.a<q.life)){ TF.fading=true; TF.fade=1; } }
 
 /* ---------- the tag over the shutter, the way out, clicks, drags and keys ---------- */
 const garTag=document.createElement('span'); garTag.className='crwt ui'; $('#crLabels',el).appendChild(garTag);
@@ -7990,30 +8189,30 @@ function garTagUpdate(live){ const P=player; let on=false, can=false, txt='';
   if(on!==GAR.tagOn){ GAR.tagOn=on; garTag.classList.toggle('on',on); } if(can!==GAR.tagCan){ GAR.tagCan=can; garTag.classList.toggle('can',can); } }
 /* what a click is on: the workshop's front from the street (never from round the back), the way out from inside */
 function garPick(e){ if(!GAR.pick) return null; gNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); gRay.setFromCamera(gNdc,stCam);
-  if(GAR.on) return gRay.intersectObject(GAR.pickOut,false).length?'out':null;
+  if(GAR.on) return TF.pick&&gRay.intersectObject(TF.pick,false).length?'btn':gRay.intersectObject(GAR.pickOut,false).length?'out':null;
   if(stCam.position.distanceTo(GAR.c0)>24||wsL(stCam.position,gV).z<GW.d/2) return null; return gRay.intersectObject(GAR.pick,false).length?'front':null; }
 { const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&GAR.g){ if(GAR.on){ GAR.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; return; }
     GAR.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; } return op.call(this,e); }; }
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g) return; const D=GAR.drag, tp=GAR.tap;
   if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
   if(D&&e.pointerId===D.id){ if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>(e.pointerType==='mouse'?6:9)) D.moved=true;
-    if(D.moved&&GAR.st==='in'){ GAR.yaw-=(e.clientX-D.lx)*.0042; GAR.pitch=clamp(GAR.pitch-(e.clientY-D.ly)*.0034,-.75,.7); GAR.dragT=0; } D.lx=e.clientX; D.ly=e.clientY; return; }
+    if(D.moved&&GAR.st==='in'){ GAR.yaw-=(e.clientX-D.lx)*.0042; GAR.pitch=clamp(GAR.pitch-(e.clientY-D.ly)*.0034,-.75,.7); GAR.dragT=0; GAR.look=(GAR.look||0)+1; } D.lx=e.clientX; D.ly=e.clientY; return; }
   if(e.pointerType!=='mouse') return;
   /* the cursor says what a click would do: Open, Go in, or (inside, over the way out) Leave */
-  let lab=null; if(GAR.on){ if(hov) hov=null; if(GAR.st==='in'&&garPick(e)==='out') lab='Leave'; }
+  let lab=null; if(GAR.on){ if(hov) hov=null; const pk=GAR.st==='in'?garPick(e):null; if(pk==='out') lab='Leave'; else if(pk==='btn'&&!TF.on) lab='Fire'; }
   else if(GAR.st==='out'&&!garBusy()&&!down&&!hov&&!DM.hov&&!CL.hov&&(GAR.shSt==='shut'||GAR.shSt==='open')&&garPick(e)==='front') lab=GAR.shSt==='shut'?'Open':'Go in';
   const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); GAR.cur=true; } else if(GAR.cur||GAR.on){ ce.classList.remove('big'); GAR.cur=false; } },{passive:true});
 addEventListener('pointerup',e=>{ const D=GAR.drag, tp=GAR.tap;
-  if(D&&e.pointerId===D.id){ GAR.drag=null; if(!D.moved&&S.st===st&&S.mode==='station'&&GAR.st==='in'&&garPick(e)==='out'){ GAR.kb=false; garLeave(); } return; }
+  if(D&&e.pointerId===D.id){ GAR.drag=null; if(!D.moved&&S.st===st&&S.mode==='station'&&GAR.st==='in'){ const pk=garPick(e); GAR.kb=false; if(pk==='btn') tfFire(); else if(pk==='out') garLeave(); } return; }
   if(!tp||e.pointerId!==tp.id) return; GAR.tap=null; if(S.st!==st||S.mode!=='station'||tp.moved||tp.talk||FIN.on||CUT.on||GAR.st!=='out'||garBusy()) return;
   if(pickPerson(e)||pickBusk(e)) return; if(garPick(e)){ GAR.kb=false; garAct(); } });
 addEventListener('pointercancel',()=>{ GAR.drag=null; GAR.tap=null; });
 addEventListener('pointerdown',()=>{ GAR.kb=false; },true);
-/* keys: E or Enter by the shutter opens it, or takes you in; inside, Escape takes you out (and E, Enter and Space do
-   nothing else); on the way over, Escape stops you */
+/* keys: E or Enter by the shutter opens it, or takes you in; inside, Escape takes you out, Space or Enter presses the
+   red button (and E does nothing else); on the way over, Escape stops you */
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g||FIN.on||CUT.on) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
   if(GAR.on){ if(k==='Escape'){ if(GAR.st==='in'){ GAR.kb=true; garLeave(); } e.preventDefault(); e.stopImmediatePropagation(); return; }
-    if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
+    if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ if(k!=='KeyE'&&!e.repeat&&GAR.st==='in'){ GAR.kb=true; tfFire(); } e.preventDefault(); e.stopImmediatePropagation(); } return; }
   if(GAR.st==='go'&&k==='Escape'){ garSet('out'); player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
   if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&GAR.st==='out'&&!garBusy()&&garNear()&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ GAR.kb=true; if(garAct()){ e.preventDefault(); e.stopImmediatePropagation(); } } },true);
 /* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
@@ -8022,12 +8221,16 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g||FIN.on
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) garStep(dt,t); return r; };
   st.enter=function(){ garReset(); return en.apply(this,arguments); }; st.exit=function(){ garReset(true); return ex.apply(this,arguments); };
   st.finaleEnd=function(){ const r=fe.apply(this,arguments); garReset(); return r; }; }
-st._dbg.garage={G:GAR,GW,get err(){ return GAR.err||null; },open:garOpen,close:garClose,act:garAct,go:garGo,enter:garEnter,leave:garLeave,reset:garReset,local:(x,z)=>wsXZ(x,z),world:(x,y,z)=>wsW(x,y,z),toLocal:w=>wsL(w),
+st._dbg.garage={G:GAR,GW,GTF,TF,get err(){ return GAR.err||null; },open:garOpen,close:garClose,act:garAct,go:garGo,enter:garEnter,leave:garLeave,reset:garReset,fire:tfFire,local:(x,z)=>wsXZ(x,z),world:(x,y,z)=>wsW(x,y,z),toLocal:w=>wsL(w),
   run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
   get state(){ return {st:GAR.st,on:GAR.on,sh:+GAR.sh.toFixed(3),shSt:GAR.shSt,k:+GAR.k.toFixed(3),tubes:GAR.tubes.map(v=>+v.toFixed(2)),lamp:+GAR.lamp.toFixed(2),lit:GAR.lit,vis:!!(GAR.g&&GAR.g.visible),me:me.visible,near:stCam.near,
     you:[+GAR.you.x.toFixed(2),+GAR.you.z.toFixed(2)],da:+GAR.da.toFixed(2),tag:{on:GAR.tagOn,can:GAR.tagCan,txt:garTag.textContent,p:GAR.tagP},leave:!garOut.hidden,clicks:GAR.clicks,pool:!!(GAR.pool&&GAR.pool.visible),mk:+GAR.mk.toFixed(2)}; },
-  /* where on the screen the shutter and the way out are (for a test to tap them) */
-  screen(what){ stCam.updateMatrixWorld(); const p=what==='out'?wsW(GW.ox-.35,1.15,GW.d/2,gV):wsW(GW.ox,1.15,GW.d/2+.05,gV), q=p.project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; },
+  /* a test fire, as it goes: running, how far in, how hard it burns, the flame and its glow drawn, its light, the smoke
+     puffs out, the roar sounding, the book over, the button down, how many fires so far */
+  get tf(){ return {on:TF.on,t:+TF.t.toFixed(2),R:+TF.R.toFixed(2),core:!!(TF.core&&TF.core.visible),glow:!!(TF.glow&&TF.glow.visible),lt:+TF.lt.toFixed(2),smoke:TF.alive,roar:!!TF.roar,
+    book:TF.booked,cap:TF.cap,fires:TF.fires,turn:!!TF.turn,pool:!!(GAR.pool&&GAR.pool.visible&&GAR.pool.material.uniforms.uF.value>.01),shook:!!TF.shook}; },
+  /* where on the screen the shutter, the way out and the red button are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const p=what==='out'?wsW(GW.ox-.35,1.15,GW.d/2,gV):what==='btn'?wsW(GTF.btn[0],GW.FL+.99,GTF.btn[1],gV):wsW(GW.ox,1.15,GW.d/2+.05,gV), q=p.project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; },
   /* what is solid in there, in its frame: [x0, x1, z0, z1, height] */
   get solids(){ return GAR.solids; }};
 /* ===================== (the workshop ends here) ===================== */
