@@ -5623,7 +5623,10 @@ function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.
   const M=frameAt(...loc(up),q.a+Math.sin(t*.9+q.ph)*.08); M.setPosition(V); M.multiply(Mr.makeRotationZ(Math.sin(t*1.7+q.ph)*.07)); q.g.matrix.copy(M); q.g.matrixWorldNeedsUpdate=true; }
 function seaMid(){ const sa=PHS.lost?PHS.lost.sa:[]; if(!sa.length) return null; let x=0, y=0; for(const a of sa){ x+=Math.cos(a); y+=Math.sin(a); } return Math.atan2(y,x); }
 function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); PHS.aim=seaMid(); } else { PHS.drag=null; PHS.aim=null; A.click(); } }
-steerBtn.addEventListener('click',e=>{ e.stopPropagation(); steerSet(true); });
+/* taken on the press itself, not the release: the button can never slip away between the two (you shuffling at the edge of the
+   lighthouse's ground, a frame that hides it), and a click from the keys still works */
+steerBtn.addEventListener('pointerdown',e=>{ if(e.button>0) return; e.preventDefault(); e.stopPropagation(); if(!steerBtn.hidden) steerSet(true); });
+steerBtn.addEventListener('click',e=>{ e.stopPropagation(); if(!steerBtn.hidden) steerSet(true); });
 $('#crSteerDone',el).addEventListener('click',e=>{ e.stopPropagation(); steerSet(false); });
 steerUI.addEventListener('pointerdown',e=>e.stopPropagation());
 function steerUpdate(dt,t){ const nt=SKY.night;
@@ -5650,7 +5653,9 @@ function steerUpdate(dt,t){ const nt=SKY.night;
     const up=V.copy(L.pos).normalize(); const M=frameAt(...loc(up),t*.6); M.setPosition(L.pos); M.multiply(Mf.makeScale(1.7,1.7,1.7)); L.g.matrix.copy(M); L.g.matrixWorldNeedsUpdate=true;
     L.g.userData.light.material.uniforms.uC.value.setStyle(PHS.state==='lost'?((t*2)%1<.5?'#ff5a4a':'#5a1a16'):'#7dff9a',T.LinearSRGBColorSpace);
     L.ring.visible=PHS.state==='lock'; if(L.ring.visible){ const s=1+.25*Math.sin(PHS.st*20); L.ring.matrix.copy(M).multiply(Mf.makeScale(s/1.7,s/1.7,s/1.7)); L.ring.matrixAutoUpdate=false; L.ring.matrixWorldNeedsUpdate=true; } }
-  steerBtn.hidden=!(PJ.id==='ph'&&!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0); }
+  /* by the lighthouse the button stays put: a step at the edge of its ground does not take it away under your hand for a moment */
+  const sb=!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!CAFE.on, near=PJ.id==='ph';
+  PHS.btnT=sb&&near?.7:Math.max(0,(PHS.btnT||0)-dt); steerBtn.hidden=!(sb&&PHS.btnT>0); }
 /* the camera up behind the lamp, looking out along the beam; handing back to the walking camera smoothly */
 function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002) return;
   const Lp=V.set(0,0,0).applyMatrix4(PHS.bgW), U=V3.copy(Lp).normalize(), Dh=V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
@@ -6464,7 +6469,8 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(e.code==='KeyP'&&!TALK.p&&!PHS.on&&!pcBtn.hidden){ pcOpen(!PC.on); e.stopImmediatePropagation(); return; }
   if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     const P=player; let best=null, bd=3.4; for(const q of people){ const dq=Math.hypot(P.x-q.x,P.z-q.z); if(dq<bd){ bd=dq; best=q; } }
-    if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; } }
+    if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if(!steerBtn.hidden&&!e.repeat&&Math.hypot(P.x-CLF.x,P.z-CLF.z)>3){ steerSet(true); e.preventDefault(); e.stopImmediatePropagation(); return; } }   // by the lighthouse, with no one to talk to, the keys take the light too
   if(TALK.p&&(e.code==='Space'||e.code==='Enter'||e.code==='KeyE')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
     if(TALK.ask&&TALK.i>=TALK.L.length-1&&TALK.shown>=TALK.txt.length&&e.code!=='KeyE'){ startFinale(); } else nextTalk(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
 

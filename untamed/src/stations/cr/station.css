@@ -103,6 +103,8 @@ html.earth #back{transition:opacity .6s var(--ease)}
 .st-cr .crgo:not([hidden]) ~ .crsteer{bottom:calc(var(--gb) + 92px)}
 .st-cr .crsteer-ui{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);display:flex;gap:14px;align-items:center;padding:7px 7px 7px 16px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;white-space:nowrap}
 .st-cr .crsteer[hidden],.st-cr .crsteer-ui[hidden]{display:none}
+.st-cr .crsteer .crkey{color:#2a241d;opacity:.5;margin-left:4px}
+@media (hover:none),(pointer:coarse){.st-cr .crsteer .crkey{display:none}}   /* the key to press, only where there are keys */
 .st-cr.fin .crsteer,.st-cr.fin .crsteer-ui{display:none!important}
 html.earth.crnight .brand{color:#efe8da}   /* the name stays readable once it is dark */
 html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}

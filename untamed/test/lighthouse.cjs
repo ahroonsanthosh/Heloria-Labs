@@ -27,5 +27,14 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* let go */
   await page.click('#crSteerDone'); await wait(1200); s = await H(h => h.ST.cr._dbg.steer.PHS.on); if (s) fail('Done did not let go of the light');
   await wait(2000); await shot(P + 'lh-done');
+  /* on a computer the keys take the light as well: E by the lighthouse, Escape to let go */
+  if (!mobile) {
+    ok = false; for (let i = 0; i < 40 && !ok; i++) { await wait(300); ok = await page.evaluate(() => !document.querySelector('#crSteer').hidden); }
+    if (!ok) fail('the button did not come back after letting go');
+    const key = await page.evaluate(() => { const k = document.querySelector('#crSteer .crkey'); return k && getComputedStyle(k).display !== 'none' ? k.textContent : null; }); if (key !== 'E') fail('no E on the button on a computer');
+    await page.keyboard.press('KeyE'); await wait(800); s = await H(h => h.ST.cr._dbg.steer.PHS.on); if (!s) fail('E by the lighthouse did not take the light');
+    await page.keyboard.press('Escape'); await wait(800); s = await H(h => h.ST.cr._dbg.steer.PHS.on); if (s) fail('Escape did not let go of the light');
+    log('keys take and let go of the light');
+  } else { const k = await page.evaluate(() => getComputedStyle(document.querySelector('#crSteer .crkey')).display); if (k !== 'none') fail('a key shown on a phone'); }
   if (!process.exitCode) log('LIGHTHOUSE OK');
 };
