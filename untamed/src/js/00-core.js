@@ -191,6 +191,7 @@ const A=(()=>{
      background), faded out by the mixer when it is only behind another window; and it comes back when you do */
   function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true;   // (the page closing is as final as hidden: everything stops at once)
     if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
+    if(SC.el&&!SC.el.paused) SC.el.pause();   // (a cutscene's recording: it starts again from where the scene is when you come back)
     if(ctx){ set(out.gain,0,hid?.01:.15); if(hid) ctx.suspend().catch(()=>{}); } }
   function back(){ if(!away||document.hidden) return; away=false; wdT=-1; for(const r of LOOPS) r.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
     if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
@@ -199,7 +200,8 @@ const A=(()=>{
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
   /* inside a click, a tap or a key a browser always lets a recording start: each player is started there once, silently,
      and stopped again, so a phone that only lets a page start sound inside a gesture lets it start later by itself */
-  function prime(){ for(const r of LOOPS){ r.blocked=false;
+  function prime(){ /* the cutscene's recording too */ if(SC.el&&!SC.el._primed&&SC.el.paused){ const el=SC.el; el._primed=true; el.muted=true; const p=el.play(); const b=()=>{ if(!(on&&!muted&&!away&&el._want)) el.pause(); el.muted=false; }; if(p&&p.then) p.then(b,()=>{ el.muted=false; el._primed=false; }); else b(); }
+    for(const r of LOOPS){ r.blocked=false;
       for(const el of r.els){ if(el._primed||!el.paused) continue; el._primed=true; el.muted=true; const p=el.play();
         const back=()=>{ if(!(el._on&&on&&!muted&&r.want>0)) el.pause(); el.muted=false; };
         if(p&&p.then) p.then(back,()=>{ el.muted=false; el._primed=false; }); else back(); } } }
@@ -405,6 +407,100 @@ const A=(()=>{
   setInterval(soloEnd,100);
   let making=!!OAC;
   { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+  /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
+     Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
+     step with the scene's clock: it is not a loop, it is played once from wherever the scene is. Each thing that moves has
+     its own sound: the warning horn, the latches, the doors dropping and rolling away, the relays and the hum of the
+     shaft's lamps, the lift's motor, the air pushed up as the nose comes out, the clamps, the hatch, the board's lamps and
+     the switch. What happens down the shaft rings in it: a hard round shaft throws a sound back and forth, a quick flutter
+     of echoes over a long tail, and less of it as the rocket comes up. Every noise in it is short or kept low and dark (a
+     rumble, a breath), never a bed of hiss: on a phone that is static. env is how loud it is, a tenth of a second at a time */
+  const SC={url:null,el:null,busy:false,len:0,rms:0,env:null};
+  function scoreMake(Q){ if(!OAC||SC.url||SC.busy) return; SC.busy=true;
+    const sr=32000, len=Math.ceil((Q.end+1.5)*sr); SC.len=len/sr; let oc;
+    try{ oc=new OAC(1,len,sr); }catch(e){ SC.busy=false; return; }
+    const b=bus(oc,1,.45), IN=b.in, room=b.rv;
+    const nz=oc.createBuffer(1,len,sr), nd=nz.getChannelData(0); for(let i=0;i<len;i++) nd[i]=Math.random()*2-1;
+    /* the shaft: echoes every 23 ms (down and back up a concrete tube), darker each time, over a two-second tail */
+    const sh=oc.createConvolver(), L=Math.floor(sr*2.2), ir=oc.createBuffer(1,L,sr), d=ir.getChannelData(0);
+    for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*.35*Math.pow(1-i/L,2.2);
+    for(let k=1;k<60;k++){ const i=Math.floor(k*.023*sr+(Math.random()-.5)*.002*sr); if(i<L) d[i]+=.9*Math.pow(.86,k); }
+    { let e=0; for(let i=0;i<L;i++) e+=d[i]*d[i]; const k=.42/Math.sqrt(e); for(let i=0;i<L;i++) d[i]*=k; }   // as loud as what goes in, not many times over
+    sh.buffer=ir; const shLP=oc.createBiquadFilter(); shLP.type='lowpass'; shLP.frequency.value=2400; const shG=oc.createGain(); shG.gain.value=.55; sh.connect(shLP); shLP.connect(shG); shG.connect(IN);
+    const SEND=oc.createGain(); SEND.connect(sh); const sv=SEND.gain;   // how much of the shaft you hear: none while it is shut, most while it is open and deep
+    sv.setValueAtTime(0,0); sv.setValueAtTime(0,Q.slide[0]); sv.linearRampToValueAtTime(.9,Q.slide[0]+.6); sv.setValueAtTime(.9,Q.surface-.6); sv.linearRampToValueAtTime(.25,Q.rise[1]); sv.linearRampToValueAtTime(0,Q.rise[1]+.25);
+    const src=(t0,off)=>{ const s=oc.createBufferSource(); s.buffer=nz; s.loop=true; s.start(Math.max(0,t0),off??Math.random()*(len/sr-1)); return s; };
+    const gainAt=(t0,peak,atk,dec,to)=>{ const g=oc.createGain(); g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(peak,t0+atk); g.gain.exponentialRampToValueAtTime(.0001,t0+atk+dec); g.connect(to); return g; };
+    const filt=(type,f,q)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=f; x.Q.value=q??.7; return x; };
+    const osc=(type,f,t0,t1)=>{ const o=oc.createOscillator(); o.type=type; o.frequency.setValueAtTime(f,0); o.start(t0); o.stop(t1); return o; };
+    const sendTo=(node,to,k)=>{ const g=oc.createGain(); g.gain.value=k; node.connect(g); g.connect(to); };
+    /* a struck steel part: a few bar-like partials over a click and a thump */
+    const clank=(t,g,f=380,deep=1,shaft=0)=>{ const out=oc.createGain(); out.connect(IN); if(shaft) sendTo(out,SEND,shaft); if(room) sendTo(out,room,.4);
+      [[1,1,.22],[2.76,.55,.14],[5.4,.3,.09],[8.93,.16,.05]].forEach(([m,a,dk])=>{ const o=osc('sine',f*m*(.98+Math.random()*.04),t,t+dk*8); o.connect(gainAt(t,g*a,.002,dk*5,out)); });
+      const n=src(t); const bp=filt('bandpass',2600,1.1); n.connect(bp); bp.connect(gainAt(t,g*.7,.001,.05,out)); n.stop(t+.2);
+      if(deep){ const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(48,t+.22); o.start(t); o.stop(t+.5); o.connect(gainAt(t,g*1.3*deep,.004,.3,out)); } };
+    /* a heavy thing landing: low, with enough just above it for a phone to carry */
+    const thud=(t,g,shaft=0)=>{ const out=oc.createGain(); out.connect(IN); if(shaft) sendTo(out,SEND,shaft);
+      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(82,t); o.frequency.exponentialRampToValueAtTime(42,t+.35); o.start(t); o.stop(t+.7); o.connect(gainAt(t,g,.004,.45,out));
+      const o2=oc.createOscillator(); o2.type='triangle'; o2.frequency.setValueAtTime(165,t); o2.frequency.exponentialRampToValueAtTime(90,t+.25); o2.start(t); o2.stop(t+.5); o2.connect(gainAt(t,g*.35,.003,.25,out));
+      const n=src(t); const lp=filt('lowpass',420,.8); n.connect(lp); lp.connect(gainAt(t,g*.8,.002,.12,out)); n.stop(t+.4); };
+    /* air let out: short, and kept well down, so it never reads as static on a phone */
+    const hiss=(t,dur,g)=>{ const n=src(t), hp=filt('highpass',2200,.6), lp=filt('lowpass',6500,.6); n.connect(hp); hp.connect(lp); const e=gainAt(t,g,.02,dur,IN); lp.connect(e); if(room) sendTo(e,room,.3); n.stop(t+dur+.3); };
+    /* the warning horn: a rising two-step buzz, softened */
+    const horn=(t,g)=>{ const o=oc.createOscillator(); o.type='square'; o.frequency.setValueAtTime(392,t); o.frequency.setValueAtTime(523,t+.13); o.start(t); o.stop(t+.34);
+      const lp=filt('lowpass',1500,.9), a=oc.createGain(); a.gain.setValueAtTime(0,0); a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g,t+.012); a.gain.setValueAtTime(g,t+.24); a.gain.exponentialRampToValueAtTime(.0001,t+.33);
+      o.connect(lp); lp.connect(a); a.connect(IN); if(room) sendTo(a,room,.7); };
+    /* a relay closing, the click of a lamp coming on */
+    const relay=(t,g)=>{ const n=src(t), bp=filt('bandpass',3400,2.2); n.connect(bp); const e=gainAt(t,g,.001,.018,IN); bp.connect(e); sendTo(e,SEND,.8); n.stop(t+.1);
+      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(190,t); o.frequency.exponentialRampToValueAtTime(95,t+.05); o.start(t); o.stop(t+.12); const a=gainAt(t,g*.9,.002,.06,IN); o.connect(a); sendTo(a,SEND,.8); };
+    /* the lamps' hum, one more ring of it each time a ring comes on, gone when the deck closes the shaft */
+    { const hum=oc.createGain(); hum.gain.setValueAtTime(0,0); Q.rings.forEach((t,i)=>hum.gain.setTargetAtTime(.008*(i+1),t,.05));
+      hum.gain.setTargetAtTime(0,Q.rise[1]+.1,.12); hum.connect(IN); sendTo(hum,SEND,.6);
+      [[100,1],[200,.6],[300,.35],[400,.18]].forEach(([f,a])=>{ const o=osc('sine',f*(1+(Math.random()-.5)*.002),Q.rings[0],Q.rise[1]+1); const g=oc.createGain(); g.gain.value=a; o.connect(g); g.connect(hum); });
+      const bz=osc('sawtooth',100,Q.rings[0],Q.rise[1]+1), bl=filt('bandpass',900,2), bg=oc.createGain(); bg.gain.value=.25; bz.connect(bl); bl.connect(bg); bg.connect(hum); }
+    /* the doors rolling away under the rim: a grinding rumble on rollers, the drive's tone rising and settling */
+    { const [t0,t1]=Q.slide, out=oc.createGain(); out.gain.setValueAtTime(0,0); out.gain.setValueAtTime(0,t0); out.gain.linearRampToValueAtTime(1,t0+.3); out.gain.setValueAtTime(1,t1-.35); out.gain.linearRampToValueAtTime(0,t1+.05); out.connect(IN); sendTo(out,SEND,.5);
+      const n=src(t0), lp=filt('lowpass',320,.9), bp=filt('bandpass',140,1.4), g1=oc.createGain(); g1.gain.value=.24; n.connect(lp); lp.connect(g1); g1.connect(out); n.connect(bp); const g2=oc.createGain(); g2.gain.value=.12; bp.connect(g2); g2.connect(out); n.stop(t1+.3);
+      const m=oc.createOscillator(); m.type='sawtooth'; m.frequency.setValueAtTime(52,t0); m.frequency.linearRampToValueAtTime(68,t0+.5); m.frequency.setValueAtTime(68,t1-.5); m.frequency.linearRampToValueAtTime(50,t1); m.start(t0); m.stop(t1+.2);
+      const ml=filt('lowpass',520,1.2), mg=oc.createGain(); mg.gain.value=.05; m.connect(ml); ml.connect(mg); mg.connect(out);
+      for(let t=t0+.12;t<t1-.1;t+=.11+Math.random()*.07) clank(t,.022+Math.random()*.012,620+Math.random()*260,0,.4);   // the rollers over their joints
+      clank(t1,.24,300,1,.5); thud(t1+.02,.3,.4); }
+    /* the lift: its motor comes up with the speed and eases off as it slows; the valve opens with a knock before it moves */
+    { const [t0,t1]=Q.rise, T=t1-t0, vel=x=>x<.5?2*x:2*(1-x);   // as the scene's ease in and out: fastest halfway
+      thud(t0-.08,.26,.6); clank(t0-.06,.1,240,0,.6);
+      const N=60, fc=new Float32Array(N+1), ac=new Float32Array(N+1), lc=new Float32Array(N+1);
+      for(let i=0;i<=N;i++){ const v=vel(i/N); fc[i]=64+58*v; ac[i]=.25+.75*v; lc[i]=380+1500*v; }
+      const out=oc.createGain(); out.gain.setValueAtTime(0,0); out.gain.setValueAtTime(0,t0); out.gain.linearRampToValueAtTime(.9,t0+.35); out.gain.setValueAtTime(.9,t1-.15); out.gain.linearRampToValueAtTime(0,t1+.08); out.connect(IN); sendTo(out,SEND,.9);
+      const amp=oc.createGain(); amp.gain.setValueAtTime(ac[0],t0); amp.gain.setValueCurveAtTime(ac,t0,T); amp.connect(out);
+      const lp=filt('lowpass',380,1.6); lp.frequency.setValueAtTime(lc[0],t0); lp.frequency.setValueCurveAtTime(lc,t0,T); lp.connect(amp);
+      [[1,.1,'sawtooth'],[1.006,.08,'sawtooth'],[2,.05,'square']].forEach(([m,a,ty])=>{ const o=oc.createOscillator(); o.type=ty; o.frequency.setValueAtTime(fc[0]*m,t0); o.frequency.setValueCurveAtTime(fc.map(f=>f*m),t0,T); o.start(t0); o.stop(t1+.2); const g=oc.createGain(); g.gain.value=a; o.connect(g); g.connect(lp); });
+      const n=src(t0), rl=filt('lowpass',240,.8), rg=oc.createGain(); rg.gain.value=.24; n.connect(rl); rl.connect(rg); rg.connect(amp); n.stop(t1+.3);   // the rumble of it
+      /* the nose coming out of the shaft pushes the air in front of it up and out */
+      { const s=Q.surface, n2=src(s-.5), bp=filt('bandpass',260,.9); bp.frequency.setValueAtTime(220,s-.5); bp.frequency.exponentialRampToValueAtTime(900,s+.5); n2.connect(bp); bp.connect(gainAt(s-.5,.13,.45,.7,IN)); n2.stop(s+1.6); }
+      /* the clamps: two of them, then the pressure let go */
+      clank(t1,.3,260,1.2,.3); clank(t1+.13,.25,300,1,.2); thud(t1+.02,.42,.3); hiss(t1+.2,.9,.04); }
+    /* the hatch: a ram eases it down and it lands on the pad */
+    { const [t0,t1]=Q.hatch, o=oc.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(210,t0); o.frequency.linearRampToValueAtTime(300,t1); o.start(t0); o.stop(t1+.1);
+      const lp=filt('lowpass',900,.8), a=oc.createGain(); a.gain.setValueAtTime(0,0); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.032,t0+.12); a.gain.setValueAtTime(.032,t1-.1); a.gain.linearRampToValueAtTime(0,t1); o.connect(lp); lp.connect(a); a.connect(IN);
+      clank(t0,.06,520,0); thud(t1,.28); clank(t1,.1,340,.4); }
+    /* the warning horn while the doors open */
+    Q.horns.forEach(t=>horn(t,.065));
+    /* the latches let go, a breath of air, and the doors drop into their slots */
+    clank(Q.unlatch,.26,410,1); clank(Q.unlatch+.09,.21,450,.8); hiss(Q.unlatch+.04,.6,.03); thud(Q.drop,.3);
+    Q.rings.forEach(t=>relay(t,.07));
+    /* the board: each lamp a note higher as it goes green; the switch, and the board answering */
+    const PEN=[72,74,76,79,81,84,86,88,91,93], mf=m=>440*Math.pow(2,(m-69)/12);
+    Q.greens.forEach((t,i)=>{ const f=mf(PEN[i%PEN.length]); const o=osc('sine',f,t,t+.25); o.connect(gainAt(t,.055,.004,.12,IN)); const o2=osc('sine',f*2,t,t+.15); o2.connect(gainAt(t,.014,.003,.06,IN)); });
+    { const t=Q.lever; clank(t,.18,700,.5); thud(t+.01,.14); [[79,.08],[84,.2]].forEach(([m,dt])=>{ const o=osc('sine',mf(m),t+dt,t+dt+.6); o.connect(gainAt(t+dt,.036,.005,.35,IN)); });
+      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(110,t+.1); o.frequency.exponentialRampToValueAtTime(220,t+1.3); o.start(t+.1); o.stop(t+1.8); o.connect(gainAt(t+.1,.05,.5,1,IN)); }
+    /* kept at half what it is worked out at, so the machinery stands some 5 dB over the town's music (itself let down under
+       it) and a little under the last flight's roar, which it leads into */
+    const done=bf=>{ const dd=bf.getChannelData(0); for(let i=0;i<dd.length;i++) dd[i]*=.5; const w=wav(dd,0,dd.length,sr), E=new Float32Array(Math.ceil(dd.length/(sr/10)));
+      for(let k=0;k<E.length;k++){ let q=0, n=0; for(let i=k*sr/10;i<Math.min(dd.length,(k+1)*sr/10);i++,n++) q+=dd[i]*dd[i]; E[k]=Math.sqrt(q/Math.max(1,n)); }
+      SC.url=w.url; SC.rms=w.rms; SC.env=E; SC.busy=false;
+      SC.el=BUFP?new BufPlayer(()=>{ if(SC.bb) return SC.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } SC.bb=b; return b; }):new Audio(); SC.el.preload='auto'; if(!BUFP) SC.el.src=SC.url; SC.el._want=false; try{ SC.el.preservesPitch=false; }catch(e){} };
+    try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>{ SC.busy=false; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ SC.busy=false; } }
+  const scoreStop=()=>{ if(SC.el){ SC.el._want=false; if(!SC.el.paused) SC.el.pause(); } };
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -419,7 +515,9 @@ const A=(()=>{
        recordings playing now are together */
     _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
-    _loopRms(){ let q=0; if(BUFP) return 0; /* (buffer players are heard by the page's own meter already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; } return Math.sqrt(q); },
+    _loopRms(){ let q=0; if(BUFP) return 0; /* (buffer players, the score's too, are heard by the page's own meter already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
+      if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to
+      return Math.sqrt(q); },
     /* the orbit's score: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
     update(t,p){ if(!p) return; if(p.sub!=null) SUB.want=Math.max(0,p.sub)*.26; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045*(muf?.5:1); },
     tick(){ tone(2600*vr(),.02,.01,'square'); },
@@ -451,7 +549,7 @@ const A=(()=>{
       if(B&&B.ping&&ctx&&on&&!muted&&t>n.bedT){ n.bedT=t+B.ping; tone(B.pf,.5,.01,'sine',B.pf*.92,0,.6); } },
     muffle(v){ muf=!!v; },
     /* every continuous layer to silence: used when crossing between orbit and a station so neither spills into the other */
-    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; },
+    hush(){ WL.want=WH.want=TH.want=HS.want=CF.want=CN.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); for(const k in BEDL) BEDL[k].want=0; scoreStop(); },
     /* a grain of rock against the hull: a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
@@ -529,6 +627,17 @@ const A=(()=>{
       M.forEach((m,i)=>{ const f=440*Math.pow(2,(m-69)/12); tone(f,.5,g*(1-i*.15),'sine',0,i*.13,.45,.01); tone(f*2,.18,g*.18,'sine',0,i*.13,.3,.004); }); },
     /* Earth's music (see MUS above): music(v) sets its level; call it every frame while it should play */
     music(v){ MUS.want=clamp((v||0)/.55,0,1)*BK.duck; },
+    /* a cutscene's sound (see SC above): score(cues) makes it (once; a moment's work, out of sight), scoreAt(t) keeps it
+       playing in step with the scene's clock (call it every frame of the scene), scoreStop() ends it */
+    score(Q){ scoreMake(Q); }, get scoreReady(){ return !!SC.url; },
+    scoreAt(t){ const el=SC.el; if(!el) return; el._want=true; if(!on||muted||away){ if(!el.paused) el.pause(); return; }
+      if(el.paused){ if(t<SC.len-.2){ try{ el.currentTime=t; }catch(e){} el.play().catch(()=>{}); } }
+      else if(Math.abs(el.currentTime-t)>.4){ try{ el.currentTime=t; }catch(e){} } },
+    /* where the cutscene's recording has got to, while it is playing; the scene follows it, so a slow frame never parts them */
+    scoreClock(){ const el=SC.el; return el&&!el.paused&&!el.seeking&&el.readyState>=3?el.currentTime:null; },
+    scoreStop(){ scoreStop(); },
+    _score(full){ if(full) return SC.env?Array.from(SC.env,v=>+v.toFixed(4)):null; return SC.el?{t:+SC.el.currentTime.toFixed(2),paused:SC.el.paused,want:!!SC.el._want,rms:+SC.rms.toFixed(4),len:SC.len,ready:!!SC.url,
+      lv:+(SC.env[clamp(Math.floor(SC.el.currentTime*10),0,SC.env.length-1)]||0).toFixed(4),peak:+Math.max(...SC.env).toFixed(4)}:{ready:false,busy:SC.busy}; },   // test hook: where it is, how loud there and at its loudest
     /* Diarmuid outside the café (see BUSK above): v his piece's level, s the solo's, k how close you are to him (0 to 1);
        call it every frame on Earth. While he is close the town's music dips under him. On an iPhone, where a recording
        only plays or stops, he plays and the music stops once you are close, and the other way round as you walk off.

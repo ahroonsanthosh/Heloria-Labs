@@ -280,6 +280,10 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   await until(() => getComputedStyle(document.querySelector('#crTalk')).opacity === '0', null, 8000); await wait(1200);
   await covered('.st-cr', "Earth with the Let's fly button");
   await tap('#crGo', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
+  // it opens with the launch scene, with Skip the one button on the screen; Skip goes straight on to the last flight
+  rec(await until(() => { const d = window.__heloria.ST.cr._dbg; return d.FIN.pre && d.launch.state.on && +getComputedStyle(document.querySelector('#crSkip')).opacity > .9; }, null, 30000), 'the launch scene plays first, with Skip on the screen');
+  await covered('.st-cr', 'the launch scene');
+  await tap('#crSkip', 'Skip the launch scene'); rec(await H(h => { const d = h.ST.cr._dbg; return d.FIN.on && !d.FIN.pre && d.launch.state.done && !d.launch.state.on; }), 'Skip goes straight on to the last flight');
   await H(h => { h.S.finX = 6; });
   // on the pad, after the countdown, the rocket waits for you: hold and the engines spool up until it lights
   rec(await until(() => window.__heloria.ST.cr._dbg.FIN.ask, null, 300000), 'after the countdown the rocket waits on the pad for you');
