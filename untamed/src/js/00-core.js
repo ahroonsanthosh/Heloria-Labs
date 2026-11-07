@@ -712,11 +712,11 @@ const A=(()=>{
     /* the warning: a soft two-tone beep, the second one higher */
     tfBeep(hi=false){ if(!on||muted||!ctx) return; const f=hi?1175:880; tfT(f,.2,.02,'triangle',0,0,.006); tfT(f*2,.14,.005,'sine',0,0,.006); },
     /* a cough as it tries to light: a dull pop, a thump under it (k: how big) */
-    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.22,.03*k,1500*v,130,'lowpass',.8); tfT(88*v,.18,.03*k,'sine',42); tfN(.07,.01*k,700*v,450,'bandpass',1.2); },
+    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.24,.06*k,1500*v,130,'lowpass',.8); tfT(88*v,.22,.06*k,'sine',40); tfN(.08,.02*k,700*v,450,'bandpass',1.2); },
     /* the roar: two bands of low noise and a deep growl a fifth apart under a low pass that opens with the thrust, fluttering
        a little. set(v) is how hard it burns (0 to 1); stop() lets it die away in a third of a second (it lets go by itself
        after nine seconds, whatever happens) */
-    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.125*k;
+    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.2*k;
       env.gain.setValueAtTime(0,t0); env.gain.setValueAtTime(0,t0+8.6); env.gain.linearRampToValueAtTime(0,t0+9); env.connect(tfBus());
       lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.6; lp2.type='lowpass'; lp2.frequency.value=1100; lp2.Q.value=.5; lp.connect(lp2); lp2.connect(body); body.gain.value=.84; body.connect(env);
       { const s=shot(); s.connect(lp); src.push(s); }

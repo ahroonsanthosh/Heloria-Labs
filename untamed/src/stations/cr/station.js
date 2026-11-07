@@ -3636,7 +3636,7 @@ function tfPop(k){ A.tfPop(k); TF.pop=TF_POPT; TF.popK=k; S.shake=Math.max(S.sha
 function tfChirp(){ A.tfChirp(); TF.al=1; }
 const TF_EV=[[0,()=>A.tfClick()],[.22,()=>A.tfBeep(false)],[.72,()=>A.tfBeep(true)],
   [1.25,()=>tfPop(.55)],[1.43,()=>tfPop(.8)],[1.55,()=>tfPop(.45)],[1.76,()=>tfPop(1)],
-  [TF_CATCH,()=>{ if(TF.roar) TF.roar.stop(); TF.roar=A.tfRoar(); TF.rv=-1; S.shake=Math.max(S.shake,.45); }],
+  [TF_CATCH,()=>{ if(TF.roar) TF.roar.stop(); A.tfPop(2); TF.roar=A.tfRoar(); TF.rv=-1; S.shake=Math.max(S.shake,.45); }],
   [2.9,()=>{ if(GAR.lit&&!GAR.fl){ GAR.flT=0; GAR.fl=[{ev:[],j:0},{ev:[],j:0},{ev:[[0,0],[.07,.75],[.12,0],[.26,1]],j:0}]; } }],   // (knocked, the dodgy tube blinks)
   [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.3,()=>tfPop(.4)],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],
   [5.5,tfChirp],[6.1,tfChirp],[6.7,tfChirp],[TF_END,()=>{ TF.on=false; }]];
@@ -3652,7 +3652,7 @@ function tfPuff(x,y,z,vx,vy,vz,s,life,grey){ if(!TF.smoke) return; let q=TF.sm.f
 function tfPose(m,p,rx,rz,jx=0,jy=0,jz=0){ tE.set(rx,0,rz,'XYZ'); tM.makeRotationFromEuler(tE).setPosition(p[0]+jx,p[1]+jy,p[2]+jz); tM.multiply(tM2.makeTranslation(-p[0],-p[1],-p[2]));
   m.matrix.multiplyMatrices(GAR.M,tM).multiply(GAR.Mi); m.matrixWorldNeedsUpdate=true; }
 function tfRest(m){ if(!m) return; m.matrix.identity(); m.matrixWorldNeedsUpdate=true; }
-function tfStep(dt,t){ if(!TF.core||TF.hold) return; const U=TF.U, b=GTF.BELL;   // (hold: a test keeps it still for a picture)
+function tfStep(dt,t){ tfBtn.hidden=!(GAR.st==='in'&&!TF.on&&!!TF.core&&!FIN.on); if(!TF.core||TF.hold) return; const U=TF.U, b=GTF.BELL;   // (hold: a test keeps it still for a picture)
   if(TF.on){ TF.t+=dt; while(TF.ev<TF_EV.length&&TF_EV[TF.ev][0]<=TF.t) TF_EV[TF.ev++][1](); }
   const c=TF.t, on=TF.on;
   /* how hard it burns (R), and a cough (P); the flame flickers */
@@ -3712,6 +3712,10 @@ const garTag=document.createElement('span'); garTag.className='crwt ui'; $('#crL
 garTag.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'){ GAR.kb=e.detail===0; garAct(); } });
 const garOut=document.createElement('button'); garOut.className='btn hit crleave crwout'; garOut.type='button'; garOut.id='crWsLeave'; garOut.dataset.cur='Leave'; garOut.textContent='Leave the workshop'; garOut.hidden=true; el.insertBefore(garOut,$('#crSkip',el));
 garOut.addEventListener('click',e=>{ e.stopPropagation(); GAR.kb=e.detail===0; garLeave(); }); garOut.addEventListener('pointerdown',e=>e.stopPropagation());
+/* the test fire, said on the screen as well as on the bench: while you are inside and it is ready, a button you cannot miss */
+const tfBtn=document.createElement('button'); tfBtn.className='btn hit crfire'; tfBtn.type='button'; tfBtn.id='crFire'; tfBtn.dataset.cur='Fire'; tfBtn.innerHTML='Fire the engine <span class="crkey">Space</span>'; tfBtn.hidden=true; el.insertBefore(tfBtn,$('#crSkip',el));
+tfBtn.addEventListener('pointerdown',e=>{ if(e.button>0) return; e.preventDefault(); e.stopPropagation(); tfFire(); });
+tfBtn.addEventListener('click',e=>{ e.stopPropagation(); if(e.detail===0) tfFire(); });
 function garTagUpdate(live){ const P=player; let on=false, can=false, txt='';
   if(live&&GAR.M&&started&&GAR.st==='out'&&!garBusy()&&(GAR.shSt==='shut'||GAR.shSt==='open')&&GAR.da<7&&GAR.you.z>GW.d/2+.15){ wsW(GW.ox,cport()?1.45:GW.ot-.12,GW.d/2+.2,gV).project(stCam);   // (on a phone held upright, lower down the shutter, clear of the landmark's card across the top)
     on=gV.z<1&&Math.abs(gV.x)<.95&&Math.abs(gV.y)<.95; can=garNear(); txt=GAR.shSt==='shut'?'Open':'Go in'; GAR.tagP=[+gV.x.toFixed(2),+gV.y.toFixed(2),+gV.z.toFixed(3)];

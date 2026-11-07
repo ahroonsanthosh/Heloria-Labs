@@ -1292,6 +1292,13 @@ html.crq #back,html.crq #chrome,html.crq #guide{opacity:0!important;pointer-even
 .st-cr.ingar #crLabels,.st-cr.ingar .cre,.st-cr.ingar .crhint,.st-cr.ingar .crpj,.st-cr.ingar .crgo,.st-cr.ingar .crsteer,.st-cr.ingar .crcafein{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 .st-cr.ingar .crstick{display:none}
 .st-cr .crwout[hidden]{display:none}
+.st-cr .crfire{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);background:#d93a2b;color:#fbf6ec;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;animation:crfire 1.6s ease-in-out infinite}
+.st-cr .crfire .crkey{color:#fbf6ec;opacity:.65;margin-left:4px}
+.st-cr .crfire[hidden]{display:none}
+.st-cr.post .crfire,.st-cr.fin .crfire,.st-cr.cut .crfire{display:none!important}
+@keyframes crfire{0%,100%{box-shadow:4px 4px 0 #2a241d,0 0 0 0 rgba(217,58,43,.55)}50%{box-shadow:4px 4px 0 #2a241d,0 0 0 9px rgba(217,58,43,0)}}
+@media (hover:none),(pointer:coarse){.st-cr .crfire .crkey{display:none}}
+@media (prefers-reduced-motion:reduce){.st-cr .crfire{animation:none}}
 .st-cr.post .crwout,.st-cr.fin .crwout,.st-cr.cut .crwout{display:none!important}
 
 /* ===== station be ===== */
