@@ -165,7 +165,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* the light it throws on the bench, behind you */
   await W((w, g) => { g.G.yaw = .02; g.G.pitch = -.05; w.run(1); }); await still('garage-12-fire-bench');
   await W((w, g, d, h, a) => { g.G.yaw = a; g.G.pitch = -.04; w.run(1); }, yawF);
-  await to(5); f = await tf();
+  await to(5.7); f = await tf();
   const roars = await W(w => w.count('tfRoar'));
   rec(!f.roar && !f.core && f.on && roars === 1, 'then it is shut off, and the flame is gone', JSON.stringify({ ...f, roars }));
   await to(5.3); await still('garage-13-smoke');
@@ -225,8 +225,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     rec(step > 0 && ['ratchet', 'tube', 'end(up)', 'end(down)', 'motor'].every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each of its sounds is heard, and none is much louder than a footstep', JSON.stringify(lv));
     const tfs = ['tf:click', 'tf:beep', 'tf:beep(hi)', 'tf:chirp', 'tf:thud', 'tf:tink'];
     rec(tfs.every(n => lv[n] > 0 && lv[n] <= step * 1.6), 'each sound of the test fire is heard, and none is much louder than a footstep', JSON.stringify(tfs.map(n => n + ' ' + lv[n])));
-    rec(lv['tf:pop'] > step && lv['tf:pop'] <= shut * 2.2, 'the coughs as it lights are louder than a footstep, but well under the roar', JSON.stringify({ pop: lv['tf:pop'], step, shut }));
-    rec(lv['tf:roar'] > shut && lv['tf:roar'] > lv['tf:pop'] && lv['tf:roar'] <= shut * 3 && lv['tf:roar'] < .2, 'the roar is the loudest of them, but no more than about three times the shutter (and far from clipping)', JSON.stringify({ roar: lv['tf:roar'], shutter: shut }));
+    rec(lv['tf:pop'] > step && lv['tf:pop'] <= shut * 3, 'the coughs as it lights are louder than a footstep, but well under the roar', JSON.stringify({ pop: lv['tf:pop'], step, shut }));
+    rec(lv['tf:roar'] > shut && lv['tf:roar'] > lv['tf:pop'] && lv['tf:roar'] <= shut * 5 && lv['tf:roar'] < .25, 'the roar is the loudest of them by far, but well clear of clipping (no more than about five times the shutter) (and far from clipping)', JSON.stringify({ roar: lv['tf:roar'], shutter: shut }));
   }
 
   /* ---- the last flight from inside: you are put back outside, the shutter down, and the scene has the camera ---- */

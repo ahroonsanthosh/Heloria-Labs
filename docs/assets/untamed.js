@@ -715,11 +715,11 @@ const A=(()=>{
     /* the warning: a soft two-tone beep, the second one higher */
     tfBeep(hi=false){ if(!on||muted||!ctx) return; const f=hi?1175:880; tfT(f,.2,.02,'triangle',0,0,.006); tfT(f*2,.14,.005,'sine',0,0,.006); },
     /* a cough as it tries to light: a dull pop, a thump under it (k: how big) */
-    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.24,.06*k,1500*v,130,'lowpass',.8); tfT(88*v,.22,.06*k,'sine',40); tfN(.08,.02*k,700*v,450,'bandpass',1.2); },
+    tfPop(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tfN(.24,.09*k,1500*v,130,'lowpass',.8); tfT(88*v,.22,.09*k,'sine',40); tfN(.08,.03*k,700*v,450,'bandpass',1.2); },
     /* the roar: two bands of low noise and a deep growl a fifth apart under a low pass that opens with the thrust, fluttering
        a little. set(v) is how hard it burns (0 to 1); stop() lets it die away in a third of a second (it lets go by itself
        after nine seconds, whatever happens) */
-    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.2*k;
+    tfRoar(k=1){ if(!on||muted||!ctx) return {set(){},stop(){}}; const t0=ctx.currentTime, env=ctx.createGain(), body=ctx.createGain(), lp=ctx.createBiquadFilter(), lp2=ctx.createBiquadFilter(), src=[], g=.36*k;
       env.gain.setValueAtTime(0,t0); env.gain.setValueAtTime(0,t0+8.6); env.gain.linearRampToValueAtTime(0,t0+9); env.connect(tfBus());
       lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.6; lp2.type='lowpass'; lp2.frequency.value=1100; lp2.Q.value=.5; lp.connect(lp2); lp2.connect(body); body.gain.value=.84; body.connect(env);
       { const s=shot(); s.connect(lp); src.push(s); }
@@ -733,8 +733,11 @@ const A=(()=>{
       let done=false, cur=0; const hold=(p,t,v)=>{ if(p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(t); else { p.cancelScheduledValues(t); p.setValueAtTime(v,t); } };
       return {set(x){ if(done) return; const t=ctx.currentTime, c=clamp(x,0,1); hold(env.gain,t,cur); cur=g*c; env.gain.setTargetAtTime(cur,t,.06); env.gain.setValueAtTime(cur,t+8.4); env.gain.linearRampToValueAtTime(0,t+8.6);
           lp.frequency.setTargetAtTime(240+560*c,t,.08); },
-        stop(){ if(done) return; done=true; const t=ctx.currentTime; hold(env.gain,t,cur); env.gain.linearRampToValueAtTime(0,t+.32);
-          lp.frequency.setTargetAtTime(160,t,.1); src.forEach(s=>{ try{ s.stop(t+.4); }catch(e){} }); }}; },
+        /* shutting down it spools away like an engine, not a switch: the pitch sags, the low pass closes, and the last of it
+           sputters out over about a second and a half */
+        stop(){ if(done) return; done=true; const t=ctx.currentTime; hold(env.gain,t,cur); env.gain.setTargetAtTime(cur*.55,t,.12); env.gain.setTargetAtTime(0,t+.35,.38);
+          [[.5,.5],[.75,.3],[1.0,.18]].forEach(([d,k])=>{ env.gain.setTargetAtTime(cur*k,t+d,.02); env.gain.setTargetAtTime(0,t+d+.06,.25); });   // a few last gasps
+          lp.frequency.setTargetAtTime(150,t,.45); src.forEach(s=>{ if(s.detune&&!s.buffer) s.detune.setTargetAtTime(-1100,t,.5); else if(s.playbackRate) s.playbackRate.setTargetAtTime(.45,t,.6); try{ s.stop(t+2.4); }catch(e){} }); }}; },
     /* the smoke alarm's chirp: its piezo, short and high */
     tfChirp(){ if(!on||muted||!ctx) return; tfT(3250,.075,.014,'triangle',0,0,.003); tfT(3250,.07,.012,'sine',0,0,.003); },
     /* a book landing on the concrete: a slap, a low knock and a smaller one as it settles */
@@ -8107,8 +8110,8 @@ const TF_EV=[[0,()=>A.tfClick()],[.22,()=>A.tfBeep(false)],[.72,()=>A.tfBeep(tru
   [1.25,()=>tfPop(.55)],[1.43,()=>tfPop(.8)],[1.55,()=>tfPop(.45)],[1.76,()=>tfPop(1)],
   [TF_CATCH,()=>{ if(TF.roar) TF.roar.stop(); A.tfPop(2); TF.roar=A.tfRoar(); TF.rv=-1; S.shake=Math.max(S.shake,.45); }],
   [2.9,()=>{ if(GAR.lit&&!GAR.fl){ GAR.flT=0; GAR.fl=[{ev:[],j:0},{ev:[],j:0},{ev:[[0,0],[.07,.75],[.12,0],[.26,1]],j:0}]; } }],   // (knocked, the dodgy tube blinks)
-  [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.3,()=>tfPop(.4)],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],
-  [5.5,tfChirp],[6.1,tfChirp],[6.7,tfChirp],[TF_END,()=>{ TF.on=false; }]];
+  [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],[TF_OFF+1.0,()=>tfPop(.5)],
+  [5.9,tfChirp],[6.4,tfChirp],[6.9,tfChirp],[TF_END,()=>{ TF.on=false; }]];
 function tfFire(){ if(GAR.st!=='in'||TF.on||garBusy()||!TF.core) return false;
   Object.assign(TF,{on:true,t:0,ev:0,rv:-1,pop:0,emit:0,tail:0,tink:0,fade:1,fading:false,fires:TF.fires+1});
   /* the view turns to the engine (unless you are looking at it already, or look round yourself while it turns) */
@@ -8125,7 +8128,7 @@ function tfStep(dt,t){ tfBtn.hidden=!(GAR.st==='in'&&!TF.on&&!!TF.core&&!FIN.on)
   if(TF.on){ TF.t+=dt; while(TF.ev<TF_EV.length&&TF_EV[TF.ev][0]<=TF.t) TF_EV[TF.ev++][1](); }
   const c=TF.t, on=TF.on;
   /* how hard it burns (R), and a cough (P); the flame flickers */
-  TF.R=on?sstep(TF_CATCH,TF_CATCH+.3,c)*(1-sstep(TF_OFF,TF_OFF+.28,c)):0; TF.pop=Math.max(0,TF.pop-dt); TF.P=TF.pop>0?TF.popK*TF.pop/TF_POPT:0;
+  TF.R=on?sstep(TF_CATCH,TF_CATCH+.3,c)*(1-sstep(TF_OFF,TF_OFF+1.1,c)):0; TF.pop=Math.max(0,TF.pop-dt); TF.P=TF.pop>0?TF.popK*TF.pop/TF_POPT:0;
   const R=TF.R, P=TF.P, fl=.92+.08*Math.sin(t*41)*Math.sin(t*17.3), Ar=Math.max(R,P*.6);
   if(TF.roar&&(Math.abs(R-TF.rv)>.04||(R>=1&&TF.rv<1))){ TF.rv=R; TF.roar.set(R); }
   const cv=R>.01||P>.05||GAR.warm, gv=R>.01||P>.01||GAR.warm; if(TF.core.visible!==cv) TF.core.visible=cv; if(TF.glow.visible!==gv) TF.glow.visible=gv;

@@ -3638,8 +3638,8 @@ const TF_EV=[[0,()=>A.tfClick()],[.22,()=>A.tfBeep(false)],[.72,()=>A.tfBeep(tru
   [1.25,()=>tfPop(.55)],[1.43,()=>tfPop(.8)],[1.55,()=>tfPop(.45)],[1.76,()=>tfPop(1)],
   [TF_CATCH,()=>{ if(TF.roar) TF.roar.stop(); A.tfPop(2); TF.roar=A.tfRoar(); TF.rv=-1; S.shake=Math.max(S.shake,.45); }],
   [2.9,()=>{ if(GAR.lit&&!GAR.fl){ GAR.flT=0; GAR.fl=[{ev:[],j:0},{ev:[],j:0},{ev:[[0,0],[.07,.75],[.12,0],[.26,1]],j:0}]; } }],   // (knocked, the dodgy tube blinks)
-  [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.3,()=>tfPop(.4)],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],
-  [5.5,tfChirp],[6.1,tfChirp],[6.7,tfChirp],[TF_END,()=>{ TF.on=false; }]];
+  [TF_OFF,()=>{ if(TF.roar){ TF.roar.stop(); TF.roar=null; } }],[TF_OFF+.55,()=>{ if(!TF.booked){ TF.booked=true; TF.bookT=0; } }],[TF_OFF+1.0,()=>tfPop(.5)],
+  [5.9,tfChirp],[6.4,tfChirp],[6.9,tfChirp],[TF_END,()=>{ TF.on=false; }]];
 function tfFire(){ if(GAR.st!=='in'||TF.on||garBusy()||!TF.core) return false;
   Object.assign(TF,{on:true,t:0,ev:0,rv:-1,pop:0,emit:0,tail:0,tink:0,fade:1,fading:false,fires:TF.fires+1});
   /* the view turns to the engine (unless you are looking at it already, or look round yourself while it turns) */
@@ -3656,7 +3656,7 @@ function tfStep(dt,t){ tfBtn.hidden=!(GAR.st==='in'&&!TF.on&&!!TF.core&&!FIN.on)
   if(TF.on){ TF.t+=dt; while(TF.ev<TF_EV.length&&TF_EV[TF.ev][0]<=TF.t) TF_EV[TF.ev++][1](); }
   const c=TF.t, on=TF.on;
   /* how hard it burns (R), and a cough (P); the flame flickers */
-  TF.R=on?sstep(TF_CATCH,TF_CATCH+.3,c)*(1-sstep(TF_OFF,TF_OFF+.28,c)):0; TF.pop=Math.max(0,TF.pop-dt); TF.P=TF.pop>0?TF.popK*TF.pop/TF_POPT:0;
+  TF.R=on?sstep(TF_CATCH,TF_CATCH+.3,c)*(1-sstep(TF_OFF,TF_OFF+1.1,c)):0; TF.pop=Math.max(0,TF.pop-dt); TF.P=TF.pop>0?TF.popK*TF.pop/TF_POPT:0;
   const R=TF.R, P=TF.P, fl=.92+.08*Math.sin(t*41)*Math.sin(t*17.3), Ar=Math.max(R,P*.6);
   if(TF.roar&&(Math.abs(R-TF.rv)>.04||(R>=1&&TF.rv<1))){ TF.rv=R; TF.roar.set(R); }
   const cv=R>.01||P>.05||GAR.warm, gv=R>.01||P>.01||GAR.warm; if(TF.core.visible!==cv) TF.core.visible=cv; if(TF.glow.visible!==gv) TF.glow.visible=gv;
