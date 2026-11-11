@@ -77,7 +77,9 @@ const LINKED=new WeakSet(); let PAR=null;
 function linkSome(ms){ if(PAR===null){ try{ PAR=!!renderer.getContext().getExtension('KHR_parallel_shader_compile'); }catch(e){ PAR=false; } }
   const t0=performance.now(); let left=false;
   for(const p of renderer.info.programs){ if(LINKED.has(p)) continue; if(PAR&&!p.isReady()){ left=true; continue; }
-    try{ p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
+    /* linked, and taken up only if it linked: a shader three made that can never link (none is drawn with) is left alone,
+       as it always was, rather than reported */
+    try{ const gl=renderer.getContext(); if(gl.getProgramParameter(p.program,gl.LINK_STATUS)) p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
   return left; }
 /* a world's shaders compiled a few objects at a time, and each object's linked at once, so the graphics chip's work comes in
    small pieces rather than all of the world's in one (asking about the first would wait for every one sent before it). An
