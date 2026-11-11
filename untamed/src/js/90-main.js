@@ -46,6 +46,7 @@ async function boot(){
   /* the rest, in the order you can come to them: the orbit (from Earth), Aetos (where the radar leads you first), the other
      stations, and Earth (past the horizon, at the end) */
   LATE.q=['U','ae',...STA.map(s=>s.id).filter(id=>id!=='ae'),'cr'].filter((id,i,a)=>a.indexOf(id)===i&&!lateReady(id)&&(id==='U'||ST[id]));
+  try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
   setP(1); $('#load').classList.add('ready'); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
 }
 
@@ -56,16 +57,22 @@ async function boot(){
    or the world drawn once. A world you go to before it is made is made that moment: behind a white that stays a moment
    longer (into orbit from Earth, or on to Earth past the horizon), or with the probe held at the station (docking). The
    frame timer never counts these frames against the device */
-const LATE={q:[],W:{},need:[],busy:false,after:0,lastIn:-1e9,qm:0,dockW:null,log:[]};
+const LATE={q:[],W:{},need:[],busy:false,after:0,lastIn:-1e9,qm:0,dockW:null,log:[],mode:'',modeAt:0};
 function worldOf(id){ return LATE.W[id]||(LATE.W[id]={id,stage:0,cbs:[]}); }   // stage: 0 to build, 1 to compile, 2 to link, 3 to draw once, 4 made
 const lateReady=id=>worldOf(id).stage>=4;
 function lateNeed(id){ const w=worldOf(id); if(w.stage<4&&id!=='U'&&!ST[id]) w.stage=4; if(w.stage>=4) return Promise.resolve();
   if(!LATE.need.includes(id)) LATE.need.push(id); return new Promise(r=>w.cbs.push(r)); }
 ['pointerdown','wheel','keydown','touchstart','touchmove'].forEach(ev=>addEventListener(ev,()=>{ LATE.lastIn=performance.now(); },{capture:true,passive:true}));
+/* anything held (a key, a button, a finger) is not a quiet moment however long it is held */
+const HELD=new Set(); addEventListener('keydown',e=>HELD.add('k'+e.code),{capture:true,passive:true}); addEventListener('keyup',e=>HELD.delete('k'+e.code),{capture:true,passive:true});
+addEventListener('pointerdown',e=>HELD.add('p'+e.pointerId),{capture:true,passive:true}); ['pointerup','pointercancel'].forEach(ev=>addEventListener(ev,e=>HELD.delete('p'+e.pointerId),{capture:true,passive:true}));
+addEventListener('blur',()=>HELD.clear());
 addEventListener('pointermove',e=>{ if(e.buttons) LATE.lastIn=performance.now(); },{capture:true,passive:true});
-function lateCalm(now){ if(S.mode==='load') return true; if(now-LATE.lastIn<2500) return false;
-  if(S.mode==='story') return !(story.busy>0);
-  if(S.mode==='hub') return !S.ap&&!LATE.dockW;
+function lateCalm(now){ if(S.mode!==LATE.mode){ LATE.mode=S.mode; LATE.modeAt=now; }
+  if(S.mode==='load') return true; if(now-LATE.lastIn<2500||HELD.size) return false;
+  if(now-LATE.modeAt<3000) return false;   // nothing just after you arrive anywhere: what plays then (the seal giving, a guide) is let play
+  if(S.mode==='story') return !(story.busy>0)&&S.ch!==3;   // (the last chapter is a scene: the probe creeping in, the alarm)
+  if(S.mode==='hub') return !S.ap&&!LATE.dockW&&!(SB.t>=0);   // (nor while the seal breaks)
   if(S.mode==='station') return !!S.st&&(S.st.calm?S.st.calm():S.st.state==='menu');
   return false; }
 /* may this world be drawn once here: behind the loader, any; the orbit while you are on Earth; a station as it stands while
