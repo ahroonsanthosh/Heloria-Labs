@@ -38,7 +38,7 @@ function resize(){
   if(!GL_OK) return;
   const w=innerWidth, h=innerHeight, d=QL.dpr; renderer.setPixelRatio(d); renderer.setSize(w,h,false);
   const W=Math.max(2,Math.floor(w*d)), H=Math.max(2,Math.floor(h*d));
-  rtA.setSize(W,H); if(rtB.width>1) rtB.setSize(W,H); POST.setSize(W,H); OUT.setSize(W,H); GAL.setSize(W,H);
+  rtA.setSize(W,H); if(rtB.width>1) rtB.setSize(W,H); POST.setSize(W,H); OUT.setSize(W,H); if(GAL) GAL.setSize(W,H); G.W=W; G.H=H;
   for(const c of Object.values(CAM)){ c.aspect=w/h; c.updateProjectionMatrix(); }
   GU.uRes.value.set(W,H); POST.comp.uniforms.uAsp.value=w/h; POST.mixM.uniforms.uAsp.value=w/h;
   const was=STOPS.length; setLayout(); if(STOPS.length!==was){ const s=S.s; SC.v=SC.target=SC.turn=clamp(STOPS.indexOf(placeAt(s).s),0,STOPS.length-1); SC.glide=null; SC.inertia=0; SC.fresh=true; }
@@ -55,6 +55,7 @@ const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},long:0,off:false,
     if(!this.lv){ const d0=QL.dpr, L=[d0]; for(let d=d0-.2;d>.61;d-=.2) L.unshift(+d.toFixed(3)); if(d0>.6) L.unshift(.6); for(let d=d0+.15;d<QL.dprMax-.01;d+=.15) L.push(+d.toFixed(3)); if(QL.dprMax>d0) L.push(QL.dprMax); this.lv=L; this.i=this.d0i=L.indexOf(d0); }
     /* a frame over a quarter of a second is a hitch, or the gap after the tab was away; but six of them running, with the page
        in view, is a device that cannot keep up: down a step at once (and again, until it can) */
+    if(t<GLATE.qm){ this.buf.length=0; this.cool=Math.max(this.cool,t+1500); return; }   // (the gallery being made after the gate is not the device being slow)
     if(ms>250||document.hidden){ this.long=document.hidden?0:this.long+1; this.buf.length=0;
       if(this.long>=6&&this.i>0){ this.long=0; this.i--; QL.dpr=this.lv[this.i]; resize(); this.cool=t+1500; } else this.cool=Math.max(this.cool,t+1500); return; }
     this.long=0;
@@ -93,7 +94,7 @@ function frameBody(tn){
   S.timeScale=damp(S.timeScale,tsT,2.4,dt); S.ut=(S.ut||0)+dt*S.timeScale; GU.uTime.value=RM?S.ut*.4:S.ut;
   QM.tick(raw*1000); UI.cursor(dt);
   if(!S.ready||!GL_OK) return;
-  scrollTick(dt); VEIL.tick(dt); holdTick(); launchTick(dt); UI.gateTick(dt);
+  scrollTick(dt); if(GLATE.stage<3) galDoor(dt); VEIL.tick(dt); holdTick(); launchTick(dt); UI.gateTick(dt);
   if(S.mode==='entering'){ S.enterT+=dt; S.veil=1-E.io(clamp(S.enterT/2.6,0,1)); S.enterK=sstep(1.3,2.5,S.enterT); if(S.enterT>2.7){ S.mode='world'; S.veil=0; S.enterK=1; } }
   let s=warp(SC.v); if(S.mode==='gate'||S.mode==='entering') s=0; S.s=s;
   const [el,az]=S.sunOv||sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
@@ -105,7 +106,8 @@ function frameBody(tn){
     if(TXT.dirty){ drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex; }
     const wu=OUT.waterMat.uniforms; wu.uTextK.value.set(SECS[0].vis>0?SECS[0].vis:0,SECS[SECS.length-1].vis>0?SECS[SECS.length-1].vis:0); wu.uTextCol.value.copy(_fg); wu.uHorizon.value=horizonY(CAM.out); }
   launchHit();
-  if(needGal){ camAt('gal',s,CAM.gal); G.px=GU.uRes.value.y/(2*Math.tan(CAM.gal.fov*DEG/2)); GAL.update(dt); GAL.applyLight(tod,TINT,s); }
+  const galOK=GLATE.stage>=3;
+  if(needGal&&galOK){ camAt('gal',s,CAM.gal); G.px=GU.uRes.value.y/(2*Math.tan(CAM.gal.fov*DEG/2)); GAL.update(dt); GAL.applyLight(tod,TINT,s); }
   const Wd={out:OUT,gal:GAL};
   /* the second full-screen target is only for a doorway, where two places are drawn at once: it is made as you come near
      one, well before the blend begins, and given back a few seconds after you have walked on */
@@ -113,7 +115,8 @@ function frameBody(tn){
     if(nearDoor){ rtB.lastUse=tn; if(rtB.width!==rtA.width||rtB.height!==rtA.height) rtB.setSize(rtA.width,rtA.height); }
     else if(rtB.width>1&&tn-(rtB.lastUse||-1e9)>3) rtB.setSize(1,1); }
   let src;
-  if(mx.b){ Wd[mx.a].render(CAM[mx.a],rtA); Wd[mx.b].render(CAM[mx.b],rtB); const m=POST.mixM.uniforms; m.tA.value=rtA.texture; m.tB.value=rtB.texture; m.uK.value=mx.k; POST.pass(POST.mixM,POST.mix); src=POST.mix; }
+  if(needGal&&!galOK) src=rtA;   // (only ever under the full light of a long walk, while the gallery is still being made)
+  else if(mx.b){ Wd[mx.a].render(CAM[mx.a],rtA); Wd[mx.b].render(CAM[mx.b],rtB); const m=POST.mixM.uniforms; m.tA.value=rtA.texture; m.tB.value=rtB.texture; m.uK.value=mx.k; POST.pass(POST.mixM,POST.mix); src=POST.mix; }
   else { Wd[mx.a].render(CAM[mx.a],rtA); src=rtA; }
   const bt=POST.bloom(src);
   const cu=POST.comp.uniforms, inside=sstep(.42,.6,s)*(1-sstep(4.4,4.58,s)), dusk=sstep(5.3,6,s);
@@ -141,6 +144,7 @@ function frameBody(tn){
   POST.pass(POST.comp,null);
   UI.update(s,dt);
   A.update(dt,audioState(s,inside)); RSND.length=0;
+  galTick();
 }
 function audioState(s,inside){
   const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
@@ -188,7 +192,7 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
      holds the page, the letters of the loader included, until it is done */
   let par='?'; try{ const gl=renderer&&renderer.getContext(); par=gl?(gl.getExtension('KHR_parallel_shader_compile')?'yes':'no'):'-'; }catch(e){}
   setInterval(()=>{ const now=performance.now(); if(S.ready&&!DIAG.bt&&now-DIAG.last>3000){ DIAG.bt='running'; runBench(); }
-    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nshaders compiled in the background: '+par+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')
+    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nshaders compiled in the background: '+par+(GLATE.stage<3?' (the gallery is being made after the gate)':GLATE.log.length?' (the gallery was made after the gate)':' (the gallery was made with the rest)')+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')
       +'\npicture: '+(RT_OK?'draws':'does not draw (plain page)')+', edge smoothing '+(QL.samples?QL.samples+' samples':(QL.noSmooth?'off (this browser draws it black)':'off'))+'\n\n'
       +DIAG.steps.map(([n,ms])=>(n+'                          ').slice(0,26)+String(ms).padStart(7)+' ms').join('\n')
       +'\n'+(S.ready?'READY':'now: '+DIAG.cur+' for '+Math.round(now-DIAG.last)+' ms')+'\ntotal '+Math.round(now)+' ms since the page opened'
@@ -197,28 +201,95 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
       +(DIAG.bt==='running'?'\n(testing, a few seconds...)':DIAG.bt==='done'?'\n(test done)':'')
       +(DIAG.errs.length?'\n\nerrors:\n'+DIAG.errs.slice(0,12).join('\n'):'')
       +(TRAIL&&TRAIL.prev?'\n\nTHE LAST VISIT ('+TRAIL.prevAt+') STOPPED WITHOUT CLOSING. Its last steps:\n'+TRAIL.prev.slice(-16).join('\n'):'\n\n(the last visit closed normally)'); },250); }
+/* ---------- the gallery, made after the gate ----------
+   The gate shows only the lake, under its mist; the gallery is first seen at the door. So the gate opens once the lake is
+   made, and the gallery is made after, a small step at a time: at the gate while your hand is still (the mist is over
+   everything there), as you walk in while the mist is still lifting, and on the walk at quiet moments. A step is the
+   gallery built, or a few of its shaders compiled and linked (a few milliseconds' worth), or one of its places drawn once.
+   If you come to the door before it is made, it is made then: the walk eases to a stop at the door until it is, and goes
+   on where you were going; a long walk through the light holds the light. The frame timer never counts these frames */
+const GLATE={stage:0,si:0,objs:null,oi:0,busy:false,lastIn:-1e9,lastMove:-1e9,qm:0,after:0,want:false,vPrev:0,cbs:[],door:null,log:[]};   // stage: 0 to build, 1 to compile, 2 to draw, 3 made
+const GSTATES=[1,2,3,4];
+['pointerdown','wheel','keydown','touchstart','touchmove'].forEach(ev=>addEventListener(ev,()=>{ GLATE.lastIn=GLATE.lastMove=performance.now(); },{capture:true,passive:true}));
+addEventListener('pointermove',e=>{ GLATE.lastMove=performance.now(); if(e.buttons) GLATE.lastIn=GLATE.lastMove; },{capture:true,passive:true});
+function galNeed(){ if(GLATE.stage>=3) return Promise.resolve(); GLATE.want=true; return new Promise(r=>GLATE.cbs.push(r)); }
+/* where on the walk the gallery begins to be drawn, from the lake's side and from the courtyard's (in the walk's own measure) */
+function doorVs(){ const D=GLATE.door; if(D&&D.tr===TR&&D.stops===STOPS) return D.v;
+  const at=(sT,lo,hi)=>{ for(let k=0;k<40;k++){ const m=(lo+hi)/2; if(warp(m)<sT) lo=m; else hi=m; } return lo; };
+  const n=STOPS.length-1, v=[at(DOOR_IN-BLEND-.01,0,n),at(DOOR_OUT+BLEND+.01,0,n)]; GLATE.door={tr:TR,stops:STOPS,v}; return v; }
+const galAt=v=>{ const s=warp(v); return s>DOOR_IN-BLEND-.01&&s<DOOR_OUT+BLEND+.01; };
+/* a long walk landing in the gallery before it is made: the light holds until it is (see VEIL) */
+function galFor(v){ if(GLATE.stage>=3||!galAt(v)) return true; GLATE.want=true; return false; }
+/* the walk coming to the door before the gallery is made: it eases to a stop there, and asks for the gallery now */
+function galDoor(dt){ if(S.mode!=='world'){ GLATE.vPrev=SC.v; return; } const [a,b]=doorVs(), p=GLATE.vPrev;
+  if(SC.v>a&&p<=a+1e-4&&SC.v>p){ GLATE.want=true; SC.v=p+(a-p)*(1-Math.exp(-9*dt)); }
+  else if(SC.v<b&&p>=b-1e-4&&SC.v<p){ GLATE.want=true; SC.v=p+(b-p)*(1-Math.exp(-9*dt)); }
+  if((SC.target>a-.3&&SC.v<=a+1e-4)||(SC.target<b+.3&&SC.v>=b-1e-4)) GLATE.want=true;   // heading for the door: start now
+  GLATE.vPrev=SC.v; }
+function galQuiet(now){ if(GLATE.want) return true; if(!S.ready) return false;
+  if(S.mode==='gate') return now-GLATE.lastMove>700;
+  if(S.mode==='entering') return S.veil>.5;
+  if(S.mode==='world') return now-GLATE.lastIn>2500&&!SC.touch&&SC.glide===null&&!SC.inertia&&Math.abs(SC.v-SC.target)<.002&&!HOLD.open&&!(LAUNCH.dark>.001);
+  return false; }
+const hasLight=o=>{ let l=false; o.traverse(x=>{ if(x.isLight) l=true; }); return l; };
+let PARC=null; const LINKED=new WeakSet();   // (PARC: whether this browser compiles shaders in the background)
+function linkSome(ms){ if(PARC===null){ try{ PARC=!!renderer.getContext().getExtension('KHR_parallel_shader_compile'); }catch(e){ PARC=false; } }
+  const t0=performance.now(); let left=false;
+  for(const p of renderer.info.programs){ if(LINKED.has(p)) continue; if(PARC&&!p.isReady()){ left=true; continue; }
+    try{ p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
+  return left; }
+/* the gallery set as it is at one place on the walk (the light, the hour, the camera), as the loader used to set it */
+function galSet(s,first){ const s0=S.s; S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
+  camAt('gal',s,CAM.gal); if(first) GAL.update(.016); GAL.applyLight(tod,TINT,s); return s0; }
+async function galStep(ms){ const g=GLATE;
+  if(g.stage===0){ GAL=buildGallery(); if(G.W) GAL.setSize(G.W,G.H); g.stage=1; g.si=0; g.objs=null; }
+  else if(g.stage===1){ const s=GSTATES[g.si], s0=galSet(s,!g.objs);
+    if(!g.objs){ g.objs=[]; GAL.scene.traverse(o=>{ if(o.material&&!Array.isArray(o.material)&&!hasLight(o)) g.objs.push(o); }); g.oi=0; }
+    const t0=performance.now(), was=renderer.getRenderTarget(); renderer.setRenderTarget(rtA);   // compiled as it will be drawn: into a target
+    try{ while(g.oi<g.objs.length){ try{ renderer.compile(g.objs[g.oi++],CAM.gal,GAL.scene); }catch(e){} linkSome(1e9); if(performance.now()-t0>ms) break; } }
+    finally{ renderer.setRenderTarget(was); }
+    if(g.oi>=g.objs.length){ renderer.setRenderTarget(rtA); try{ renderer.compile(GAL.scene,CAM.gal); }catch(e){} renderer.setRenderTarget(was); g.objs=null; g.si++; if(g.si>=GSTATES.length){ g.stage=2; g.si=0; } }
+    S.s=s0; }
+  else if(g.stage===2){ if(linkSome(ms)) return;   // drawn only once every shader is finished, so the drawing never waits on one
+    const s=GSTATES[g.si], s0=galSet(s,false); GAL.render(CAM.gal,rtA); S.s=s0; g.si++; if(g.si>=GSTATES.length){ g.stage=3; } }
+  if(g.stage>=3){ g.want=false; g.cbs.splice(0).forEach(f=>f()); } }
+/* once a frame, a moment after it is drawn: a step, if this is a moment for one. Once the gallery is wanted, the steps follow
+   each other with only a pause for anything you do in between */
+function galTick(){ const g=GLATE; if(g.stage>=3||g.busy) return; const now=performance.now(); if(!g.want&&now<g.after) return; if(!galQuiet(now)) return;
+  g.busy=true;
+  setTimeout(async()=>{ do{ const t1=performance.now(), st=g.stage; try{ await galStep(g.want?1e9:S.mode==='gate'||S.mode==='entering'?20:8); }catch(e){ console.error('gallery',e); g.stage=3; g.cbs.splice(0).forEach(f=>f()); }
+      const t=performance.now(); if(g.log.length<200) g.log.push([st,Math.round(t-t1),S.mode,g.want?1:0]); g.qm=t+400; g.after=t+(t-t1<40?0:250);
+      if(!g.want||g.stage>=3) break; await wait(st===g.stage&&g.stage===2?10:0); }while(true);
+    g.busy=false; },0); }
 async function boot(){
   if(!GL_OK||!RT_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08); diag('fonts');
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
   await nextFrame(); diag('build outside');
   rtA=RT(4,4,{samples:QL.samples}); rtB=RT(4,4,{samples:QL.samples});
-  OUT=buildOutside(); UI.loadStep(.3); await nextFrame(); diag('build gallery');
-  GAL=buildGallery(); UI.loadStep(.45); await nextFrame();
+  /* the gallery is made after the gate only where the browser compiles shaders in the background, away from the page:
+     elsewhere a gallery shader is one long wait that no step can split, so it is made here, behind the loader, as always */
+  let par=false; try{ par=!!renderer.getContext().getExtension('KHR_parallel_shader_compile'); }catch(e){}
+  const late=window.__GLATE!==undefined?!!window.__GLATE:par;
+  OUT=buildOutside(); UI.loadStep(.3); await nextFrame();
+  if(!late){ diag('build gallery'); GAL=buildGallery(); UI.loadStep(.45); await nextFrame(); }
   OUT.sim.clear();
   resize();
   setLayout();
-  /* compile and draw every shader once behind the loader, so the walk never stalls */
-  const steps=[[0,'out'],[1,'gal'],[2,'gal'],[3,'gal'],[4,'gal'],[5,'out']];
+  /* compile and draw every shader once behind the loader, so the walk never stalls (the gallery's after the gate, where it
+     is made then: see GLATE) */
+  const steps=late?[[0,'out'],[5,'out']]:[[0,'out'],[1,'gal'],[2,'gal'],[3,'gal'],[4,'gal'],[5,'out']], k0=late?.3:.45, k1=late?.6:.5;
   for(let i=0;i<steps.length;i++){ const [s,w]=steps[i]; const W=w==='out'?OUT:GAL, cam=CAM[w];
     S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
     camAt(w,s,cam); W.update(.016); W.applyLight(tod,TINT,s);
-    diag('compile '+(i+1)+'/6 '+w); await compileQuiet(W.scene,cam);
-    diag('first draw '+(i+1)+'/6 '+w); W.render(cam,rtA); UI.loadStep(.45+.5*(i+1)/steps.length); await nextFrame(); }
+    diag('compile '+(i+1)+'/'+steps.length+' '+w); await compileQuiet(W.scene,cam);
+    diag('first draw '+(i+1)+'/'+steps.length+' '+w); W.render(cam,rtA); UI.loadStep(k0+k1*(i+1)/steps.length); await nextFrame(); }
+  if(!late) GLATE.stage=3;
   diag('glow and finish');
   S.s=0; drawReflectText(); OUT.waterMat.uniforms.tText.value=TXT.tex;
   const bt=POST.bloom(rtA); POST.comp.uniforms.tScene.value=rtA.texture; POST.comp.uniforms.tBloom.value=bt; POST.pass(POST.comp,null);
   UI.loadStep(1); diag('ready');
+  GLATE.vPrev=SC.v;
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
   setTimeout(ahead,TEST?0:2500);
 }
@@ -232,11 +303,11 @@ requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 
 /* ---------- test hooks: jump along the walk, step time, open things ---------- */
-window.__tamed={S,SC,A,QL,UI,PLACES,LAUNCH,POND,rtWorks,get RT_OK(){ return RT_OK; },get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
+window.__tamed={gal:()=>({stage:GLATE.stage,want:GLATE.want,log:GLATE.log}),galNeed,S,SC,A,QL,UI,PLACES,LAUNCH,POND,rtWorks,get RT_OK(){ return RT_OK; },get OUT(){return OUT;},get GAL(){return GAL;},CAM,POST,renderer,get rtA(){return rtA;},SUN,TODC,
   probe(pts){ const h2f=h=>{ const s=(h&0x8000)>>15,e=(h&0x7C00)>>10,f=h&0x03FF; if(e===0) return (s?-1:1)*Math.pow(2,-14)*(f/1024); if(e===0x1F) return f?NaN:(s?-1:1)*Infinity; return (s?-1:1)*Math.pow(2,e-15)*(1+f/1024); };
     const b=new Uint16Array(4); return pts.map(([x,y])=>{ renderer.readRenderTargetPixels(rtA,Math.floor(x*rtA.width),Math.floor((1-y)*rtA.height),1,1,b); return [...b].map(h=>+h2f(h).toFixed(3)); }); },
   enter,travel,
-  jump(s){ S.mode='world'; S.veil=0; S.enterK=1; gate.classList.add('go','gone'); ui.classList.add('on'); $('#logo').classList.add('on'); const i=STOPS.indexOf(s); SC.v=SC.target=SC.turn=i>=0?i:s; SC.glide=null; SC.inertia=0; SC.lastIn=-9; SC.pin=false; SC.fresh=true; },
+  jump(s){ if(GLATE.stage<3&&s>DOOR_IN-BLEND-.01&&s<DOOR_OUT+BLEND+.01) return galNeed().then(()=>window.__tamed.jump(s)); S.mode='world'; S.veil=0; S.enterK=1; gate.classList.add('go','gone'); ui.classList.add('on'); $('#logo').classList.add('on'); const i=STOPS.indexOf(s); SC.v=SC.target=SC.turn=i>=0?i:s; SC.glide=null; SC.inertia=0; SC.lastIn=-9; SC.pin=false; SC.fresh=true; },
   setV(v){ SC.v=SC.target=SC.turn=v; SC.glide=null; SC.pin=true; SC.fresh=true; },
   openIndex(){ UI.indexOpen(true); }, closeIndex(){ UI.indexOpen(false); },
   people(on){ S.peopleAll=!!on; if(OUT) OUT.people.forEach(p=>{ p.target=on?1:0; p.reveal=on?1:0; }); },

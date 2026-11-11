@@ -91,7 +91,7 @@ const VEIL={t:0,phase:0,to:0,col:new T.Color(),k:0,
     if(!this.phase) return;
     this.t+=dt;
     if(this.phase===1){ this.k=E.io2(clamp(this.t/.55,0,1)); if(this.t>=.6){ this.phase=2; this.t=0; SC.v=SC.target=SC.turn=this.to; SC.glide=null; SC.inertia=0; SC.fresh=true; UI.jumped(); } }
-    else if(this.phase===2){ this.k=1; if(this.t>.12){ this.phase=3; this.t=0; } }
+    else if(this.phase===2){ this.k=1; if(this.t>.12&&galFor(this.to)){ this.phase=3; this.t=0; } }   // (into the gallery before it is made: the light holds until it is)
     else { this.k=1-E.o(clamp(this.t/.9,0,1)); if(this.t>=.9){ this.phase=0; this.k=0; if(S.mode==='veil') S.mode='world'; } }
   }};
 

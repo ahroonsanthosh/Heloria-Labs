@@ -122,6 +122,11 @@ every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it
 `postcard.cjs` takes a postcard, `launch.cjs` says yes to Ahroon and plays the launch scene before the last flight (Skip,
 Escape, and nothing of it left behind), and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
+
+Each way in opens as soon as its own world is made (Land on Earth, Fly on the orbit), and the other worlds are made after,
+at quiet moments. `untamed/test/late.cjs` (once per way in, with `--hash land` and `--hash aetos` too) checks that, and
+that going anywhere before it is made waits for it. The front door makes its gallery after the gate only where the browser
+compiles shaders in the background; a test can ask for that anyway with `window.__GLATE = true` in an init script.
 </details>
 
 <br>
