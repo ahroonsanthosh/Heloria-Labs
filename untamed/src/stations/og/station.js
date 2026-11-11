@@ -492,7 +492,7 @@ st.build=function(){
   rebuild(); syncUI(); st.anchors=[new T.Vector3(),new T.Vector3(),new T.Vector3()];
   // compile the night scene now, so the first launch does not stall on shader compiles
   W.visible=true; chute.visible=cord.visible=flame.visible=glow.visible=true; WU.value=1;
-  try{ renderer.compile(sc,stCam); }catch(e){}
+  try{ intoTarget(()=>renderer.compile(sc,stCam)); }catch(e){}
   W.visible=false; chute.visible=cord.visible=flame.visible=glow.visible=false; WU.value=0;
 };
 

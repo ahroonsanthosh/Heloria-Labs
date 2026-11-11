@@ -184,8 +184,11 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
     ['no edge smoothing',()=>{ DIAG.s0=rtA.samples; setSmp(0); },()=>setSmp(DIAG.s0)],['no blur effects',()=>document.head.appendChild(nob),()=>nob.remove()]];
   const runBench=async()=>{ QM.off=true; for(const [n,on,off] of T0){ on(); await wait(600); DIAG.fr.length=0; DIAG.js.length=0; await wait(2600); DIAG.bench.push([n,med(DIAG.fr),p90(DIAG.fr),med(DIAG.js)]); off(); await wait(300); } QM.off=false; DIAG.bt='done'; };
   let gpu='?'; try{ const gl=renderer&&renderer.getContext(), ext=gl&&gl.getExtension('WEBGL_debug_renderer_info'); gpu=gl?(ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)):'no WebGL'; }catch(e){ gpu='error '+e.message; }
+  /* whether this browser compiles shaders in the background (KHR_parallel_shader_compile): without it, each compile step
+     holds the page, the letters of the loader included, until it is done */
+  let par='?'; try{ const gl=renderer&&renderer.getContext(); par=gl?(gl.getExtension('KHR_parallel_shader_compile')?'yes':'no'):'-'; }catch(e){}
   setInterval(()=>{ const now=performance.now(); if(S.ready&&!DIAG.bt&&now-DIAG.last>3000){ DIAG.bt='running'; runBench(); }
-    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')
+    el.textContent='Heloria loading diagnostics\n'+navigator.userAgent+'\nGPU: '+gpu+'\nshaders compiled in the background: '+par+'\nscreen '+innerWidth+'x'+innerHeight+' at '+devicePixelRatio+'x, drawing at '+QL.dpr+'x; sound being made: '+(A.busy?'yes':'no')
       +'\npicture: '+(RT_OK?'draws':'does not draw (plain page)')+', edge smoothing '+(QL.samples?QL.samples+' samples':(QL.noSmooth?'off (this browser draws it black)':'off'))+'\n\n'
       +DIAG.steps.map(([n,ms])=>(n+'                          ').slice(0,26)+String(ms).padStart(7)+' ms').join('\n')
       +'\n'+(S.ready?'READY':'now: '+DIAG.cur+' for '+Math.round(now-DIAG.last)+' ms')+'\ntotal '+Math.round(now)+' ms since the page opened'
@@ -217,7 +220,14 @@ async function boot(){
   const bt=POST.bloom(rtA); POST.comp.uniforms.tScene.value=rtA.texture; POST.comp.uniforms.tBloom.value=bt; POST.pass(POST.comp,null);
   UI.loadStep(1); diag('ready');
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
+  setTimeout(ahead,TEST?0:2500);
 }
+/* Land and Fly open a page of their own, with a large script of its own. Once this page is ready and quiet, that script and
+   its styles are fetched in the background into the browser's cache, so choosing either way (or the rocket at the end of
+   the walk) finds them already here. Nothing on this page waits for them; a visitor saving data, or on a very slow
+   connection, is not sent them */
+function ahead(){ if(!AHEAD.length) return; const c=navigator.connection; if(c&&(c.saveData||/2g$/.test(c.effectiveType||''))) return;
+  for(const u of AHEAD){ try{ fetch(u,{priority:'low'}).then(r=>r.ok?r.arrayBuffer():null).catch(()=>{}); }catch(e){} } }
 requestAnimationFrame(frame);
 boot().catch(e=>{ console.error(e); document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.gateReady(); });
 

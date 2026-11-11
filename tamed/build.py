@@ -5,6 +5,7 @@
   python3 tamed/build.py --single /tmp/t.html     # the same document, somewhere else
   python3 tamed/build.py --artifact /tmp/a.html   # page content only, for a claude.ai artifact
   python3 tamed/build.py --single dist/tamed.html --artifact dist/tamed.artifact.html
+  python3 tamed/build.py --minify --single /tmp/t.html   # minified, exactly as the deployed site serves it
 
 The page is assembled from tamed/src: head.html, css/*.css, body.html, js/*.js (in name order, wrapped in one
 strict closure). The three portraits are read from untamed/src/assets/img (the untamed site's own files, never written
@@ -24,16 +25,23 @@ THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 # lives as one artifact (tools/build.py --bundle). The separate previews these used to point at are gone
 ONE_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
 UNTAMED_ARTIFACT = LAND_ARTIFACT = ROCKET_ARTIFACT = ONE_ARTIFACT
-ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT, '__PRETTY__': ''}
-SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos', '__PRETTY__': '1'}   # __PRETTY__: the address follows you
+ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT, '__PRETTY__': '', '__AHEAD__': ''}
+SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos', '__PRETTY__': '1', '__AHEAD__': ''}   # __PRETTY__: the address follows you; __AHEAD__: see ahead()
 # the one artifact that holds everything: this page at its front, the untamed as a page of its own beside it, the same tab
-BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos', '__PRETTY__': ''}
+BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos', '__PRETTY__': '', '__AHEAD__': ''}
 LIMIT = 16 * 1024 * 1024
 EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
 
 def read(p):
     return open(os.path.join(SRC, p), encoding='utf-8').read()
+
+
+def minifier():
+    """tools/minify.py: esbuild, for the deployed files (and for a single document built with --minify)"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('heloria_minify', os.path.join(ROOT, 'tools', 'minify.py'))
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
 
 
 def photos():
@@ -83,8 +91,10 @@ def parts(links, photo_list, land):
     return css, read('body.html').strip(), app
 
 
-def body(links=ART_LINKS):
+def body(links=ART_LINKS, minify=False):
     css, html, app = parts(links, photos(), land_data())
+    if minify:
+        M = minifier(); css, app = M.css(css), M.js(app)
     return (read('head.html').strip() + '\n<style>\n' + css + '\n</style>\n' + html + '\n'
             + '<script src="%s"></script>\n' % THREE_CDN + '<script>\n' + app + '</script>\n')
 
@@ -110,14 +120,27 @@ def fingerprint(text):
     import hashlib
     return hashlib.sha1(text.encode('utf-8')).hexdigest()[:10]
 
-def write_site(out):
+def ahead(out):
+    """the Land and Fly page's own script and styles (their fingerprinted addresses, as the untamed build wrote them into
+    out/untamed/index.html), which the front door fetches once it is ready: see ahead() in js/90-main.js"""
+    import re
+    p = os.path.join(out, 'untamed', 'index.html')
+    if not os.path.exists(p):
+        return ''
+    found = re.findall(r'"\.\./(assets/untamed\.(?:css|js)\?v=[0-9a-f]+)"', open(p, encoding='utf-8').read())
+    return ' '.join(found)
+
+
+def write_site(out, minify=True):
     """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
     out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
     # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
     import hashlib
     pfp = lambda p: hashlib.sha1(open(p, 'rb').read()).hexdigest()[:10]
-    css, html, app = parts(SITE_LINKS, ['assets/img/%s.webp?v=%s' % (n, pfp(os.path.join(PHOTO_DIR, n + '.webp'))) for n in PEOPLE],
+    css, html, app = parts(dict(SITE_LINKS, __AHEAD__=ahead(out)), ['assets/img/%s.webp?v=%s' % (n, pfp(os.path.join(PHOTO_DIR, n + '.webp'))) for n in PEOPLE],
                            'assets/img/land.webp?v=' + pfp(os.path.join(SRC, 'assets', 'land.webp')))
+    if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
+        M = minifier(); css, app = M.css(css), M.js(app)
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
     og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
@@ -147,10 +170,11 @@ def main():
     ap = argparse.ArgumentParser(description='Build Heloria Tamed')
     ap.add_argument('--single', help='write a complete HTML document here')
     ap.add_argument('--artifact', help='write the artifact body (page content only) here')
+    ap.add_argument('--minify', action='store_true', help='minify the css and script, as the deployed site does')
     a = ap.parse_args()
     if not (a.single or a.artifact):
         a.single = 'dist/tamed.html'
-    content = body()
+    content = body(minify=a.minify)
     if a.single:
         p, n = write(a.single, document(content))
         print('single   ->', p, n, 'bytes')

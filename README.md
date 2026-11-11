@@ -71,8 +71,15 @@ conversation finishes with a photo and a link, and a board outside the café boo
 ## Running it
 
 ```bash
+npm install
+```
+
+```bash
 python3 tools/build.py
 ```
+
+`npm install` is needed once: it fetches esbuild, which minifies the deployed scripts and styles (`--no-minify` builds
+without it, larger but otherwise the same).
 
 ```bash
 python3 -m http.server --directory docs 8000
@@ -103,8 +110,9 @@ node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 -
 node tools/site-smoke.cjs docs
 ```
 
-Add `--mobile` to any of them for a phone. `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`)
-listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
+Add `--mobile` to any of them for a phone. To test exactly what the site serves, build the page with `--minify`
+(`python3 tamed/build.py --minify --single dist/tamed.html`, and the same for `untamed/build.py`).
+`tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`) listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
 page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk. Each game has its own full
 check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings

@@ -15,6 +15,8 @@ const TRAIL=/[?&]diag(=|&|$)/.test(location.search)?(()=>{ let prev=null, prevAt
 /* the ways out of the walk, set by the build: on the site untamed/ (Fly), untamed/#land (Land) and untamed/#aetos (the
    rocket at the end of the walk, into orbit at Aetos); as an artifact, the other artifacts' links */
 const UNTAMED_URL='__UNTAMED__', LAND_URL='__LAND__', ROCKET_URL='__ROCKET__';
+/* on the site, the script and styles of the page Land and Fly open (see ahead() in 90-main.js); none as an artifact */
+const AHEAD='__AHEAD__'.split(' ').filter(Boolean);
 /* on the site the address follows you: /walk while you walk. It is not a page of its own: reloading it, or going back,
    brings you to the front door again */
 const SITE_ROOT=location.pathname.replace(/[^/]*$/,''), PRETTY='__PRETTY__'==='1'&&SITE_ROOT==='/';   // only where the site is the whole domain

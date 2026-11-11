@@ -5,6 +5,7 @@
   python3 untamed/build.py --single dist/x.html # the same document, somewhere else
   python3 untamed/build.py --artifact out.html  # page content only, for a claude.ai artifact
   python3 untamed/build.py --only kr --single /tmp/kr.html   # just one station (fast testing)
+  python3 untamed/build.py --minify --single /tmp/u.html      # minified, exactly as the deployed site serves it
 
 The deployed site (Tamed at the front, Untamed under untamed/) is written by tools/build.py, which calls write_site() here.
 """
@@ -23,6 +24,11 @@ FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100.
 TAMED_ARTIFACT = FLY_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
 
 def read(p): return open(os.path.join(SRC, p), encoding='utf-8').read()
+def minifier():
+    """tools/minify.py: esbuild, for the deployed files (and for a single document built with --minify)"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('heloria_minify', os.path.join(ROOT, 'tools', 'minify.py'))
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
 def b64(p): return base64.b64encode(open(os.path.join(SRC, p), 'rb').read()).decode()
 
 def calm_link(html, url):
@@ -56,14 +62,15 @@ CAFE_LIVE = True
 
 def wrap_js(js): return "(()=>{\n'use strict';\n" + js + "\n})();\n"
 
-def single(only, inline_three=False, entry='', tamed_url=TAMED_ARTIFACT):
+def single(only, inline_three=False, entry='', tamed_url=TAMED_ARTIFACT, minify=False):
     ids, css, html, js = parts(only, tamed_url=tamed_url, entry=entry, fly=FLY_ARTIFACT if entry else '')
     photos = ['data:image/webp;base64,' + b64('assets/img/%s.webp' % n) for n in CREW]
     js = js.replace('__PHOTOS__', json.dumps(photos)).replace('__CAFE__', 'true')
+    if minify: M = minifier(); css = M.css(css); js = M.js(wrap_js(js))
     head = read('head.html')
     if entry: head = head.replace('<title>Heloria Labs Orbit</title>', '<title>Heloria Labs %s</title>' % {'land': 'Earth', 'aetos': 'Aetos'}[entry])   # a preview of its own, named for its way in
     three = ('<script>\n' + read('assets/vendor/three.min.js') + '\n</script>') if inline_three else '<script src="%s"></script>' % THREE_CDN
-    return head + '\n<style>\n' + css + '\n</style>\n' + html + '\n' + three + '\n<script>\n' + wrap_js(js) + '</script>\n'
+    return head + '\n<style>\n' + css + '\n</style>\n' + html + '\n' + three + '\n<script>\n' + (js if minify else wrap_js(js)) + '</script>\n'
 
 def document(only=None, tamed_url=TAMED_ARTIFACT):
     """a complete single HTML document, everything inside it"""
@@ -95,7 +102,7 @@ DOC_HEAD = '''<!doctype html>
 <body>
 '''
 
-def write_site(out, only=None):
+def write_site(out, only=None, minify=True):
     """Untamed's part of the deployed site: out/untamed/index.html, its css and js in out/assets/, and the shared
     files both sites use (the portraits, the social image, the icon, three.js) in out/assets/img and out/assets/vendor"""
     ids, css, html, js = parts(only, tamed_url='../', pretty=True)
@@ -107,6 +114,8 @@ def write_site(out, only=None):
     pfp = lambda n: hashlib.sha1(open(os.path.join(SRC, 'assets', 'img', n + '.webp'), 'rb').read()).hexdigest()[:10]
     js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW])).replace('__CAFE__', 'true' if CAFE_LIVE else 'false')
     js = wrap_js(js)
+    if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
+        M = minifier(); css, js = M.css(css), M.js(js)
     open(os.path.join(out, 'assets', 'untamed.css'), 'w', encoding='utf-8').write(css)
     open(os.path.join(out, 'assets', 'untamed.js'), 'w', encoding='utf-8').write(js)
     # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
@@ -126,6 +135,7 @@ def main():
     ap.add_argument('--inline-three', action='store_true')
     ap.add_argument('--entry', choices=['land', 'aetos'], help='an artifact that opens on this way in: Land, or into orbit at Aetos')
     ap.add_argument('--src', help='build from another source tree (the default is untamed/src)')
+    ap.add_argument('--minify', action='store_true', help='minify the css and script, as the deployed site does')
     a = ap.parse_args()
     global SRC
     if a.src: SRC = a.src if os.path.isabs(a.src) else os.path.join(ROOT, a.src)
@@ -133,7 +143,7 @@ def main():
     if not (a.single or a.artifact):
         a.single = 'dist/untamed.html'
     if a.single:
-        doc = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + single(only, a.inline_three) + '</body></html>'
+        doc = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + single(only, a.inline_three, minify=a.minify) + '</body></html>'
         p = a.single if os.path.isabs(a.single) else os.path.join(ROOT, a.single)
         os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w', encoding='utf-8').write(doc); print('single ->', p, len(doc))
     if a.artifact:
