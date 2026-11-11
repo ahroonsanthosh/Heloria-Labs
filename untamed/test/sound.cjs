@@ -13,7 +13,7 @@ module.exports = async ({ page, wait, H, log, mobile }) => {
   const step = (n, id) => H((h, [n, id]) => { const st = h.ST[id]; for (let i = 0; i < n; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } }, [n, id]);
 
   await listen('loader, before anything is pressed', 2000);
-  await page.click('#load');
+  await require('./begin.cjs')(page);
   await wait(1200); await listen('the word falls into the hole');
   await until(h => h.S.mode === 'story');
   for (const c of [0, 1, 2, 3]) { if (c) { await H((h, c) => { h.storyUnlock(); h.goChapter(c); }, c); await wait(500); } await listen('story, chapter ' + c); }

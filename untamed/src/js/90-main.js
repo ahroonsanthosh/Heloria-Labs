@@ -67,9 +67,10 @@ function lateNeed(id){ const w=worldOf(id); if(w.stage<4&&id!=='U'&&!ST[id]) w.s
 const HELD=new Set(); addEventListener('keydown',e=>HELD.add('k'+e.code),{capture:true,passive:true}); addEventListener('keyup',e=>HELD.delete('k'+e.code),{capture:true,passive:true});
 addEventListener('pointerdown',e=>HELD.add('p'+e.pointerId),{capture:true,passive:true}); ['pointerup','pointercancel'].forEach(ev=>addEventListener(ev,e=>HELD.delete('p'+e.pointerId),{capture:true,passive:true}));
 addEventListener('blur',()=>HELD.clear());
-addEventListener('pointermove',e=>{ if(e.buttons) LATE.lastIn=performance.now(); },{capture:true,passive:true});
+addEventListener('pointermove',e=>{ if(e.buttons||S.mode==='load') LATE.lastIn=performance.now(); },{capture:true,passive:true});   // (on the loader, a hand on the mouse is about to begin)
 function lateCalm(now){ if(S.mode!==LATE.mode){ LATE.mode=S.mode; LATE.modeAt=now; }
-  if(S.mode==='load') return true; if(now-LATE.lastIn<2500||HELD.size) return false;
+  if(S.mode==='load') return now-LATE.lastIn>1500;   // behind the loader any time, except while you are reaching for it: then you come first
+  if(now-LATE.lastIn<2500||HELD.size) return false;
   if(now-LATE.modeAt<3000) return false;   // nothing just after you arrive anywhere: what plays then (the seal giving, a guide) is let play
   if(S.mode==='story') return !(story.busy>0)&&S.ch!==3;   // (the last chapter is a scene: the probe creeping in, the alarm)
   if(S.mode==='hub') return !S.ap&&!LATE.dockW&&!(SB.t>=0);   // (nor while the seal breaks)
@@ -125,7 +126,7 @@ function lateTick(now){ if(!S.ready||LATE.busy) return; let n=lateNext(now); if(
   setTimeout(async()=>{
     while(n){ const [w,force]=n, s0=w.stage, t1=performance.now(); try{ await lateStep(w,force); }catch(e){ console.error('late '+w.id,e); w.stage=4; w.cbs.splice(0).forEach(f=>f()); }
       const t=performance.now(); if(LATE.log.length<400) LATE.log.push([w.id,s0,Math.round(t-t1),S.mode,force?1:0]); LATE.qm=t+400; LATE.after=t+(force||S.mode==='load'||t-t1<40?0:250);   // after a long step, a few frames' rest
-      if(!(force||S.mode==='load')) break; await wait(0); n=lateNext(performance.now()); if(n&&!n[1]&&S.mode!=='load') n=null; }
+      if(!(force||S.mode==='load')) break; await (S.mode==='load'&&!force?new Promise(r=>requestAnimationFrame(()=>r())):wait(0)); /* behind the loader, a frame between steps, so it breathes and answers you */ n=lateNext(performance.now()); if(n&&!n[1]&&S.mode!=='load') n=null; }
     LATE.busy=false; },0); }
 
 /* ---------- three ways in, chosen at the front door: the whole story (Fly), straight down to Earth (#land), or into

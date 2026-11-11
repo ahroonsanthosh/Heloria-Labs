@@ -8,7 +8,7 @@ module.exports = async ({ page, wait, H, log, mobile }) => {
   const until = async (fn, ms = 120000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await H(fn)) return true; await wait(250); } return false; };
   const playing = () => H(h => h.A._loops().filter(l => l.playing).map(l => l.name));
   await until(h => h.A && h.A._loops().filter(l => l.ready).length > 8, 240000);
-  if (mobile) await page.tap('#load'); else await page.click('#load');
+  await require('./begin.cjs')(page, mobile);
   await until(h => h.S.mode === 'story'); await H(h => h.escape()); await until(h => h.S.mode === 'hub', 60000);
   rec(await until(h => h.A._loops().some(l => l.playing), 20000), 'in orbit the recordings play', (await playing()).join(', '));
   for (const round of [1, 2]) {

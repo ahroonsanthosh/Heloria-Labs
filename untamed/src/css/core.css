@@ -134,7 +134,11 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 /* ---------- chrome ---------- */
 #chrome{z-index:20}
 #chrome .top{position:absolute;top:var(--gt);left:calc(var(--gl) + 6px);right:calc(var(--gr) + 6px);display:flex;align-items:center;gap:18px}
-.brand{display:flex;align-items:baseline;gap:10px}
+.brand{display:flex;align-items:baseline;gap:10px;color:inherit;text-decoration:none;pointer-events:auto}
+/* the way home, always in reach: the front door, where the written site (Walk) is one click away */
+#home{gap:7px;height:36px;padding:0 13px;pointer-events:auto}
+#home svg{width:12px;height:12px;flex:none}
+html.earth #home{background:rgba(251,246,236,.94);color:#2a241d;border-color:#2a241d}
 .brand b{font:800 20px/1 var(--disp);font-variation-settings:"ROND" 100;letter-spacing:-.01em;-webkit-text-stroke:0}
 .sp{flex:1}
 .bars{display:flex;gap:2px;align-items:flex-end;height:10px}

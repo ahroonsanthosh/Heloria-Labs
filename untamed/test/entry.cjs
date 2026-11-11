@@ -16,7 +16,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   if (way === 'fly') {
     ok(!load.landing && /rgb\(5, 5, 4\)/.test(load.bg), 'Fly opens in the dark', load.bg);
     ok(load.begin === verb + ' to begin', 'its prompt', load.begin);
-    await page.click('#load');
+    await require('./begin.cjs')(page);
     ok(await until(h => h.S.mode === 'story' || h.S.mode === 'entering', 20000), 'it goes into the story');
     ok(await until(() => !document.querySelector('#story').classList.contains('off'), 40000), 'and the story is on the screen');
     await wait(1500); await shot(tag + '-1-story');
@@ -25,7 +25,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     ok(load.landing && /rgb\(234, 244, 244\)/.test(load.bg), 'Land opens in the front door\'s daylight', load.bg);
     ok(/rgb\(42, 36, 29\)/.test(load.ink), 'with the word in ink', load.ink);
     ok(load.begin === verb + ' to land', 'its prompt says land', load.begin);
-    await page.click('#load');
+    await require('./begin.cjs')(page);
     ok(await until(h => h.S.mode === 'station' && h.S.stId === 'cr', 30000), 'it comes straight down onto Earth');
     const st = await H(h => ({ land: h.ST.cr.land, cut: h.ST.cr.el.classList.contains('cut'), story: !document.querySelector('#story').classList.contains('off'), hub: !document.querySelector('#hub').classList.contains('off') }));
     ok(st.land && st.cut, 'in Land, with the rocket coming down', st);
@@ -49,7 +49,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   if (way === 'aetos') {
     ok(!load.landing && /rgb\(5, 5, 4\)/.test(load.bg), 'from the walk\'s rocket: the night it left you in', load.bg);
     ok(load.begin === verb + ' to go into orbit', 'its prompt', load.begin);
-    await page.click('#load');
+    await require('./begin.cjs')(page);
     ok(await until(h => h.S.mode === 'tohub' || h.S.mode === 'hub', 40000), 'straight into orbit');
     const s = await H(h => ({ lead: h.S.lead && h.S.lead.s.id, ap: !!h.S.ap, far: +h.S.probe.p.distanceTo(h.S.lead.s.pos).toFixed(1), ch: h.S.ch, story: !document.querySelector('#story').classList.contains('off') }));
     ok(s.lead === 'ae' && !s.ap && s.far > 8, 'Aetos has you on its radar, a way off, and nothing flies you there', s);
@@ -63,5 +63,10 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
     if (mobile) await H(h => window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 41, pointerType: 'touch', clientX: 195, clientY: 590, bubbles: true }))); else await page.keyboard.up('KeyW');
     await wait(3000); await shot(tag + '-2-docked');
   }
+  /* wherever you came in, the way home is in reach: a Home button by the name, and the name itself, to the front door */
+  const home = await page.evaluate(() => { const a = document.querySelector('#home'), r = a && a.getBoundingClientRect(), b = document.querySelector('#chrome .brand'), top = a && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return a && { href: a.getAttribute('href'), brand: b && b.getAttribute('href'), w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x), y: Math.round(r.y), shown: getComputedStyle(document.querySelector('#chrome')).opacity > .5, top: !!top && (top === a || a.contains(top)) }; });
+  ok(!!home && home.shown && home.top && home.w >= 60 && home.h >= 30 && home.href && home.href === home.brand, 'a Home button is on the screen, on top, and goes home (as the name does)', home);
+  await shot(tag + '-9-home');
   console.log(fails ? fails + ' FAILED' : 'ENTRY OK');
 };

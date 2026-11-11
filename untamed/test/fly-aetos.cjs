@@ -17,7 +17,7 @@ module.exports = async ({ page, H, log, wait, shot, mobile }) => {
   for (let n = 0; n < runs.length; n++) {
     const v = runs[n];
     if (n > 0) { await page.reload({ timeout: 300000 }); await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 }); }
-    await page.click('#load');
+    await require('./begin.cjs')(page);
     if (!(await until(h => ['story', 'tohub', 'hub'].includes(h.S.mode), 60000))) { log('run', v, 'never left the loader'); continue; }
     if (await H(h => h.S.mode === 'story')) await H(h => h.toHub(true));   // the Fly way in: what Skip does
     if (!(await until(h => h.S.mode === 'hub' && h.S.guide === 'lead', 90000))) { log('run', v, 'never reached orbit'); continue; }

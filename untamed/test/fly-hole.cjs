@@ -13,7 +13,7 @@
 module.exports = async ({ page, H, log, wait, shot, mobile }) => {
   const until = async (fn, ms = 120000, arg) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await H(fn, arg)) return true; await wait(200); } return false; };
   let fails = 0; const ok = (c, m, x) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (x !== undefined ? '  (' + JSON.stringify(x) + ')' : '')); if (!c) fails++; };
-  await page.click('#load');
+  await require('./begin.cjs')(page);
   await until(h => ['story', 'tohub', 'hub'].includes(h.S.mode), 60000);
   if (await H(h => h.S.mode === 'story')) await H(h => h.toHub(true));
   ok(await until(h => h.S.mode === 'hub', 90000), 'in orbit');
