@@ -657,6 +657,33 @@ const A=(()=>{
     /* how far into his piece and into the solo the recordings are now (seconds, -1 when not sounding), and what he plays,
        so his hands can keep time with what you hear */
     buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS,done:BK.done}; },
+    /* ---------- the market in the square on Friday nights (see the market on Earth). Only short sounds, made live, each a
+       few clicks or a ring: no bed of noise under the town, and nothing like voices. g is the level (already eased for how
+       far off it is), p where it is, left to right ---------- */
+    /* the fryer spitting: a handful of tiny dry crackles over half a second, each a different brightness */
+    mktFry(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime; let o=comp;
+      if(ctx.createStereoPanner){ o=ctx.createStereoPanner(); o.pan.value=clamp(p,-1,1)*.7; o.connect(comp); }
+      const n0=5+Math.floor(Math.random()*6);
+      for(let k=0;k<n0;k++){ const t=t0+Math.random()*.55, d=.008+Math.random()*.022, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), gg=g*(.35+Math.random()*.65);
+        b.type='bandpass'; b.frequency.value=2600+Math.random()*4200; b.Q.value=1.2+Math.random();
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.0015); a.gain.exponentialRampToValueAtTime(.0001,t+d);
+        s.connect(b); b.connect(a); a.connect(o); s.start(t,Math.random()*8); s.stop(t+d+.02); } },
+    /* the chip basket lifted and shaken over the oil: three or four light metal rattles of its wire */
+    mktBasket(g=.016,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.05); let o=comp;
+      if(ctx.createStereoPanner){ o=ctx.createStereoPanner(); o.pan.value=clamp(p,-1,1)*.7; o.connect(comp); }
+      const n0=3+Math.floor(Math.random()*2);
+      for(let k=0;k<n0;k++){ const t=t0+k*(.075+Math.random()*.03), s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), os=ctx.createOscillator(), oa=ctx.createGain(), gg=g*(1-k*.15);
+        b.type='bandpass'; b.frequency.value=3100*v*(.92+Math.random()*.16); b.Q.value=7;
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.05);
+        s.connect(b); b.connect(a); a.connect(o); s.start(t,Math.random()*8); s.stop(t+.08);
+        os.type='sine'; os.frequency.value=2240*v*(1+k*.03); oa.gain.setValueAtTime(0,t); oa.gain.linearRampToValueAtTime(gg*.35,t+.002); oa.gain.exponentialRampToValueAtTime(.0001,t+.09);
+        os.connect(oa); oa.connect(o); os.start(t); os.stop(t+.12); } },
+    /* two glasses touched together at the high table: a bright ring and its answer a moment later, a little lower */
+    mktClink(g=.014,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.05); let o=comp;
+      if(ctx.createStereoPanner){ o=ctx.createStereoPanner(); o.pan.value=clamp(p,-1,1)*.7; o.connect(comp); }
+      [[0,1,1],[.07+Math.random()*.05,.93,.7]].forEach(([dl,f,k])=>{ [[2960,1,.3],[4510,.45,.18],[6800,.2,.08]].forEach(([fr,a0,dur])=>{ const t=t0+dl, os=ctx.createOscillator(), a=ctx.createGain();
+        os.type='sine'; os.frequency.value=fr*f*v; a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*k*a0,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+dur);
+        os.connect(a); a.connect(o); os.start(t); os.stop(t+dur+.03); }); }); },
     /* ---------- the cliff on Earth: a bench and a kite. Each sound is short and soft, a tone or a narrow band, never a bed of noise ---------- */
     /* the bench taking your weight: a dry creak of old wood, a slow buzz through the hollow ring of a plank (soft: getting up) */
     creak(soft=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.08), d=soft?.24:.4, g=soft?.13:.22;
