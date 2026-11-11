@@ -290,7 +290,7 @@ function buildTown(){
   /* houses round the loop, each facing the road */
   const H=(x,z,o)=>house(x,z,yawTo(x,z,0,0),o);
   H(-13.3,-3.2,{wall:'#f1e2c6',roof:'#c8664b',flowers:true});
-  H(-13,3.8,{wall:'#cfe0e6',roof:'#4f6f8f',w:3.8,h:2.6});
+  poHouse(-13,3.8,yawTo(-13,3.8,0,0),{wall:'#cfe0e6',roof:'#4f6f8f'});   // the post office (its door opens: see the post office, at the end)
   H(-5.8,13.6,{wall:'#f3d9c4',roof:'#9a5340',w:3.2,d:2.6});
   H(13.3,-3.4,{wall:'#e8ecd9',roof:'#c8664b',up:true,h:3.6,rh:1.1});
   H(12.9,7.2,{wall:'#f6eedf',roof:'#5d7f6a',w:3,d:2.6,flowers:true});
@@ -1331,7 +1331,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on)) pcOpen(false); }   // (none inside the café or the workshop: the room has its own things to do)
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on||PO.on)) pcOpen(false); }   // (none inside the café, the workshop or the post office: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.
@@ -2084,7 +2084,7 @@ const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
 function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on){ a.walk=0; return; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on||PO.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
     if(d<7){ AH.st='here'; a.wave=2; openInvite(); return; }   // close enough: he just asks
@@ -2299,7 +2299,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
-  if(PHS.on||CAFE.on||GAR.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, or the workshop), you stay put
+  if(PHS.on||CAFE.on||GAR.on||PO.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, the workshop or the post office), you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -3769,4 +3769,622 @@ st._dbg.garage={G:GAR,GW,GTF,TF,get err(){ return GAR.err||null; },open:garOpen,
   /* what is solid in there, in its frame: [x0, x1, z0, z1, height] */
   get solids(){ return GAR.solids; }};
 /* ===================== (the workshop ends here) ===================== */
+
+/* ===================== the post office: where your postcards get posted =====================
+   The pale blue house on the west side of the loop is the post office: a green shopfront with POST OFFICE (and OIFIG AN
+   PHOIST) over the window, gold letters on the glass, a red pillar box at the kerb and the postmistress's bike against the
+   wall. Walk up to the door and its tag says Go in (or E, or click or tap the shop from across the street, or just walk
+   into the door): the bell over the door tinkles, you walk in, and the camera comes down behind you into your own eyes at
+   the counter, as in the café. In there is a small-town post office: the counter with its scale, the stamp rack, the
+   rubber stamp and its ink pad, the pigeonholes and the post office boxes behind, parcels on the shelves, the notice
+   board, the clock, the sack for the post, a St Brigid's cross over the door. Behind the counter is Bríd, the
+   postmistress, who looks up from her ledger and says hello. Drag (or the arrows, or A and D) to look round; S, Escape,
+   Leave the post office, or a tap on the door takes you back out.
+   Postcards (see postcards): if you have taken one, hand it over (Post your postcard, E, or a tap on Bríd or the counter):
+   it is slid across the counter, she inks the stamp and brings it down with a thunk, and the postmark is on your card; into
+   the sack it goes, and your card, postmarked, comes up to save or share. If you have none she says to go and take one,
+   and you can look round all the same. Outside, the pillar box takes a postcard too (its tag, E beside it, or a tap on
+   it): in it goes under the flap.
+   The room is built with the town and hidden until you go in; it is drawn once behind the loader, so its shaders are made
+   with the rest of Earth's (it is lit as the café's room is, by the same shaders, with its own lamps). From the street the
+   window shows the shop painted on the glass, warm and bright once it is dark. Inside, the town's music is a little
+   quieter and nothing of the street (tags, cards, buttons, the postcard) is drawn over the room. */
+/* where it all is, in the post office's own frame (x across, y up from the ground, z out to the street): its size and
+   walls, the door (its middle, width and head) and the shop window (its middle, width, sill and head), the floor (the
+   plinth's top) and eye height, where you stand inside, where Bríd stands, the sack's mouth, the pillar box (at the kerb)
+   and where you stand to post a card in it */
+const PW={w:3.8,d:2.8,h:2.75,t:.08,FL:.22,EY:1.15,DX:.95,DW:.8,DH:1.86,WX:-.72,WW:1.78,WS:.74,WH:1.98,CT:.785,
+  S:[-.05,.6],BK:[.08,-.79],SACK:[1.22,-.92],BOX:[-1.75,2.95],BOXS:[-1.17,2.95],yaw0:-.04,p0:-.1,pP:-.16};
+const PO_G='#2e5843', PO_G2='#24463a', PO_RED='#c4302b';
+/* st: out, go (walking over), enter, in, exit. ph, once in: idle, post (the card being stamped and put in the sack).
+   bx: the pillar box (idle, go, post). done: the card that has been posted (a new one can be posted again) */
+const PO={st:'out',on:false,k:0,t:0,M:null,Mi:null,x:0,z:0,up:new T.Vector3(0,1,0),g:null,meshes:[],warm:true,err:null,ph:'idle',pt:0,yaw:0,pitch:0,lean:0,dragT:9,drag:null,tap:null,kb:false,cur:false,
+  cp:new T.Vector3(),cl:new T.Vector3(),cu:new T.Vector3(0,1,0),pl:new T.Vector3(),c0:new T.Vector3(),curve:null,lcurve:null,wIn:null,fig:[0,0],fh:0,fph:0,fstep:0,go:0,out:0,mk:0,fk:0,nr:false,
+  door:0,doorV:0,doorT:0,shut:0,you:{x:0,z:9,fz:0},dd:99,db:99,tagOn:false,tagCan:false,btagOn:false,btagCan:false,btxt:'',done:null,boxed:false,said:0,greet:0,posted:0,shown:false,
+  card:null,ctx:null,stamped:false,stampedUrl:null,pick:null,pickBox:null,m:{},flap:0,bulge:0,thunks:0,
+  bx:{st:'idle',t:0,go:0},bk:{yaw:0,yawT:0,R:'write',L:'rest',arm:[[0,0,-.12],[0,0,-.12]],wave:0,nod:0,blink:2,look:0,hold:null},at:{}};
+const poV=new T.Vector3(), poV2=new T.Vector3(), poV3=new T.Vector3(), poV4=new T.Vector3(), poM=new T.Matrix4(), poM2=new T.Matrix4(), poQ=new T.Quaternion(), poE=new T.Euler(), poS=new T.Vector3(), poRay=new T.Raycaster(), poNdc=new T.Vector2();
+const poW=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(PO.M);   // a point in the post office's frame, in the world
+const poD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(PO.M);
+const poL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(PO.Mi);
+const poXZ=(x,z)=>loc(poW(x,0,z,poV4).normalize());   // on the town's map
+const poTf=(Mx,x,y,z,ry=0,rx=0,rz=0)=>new T.Matrix4().multiplyMatrices(Mx,new T.Matrix4().compose(poS.set(x,y,z),poQ.setFromEuler(poE.set(rx,ry,rz,'YXZ')),new T.Vector3(1,1,1)));
+const poHas=()=>!!PC.blob&&PC.blob!==PO.done;   // a postcard taken and not yet posted
+
+/* ---------- the light in there: the café's own shaders (the same programs, so nothing new is compiled), with this room's
+   lamps: three over the counter and the room, and one by the window for the day coming in ---------- */
+const PU={uCL:{value:[0,1,2,3].map(()=>new T.Vector4())},uCU:{value:new T.Vector3(0,1,0)},uNr:{value:.12},uDim:{value:1}};
+const poMat=()=>new T.ShaderMaterial({uniforms:Object.assign({uC:{value:new T.Color(1,1,1)},uIn:{value:1}},LU,PU),vertexShader:TOON_V(),fragmentShader:CAFE_F,vertexColors:true,side:T.DoubleSide});
+const POINK=new T.ShaderMaterial({uniforms:PU,vertexShader:TOON_V(),side:T.DoubleSide,fragmentShader:CINK.fragmentShader});
+const poBoard=tx=>new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx}},LU,PU),vertexShader:TOON_V(true),fragmentShader:BOARD_F});
+/* the shop window from the street: the shop painted on the glass (as you would glimpse it), gold letters, a glint of the
+   street by day; by night lit from inside, warm */
+const PANE_F=`uniform sampler2D uMap; uniform float uNight; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${NEAR}
+  void main(){ nearFade(vW); vec4 t=texture2D(uMap,vUv); vec3 n=normalize(vN), v=normalize(cameraPosition-vW); float fr=pow(1.-abs(dot(n,v)),2.);
+    float g=fract((vUv.x*.7+vUv.y)*1.1+.2), gl=step(abs(g-.5),.045)+step(abs(g-.32),.016);
+    vec3 day=mix(t.rgb*vec3(.66,.72,.76),vec3(.8,.89,.93),.22+.42*fr)+gl*.1, night=t.rgb*vec3(1.3,1.04,.72)+vec3(.06,.03,0.);
+    vec3 c=mix(day,night,uNight); c=mix(c,t.rgb*mix(1.,1.15,uNight),step(.75,t.a));   // (the gold letters are painted on the glass: no reflection over them)
+    gl_FragColor=vec4(c,1.); }`;
+const paneMat=tx=>new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uCut:{value:1}},LU),vertexShader:TOON_V(true),fragmentShader:PANE_F});
+
+/* ---------- the building, from the street: as every other house (see house), but its front is a shopfront: pilasters, the
+   fascia with its sign, the window with its glazing bars and the stall riser under it, a glazed door that opens; the
+   pillar box at the kerb and the bike against the wall. Built with the town, in its kit, except the door, the glass and
+   the box's flap, which move or glow ---------- */
+function poHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=PW.w, d=PW.d, h=PW.h, t=PW.t, tr=o.trim||'#f6f1e7', rh=1.3, f=d/2, G=PO_G, G2=PO_G2;
+  const {DX,DW,DH,WX,WW,WS,WH}=PW;
+  Object.assign(PO,{M,Mi:M.clone().invert(),x,z}); HOUSES.push({M,w,d,h,dx:DX,flat:false});
+  box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18);
+  slab(M,o.wall,'x',f-t/2,w,t,.2,h,[[DX,DW,.2,DH],[WX,WW,WS,WH]]); slab(M,o.wall,'x',-f+t/2,w,t,.2,h,[]); slab(M,o.wall,'z',w/2-t/2,d-2*t,t,.2,h,[]); slab(M,o.wall,'z',-w/2+t/2,d-2*t,t,.2,h,[]);
+  put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,f+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-f-.04,w+.1,.12,.05); box(M,'#b07a5e',w*.28,h+.25,-d*.16,.34,rh*.95,.34);
+  windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
+  /* the shopfront: three pilasters with their corbels, the fascia between them (the sign), a cornice over it */
+  [-1.76,.36,1.52].forEach(px=>{ box(M,G,px,.2,f+.03,.18,1.86,.08); box(M,G2,px,.2,f+.05,.22,.16,.1); if(px!==.36){ box(M,G,px,2.04,f+.04,.24,.5,.13); box(M,'#d9b45a',px,2.2,f+.105,.1,.1,.012); } });
+  box(M,G2,-.12,2.06,f+.02,3.2,.5,.05); box(M,G,-.12,2.54,f+.06,3.5,.07,.16); box(M,G2,-.12,2.6,f+.04,3.4,.04,.12);
+  sign(sub(M,-.12,0,f+.085),'POST OFFICE',{sub:'OIFIG AN PHOIST',w:2.88,h:.44,y:2.3,post:false,bg:G,fg:'#f3ead8',board:G2});
+  /* the window: its frame, a cream sill, two glazing bars and a transom; under it the stall riser in panels */
+  box(M,G,WX,WH-.02,f+.02,WW+.08,.1,.07); [-1,1].forEach(s=>box(M,G,WX+s*(WW/2+.01),WS,f+.02,.07,WH-WS,.07)); box(M,'#efe7d6',WX,WS-.06,f+.05,WW+.12,.06,.14);
+  [-1,1].forEach(s=>box(M,G,WX+s*WW/6,WS,f-.005,.035,WH-WS,.04)); box(M,G,WX,WH-.36,f-.005,WW,.035,.04);
+  box(M,G,WX,.2,f+.01,WW+.06,WS-.26,.06); [-1,0,1].forEach(s=>{ box(M,G2,WX+s*WW/3,.29,f+.04,WW/3-.12,WS-.44,.012); box(M,'#d9b45a',WX+s*WW/3,.29+(WS-.44)/2-.01,f+.047,.04,.02,.006); });
+  /* the door's frame, a fanlight's bar over it, and the step */
+  [-1,1].forEach(s=>box(M,G,DX+s*(DW/2+.035),.2,f+.02,.07,DH-.2+.06,.07)); box(M,G,DX,DH,f+.02,DW+.16,.08,.07); box(M,'#bdb6aa',DX,0,f+.32,1.04,.16,.56);
+  /* the pillar box at the kerb, its slot to the way along the pavement to the door: a dark plinth, the red body, its cap,
+     the slot under a hood, the plate with the collection times, a gold crest */
+  { const B=sub(M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); cyl(B,'#2b2724',0,0,0,.2,.08); cyl(B,PO_RED,0,.08,0,.17,1.0); cyl(B,'#9e2420',0,.08,0,.175,.05); cyl(B,PO_RED,0,1.07,0,.19,.045); put(B,'sph',PO_RED,0,1.11,0,.175,.13,.175); put(B,'sph',PO_RED,0,1.24,0,.035,.03,.035);
+    box(B,'#161312',0,.86,.135,.14,.034,.07); box(B,PO_RED,0,.894,.155,.18,.022,.05); box(B,'#f3ede2',0,.6,.158,.11,.1,.03); box(B,'#2a241d',0,.63,.174,.075,.008,.004); box(B,'#2a241d',0,.6,.174,.065,.008,.004);
+    box(B,'#d9b45a',0,.98,.16,.05,.05,.03); obsAt(M,PW.BOX[0],PW.BOX[1],.22,1.2); }
+  /* the postmistress's bike, leaning on the stall riser: a step-through frame in green, a wicker basket with a parcel in it */
+  { const Bk=poTf(M,WX-.12,0,f+.25,0,-.2,0), fr=G, tyre='#2a2826', P2=(a,b,r=.014)=>{ const v=new T.Vector3(b[0]-a[0],b[1]-a[1],0), L=v.length(); poQ.setFromUnitVectors(UPY,v.normalize()); poM.compose(poS.set((a[0]+b[0])/2,(a[1]+b[1])/2,0),poQ,new T.Vector3(r,L,r)); kadd(GEO.cyl8,fr,poM2.multiplyMatrices(Bk,poM)); };
+    [-.4,.4].forEach(wx=>{ kadd(new T.TorusGeometry(.19,.02,6,26).toNonIndexed(),tyre,poTf(Bk,wx,.2,0)); kadd(new T.TorusGeometry(.16,.006,4,20).toNonIndexed(),'#a9adab',poTf(Bk,wx,.2,0)); put(Bk,'cyl8','#a9adab',wx,.2,0,.025,.07,.025,0,Math.PI/2); });
+    const rh=[-.4,.2], bb=[-.04,.17], st=[-.16,.56], hd=[.27,.58], fh=[.4,.2]; P2(bb,st); P2(bb,hd); P2([-.1,.3],[.24,.47]); P2(bb,rh); P2(st,rh,.011); P2(hd,fh); P2(hd,[.25,.7],.012);
+    box(Bk,'#5b3d2c',-.19,.6,0,.14,.04,.07); box(Bk,'#2a2624',.25,.7,0,.03,.03,.38); [-1,1].forEach(s=>box(Bk,'#2a2624',.25,.7,s*.2,.05,.035,.04));
+    box(Bk,'#b8894f',.47,.52,0,.2,.15,.26); box(Bk,'#9e7442',.47,.66,0,.21,.015,.27); box(Bk,'#b98b58',.47,.62,.02,.14,.08,.16); box(Bk,'#efe7d6',.47,.7,.02,.15,.006,.02);
+    obsAt(M,WX-.5,f+.27,.2,.8); obsAt(M,WX+.27,f+.27,.2,.8); }
+  /* the door: on its hinge at the right of the opening, panelled, glazed above, a brass letterbox and knob; it opens in */
+  { kitTo('podoor'); const I=new T.Matrix4(), c=G;
+    box(I,c,-DW/2,0,0,DW,.8,.05); box(I,c,-DW/2,1.48,0,DW,DH-.2-1.48,.05); box(I,c,-DW+.07,.8,0,.14,.68,.05); box(I,c,-.07,.8,0,.14,.68,.05); box(I,G2,-DW/2,.1,0,DW-.18,.6,.064);
+    box(I,'#d9b45a',-DW/2,.62,.035,.2,.04,.012); box(I,'#d9b45a',-DW+.09,.86,.04,.04,.04,.03); box(I,'#d9b45a',-DW+.09,.86,-.04,.04,.04,.03);
+    kitTo(); const dm=new T.Mesh(kgeo('podoor'),toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); dm.matrixAutoUpdate=false; sc.add(dm); PO.m.door=dm; PO.m.hinge=[DX+DW/2,.2,f-.04]; }
+  /* the glass: the window, and the door's upper panel (on the door), drawn from one painting */
+  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PO.pcv=cv; PO.ptx=tx; poPaint(cv); tx.needsUpdate=true;
+    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ poPaint(cv); tx.needsUpdate=true; }).catch(()=>{});
+    const pm=paneMat(tx), gw=WW-.04, gh=WH-WS-.04, wg=new T.PlaneGeometry(gw,gh), dg=new T.PlaneGeometry(.5,.62), uv=(g,u0,v0,u1,v1)=>{ const a=g.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(u0,u1,a.getX(i)),lerp(v0,v1,a.getY(i))); };
+    uv(wg,0,0,736/1024,1); uv(dg,768/1024,1-340/512,1,1);
+    const wm=new T.Mesh(wg,pm); wm.matrixAutoUpdate=false; wm.matrix.copy(sub(M,WX,(WS+WH)/2,f-.035)); sc.add(wm); PO.m.pane=wm;
+    const dp=new T.Mesh(dg,pm); dp.position.set(-DW/2,1.15,.028); PO.m.door.add(dp); }
+  /* the pillar box's flap, inside its slot: it swings in as a card goes past */
+  { kitTo('poflap'); box(new T.Matrix4(),'#8a1d1a',0,-.032,0,.14,.032,.008); kitTo(); const fm=new T.Mesh(kgeo('poflap'),toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); fm.matrixAutoUpdate=false; sc.add(fm); PO.m.flap=fm; }
+  /* the card going into the box (a plain card: from the street you see its white back) */
+  { const cm=new T.Mesh(new T.BoxGeometry(.15,.004,.1),toonMat('#fbf6ec')); cm.matrixAutoUpdate=false; cm.frustumCulled=false; cm.userData.noInk=true; sc.add(cm); PO.m.bcard=cm; }
+  poDoorPose(); poFlapPose(); poCull(false);
+  obsRect(x,z,yaw,w+.25,d+.25,h+rh+.3); return M; }
+/* the glass, the door and the flap are drawn wherever the camera looks while Earth is first warmed up, so their shaders
+   (the glass's is its own) are made then, with everything else, not the first time the shop comes into view */
+function poCull(on){ [PO.m.pane,PO.m.door,PO.m.flap,PO.m.door&&PO.m.door.children[0]].forEach(m=>{ if(m) m.frustumCulled=on; }); }
+/* the painting on the glass: the shop inside as you would see it from the street (the back wall, the pigeonholes, the
+   counter, Bríd behind it, the lamps) and on the window, in gold, what is sold; on the door's glass a card saying OPEN */
+function poPaint(cv){ const c=cv.getContext('2d'), H=cv.height, W0=736, r=seeded(9);
+  const room=(x0,w)=>{ c.fillStyle='#e9dcc0'; c.fillRect(x0,0,w,H); c.fillStyle='#3d5e4a'; c.fillRect(x0,H*.62,w,H*.38); c.fillStyle='#7a5a3e'; c.fillRect(x0,H*.6,w,H*.025); };
+  room(0,W0);
+  /* the pigeonholes and the parcels on the shelves, behind the counter */
+  c.fillStyle='#8a6448'; c.fillRect(W0*.06,H*.18,W0*.4,H*.34); c.fillStyle='#5a3d2c'; for(let i=0;i<7;i++) for(let j=0;j<4;j++){ c.fillRect(W0*.07+i*W0*.056,H*.2+j*H*.08,W0*.046,H*.065); if(r()<.5){ c.fillStyle=r()<.5?'#f6f1e7':'#d6e2ea'; c.fillRect(W0*.073+i*W0*.056,H*.225+j*H*.08,W0*.04,H*.025); c.fillStyle='#5a3d2c'; } }
+  for(let k=0;k<3;k++){ c.fillStyle='#8a6448'; c.fillRect(W0*.62,H*(.2+k*.13),W0*.32,H*.015); for(let i=0;i<4;i++){ c.fillStyle=['#b98b58','#a77a4c','#c49a66'][(i+k)%3]; const pw_=W0*(.05+r()*.03), ph=H*(.05+r()*.04); c.fillRect(W0*(.63+i*.075),H*(.2+k*.13)-ph,pw_,ph); } }
+  /* Bríd: grey hair in a bun, her glasses, a green cardigan */
+  { const bx=W0*.5, by=H*.42; c.fillStyle='#3f6b4f'; c.beginPath(); c.ellipse(bx,by+H*.2,W0*.07,H*.16,0,0,TAU); c.fill(); c.fillStyle='#f0c9ad'; c.beginPath(); c.arc(bx,by,H*.065,0,TAU); c.fill();
+    c.fillStyle='#c9c4bd'; c.beginPath(); c.arc(bx,by-H*.025,H*.068,Math.PI,TAU); c.fill(); c.beginPath(); c.arc(bx,by-H*.085,H*.03,0,TAU); c.fill(); c.strokeStyle='#6a4a3a'; c.lineWidth=3; [-1,1].forEach(s=>{ c.beginPath(); c.arc(bx+s*H*.025,by+H*.005,H*.018,0,TAU); c.stroke(); }); }
+  /* the counter, and the lamps over it */
+  c.fillStyle='#7a5236'; c.fillRect(0,H*.6,W0,H*.4); c.fillStyle='#a8794f'; c.fillRect(0,H*.58,W0,H*.035); c.fillStyle='#6b4a36'; for(let i=0;i<9;i++) c.fillRect(i*W0/9+W0*.01,H*.66,W0/9-W0*.02,H*.26);
+  [.22,.5,.78].forEach(u=>{ c.strokeStyle='#2a2624'; c.lineWidth=2; c.beginPath(); c.moveTo(W0*u,0); c.lineTo(W0*u,H*.1); c.stroke(); c.fillStyle='#2f4d42'; c.beginPath(); c.moveTo(W0*u-22,H*.14); c.lineTo(W0*u+22,H*.14); c.lineTo(W0*u,H*.09); c.fill();
+    const gr=c.createRadialGradient(W0*u,H*.15,2,W0*u,H*.15,70); gr.addColorStop(0,'rgba(255,240,196,.95)'); gr.addColorStop(1,'rgba(255,240,196,0)'); c.fillStyle=gr; c.fillRect(W0*u-70,H*.15-70,140,140); });
+  /* soften it: it is seen through glass, not through an open door */
+  c.fillStyle='rgba(233,224,206,.18)'; c.fillRect(0,0,W0,H);
+  /* the gold letters across the glass, and a line under them */
+  /* the gold letters across the glass, drawn on a sheet of their own first: where they are, the glass is painted (its
+     alpha says so to the shader: whole where the letters are, half elsewhere), so by day they show gold over the glint */
+  const L=document.createElement('canvas'); L.width=W0; L.height=H; const lc=L.getContext('2d'); lc.textAlign='center'; lc.textBaseline='middle';
+  const gold=(t,y,f)=>{ lc.font=`900 ${f}px Doto, monospace`; const m=lc.measureText(t).width, fs=m>W0*.86?f*W0*.86/m:f; lc.font=`900 ${fs}px Doto, monospace`; lc.lineWidth=fs*.16; lc.lineJoin='round'; lc.strokeStyle='#3a2a12'; lc.strokeText(t,W0/2,y); lc.fillStyle='#e8c36a'; lc.fillText(t,W0/2,y); };
+  gold('STAMPS · PARCELS',H*.77,H*.1); gold('POSTCARDS · POSTAL ORDERS',H*.89,H*.07); c.drawImage(L,0,0);
+  { const im=c.getImageData(0,0,W0,H), D=im.data, LD=lc.getImageData(0,0,W0,H).data; for(let i=0;i<D.length;i+=4) D[i+3]=LD[i+3]>128?255:128; c.putImageData(im,0,0); }
+  /* the door's glass: the room, and a card hanging on a string saying OPEN */
+  const X=768, Wd=256, Hd=340; c.save(); c.beginPath(); c.rect(X,0,Wd,Hd); c.clip(); c.fillStyle='#e9dcc0'; c.fillRect(X,0,Wd,Hd); c.fillStyle='#3d5e4a'; c.fillRect(X,Hd*.7,Wd,Hd*.3); c.fillStyle='#8a6448'; c.fillRect(X+Wd*.55,Hd*.25,Wd*.4,Hd*.5);
+  c.fillStyle='rgba(233,224,206,.2)'; c.fillRect(X,0,Wd,Hd); c.strokeStyle='#2a2624'; c.lineWidth=2; c.beginPath(); c.moveTo(X+Wd*.3,Hd*.12); c.lineTo(X+Wd*.5,Hd*.02); c.lineTo(X+Wd*.7,Hd*.12); c.stroke();
+  c.fillStyle='#fbf6ec'; c.fillRect(X+Wd*.18,Hd*.12,Wd*.64,Hd*.22); c.strokeStyle='#2a241d'; c.lineWidth=4; c.strokeRect(X+Wd*.18,Hd*.12,Wd*.64,Hd*.22); c.fillStyle='#2a241d'; c.textAlign='center'; c.textBaseline='middle';
+  c.font=`900 ${Hd*.11}px Doto, monospace`; c.fillText('OPEN',X+Wd/2,Hd*.235); c.restore(); }
+/* the door on its hinge (0 shut, up to about a quarter turn open, into the room); the box's flap */
+function poDoorPose(){ const d=PO.m.door; if(!d) return; const [hx,hy,hz]=PO.m.hinge; d.matrix.multiplyMatrices(PO.M,poM.makeTranslation(hx,hy,hz).multiply(poM2.makeRotationY(-PO.door))); d.matrixWorldNeedsUpdate=true; }
+function poFlapPose(){ const m=PO.m.flap; if(!m) return; const B=sub(PO.M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); m.matrix.multiplyMatrices(B,poM.makeTranslation(0,.894,.12).multiply(poM2.makeRotationX(PO.flap*1.2))); m.matrixWorldNeedsUpdate=true; }
+
+/* ---------- Bríd, the postmistress: the same hand as everyone in town (see figure), in her green cardigan over a cream
+   blouse, glasses, rosy cheeks, her grey hair up in a bun; not one of us, so no photo and no page, and she stays behind
+   her counter ---------- */
+HAIR.bun=(B,f,c)=>{ const c2=tint(c,-.12), edge=a=>1.36-.3*Math.cos(a)+burns(a,1.22,.14), H=cap(B,f,c,edge,(t,a)=>.012+.016*(1-t)+.004*(.5+.5*Math.cos(a*14+t*5)),.2,14,64);
+  const q=H.at(.42,Math.PI,.04); B.put(FG.sph,c,q.p.x,q.p.y,q.p.z,.068,.062,.06); const q2=H.at(.3,Math.PI,.012); B.put(FG.sph,c2,q2.p.x,q2.p.y,q2.p.z,.06,.016,.05,.5);
+  [-.5,.5].forEach(a=>{ const p=H.at(.96,a,-.002), L=v3(a,-1,.2); H.lump(FG.sph,c,p.p.addScaledVector(L.clone().normalize(),.02),p.n,L,[.03,.01,.006]); }); };
+const BRID={shirt:'#3f6b4f',crew:true,under:'#f3ede0',pants:'#5a4a40',shoes:'#3a2f29',sole:'#2a2420',skin:'#f0c9ad',hair:'bun',hairC:'#cdc8c0',head:[.15,.168,.156,.15,.02],
+  face:{bw:.011,arch:.011,by:.054},mouth:'smile',cheeks:true,glasses:'#7a5238',build:.97,depth:.76,pitch:640};
+/* what she says (in the talk box, as Diarmuid does: no photo, no page) */
+const BRL={hi:'Dia dhuit! Come in, come in.',card:'Is that a postcard you have? Hand it over and I\'ll stamp it for you.',
+  none:'No postcard on you? Go out and take one, the camera\'s up in the corner, and bring it in to me.',look:'Have a look round all the same. You\'re very welcome.',
+  posted:'There now, stamped and in the sack. It\'ll go out with the evening post.',again:'Back again! Take another postcard outside and I\'ll post that one too.',
+  boxed:'You put one in the box outside? Grand, I\'ll have it in the next collection.'};
+const POWHO={guest:true,i:3,first:'Bríd',name:'Bríd',pitch:BRID.pitch,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,
+  onClose(done){ PO.said=performance.now(); if(PO.ph==='said'){ PO.ph='idle'; poShowCard(); } poUI(); }};
+/* her arms, as in the café: each arm's turn forward and out, and the forearm's bend */
+const POSE={rest:[0,0,-.12],write:[-.62,.12,-1.05],pad:[-1.02,.18,-.38],up:[-1.85,.12,-1.2],down:[-1.25,.12,-.16],take:[-1.1,-.14,-.28],hold:[-.95,-.12,-.75],drop:[-1.45,-.2,-.25]};
+
+/* ---------- building it: the room, the counter and all on it, the walls, Bríd, the stamp, your card, the clock's hands ---------- */
+function buildPO(){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t, F=PW.FL, iw=w/2-t, id=d/2-t, top=PW.h-.04, I=new T.Matrix4(), rnd=seeded(53), CT=PW.CT;
+  PO.up.copy(poD(0,1,0)); PU.uCU.value.copy(PO.up); PO.c0.copy(poW(0,1.4,0));
+  const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; const mat=poMat();
+  const add=(m,ink=true)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); PO.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=POINK; m.userData.shdM=m.material; INK.push(m); } return m; };
+  const up=poD(0,1,0), rod=(Mx,c,a,b,r)=>{ const v=poV.subVectors(b,a), L=v.length(); poQ.setFromUnitVectors(UPY,v.divideScalar(L||1)); poM.compose(poV2.addVectors(a,b).multiplyScalar(.5),poQ,poS.set(r,L,r)); kadd(GEO.cyl8,c,poM2.multiplyMatrices(Mx,poM)); };
+  const V=(x,y,z)=>new T.Vector3(x,y,z), torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
+  const parcel=(Mx,x,y,z,w_,h_,d_,ry=0,c='#b98b58')=>{ const B=poTf(Mx,x,y,z,ry); box(B,c,0,0,0,w_,h_,d_); box(B,'#efe7d6',0,h_,0,.012,.004,d_+.004); box(B,'#efe7d6',0,h_,0,w_+.004,.004,.012); box(B,'#f6f1e7',w_*.15,h_+.001,d_*.1,w_*.35,.002,d_*.3); };
+  const env=(Mx,x,y,z,ry,c)=>box(poTf(Mx,x,y,z,ry),c,0,0,0,.09,.004,.06);
+  kitTo('poin');
+  /* ---- the room: a chequered floor, green panelling to the dado and cream plaster over it, a boarded ceiling ---- */
+  for(let i=0;i<12;i++) for(let j=0;j<9;j++){ const x0=-iw+i*2*iw/12, x1=x0+2*iw/12, z0=-id+j*2*id/9, z1=z0+2*id/9; kquad(poW(x0,F+.004,z0),poW(x1,F+.004,z0),poW(x1,F+.004,z1),poW(x0,F+.004,z1),up,(i+j)%2?'#efe6d2':'#4f7a62'); }
+  const fh=[[PW.DX,PW.DW,0,PW.DH],[PW.WX,PW.WW,PW.WS,PW.WH]], li=(c,y0,y1,th,o=0)=>{
+    slab(M,c,'x',id-th/2-o,2*iw,th,y0,y1,fh); slab(M,c,'x',-id+th/2+o,2*iw,th,y0,y1,[]); slab(M,c,'z',iw-th/2-o,2*id-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-iw+th/2+o,2*id-2*(th+o),th,y0,y1,[]); };
+  li('#3d5e4a',F,F+.82,.025); li('#efe4cc',F+.82,top,.025); li('#7a5a3e',F+.8,F+.86,.05,.01); li('#2b4537',F,F+.06,.04,.01);
+  box(M,'#e6dcc6',0,top,0,2*iw,.04,2*id); for(let k=-3;k<=3;k++) box(M,'#cfc2a6',k*.52,top-.05,0,.05,.05,2*id); li('#d9cdb2',top-.08,top,.04,.01);
+  [-1,1].forEach(s=>box(M,'#7a5a3e',PW.DX+s*(PW.DW/2+.035),F,id-.03,.07,PW.DH-F+.07,.04)); box(M,'#7a5a3e',PW.DX,PW.DH,id-.03,PW.DW+.14,.07,.04);   // the door's frame inside
+  box(M,'#5b4636',PW.DX,F,id-.34,.7,.012,.4);   // the mat
+  /* the window inside: its frame and a deep sill with a display on it (a plant, a toy post van, cards on a little stand) */
+  box(M,'#2e5843',PW.WX,PW.WS-.02,id-.1,PW.WW+.1,.04,.24); [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*(PW.WW/2+.02),PW.WS,id-.03,.05,PW.WH-PW.WS,.05)); box(M,'#2e5843',PW.WX,PW.WH-.03,id-.03,PW.WW+.1,.06,.05);
+  [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*PW.WW/6,PW.WS,id-.01,.03,PW.WH-PW.WS,.03)); box(M,'#2e5843',PW.WX,PW.WH-.36,id-.01,PW.WW,.03,.03);
+  { const S0=PW.WS+.02; cyl(M,'#b0603e',-1.38,S0,id-.12,.06,.09); for(let k=0;k<6;k++) put(M,'blob',LEAF[k%3],-1.38+Math.cos(k*1.1)*.05,S0+.13+(k%2)*.05,id-.12+Math.sin(k*1.1)*.04,.065,.06,.065);
+    const vn=poTf(M,-.55,S0,id-.12,.3); box(vn,PO_RED,0,.03,0,.2,.1,.09); box(vn,PO_RED,.06,.13,0,.08,.06,.09); box(vn,'#9fc3d6',.09,.14,0,.03,.04,.092); [-1,1].forEach(sx=>[-1,1].forEach(sz=>cyl(poTf(vn,sx*.06,.03,sz*.048,0,Math.PI/2),'#2a2826',0,-.006,0,.022,.012,'cyl8'))); box(vn,'#d9b45a',-.03,.08,.046,.06,.03,.002);
+    for(let k=0;k<4;k++){ const cx=.0+k*.09; box(poTf(M,cx,S0,id-.15,0,-.35),['#f6f1e7','#9fc3d6','#f6d26b','#e9744f'][k],0,0,0,.075,.1,.006); } }
+  /* ---- the counter: panelled, a pale top, a flap you could lift at the right; on your side of it the scale, the stamp
+     rack, the forms and a pen on its chain, the bell to ring, a jar of sweets; on hers the ledger, her tea, the ink pad ---- */
+  const cz=-.42, cd=.48, cx0=-iw, cx1=iw, top_=F+.74;
+  box(M,'#7a5236',(cx0+cx1)/2,F,cz,cx1-cx0,.74,cd); for(let k=0;k<17;k++){ const x=cx0+.12+k*(cx1-cx0-.24)/16; box(M,k%2?'#835a3f':'#6f4a33',x,F+.06,cz+cd/2,.2,.58,.012); }
+  box(M,'#5d3e2c',(cx0+cx1)/2,F,cz+cd/2+.005,cx1-cx0,.06,.012); box(M,'#a8794f',(cx0+cx1)/2,top_,cz,cx1-cx0+.04,.045,cd+.08); box(M,'#8a5a3a',(cx0+cx1)/2,top_,cz+cd/2+.04,cx1-cx0+.04,.045,.012);
+  box(M,'#94663f',.92,top_+.046,cz,.4,.006,cd+.06); [.72,1.12].forEach(x=>box(M,'#5d3e2c',x,top_+.046,cz,.008,.004,cd+.06)); [-.12,.12].forEach(z=>cyl(poTf(M,1.115,top_+.03,cz+z,0,0,Math.PI/2),'#c9a24a',0,-.02,0,.012,.04,'cyl8'));
+  box(M,'#c9a24a',(cx0+cx1)/2,F+.1,cz+cd/2+.06,cx1-cx0-.2,.022,.022); [-1.5,-.4,.6,1.6].forEach(x=>box(M,'#c9a24a',x,F,cz+cd/2+.05,.022,.1,.022));   // a brass foot rail
+  /* a letter scale: its base, the column, the pan, and the dial */
+  { const B=sub(M,-1.18,top_+.045,cz+.02); box(B,'#3a3634',0,0,0,.2,.04,.16); cyl(B,'#c9a24a',0,.04,0,.018,.09,'cyl8'); cyl(B,'#d9b45a',0,.13,0,.09,.012); cyl(B,'#c9a24a',0,.142,0,.094,.006);
+    box(B,'#3a3634',0,.04,.07,.13,.12,.02); cyl(poTf(B,0,.1,.081,0,Math.PI/2),'#f6f1e7',0,0,0,.05,.006); box(poTf(B,0,.1,.086,0,0,.5),'#c4302b',0,-.002,0,.004,.04,.002); env(B,0,.148,0,.3,'#f6f1e7'); }
+  /* the stamp rack: a stepped stand with sheets of stamps in rows */
+  { const B=sub(M,-1.6,top_+.045,cz+.04,.2); for(let k=0;k<3;k++){ box(B,'#6b4a36',0,0,-.06+k*.05,.24,.04+k*.06,.05); for(let s=0;s<3;s++){ box(poTf(B,-.075+s*.075,.04+k*.06,-.04+k*.05,0,-.5),['#e9744f','#5d8fc0','#6fa25f','#f6d26b','#b9a2e0','#cf4a36'][(k*3+s)%6],0,0,0,.06,.07,.004);
+      box(poTf(B,-.075+s*.075,.04+k*.06,-.037+k*.05,0,-.5),'#fbf6ec',0,.01,0,.05,.05,.002); } } }
+  /* forms in a tray and a pen on its chain; the bell; a jar of sweets */
+  { const B=sub(M,-.8,top_+.045,cz+.12,-.1); box(B,'#8a6448',0,0,0,.26,.03,.18); for(let k=0;k<5;k++) box(B,k%2?'#f6f1e7':'#e9f0ea',0,.03+k*.004,0,.21,.004,.14); box(poTf(B,.2,.006,.05,.6),'#2a2624',0,0,0,.12,.012,.012); for(let k=0;k<6;k++) put(B,'sph','#c9a24a',.16-k*.025,.008,.08+k*.012,.006,.006,.006); }
+  { const B=sub(M,.42,top_+.045,cz+.1); cyl(B,'#2a2624',0,0,0,.05,.012); put(B,'sph','#d9b45a',0,.02,0,.045,.04,.045); put(B,'sph','#d9b45a',0,.065,0,.01,.012,.01); }
+  { const B=sub(M,.6,top_+.045,cz+.05); cyl(B,'#e2ecee',0,0,0,.06,.15); for(let k=0;k<9;k++) put(B,'sph',['#e9744f','#f6d26b','#cf4a36','#6fa25f','#f19bb0'][k%5],Math.cos(k*2.2)*.035,.03+(k%3)*.035,Math.sin(k*2.2)*.035,.022,.022,.022); cyl(B,'#c9a24a',0,.15,0,.064,.02); }
+  /* on her side: the ledger open by her, her tea, a pile of letters with an elastic band, the ink pad (found in its place below) */
+  { const B=sub(M,-.84,top_+.045,cz-.13,.15); box(B,'#3a5a7a',0,0,0,.34,.012,.24); box(poTf(B,-.085,.012,0,0,0,.05),'#f6f1e7',0,0,0,.16,.008,.22); box(poTf(B,.085,.012,0,0,0,-.05),'#f6f1e7',0,0,0,.16,.008,.22); for(let k=0;k<6;k++) box(B,'#9aa0a3',-.085,.022,-.08+k*.03,.12,.002,.004); }
+  { const B=sub(M,.55,top_+.045,cz-.14); cyl(B,'#5d7f6a',0,0,0,.035,.08); cyl(B,'#6b4a33',0,.07,0,.031,.006); torus(poTf(B,.035,.045,0,0,0,-Math.PI/2),'#5d7f6a',.02,.006,10,Math.PI); }
+  { const B=sub(M,.28,top_+.045,cz-.16,.2); for(let k=0;k<6;k++) box(poTf(B,0,k*.008,0,(k%3-1)*.06),k%2?'#f6f1e7':'#dbe6ec',0,0,0,.16,.008,.11); box(B,'#cf4a36',0,0,0,.012,.05,.115); }
+  /* ---- behind her: the back cupboards, the pigeonholes over them, the post office boxes, the clock, the shelves of parcels,
+     the radio, the sack; a calendar, a sorting tray ---- */
+  const bz=-id+.12;
+  box(M,'#6b4a36',0,F,bz,2*iw,.78,.24); for(let k=0;k<6;k++) box(M,'#5a3d2c',-iw+.32+k*(2*iw-.64)/5,F+.08,bz+.121,.5,.56,.012); box(M,'#a8794f',0,F+.78,bz,2*iw,.035,.27);
+  { const x0=-1.76, x1=-.24, y0=F+1.0, y1=F+1.86, nc=8, nr=5, cw_=(x1-x0)/nc, ch=(y1-y0)/nr, z=-id+.11;
+    box(M,'#7a5a3e',(x0+x1)/2,y0-.02,z,x1-x0+.04,.03,.22); box(M,'#7a5a3e',(x0+x1)/2,y1,z,x1-x0+.04,.03,.22); box(M,'#5a3d2c',(x0+x1)/2,y0,-id+.005,x1-x0,y1-y0,.01);
+    for(let i=0;i<=nc;i++) box(M,'#8a6448',x0+i*cw_,y0,z,.014,y1-y0,.22); for(let j=1;j<nr;j++) box(M,'#8a6448',(x0+x1)/2,y0+j*ch,z,x1-x0,.012,.22);
+    for(let i=0;i<nc;i++) for(let j=0;j<nr;j++){ const k=rnd(); if(k<.35) continue; const n=1+Math.floor(rnd()*3); for(let q=0;q<n;q++){ const lx=x0+(i+.5)*cw_+(rnd()-.5)*.03, ly=y0+j*ch+.014+q*.012;
+      box(poTf(M,lx,ly,z+.04+rnd()*.03,0,-.08-rnd()*.2,(rnd()-.5)*.1),['#f6f1e7','#dbe6ec','#f3e3c3','#e9f0ea'][Math.floor(rnd()*4)],0,0,0,cw_*.78,.006,.15); } } }
+  { const x0=.24, nc=4, nr=4, bw=.15, bh=.13, y0=F+1.02, z=-id+.03; box(M,'#7a5a3e',x0+nc*bw/2,y0-.02,z,nc*bw+.05,nr*bh+.05,.05);
+    for(let i=0;i<nc;i++) for(let j=0;j<nr;j++){ const cx=x0+(i+.5)*bw, cy=y0+j*bh; box(M,'#c9a24a',cx,cy+.01,z+.025,bw-.022,bh-.022,.012); box(M,'#8a6a2a',cx,cy+bh*.55,z+.032,.04,.012,.004); put(M,'sph','#5a4628',cx+bw*.3,cy+bh*.35,z+.034,.008,.008,.006); } }
+  /* the clock: a round face in a dark wooden rim over the boxes (its hands are their own: see below) */
+  const CK=[.54,F+1.92,-id+.03]; cyl(poTf(M,CK[0],CK[1],CK[2]-.02,0,Math.PI/2),'#4a3424',0,0,0,.2,.05); cyl(poTf(M,CK[0],CK[1],CK[2]+.032,0,Math.PI/2),'#fbf6ec',0,-.003,0,.17,.006);
+  for(let k=0;k<12;k++){ const a=k/12*TAU; box(poTf(M,CK[0]+Math.sin(a)*.145,CK[1]+Math.cos(a)*.145,CK[2]+.036,0,0,-a),'#2a241d',0,-.012,0,k%3?.008:.016,.026,.004); }
+  /* shelves of parcels on the right-hand wall */
+  for(let k=0;k<3;k++){ const y=F+.95+k*.42; box(M,'#8a6448',iw-.16,y,-1.0,.32,.03,.62); box(M,'#6b4a36',iw-.16,y-.08,-.72,.32,.08,.025);
+    for(let q=0;q<3;q++){ const pw_=.12+rnd()*.12, ph=.1+rnd()*.14; parcel(M,iw-.16+(rnd()-.5)*.06,y+.03,-1.2+q*.2,.22,ph,pw_,(rnd()-.5)*.3,['#b98b58','#a77a4c','#c49a66'][q]); } }
+  /* the radio on the back counter, a sorting tray of letters, a kettle and a biscuit tin */
+  { const B=sub(M,-.25,F+.815,bz); box(B,'#8a5a3a',0,0,0,.26,.16,.12); box(B,'#e8d9b8',-.04,.03,.061,.12,.09,.004); cyl(poTf(B,.08,.08,.062,0,Math.PI/2),'#2a2624',0,0,0,.025,.012); box(B,'#2a2624',0,.16,0,.12,.012,.02); }
+  { const B=sub(M,-1.1,F+.815,bz,.05); box(B,'#a8794f',0,0,0,.42,.07,.2); for(let k=0;k<14;k++) box(poTf(B,-.18+k*.026,.01,0,0,-.2),k%3?'#f6f1e7':'#dbe6ec',0,0,0,.004,.09,.14); }
+  { const B=sub(M,1.25,F+.815,bz); cyl(B,'#d9dbd6',0,0,0,.075,.14); put(B,'sph','#d9dbd6',0,.14,0,.075,.04,.075); put(B,'sph','#2a2624',0,.19,0,.02,.016,.02); box(poTf(B,.08,.06,0,0,0,-.6),'#d9dbd6',0,0,0,.08,.016,.016);
+    cyl(B,'#cf4a36',-.22,0,0,.08,.09); cyl(B,'#e8c36a',-.22,.09,0,.082,.012); }
+  /* a calendar on the back wall, and the sack on its frame by the shelves */
+  { const [sx,sz]=PW.SACK, B=sub(M,sx,F,sz); [-1,1].forEach(a=>[-1,1].forEach(b=>rod(B,'#4a4f53',V(a*.2,0,b*.18),V(a*.18,.72,b*.16),.012)));
+    box(B,'#4a4f53',0,.7,-.17,.4,.02,.02); box(B,'#4a4f53',0,.7,.17,.4,.02,.02); box(B,'#4a4f53',-.19,.7,0,.02,.02,.36); box(B,'#4a4f53',.19,.7,0,.02,.02,.36);
+    kadd(new T.LatheGeometry([[0,.05],[.12,.06],[.17,.18],[.18,.42],[.17,.62],[.18,.72],[.2,.76]].map(([r,y])=>new T.Vector2(r,y)),18).toNonIndexed(),'#c8b48a',B);
+    for(let k=0;k<4;k++) box(poTf(B,-.12+k*.08,.72,(k%2-.5)*.08,(k-1.5)*.3,.3*(k%2?1:-1)),k%2?'#f6f1e7':'#dbe6ec',0,0,0,.09,.004,.06); box(B,'#efe7d6',0,.35,.18,.16,.12,.004); box(B,'#2a241d',0,.4,.183,.1,.012,.002); }
+  /* ---- your side: the notice board on the left wall, a bench under it, the card rack by the window, parcels by the door,
+     a poster, St Brigid's cross over the door ---- */
+  { box(M,'#5d3e2c',-iw+.015,F+.4,.55,.03,.04,.95); box(M,'#5d3e2c',-iw+.02,F+.06,.55,.04,.36,.95); box(M,'#b8834f',-iw+.2,F+.42,.55,.4,.04,.95); [-1,1].forEach(s=>box(M,'#5d3e2c',-iw+.34,F,.55+s*.4,.05,.42,.05)); }
+  { const B=sub(M,-.98,F,1.02); cyl(B,'#3a3634',0,0,0,.15,.02); cyl(B,'#4a4f53',0,0,0,.012,1.15,'cyl8'); for(let k=0;k<4;k++){ const y=.55+k*.15; for(let s=0;s<6;s++){ const a=s/6*TAU+k*.4; box(poTf(B,Math.sin(a)*.1,y,Math.cos(a)*.1,a,-.12),['#9fc3d6','#f6d26b','#e9744f','#f6f1e7','#6fa25f','#f19bb0'][(s+k)%6],0,0,0,.08,.11,.004); } } }
+  parcel(M,1.58,F,.2,.3,.2,.34,.1); parcel(M,1.6,F+.2,.18,.24,.16,.26,-.15,'#a77a4c'); parcel(M,1.56,F+.36,.2,.16,.1,.18,.3,'#c49a66');
+  { const B=sub(M,PW.DX,PW.DH+.18,id-.035); for(let k=0;k<4;k++){ const a=k*Math.PI/2; box(poTf(B,Math.sin(a)*.07,Math.cos(a)*.07,0,0,0,-a),'#d6b66a',0,-.06,0,.022,.2,.012); box(poTf(B,Math.sin(a)*.16,Math.cos(a)*.16,0,0,0,-a),'#b8954a',0,-.01,0,.03,.02,.014); } box(B,'#c9a24a',0,-.03,.004,.06,.06,.016); }
+  /* ---- the lamps: green enamel shades on cords, two over the counter, one over the room ---- */
+  const LAMPS_=[[-1.0,top-.62,-.28],[.9,top-.62,-.28],[-.1,top-.55,.85]];
+  LAMPS_.forEach(([x,y,z])=>{ cyl(M,'#2a2624',x,y+.1,z,.006,top-y-.1,'cyl8'); put(M,'cone','#2f5a45',x,y+.06,z,.15,.13,.15); put(M,'sph','#fff2c4',x,y,z,.05,.05,.05); });
+  kitTo(); PO.m.room=add(new T.Mesh(kgeo('poin'),mat));
+  /* ---- the pictures: the notice board, the poster, the calendar and the counter's sign, painted on one canvas ---- */
+  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const draw=()=>{ poBoards(cv); tx.needsUpdate=true; }; draw();
+    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    const P=[], N=[], U=[], quad=(a,b,c_,d_,n,u0,v0,u1,v1)=>{ /* (wound to face the room) */ for(const [p,u,v] of [[a,u0,v0],[c_,u1,v1],[b,u1,v0],[a,u0,v0],[d_,u0,v1],[c_,u1,v1]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); U.push(u/1024,1-v/512); } };
+    const wallX=(x,z0,z1,y0,y1,s,u0,v0,u1,v1)=>quad(poW(x,y1,z0),poW(x,y1,z1),poW(x,y0,z1),poW(x,y0,z0),poD(s,0,0),u0,v0,u1,v1);
+    const wallZ=(z,x0,x1,y0,y1,s,u0,v0,u1,v1)=>quad(poW(x0,y1,z),poW(x1,y1,z),poW(x1,y0,z),poW(x0,y0,z),poD(0,0,s),u0,v0,u1,v1);
+    wallX(-iw+.046,1.08,.06,F+1.0,F+1.76,1,0,0,512,384);   // the notice board, on the left wall, read from the room
+    wallX(iw-.04,.42,.98,F+1.0,F+1.82,-1,512,0,768,384);   // the poster, on the right
+    wallZ(-id+.03,1.0,1.32,F+1.36,F+1.78,1,768,256,960,512);   // the calendar, by the shelves
+    wallZ(cz+.25,-1.25,.25,F+.62,F+.72,1,0,400,768,464);   // the counter's sign, along its front
+    const gg=new T.BufferGeometry(); gg.setAttribute('position',new T.Float32BufferAttribute(P,3)); gg.setAttribute('normal',new T.Float32BufferAttribute(N,3)); gg.setAttribute('uv',new T.Float32BufferAttribute(U,2));
+    PO.m.boards=add(new T.Mesh(gg,poBoard(tx))); PO.btx=tx;
+    /* the board's cork and frame, the poster's frame */
+    kitTo('pofr'); box(M,'#6b4a36',-iw+.02,F+.97,.57,.03,.82,1.1); box(M,'#c49a66',-iw+.025,F+1.0,.57,.03,.76,1.02); box(M,'#3a2a20',iw-.02,F+.98,.7,.03,.86,.6); kitTo(); add(new T.Mesh(kgeo('pofr'),mat)); }
+  /* ---- the clock's hands: their own, so they keep the time (the time of day here, as the sky has it) ---- */
+  { const hm=(L,wd)=>{ kitTo('pohand'); box(new T.Matrix4(),'#2a241d',0,-.015,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pohand'),mat)); }; PO.m.hh=hm(.1,.014); PO.m.mh=hm(.14,.009); PO.ck=CK; }
+  /* ---- Bríd ---- */
+  /* (she stands back from the window: the sun that comes in at it never reaches her, so none is drawn on her, only the lamps) */
+  { const f=figure(BRID), bm=poMat(); bm.uniforms.uLitA={value:new T.Vector3()}; f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=bm; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=POINK; o.userData.shdM=o.material; INK.push(o); PO.meshes.push(o); });
+    g.add(f); PO.bk.fig=f; }
+  /* ---- the rubber stamp: a turned wooden handle with a knob, its block, the rubber under it; and the ink pad, in its tin ---- */
+  { kitTo('postamp'); cyl(I,'#3a2a20',0,0,0,.034,.012); cyl(I,'#8a5a3a',0,.012,0,.03,.03); cyl(I,'#b8834f',0,.042,0,.012,.06,'cyl8'); put(I,'sph','#b8834f',0,.11,0,.026,.022,.026); kitTo(); PO.m.stamp=add(new T.Mesh(kgeo('postamp'),mat)); }
+  { kitTo('popad'); box(I,'#2c4f9e',0,0,0,.13,.018,.09); box(I,'#3a1c22',0,.018,0,.11,.004,.07); box(poTf(I,0,.02,-.045,0,-1.9),'#2c4f9e',0,0,0,.13,.004,.09); kitTo(); PO.m.pad=add(new T.Mesh(kgeo('popad'),mat)); }
+  /* ---- your card, on the counter while it is posted: your own picture, and the postmark once it is stamped ---- */
+  { const cv=document.createElement('canvas'); cv.width=cv.height=512; PO.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PO.ctx=tx; const c=cv.getContext('2d'); c.fillStyle=PC_PAPER; c.fillRect(0,0,512,512);
+    const cm=add(new T.Mesh(new T.PlaneGeometry(1,1).rotateX(-Math.PI/2),poBoard(tx))); PO.m.card=cm; PO.card={p:new T.Vector3(),k:0,at:'none',from:new T.Vector3(),s:[.19,.127],tilt:0}; }
+  /* ---- the lamps, for the light ---- */
+  LAMPS_.forEach((p,i)=>{ poW(p[0],p[1]-.05,p[2],poV); PU.uCL.value[i].set(poV.x,poV.y,poV.z,i<2?1:.9); }); poW(PW.WX,2.35,id-.15,poV); PU.uCL.value[3].set(poV.x,poV.y,poV.z,0);
+  /* ---- what a click finds: the shop's front and the pillar box from the street (boxes, never drawn) ---- */
+  PO.pick=new T.Mesh(new T.BoxGeometry(w-.1,2.7,.5)); PO.pick.matrixAutoUpdate=false; PO.pick.matrixWorld.copy(M).multiply(poM.makeTranslation(-.12,1.35,d/2+.15));
+  PO.pickBox=new T.Mesh(new T.BoxGeometry(.6,1.35,.6)); PO.pickBox.matrixAutoUpdate=false; PO.pickBox.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BOX[0],.68,PW.BOX[1]));
+  PO.pickIn=new T.Mesh(new T.BoxGeometry(1.2,1.5,.9)); PO.pickIn.matrixAutoUpdate=false; PO.pickIn.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BK[0],F+.75,cz-.1));
+  PO.pickOut=new T.Mesh(new T.BoxGeometry(PW.DW,PW.DH-F,.3)); PO.pickOut.matrixAutoUpdate=false; PO.pickOut.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.DX,(PW.DH+F)/2,id));
+  try{ renderer.initTexture&&[PO.btx,PO.ctx].forEach(tx=>renderer.initTexture(tx)); }catch(e){}
+  sc.add(g); PO.g=g;
+  /* where your card is stamped, and the ink pad to her right (her hands reach them: see poReach) */
+  PO.at.card=[.02,-.52]; PO.at.pad=[-.3,-.5]; PO.at.top=F+.74+.045;
+  PO.m.pad.matrix.multiplyMatrices(M,poM.makeTranslation(PO.at.pad[0],PO.at.top,PO.at.pad[1])); poRest(); poPose(0,0,true);
+  POWHO.dir.copy(at(...poXZ(PW.BK[0],PW.BK[1]))); [POWHO.x,POWHO.z]=poXZ(PW.BK[0],PW.BK[1]);
+  /* no rain or snow falls in here: the streaks round the camera are not drawn while you are inside */ }
+/* the pictures: the notice board (notices pinned on cork), a poster, the calendar, the counter's sign */
+function poBoards(cv){ const c=cv.getContext('2d'), r=seeded(21), ink='#2a241d', F_=(s,w=900)=>`${w} ${s}px Doto, monospace`, M_=s=>`600 ${s}px ui-monospace, Menlo, monospace`;
+  c.fillStyle='#c49a66'; c.fillRect(0,0,512,384); for(let i=0;i<500;i++){ c.fillStyle=`rgba(90,60,30,${r()*.18})`; c.fillRect(r()*512,r()*384,2,2); }
+  const note=(x,y,w,h,rot,bg,lines,pin)=>{ c.save(); c.translate(x+w/2,y+h/2); c.rotate(rot); c.fillStyle='rgba(0,0,0,.18)'; c.fillRect(-w/2+4,-h/2+5,w,h); c.fillStyle=bg; c.fillRect(-w/2,-h/2,w,h);
+    c.fillStyle=ink; c.textAlign='center'; c.textBaseline='top'; let yy=-h/2+12; for(const [t,s,mono] of lines){ c.font=mono?M_(s):F_(s); c.fillText(t,0,yy,w-14); yy+=s*1.25; }
+    c.fillStyle=pin; c.beginPath(); c.arc(0,-h/2+6,6,0,TAU); c.fill(); c.restore(); };
+  note(14,16,170,150,-.05,'#fbf6ec',[['CÉILÍ',30],['FRIDAY',16,1],['parish hall, 9pm',14,1],['all welcome',14,1]],'#cf4a36');
+  note(200,12,150,118,.06,'#f6d26b',[['LOST',28],['one kite',15,1],['last seen over',13,1],['the cliff',13,1]],'#3f6fd0');
+  note(366,20,132,160,-.03,'#e9f0ea',[['ROCKET',22],['CLUB',22],['thursdays',14,1],['the workshop',14,1],['bring a fin',13,1]],'#ef8a3c');
+  note(30,196,190,150,.04,'#fbf6ec',[['BIKE',26],['FOR SALE',20],['ask Bríd',15,1],['(not hers)',13,1]],'#6fa25f');
+  note(250,160,120,104,-.07,'#f19bb0',[['TIDES',22],['high 6.40',13,1],['low 12.55',13,1]],'#2a241d');
+  note(240,282,250,86,.02,'#dbe6ec',[['LAST POST 5.30',20],['Mon to Sat',14,1]],'#cf4a36');
+  /* the poster: send a postcard home, with a stamp drawn on it */
+  c.fillStyle='#2e5843'; c.fillRect(512,0,256,384); c.fillStyle='#fbf6ec'; c.fillRect(526,14,228,356); c.fillStyle=ink; c.textAlign='center'; c.textBaseline='middle';
+  c.font=F_(30); c.fillText('SEND A',640,52); c.fillText('POSTCARD',640,88); c.fillText('HOME',640,124);
+  c.save(); c.translate(640,236); c.rotate(-.08); c.fillStyle='#fffdf7'; c.fillRect(-60,-74,120,148); c.strokeStyle=ink; c.lineWidth=3; c.setLineDash([6,5]); c.strokeRect(-60,-74,120,148); c.setLineDash([]);
+  c.fillStyle='#e9744f'; c.fillRect(-46,-60,92,92); c.fillStyle='#fbf6ec'; c.beginPath(); c.arc(0,-16,24,0,TAU); c.fill(); c.fillStyle=ink; c.font=M_(14); c.fillText('HELORIA POST',0,52); c.restore();
+  c.font=M_(15); c.fillStyle='#6f6355'; c.fillText('from Earth, with love',640,346);
+  /* the calendar: this month, the day ringed */
+  { const now=new Date(), M=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'], m=+SKY.md.slice(0,2)-1, dd=+SKY.md.slice(3);
+    c.fillStyle='#fbf6ec'; c.fillRect(768,256,192,256); c.fillStyle='#6fa25f'; c.fillRect(768,256,192,96); c.fillStyle='#fbf6ec'; c.beginPath(); c.arc(864,304,28,0,TAU); c.fill(); c.fillStyle='#e9744f'; c.beginPath(); c.arc(864,304,16,0,TAU); c.fill();
+    c.fillStyle=ink; c.font=F_(18); c.fillText(M[m]||'',864,368); c.font=M_(11); for(let i=0;i<31;i++){ const x=782+(i%7)*26, y=392+Math.floor(i/7)*22; c.fillText(String(i+1),x+8,y); if(i+1===dd){ c.strokeStyle='#cf4a36'; c.lineWidth=2; c.beginPath(); c.arc(x+8,y,10,0,TAU); c.stroke(); } } }
+  /* the counter's sign */
+  c.fillStyle='#2e5843'; c.fillRect(0,400,768,64); c.fillStyle='#e8c36a'; c.font=F_(34); c.fillText('STAMPS  ·  PARCELS  ·  POSTAL ORDERS',384,433,740);
+  /* the clock face is the kit's (see the clock) */ }
+
+/* ---------- your card, and its postmark: the picture you took, the clerk's red stamp over the corner of the stamp, the
+   post office's name round it, the day and POSTED across it ---------- */
+/* (the ink is laid on a sheet of its own, flecked there, then pressed onto the card, so the flecks are paper, not holes) */
+let PO_INK=null;
+function poPostmark(g0,W,H){ const port=H>W, m=port?48:56, sw=port?190:210, sh=port?230:250, sx=W-m-34-sw, sy=m+34, when=pcWhen(), r=port?96:108, cx=sx+sw*.62, cy=sy+sh+r*.62, red='#b8322a';
+  const ox=r+260, oy=r+60, sheet=PO_INK||(PO_INK=document.createElement('canvas')); sheet.width=ox+r+20; sheet.height=2*oy; const g=sheet.getContext('2d');
+  g.save(); g.translate(ox,oy); g.rotate(-.18); g.strokeStyle=red; g.fillStyle=red; g.lineWidth=7; g.beginPath(); g.arc(0,0,r,0,TAU); g.stroke(); g.lineWidth=3; g.beginPath(); g.arc(0,0,r-30,0,TAU); g.stroke();
+  const mono='ui-monospace, Menlo, monospace', arc=(txt,rad,topSide)=>{ g.font=`800 ${port?17:19}px ${mono}`; g.textAlign='center'; g.textBaseline='middle'; const step=.105*(port?1:.95);
+    for(let i=0;i<txt.length;i++){ const a=(topSide?-Math.PI/2:Math.PI/2)+(topSide?1:-1)*(i-(txt.length-1)/2)*step; g.save(); g.translate(Math.cos(a)*rad,Math.sin(a)*rad); g.rotate(a+(topSide?Math.PI/2:-Math.PI/2)); g.fillText(txt[i],0,0); g.restore(); } };
+  arc('OIFIG AN PHOIST',r-15,true); arc(when.date,r-15,false);
+  g.font=`900 ${port?34:38}px ${mono}`; g.textAlign='center'; g.textBaseline='middle'; g.fillText('POSTED',0,2);
+  g.lineWidth=4; for(let k=0;k<5;k++){ g.beginPath(); for(let x=0;x<=(port?170:230);x+=6){ const px=-r-12-x, py=-36+k*18+Math.sin(x/15)*6; x?g.lineTo(px,py):g.moveTo(px,py); } g.stroke(); }
+  /* a rubber stamp never inks evenly: flecks of paper show through */
+  g.globalCompositeOperation='destination-out'; const rr=seeded(Math.floor(performance.now())%997+1); for(let i=0;i<420;i++){ const a=rr()*TAU, d=rr()*(r+10); g.globalAlpha=.25+rr()*.6; g.fillRect(Math.cos(a)*d,Math.sin(a)*d,1+rr()*3,1+rr()*2); }
+  g.restore(); g0.save(); g0.globalAlpha=.86; g0.drawImage(sheet,cx-ox,cy-oy); g0.restore(); }
+/* the card on the counter, drawn from your postcard (and with the postmark once it is stamped) */
+/* (the canvas keeps its size, a card either way up drawn to fill it, and the card's own shape is the mesh's: a texture's
+   size cannot change once it is on the graphics card) */
+function poCardDraw(img,stamped){ const cv=PO.ccv, port=img.height>img.width;
+  const c=cv.getContext('2d'), W=cv.width, H=cv.height; c.drawImage(img,0,0,W,H); if(stamped){ c.save(); c.scale(W/img.width,H/img.height); poPostmark(c,img.width,img.height); c.restore(); } PO.ctx.needsUpdate=true;
+  PO.card.s=port?[.15,.19]:[.19,.127]; }
+
+/* ---------- where you are, and going over ---------- */
+function poYou(){ const P=player; poL(poV.copy(P.u).multiplyScalar(R+P.h),PO.pl); poV2.copy(P.f).transformDirection(PO.Mi); return {x:PO.pl.x,z:PO.pl.z,fz:poV2.z,fx:poV2.x}; }
+const poBusy=()=>!PO.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden;
+const poAtDoor=(m=1)=>{ const y=PO.you; return Math.abs(y.x-PW.DX)<.55*m&&y.z>PW.d/2+.15&&y.z<PW.d/2+1.25+(m-1)*.8; };
+const poAtBox=()=>PO.db<1.15&&PO.you.z>PW.d/2+.3;
+function poSet(s){ if(s==='out'&&PO.st==='exit') ESCQ=performance.now(); PO.st=s; PO.on=s==='enter'||s==='in'||s==='exit'; PO.t=0; el.classList.toggle('inpo',PO.on); if(PO.cur){ PO.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } poUI(); }
+/* go in: from by the door straight away, from further off walking over there first (round whatever is in the way) */
+function poGo(){ if(PO.st!=='out'||poBusy()||PO.bx.st!=='idle') return false; if(poAtDoor(1.4)){ began(); poEnter(); return true; }
+  const P=player, [gx,gz]=poXZ(PW.DX,PW.d/2+.75), path=navPath(P.x,P.z,gx,gz,1.2);
+  closeTalk(); TALK.goal=null; C.guide=null; if(path){ P.path=path.concat([[gx,gz]]); P.tgt=null; } else { P.path=null; P.tgt=at(gx,gz).multiplyScalar(R); } P.stuck=0; PO.go=0; poSet('go'); began(); A.tick(); return true; }
+function poGoing(dt){ const P=player; PO.go+=dt;
+  if(poBusy()||TALK.goal||PO.go>25){ poSet('out'); return; }
+  if(poAtDoor(1.2)&&(!P.path||P.path.length<=1)){ P.path=null; P.tgt=null; poEnter(); return; }
+  if(!P.path&&!P.tgt) poSet('out'); }
+/* out in the street: walking into the door takes you in */
+function poOutside(){ const P=player, y=PO.you;
+  if(!poBusy()&&!TALK.goal&&!P.path&&P.speed>.35&&PO.bx.st==='idle'&&Math.abs(y.x-PW.DX)<.42&&y.z>PW.d/2+.2&&y.z<PW.d/2+1.0&&y.fz<-.55) poEnter(); }
+
+/* ---------- the way in and the way out ---------- */
+function poEye(o,lean=0){ const p=cport(), [sx,sz]=PW.S; return poW(sx+(PO.at.card?(PO.at.card[0]-sx)*.35*lean:0),PW.FL+PW.EY+(p?.05:0)-lean*.1,sz-lean*.5,o); }
+function poDir(yaw,pitch,o){ return poD(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch),o); }
+const poYawTo=(x,z)=>Math.atan2(-(x-PW.S[0]),-(z-PW.S[1]));
+function poGroundY(x,z){ const [mx,mz]=poXZ(x,z); return poL(at(mx,mz,poV3).multiplyScalar(R+standH(mx,mz)),poV3).y; }
+/* you (the figure) walking in or out: on the pavement, up the step, on the shop floor */
+function poFig(dt,t,x,z,sp){ const [ox,oz]=PO.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); PO.fig=[x,z];
+  if(dd>1e-4){ const a=angWrap(Math.atan2(dx,dz)-PO.fh); PO.fh+=a*Math.min(1,dt*9); }
+  const [mx,mz]=poXZ(x,z), f=PW.d/2, y=z<f-.05?PW.FL:z<f+.6?Math.max(.16,poGroundY(x,z)):poGroundY(x,z); poW(x,y,z,poV); if(z<f) poV2.copy(PO.up); else at(mx,mz,poV2); poD(Math.sin(PO.fh),0,Math.cos(PO.fh),poV3);
+  sT.crossVectors(poV2,tang(poV2,poV3,poV3)).normalize(); Mf.makeBasis(sT,poV2,poV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(poV);
+  PO.fph+=dt*sp*4.6; animate(me,PO.fph,clamp(sp/2.7,0,1),0,t,9); PO.fstep+=sp*dt; if(PO.fstep>.62){ PO.fstep=0; A.step(z<f?1:roadDist(mx,mz)<RW+SW?1:0); } }
+const PT_IN=3, PT_OUT=2.7;
+function poEnter(){ if(PO.on||poBusy()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  const y=poYou(); PO.fig=[y.x,y.z]; PO.fh=Math.atan2(poV2.x,poV2.z); PO.fph=P.ph; PO.fstep=0; poRest(); PO.yaw=PW.yaw0; PO.pitch=cport()?PW.pP:PW.p0; PO.lean=0; PO.dragT=9; PO.out=0; PO.greet=0;
+  const f=PW.d/2, E_=poEye(new T.Vector3()); PO.wIn=[PO.fig.slice(),[PW.DX,f+.55],[PW.DX,f-.4],[PW.S[0]+.25,PW.S[1]-.15]];
+  PO.curve=new T.CatmullRomCurve3([st.camP.clone(),poW(PW.DX,PW.FL+1.5,f+1.9),poW(PW.DX,PW.FL+PW.EY+.12,f+.15),poW(PW.DX-.4,PW.FL+PW.EY+.05,f-.45),E_],false,'centripetal');
+  PO.lcurve=new T.CatmullRomCurve3([st.camL.clone(),poW(PW.DX,1.3,.6),poW(.2,1.35,-.4),E_.clone().add(poDir(PO.yaw,PO.pitch,poV3))],false,'centripetal');
+  PO.u0=stUp.clone(); PO.k=1; PO.dOpen=0; me.visible=true; poSet('enter'); return true; }
+function poWayIn(dt,t){ const c=PO.t+=dt;
+  /* you walk up the step and in at the door (it opens as you reach it, the bell over it rings, and it shuts behind you), on
+     to the counter, the camera behind you down to eye height and through the door into your own eyes */
+  const W=PO.wIn, wk=sstep(0,2.5,c), [x,z,L]=cpoly(W,wk), sp=L*6*wk*(1-wk)/2.5;
+  if(c>.35&&!PO.dOpen){ PO.dOpen=1; PO.doorT=1; A.poBell(true); } if(c>2.35&&PO.doorT===1){ PO.doorT=0; PO.shut=1; }
+  const s=E.io(clamp(c/(PT_IN-.1),0,1)); PO.curve.getPointAt(s,PO.cp); PO.lcurve.getPointAt(Math.min(1,s*1.04),PO.cl); PO.cu.copy(PO.u0).lerp(PO.up,sstep(.2,.8,s)).normalize();
+  if(me.visible){ poFig(dt,t,x,z,sp); if(c>1.2&&me.position.distanceTo(PO.cp)<.85||c>2.6) me.visible=false; }
+  if(c>1.4&&!PO.greet){ PO.greet=1; PO.bk.look=1; PO.bk.R='rest'; PO.bk.wave=1.8; A.murmur(BRID.pitch,3); }   // she looks up from her ledger and waves
+  if(c>=PT_IN){ PO.wIn=null; PO.curve=PO.lcurve=null; PO.ph='idle'; poSet('in'); poGreet(); } }
+function poLeave(){ if(PO.st!=='in'||PO.ph==='post') return false; const P=player, f=PW.d/2, [ax,az]=poXZ(PW.DX,f+.85); closeTalk();
+  /* you come out onto the pavement, facing the street, and the walking camera takes over just where this one ends */
+  P.x=ax; P.z=az; P.u.copy(at(ax,az)); tang(P.u,poW(PW.DX,0,9,poV),P.f); P.h=standH(ax,az); P.speed=0; P.path=null; P.tgt=null;
+  const D=rigLimit(ax,az,P.u,P.f,C.PITCH,C.D0()), head=poV.copy(P.u).multiplyScalar(R+P.h+C.HEAD); PO.endP=new T.Vector3(); PO.endL=new T.Vector3(); rigPose(head,P.u,P.f,C.PITCH,D,PO.endP,PO.endL); PO.endD=D;
+  PO.y0=PO.yaw; PO.p0x=PO.pitch; PO.curve=null; PO.fig=[PW.S[0]+.2,PW.S[1]]; PO.fh=Math.atan2(PW.DX-PW.S[0],f-PW.S[1]); PO.dOpen=0; poSet('exit'); return true; }
+function poWayOut(dt,t){ const c=PO.t+=dt, P=player, f=PW.d/2;
+  /* you turn to the door, it opens, out you go and it shuts behind you; the camera ends just where the walking one starts */
+  if(c<.6){ const k=E.io(c/.6), to=poYawTo(PW.DX,f); PO.yaw=PO.y0+angWrap(to-PO.y0)*k; PO.pitch=lerp(PO.p0x,-.06,k); PO.lean=0; poEye(PO.cp); poDir(PO.yaw,PO.pitch,poV).add(PO.cp); PO.cl.copy(poV); PO.cu.copy(PO.up); }
+  else { if(!PO.curve){ PO.curve=new T.CatmullRomCurve3([PO.cp.clone(),poW(PW.DX-.3,PW.FL+PW.EY+.1,f-.5),poW(PW.DX,PW.FL+PW.EY+.15,f+.2),PO.endP.clone()],false,'centripetal'); PO.lc0=PO.cl.clone(); }
+    const s=E.io(clamp((c-.6)/(PT_OUT-.65),0,1)); PO.curve.getPointAt(s,PO.cp); poV4.copy(me.position).addScaledVector(PO.up,1.2);
+    PO.cl.copy(PO.lc0).lerp(poV4,sstep(0,.3,s)).lerp(PO.endL,sstep(.45,1,s)); PO.cu.copy(PO.up).lerp(P.u,s).normalize(); }
+  if(c>.3&&!PO.dOpen){ PO.dOpen=1; PO.doorT=1; A.poBell(true); } if(c>2.05&&PO.doorT===1){ PO.doorT=0; PO.shut=1; }
+  const Wp=[[PW.S[0]+.2,PW.S[1]],[PW.DX-.1,f-.45],[PW.DX,f+.2],[PW.DX,f+.85]], u=clamp((c-.3)/2.0,0,1), wk=u*u*(3-2*u), [x,z,L]=cpoly(Wp,wk), sp=L*6*u*(1-u)/2.0;
+  if(c>.3){ me.visible=true; poFig(dt,t,x,z,sp); }
+  if(c>=PT_OUT){ const [mx,mz]=poXZ(PW.DX,f+.85); P.x=mx; P.z=mz; P.u.copy(at(mx,mz)); tang(P.u,poW(PW.DX,0,9,poV),P.f); P.h=standH(mx,mz); P.ph=PO.fph;
+    C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.dist=PO.endD; C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dragT=9; C.tk=0; stUp.copy(P.u);
+    PO.curve=null; poSet('out'); PO.cp.copy(PO.endP); PO.cl.copy(PO.endL); PO.cu.copy(P.u); me.visible=true; } }
+/* inside: drag, or the arrows (A, D), to look round; W leans in to the counter, or takes you out if you face the door; S takes you out */
+function poInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0), busy=PO.ph==='post';
+  if(kx){ PO.yaw=clamp(PO.yaw+kx*1.6*dt,-2.95,2.95); PO.dragT=0; }
+  const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown'), out=Math.abs(angWrap(PO.yaw-poYawTo(PW.DX,PW.d/2)))<.7;
+  if(!busy&&!TALK.p&&(bk||fw&&out)){ PO.out+=dt; if(PO.out>.3){ PO.out=0; poLeave(); return; } } else PO.out=0;
+  PO.dragT+=dt;
+  /* where the view rests on its own: Bríd; your card while she stamps it, leaning in over the counter */
+  let ay=PW.yaw0, ap=cport()?PW.pP:PW.p0, al=fw&&!out&&!busy?1:0;
+  if(busy&&PO.at.card){ const [cx,cz]=PO.at.card, k=PO.pt<3.2?1:0; if(k){ al=1; const e=poL(poEye(poV,PO.lean),poV2); ay=Math.atan2(-(cx-e.x),-(cz-e.z)); ap=Math.atan2(PO.at.top-e.y,Math.hypot(cx-e.x,cz-e.z))+.1; }
+    else { const e=poL(poEye(poV,PO.lean),poV2), [sx,sz]=PW.SACK; ay=Math.atan2(-(sx-e.x),-(sz-e.z))*.6; ap=-.18; } }
+  if(PO.dragT>2.4||busy){ PO.yaw=damp(PO.yaw,ay,busy?2.6:1.8,dt); PO.pitch=damp(PO.pitch,ap,busy?2.6:1.8,dt); }
+  PO.lean=damp(PO.lean,al,1.8,dt);
+  poEye(PO.cp,PO.lean); if(PO.jolt>0){ PO.jolt=Math.max(0,PO.jolt-dt); PO.cp.addScaledVector(PO.up,-.012*Math.sin(PO.jolt/.18*Math.PI)); }   // (the thunk: the room jolts, a little)
+  poDir(PO.yaw,PO.pitch,poV).add(PO.cp); PO.cl.copy(poV); PO.cu.copy(PO.up); me.visible=false; }
+
+/* ---------- Bríd at her counter, and posting your card ---------- */
+function poRest(){ const B=PO.bk; B.yaw=B.yawT=0; B.R='write'; B.L='rest'; B.wave=B.nod=0; B.look=0; B.hold=null; PO.ph='idle'; PO.pt=0; PO.bulge=0; PO.jolt=0;
+  if(PO.card){ PO.card.at='none'; if(PO.m.card) PO.m.card.visible=false; } PO.stampAt='pad'; }
+/* she says hello: whether you have a card for her, or none (and then to go and take one) */
+function poGreet(){ const has=poHas(); let L;
+  if(has) L=[BRL.card];
+  else if(PO.boxed&&!PO.toldBox){ PO.toldBox=true; L=[BRL.boxed]; }
+  else L=PO.posted?[BRL.again]:PO.seen?[BRL.none]:[BRL.none,BRL.look];
+  if(!PO.seen) L.unshift(BRL.hi);   // (hello, the first time you come in)
+  PO.seen=true; poTalk(L); }
+function poTalk(L){ POWHO.lines=L; openTalk(POWHO,0); poUI(); }
+/* hand it over: the card slides across the counter, she inks the stamp and brings it down, and into the sack it goes */
+function poPost(){ if(PO.st!=='in'||PO.ph!=='idle'||!poHas()||PO.busyCard) return false; closeTalk(); PO.busyCard=true; PO.stampedUrl=null; PO.shown=false; PO.wantCard=false; const blob=PC.blob;
+  (window.createImageBitmap?createImageBitmap(blob):new Promise((ok,no)=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=no; im.src=PC.url; })).then(img=>{ PO.busyCard=false; if(PO.st!=='in'||PO.ph!=='idle') return;
+    PO.img=img; PO.blob0=blob; poCardDraw(img,false); PO.stamped=false; PO.ph='post'; PO.pt=0; PO.dragT=0; PO.shown=false; PO.thunks=0; const cd=PO.card; cd.at='slide'; PO.m.card.visible=true; A.poShuffle(.8); poUI(); }).catch(()=>{ PO.busyCard=false; });
+  return true; }
+/* the stamped card: the full picture with the postmark on it, made into a file to save or share, and put up as the card */
+function poStampCard(){ const img=PO.img; if(!img) return; const W=img.width, H=img.height, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.drawImage(img,0,0); poPostmark(g,W,H);
+  cv.toBlob(b=>{ if(!b) return; const old=PC.url; PC.url=URL.createObjectURL(b); PC.blob=b; PO.done=b; PO.stampedUrl=PC.url; pcImg.src=PC.url; pcSave.href=PC.url;
+    const when=pcWhen(); pcSave.download='heloria-postcard-'+when.date.replace(/ /g,'-').toLowerCase()+'-posted.jpg';
+    pcShare.hidden=!(navigator.canShare&&navigator.canShare({files:[new File([b],'heloria-postcard.jpg',{type:'image/jpeg'})]})); if(old) setTimeout(()=>URL.revokeObjectURL(old),2000); if(PO.wantCard) poShowCard(); },'image/jpeg',.92); }
+function poShowCard(){ if(PO.shown||!PO.stampedUrl){ PO.wantCard=!PO.shown; return; } PO.shown=true; PO.wantCard=false; if(PO.st!=='in') return; closeTalk(); PO.said=0; pcCard.hidden=false; A.chime(7,0,.03); if(PO.kb) setTimeout(()=>{ const b=$('#crCardSave',el); if(b){ kbNav=true; b.focus(); } },60); }
+/* the posting, beat by beat (seconds since the card was handed over) */
+function poBeats(dt){ if(PO.ph!=='post'||PO.hold) return;   // (hold: a test holds a moment of it still, for its picture)
+  const c0=PO.pt; PO.pt+=dt; const c=PO.pt, B=PO.bk, at_=x=>c0<x&&c>=x;
+  B.look=c>3.7?1:0; B.yawT=0;
+  if(c<.35) B.R='rest'; else if(c<.85) B.R='pad'; else if(c<1.2) B.R='up'; else if(c<1.6) B.R='down'; else if(c<1.85) B.R='up'; else if(c<2.25) B.R='pad'; else B.R='rest';
+  if(at_(.75)) PO.stampAt='hand'; if(at_(.82)) A.poThunk(.3); if(at_(2.15)){ PO.stampAt='pad'; A.poThunk(.2); }
+  if(at_(1.36)){ A.poThunk(1); PO.thunks++; PO.jolt=.18; poCardDraw(PO.img,true); PO.stamped=true; poStampCard(); }   // thunk
+  if(c>2.2&&c<3.4) B.L=c<2.55?'take':c<3.05?'hold':'drop'; else if(c>=3.4) B.L='rest';
+  if(at_(2.5)){ PO.card.at='hand'; }
+  if(c>2.55&&c<3.6) B.yawT=1.25;
+  if(at_(3.12)){ PO.card.at='fall'; PO.card.from.copy(PO.card.p); PO.card.k=0; }
+  if(at_(3.4)){ A.poShuffle(1); PO.bulge=1; PO.posted++; }
+  if(at_(3.75)) B.nod=1;
+  if(c>=4.05){ PO.ph='said'; PO.card.at='none'; PO.m.card.visible=false; poTalk([BRL.posted]); PO.saidT=0; } }
+/* where her hands go while she posts your card, in the post office's frame: the stamp's knob over the pad, up over your
+   card, down on it; her left hand to your card. (PO_GRIP: from her hand down to the stamp's rubber) */
+const PO_GRIP=.13, PO_REACH={pad:()=>[PO.at.pad[0],PO.at.top+.022+PO_GRIP,PO.at.pad[1]],up:()=>[PO.at.card[0],PO.at.top+.3,PO.at.card[1]+.02],
+  down:()=>[PO.at.card[0],PO.at.top+.004+PO_GRIP,PO.at.card[1]],take:()=>[PO.at.card[0]+.04,PO.at.top+.03,PO.at.card[1]]};
+/* an arm reaching a point: the elbow bends as much as the distance asks, and the shoulder turns the arm (forward, then out)
+   so the hand lands on it. Gives the arm's turn forward and out, and the forearm's bend */
+function poReach(d,i,T_){ const arm=d.arms[i], a=.18, b=.2; poW(T_[0],T_[1],T_[2],poV4); arm.parent.worldToLocal(poV4).sub(arm.position);
+  const D=clamp(poV4.length(),Math.abs(a-b)+.01,a+b-.005), bend=Math.PI-Math.acos(clamp((a*a+b*b-D*D)/(2*a*b),-1,1)), hy=-a-b*Math.cos(bend), hz=b*Math.sin(bend);
+  const rz=Math.asin(clamp(poV4.x/Math.abs(hy),-1,1)), rx=Math.atan2(poV4.z,poV4.y)-Math.atan2(hz,hy*Math.cos(rz)); return [rx,rz,-bend]; }
+function poPose(dt,t,force){ const B=PO.bk, f=B.fig; if(!f) return; const d=f.userData;
+  let a=angWrap(B.yawT-B.yaw); B.yaw+=a*Math.min(1,dt*6);
+  poW(PW.BK[0],PW.FL,PW.BK[1],poV); poD(Math.sin(B.yaw),0,Math.cos(B.yaw),poV3); sT.crossVectors(PO.up,poV3).normalize(); Mf.makeBasis(sT,PO.up,poV3); f.quaternion.setFromRotationMatrix(Mf); f.position.copy(poV);
+  B.wave=Math.max(0,B.wave-dt); animate(f,0,0,B.wave,t,6);
+  f.updateMatrixWorld(true);
+  [B.R,B.L].forEach((p,i)=>{ const arm=d.arms[i], fa=d.fore[i], cc=B.arm[i];
+    if(i===1&&B.wave>0){ cc[0]=arm.rotation.x; cc[1]=arm.rotation.z; cc[2]=fa.rotation.x; return; }
+    const w=p==='write'?1:0, k=force?99:p==='down'?22:9, R0=PO_REACH[p]?poReach(d,i,PO_REACH[p]()):null, P0=R0||[POSE[p][0],POSE[p][1]*(i?-1:1),POSE[p][2]];
+    cc[0]=damp(cc[0],P0[0]+w*Math.sin(t*3.1)*.04,k,dt||1); cc[1]=damp(cc[1],P0[1]+w*Math.sin(t*5.3)*.05,k,dt||1); cc[2]=damp(cc[2],P0[2],k,dt||1);
+    arm.rotation.x=cc[0]; arm.rotation.z=cc[1]; fa.rotation.x=cc[2]; });
+  /* her head: down to her ledger, up to you (turned your way), down again to your card */
+  const e=poL(PO.on?PO.cp:stCam.position,poV2), hy=Math.atan2(e.x-PW.BK[0],e.z-PW.BK[1])-B.yaw, wantL=B.look?1:0; B.lk=damp(B.lk||0,wantL,4,dt||1);
+  B.nod=Math.max(0,B.nod-(dt||0)*1.6); const down_=PO.ph==='post'&&PO.pt<2.4?.38:B.R==='write'?.42:0;
+  d.head.rotation.x=lerp(down_,-.04,B.lk)+Math.sin(B.nod*Math.PI)*.25; d.head.rotation.y=clamp(angWrap(hy),-.9,.9)*B.lk*.8; d.body.rotation.z=Math.sin(t*.7)*.02;
+  B.blink-=dt||0; const ey=B.blink<.12?.15:1; if(B.blink<0) B.blink=2+Math.random()*3.5; d.eyes.forEach(q=>q.scale.y=ey);
+  f.updateMatrixWorld(true);
+  /* the stamp: on its pad, or in her right hand */
+  const sm=PO.m.stamp; if(sm&&PO.at.pad){ if(PO.stampAt==='hand'){ poL(d.fore[0].localToWorld(poV.set(0,-.2,0)),poV); poV.y-=PO_GRIP; } else poV.set(PO.at.pad[0],PO.at.top+.022,PO.at.pad[1]);
+    sm.matrix.multiplyMatrices(PO.M,poM.makeTranslation(poV.x,poV.y,poV.z)); sm.matrixWorldNeedsUpdate=true; }
+  if(PO.m.pad&&PO.at.pad){ PO.m.pad.matrixWorldNeedsUpdate=true; }
+  /* your card: sliding over the counter to her, on the counter, in her left hand, falling into the sack */
+  const cd=PO.card, cm=PO.m.card; if(cm&&cd&&PO.at.card){ const [kx,kz]=PO.at.card, top=PO.at.top+.003; let rx=0, ry=.08, rz=0;
+    if(cd.at==='slide'){ const u=E.o(clamp(PO.pt/.45,0,1)); cd.p.set(lerp(kx-.05,kx,u),top,lerp(-.16,kz,u)); ry=lerp(-.3,.08,u); }
+    else if(cd.at==='hand'){ poL(d.fore[1].localToWorld(poV.set(0,-.21,.05)),poV); cd.p.lerp(poV,Math.min(1,(dt||1)*14)); rx=-.35; ry=B.yaw+.3; }
+    else if(cd.at==='fall'){ cd.k=Math.min(1,cd.k+(dt||0)/.3); const [sx,sz]=PW.SACK; poV.set(sx,PW.FL+.7,sz); cd.p.copy(cd.from).lerp(poV,cd.k); cd.p.y=lerp(cd.from.y,PW.FL+.62,cd.k*cd.k); rx=-.35-cd.k*1.1; ry=B.yaw+.3; if(cd.k>=1) cm.visible=false; }
+    else if(PO.ph==='post') cd.p.set(kx,top,kz);
+    if(cd.at!=='none'){ poE.set(rx,ry,rz,'YXZ'); poQ.setFromEuler(poE); poM.compose(cd.p,poQ,poS.set(cd.s[0],1,cd.s[1])); cm.matrix.multiplyMatrices(PO.M,poM); cm.matrixWorldNeedsUpdate=true; } }
+  /* the clock keeps the time here (as the sky has it) */
+  if(PO.m.hh){ const h=SKY.h, [x,y,z]=PO.ck; [[PO.m.hh,(h%12)/12],[PO.m.mh,h%1]].forEach(([m,u],i)=>{ m.matrix.multiplyMatrices(PO.M,poM.makeTranslation(x,y,z+.04+i*.004).multiply(poM2.makeRotationZ(-u*TAU))); m.matrixWorldNeedsUpdate=true; }); }
+  PO.bulge=Math.max(0,PO.bulge-(dt||0)*2.2); }
+
+/* ---------- the pillar box: posting a card in it from the street ---------- */
+function poBoxGo(){ if(PO.st!=='out'||poBusy()||PO.bx.st!=='idle'||!poHas()) return false; const P=player; began();
+  if(PO.db<1.0){ poBoxPost(); return true; }
+  const [gx,gz]=poXZ(...PW.BOXS), path=navPath(P.x,P.z,gx,gz,.9);   // (round whatever is in the way; or, tucked in by the wall as it is, straight there)
+  closeTalk(); TALK.goal=null; C.guide=null; if(path){ P.path=path.concat([[gx,gz]]); P.tgt=null; } else { P.path=null; P.tgt=at(gx,gz).multiplyScalar(R); } P.stuck=0; PO.bx.st='go'; PO.bx.go=0; A.tick(); return true; }
+function poBoxPost(){ const P=player, bx=PO.bx; P.path=null; P.tgt=null; P.speed=0; tang(P.u,at(...poXZ(PW.BOX[0],PW.BOX[1])),P.f); bx.st='post'; bx.t=0; bx.blob=PC.blob; bx.flapMax=0; }
+function poBoxStep(dt){ const bx=PO.bx, P=player, m=PO.m.bcard;
+  if(bx.st==='go'){ bx.go+=dt; if(poBusy()||TALK.goal||bx.go>20||!poHas()){ bx.st='idle'; return; } if(PO.db<.4||(!P.path&&!P.tgt&&PO.db<1.1)||(P.speed<.05&&bx.go>.6&&PO.db<.8)) poBoxPost(); else if(!P.path&&!P.tgt) bx.st='idle'; return; }
+  if(bx.st==='post'){ const c0=bx.t; bx.t+=dt; const c=bx.t, d_=me.userData, k=sstep(0,.3,c)*(1-sstep(.95,1.3,c));
+    d_.arms[0].rotation.x=-1.25*k; d_.fore[0].rotation.x=-.12-.25*k; me.updateMatrixWorld(true);
+    /* the card: from your hand to the slot, and in */
+    const slot=poW(PW.BOX[0]+.12,.877,PW.BOX[1],poV2), hand=d_.fore[0].localToWorld(poV3.set(0,-.2,.05)), u=sstep(.25,.75,c);
+    if(c<.9){ m.visible=c>.12; poV.copy(hand).lerp(slot,u); if(u>.8) poV.addScaledVector(poD(-1,0,0,poV4),(u-.8)*.4);
+      const bm=sub(PO.M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); poQ.setFromRotationMatrix(bm); poM.compose(poV,poQ,poS.set(1,1,1)); m.matrix.copy(poM).multiply(poM2.makeRotationX(-.12)); m.matrixWorldNeedsUpdate=true; } else m.visible=false;
+    if(c0<.6&&c>=.6) A.poFlap();
+    if(c0<1.3&&c>=1.3){ PO.done=bx.blob; PO.boxed=true; bx.st='idle'; bx.doneT=1.8; A.chime(7,0,.022); } }
+  if(bx.doneT>0) bx.doneT-=dt;
+  /* the flap: pushed in by the card, and back down on its hinge (a little spring) */
+  const ft=bx.st==='post'&&bx.t>.58&&bx.t<.8?1:0; PO.flapV=(PO.flapV||0)+((ft-PO.flap)*160-(PO.flapV||0)*11)*dt; PO.flap=clamp(PO.flap+PO.flapV*dt,-.2,1.1); bx.flapMax=Math.max(bx.flapMax||0,PO.flap);   // (how far it went in, the last time: for the tests)
+  if(Math.abs(PO.flap)>1e-3||Math.abs(PO.flapV)>1e-3) poFlapPose(); }
+
+/* ---------- each frame: after the town has moved you and placed its camera ---------- */
+function poStep(dt,t){ if(!PO.g) return; const P=player;
+  if(FIN.on||CUT.on){ if(PO.st!=='out'||PO.k>0||PO.g.visible||PO.bx.st!=='idle'||PO.door>.001) poReset(); poTags(false); return; }
+  PO.you=poYou(); PO.dd=Math.hypot(PO.you.x-PW.DX,PO.you.z-(PW.d/2+.7)); PO.db=Math.hypot(PO.you.x-PW.BOXS[0],PO.you.z-PW.BOXS[1]);
+  if(PO.st==='go') poGoing(dt); else if(PO.st==='enter') poWayIn(dt,t); else if(PO.st==='exit') poWayOut(dt,t); else if(PO.st==='in') poInside(dt); else poOutside();
+  poBoxStep(dt);
+  const vis=PO.warm||PO.on; if(PO.g.visible!==vis) PO.g.visible=vis;
+  if(vis){ poBeats(dt); poPose(dt,t); }
+  /* (the first time, behind the loader, or the first frame on Earth if it is made after: drawn once, your card and the box's
+     card with it, so all of it is ready for Earth's own drawing; after that only while you are in there) */
+  if(PO.warm){ if(S.ready){ PO.warm=false; poCull(true); if(PO.ph!=='post') PO.m.card.visible=false; if(PO.bx.st!=='post') PO.m.bcard.visible=false; } else PO.m.card.visible=PO.m.bcard.visible=true; }
+  if(PO.ph==='said'&&TALK.p===POWHO&&TALK.shown>=TALK.txt.length){ PO.saidT+=dt; if(PO.saidT>1.6){ PO.ph='idle'; poShowCard(); } }
+  /* the door on its hinge: swung open by you (a spring, with a little overshoot), shut behind you with the bell again */
+  const dk=PO.doorT*1.5; PO.doorV+=((dk-PO.door)*36-PO.doorV*8.5)*dt; PO.door+=PO.doorV*dt;
+  if(PO.shut&&PO.door<.03&&PO.doorT===0){ PO.shut=0; PO.door=0; PO.doorV=0; A.poBell(false); }
+  if(Math.abs(PO.door)>1e-4||PO.doorV) poDoorPose();
+  /* the lamps, a little brighter by night; the day by the window */
+  const nt=SKY.night; PU.uCL.value.forEach((l,i)=>{ l.w=i<3?(i<2?1.05:.9)*(1+.18*nt):.45*(1-nt)*(1-.4*SKY.over); }); PU.uDim.value=1;
+  /* the camera: this one while you are in here (and on the way in and out), handed back smoothly after */
+  if(!PO.on) PO.k=damp(PO.k,0,7,dt);
+  if(PO.k>.001){ const k=PO.on?1:PO.k; st.camP.lerp(PO.cp,k); st.camL.lerp(PO.cl,k); stUp.lerp(PO.cu,k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(PO.on) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+  /* a wider lens in here, eased in and out with you; and a nearer one, for the counter right by you */
+  PO.fk=PO.st==='enter'?sstep(.15,.95,PO.t/PT_IN):PO.st==='exit'?1-sstep(.25,.9,PO.t/PT_OUT):PO.st==='in'?1:0;
+  if(PO.fk>.001){ const fv=lerp(stCam.fov,cport()?66:52,PO.fk); if(Math.abs(stCam.fov-fv)>.01){ stCam.fov=fv; stCam.updateProjectionMatrix(); } }
+  const nr=PO.on?.02:.1; if(PO.on||PO.nr){ PO.nr=PO.on; if(stCam.near!==nr){ stCam.near=nr; stCam.updateProjectionMatrix(); } }
+  /* no rain in here (it falls in a box round the camera); the town's music a little quieter */
+  if(PO.st==='in'&&FALL) FALL.visible=false;
+  PO.mk=damp(PO.mk,PO.st==='in'?1:PO.on?.6:0,2.5,dt); if(PO.mk>.002) A.music(.55*(1-.42*PO.mk));
+  poTags(true); poUI(); }
+/* back to how it was: entering or leaving Earth, the launch scene, the end of the last flight */
+function poReset(leaving){ const was=PO.on||PO.k>0; if(leaving&&PO.warm){ PO.warm=false; poCull(true); } if(TALK.p===POWHO) closeTalk();
+  PO.drag=PO.tap=null; PO.curve=PO.lcurve=null; PO.wIn=null; PO.k=0; PO.mk=0; PO.out=0; PO.door=PO.doorV=PO.doorT=0; PO.shut=0; PO.flap=0; PO.flapV=0; PO.bx.st='idle'; PO.bx.doneT=0; PO.busyCard=false; PO.wantCard=false;
+  poDoorPose(); poFlapPose(); if(PO.m.bcard) PO.m.bcard.visible=false; if(PO.bk.fig) poRest(); if(PO.g) PO.g.visible=false; poSet('out');
+  if((was||PO.nr)&&stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } PO.nr=false; PO.fk=0; if(me&&!FIN.on&&!CUT.on&&was) me.visible=true; poTags(false); }
+
+/* ---------- the tags in the street, the buttons inside, clicks, drags and keys ---------- */
+const poTag=document.createElement('span'); poTag.className='crwt ui crwpo'; $('#crLabels',el).appendChild(poTag);
+const boxTag=document.createElement('span'); boxTag.className='crwt ui crwbox'; $('#crLabels',el).appendChild(boxTag);
+poTag.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'){ PO.kb=e.detail===0; poGo(); } });
+boxTag.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'){ PO.kb=e.detail===0; poBoxGo(); } });
+const poOut=document.createElement('button'); poOut.className='btn hit crleave crpoout'; poOut.type='button'; poOut.id='crPoLeave'; poOut.dataset.cur='Leave'; poOut.textContent='Leave the post office'; poOut.hidden=true; el.insertBefore(poOut,$('#crSkip',el));
+poOut.addEventListener('click',e=>{ e.stopPropagation(); PO.kb=e.detail===0; poLeave(); }); poOut.addEventListener('pointerdown',e=>e.stopPropagation());
+const poBtn=document.createElement('button'); poBtn.className='btn hit crpopost'; poBtn.type='button'; poBtn.id='crPoPost'; poBtn.dataset.cur='Post'; poBtn.innerHTML='Post your postcard <span class="crkey">E</span>'; poBtn.hidden=true; el.insertBefore(poBtn,$('#crSkip',el));
+poBtn.addEventListener('click',e=>{ e.stopPropagation(); PO.kb=e.detail===0; poPost(); }); poBtn.addEventListener('pointerdown',e=>e.stopPropagation());
+function poUI(){ const inside=PO.st==='in'; poOut.hidden=!inside||PO.ph==='post'; poBtn.hidden=!(inside&&PO.ph==='idle'&&poHas()&&!TALK.p&&pcCard.hidden&&!PO.busyCard); }
+const poProj=(x,y,z)=>{ poW(x,y,z,poV).project(stCam); return poV; };
+function poTags(live){ let on=false, can=false, txt='', bon=false, bcan=false, btxt='';
+  if(live&&PO.M&&started&&PO.st==='out'&&PO.bx.st!=='go'&&!poBusy()&&PO.you.z>PW.d/2+.15){
+    const nearBox=PO.db<1.15&&(poHas()||PO.bx.doneT>0);
+    if(PO.dd<7&&!(nearBox&&PO.db<PO.dd)){ const v=poProj(PW.DX,cport()?1.55:1.98,PW.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=poAtDoor(1.2); txt='Go in';
+      if(on) poTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
+    if((poHas()||PO.bx.doneT>0)&&PO.db<7&&PO.bx.st!=='post'||PO.bx.doneT>0){ const v=poProj(PW.BOX[0],1.32,PW.BOX[1]); bon=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; bcan=poAtBox()&&poHas(); btxt=PO.bx.doneT>0?'Posted':'Post your card';
+      if(bon) boxTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
+  if(txt&&poTag.textContent!==txt) poTag.textContent=txt; if(btxt&&boxTag.textContent!==btxt){ boxTag.textContent=btxt; boxTag.classList.toggle('done',btxt==='Posted'); }
+  if(on!==PO.tagOn){ PO.tagOn=on; poTag.classList.toggle('on',on); } if(can!==PO.tagCan){ PO.tagCan=can; poTag.classList.toggle('can',can); }
+  if(bon!==PO.btagOn){ PO.btagOn=bon; boxTag.classList.toggle('on',bon); } if(bcan!==PO.btagCan){ PO.btagCan=bcan; boxTag.classList.toggle('can',bcan); } }
+/* what a click is on: the shop or the pillar box from the street (never from round the back); inside, Bríd and the
+   counter, or the door */
+function poPick(e){ if(!PO.pick) return null; poNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); poRay.setFromCamera(poNdc,stCam);
+  if(PO.on) return poRay.intersectObject(PO.pickOut,false).length?'out':poRay.intersectObject(PO.pickIn,false).length?'clerk':null;
+  if(stCam.position.distanceTo(PO.c0)>26||poL(stCam.position,poV).z<PW.d/2) return null;
+  if(poHas()&&poRay.intersectObject(PO.pickBox,false).length) return 'box'; return poRay.intersectObject(PO.pick,false).length?'front':null; }
+/* inside, a tap or E: post your card if you have one, else she tells you again where to get one */
+function poAct(){ if(PO.st!=='in'||PO.ph!=='idle'||!pcCard.hidden) return false; if(poHas()) return poPost(); poTalk(PO.boxed&&!PO.toldBox?(PO.toldBox=true,[BRL.boxed]):[PO.posted?BRL.again:BRL.none]); return true; }
+{ const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&PO.g){ if(PO.on){ PO.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; return; }
+    PO.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; } return op.call(this,e); }; }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!PO.g) return; const D=PO.drag, tp=PO.tap;
+  if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
+  if(D&&e.pointerId===D.id){ if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>(e.pointerType==='mouse'?6:9)) D.moved=true;
+    if(D.moved&&PO.st==='in'){ PO.yaw=clamp(PO.yaw-(e.clientX-D.lx)*.0042,-2.95,2.95); PO.pitch=clamp(PO.pitch-(e.clientY-D.ly)*.0034,-.8,.65); PO.dragT=0; } D.lx=e.clientX; D.ly=e.clientY; return; }
+  if(e.pointerType!=='mouse') return;
+  /* the cursor says what a click would do */
+  let lab=null; if(PO.on){ if(hov) hov=null; const pk=PO.st==='in'&&PO.ph==='idle'&&!TALK.p?poPick(e):null; if(pk==='out') lab='Leave'; else if(pk==='clerk') lab=poHas()?'Post':'Say hello'; }
+  else if(PO.st==='out'&&!poBusy()&&!down&&!hov&&!DM.hov&&!CL.hov&&PO.bx.st==='idle'){ const pk=poPick(e); lab=pk==='box'?'Post':pk==='front'?'Go in':null; }
+  const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); PO.cur=true; } else if(PO.cur||PO.on){ ce.classList.remove('big'); PO.cur=false; } },{passive:true});
+addEventListener('pointerup',e=>{ const D=PO.drag, tp=PO.tap;
+  if(D&&e.pointerId===D.id){ PO.drag=null; if(!D.moved&&S.st===st&&S.mode==='station'&&PO.st==='in'){ PO.kb=false; if(TALK.p){ nextTalk(); return; } const pk=poPick(e); if(pk==='out') poLeave(); else if(pk==='clerk') poAct(); } return; }
+  if(!tp||e.pointerId!==tp.id) return; PO.tap=null; if(S.st!==st||S.mode!=='station'||tp.moved||tp.talk||FIN.on||CUT.on||PO.st!=='out'||poBusy()) return;
+  if(pickPerson(e)||pickBusk(e)) return; const pk=poPick(e); if(pk==='box'){ PO.kb=false; poBoxGo(); } else if(pk==='front'){ PO.kb=false; poGo(); } });
+addEventListener('pointercancel',()=>{ PO.drag=null; PO.tap=null; });
+addEventListener('pointerdown',()=>{ PO.kb=false; },true);
+/* keys: E or Enter by the door takes you in, by the pillar box posts your card; inside, E, Enter or Space posts it (or asks
+   her), Escape takes you out; on the way over, Escape stops you */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!PO.g||FIN.on||CUT.on) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
+  if(PO.on){ if(k==='Escape'){ if(PO.st==='in'){ PO.kb=true; poLeave(); } e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ if(!e.repeat&&PO.st==='in'){ PO.kb=true; poAct(); } e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  if((PO.st==='go'||PO.bx.st==='go')&&k==='Escape'){ poSet('out'); PO.bx.st='idle'; player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&PO.st==='out'&&!poBusy()&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){
+    if(poHas()&&poAtBox()&&PO.bx.st==='idle'&&PO.db<PO.dd){ PO.kb=true; poBoxGo(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if(poAtDoor(1.2)){ PO.kb=true; if(poGo()){ e.preventDefault(); e.stopImmediatePropagation(); } } } },true);
+/* Escape while she is talking closes what she is saying (that comes first, see talking) and takes you out as well */
+addEventListener('keyup',e=>{ if(e.code==='Escape'&&S.st===st&&S.mode==='station'&&PO.st==='in'&&performance.now()-PO.said<700&&pcCard.hidden) poLeave(); });
+/* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
+{ const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
+  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame());   // (a quiet frame before it: Earth may be made in parts after the loader)
+    try{ buildPO(); }catch(err){ PO.err=String(err&&err.stack||err); console.warn('post office',err); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) poStep(dt,t); return r; };
+  st.enter=function(){ poReset(); return en.apply(this,arguments); }; st.exit=function(){ poReset(true); return ex.apply(this,arguments); };
+  st.finaleEnd=function(){ const r=fe.apply(this,arguments); poReset(); return r; };
+  /* not a quiet moment (for a world still being made) while you are in there, or posting a card at the box */
+  if(st.calm){ const c0=st.calm; st.calm=function(){ return c0.apply(this,arguments)&&!PO.on&&PO.bx.st==='idle'; }; } }
+st._dbg.po={P:PO,PW,BRL,POWHO,get err(){ return PO.err; },go:poGo,enter:poEnter,leave:poLeave,post:poPost,act:poAct,boxGo:poBoxGo,reset:poReset,has:poHas,local:(x,z)=>poXZ(x,z),world:(x,y,z)=>poW(x,y,z),toLocal:w=>poL(w),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  get state(){ return {st:PO.st,on:PO.on,ph:PO.ph,pt:+PO.pt.toFixed(2),k:+PO.k.toFixed(3),vis:!!(PO.g&&PO.g.visible),me:me.visible,near:stCam.near,door:+PO.door.toFixed(2),has:poHas(),posted:PO.posted,boxed:PO.boxed,stamped:PO.stamped,thunks:PO.thunks,
+    card:PO.card&&PO.card.at,cardVis:!!(PO.m.card&&PO.m.card.visible),bx:PO.bx.st,flapMax:+(PO.bx.flapMax||0).toFixed(2),bcard:!!(PO.m.bcard&&PO.m.bcard.visible),flap:+PO.flap.toFixed(2),you:[+PO.you.x.toFixed(2),+PO.you.z.toFixed(2)],dd:+PO.dd.toFixed(2),db:+PO.db.toFixed(2),
+    tag:{on:PO.tagOn,can:PO.tagCan,txt:poTag.textContent},btag:{on:PO.btagOn,can:PO.btagCan,txt:boxTag.textContent},leave:!poOut.hidden,post:!poBtn.hidden,mk:+PO.mk.toFixed(2),talk:TALK.p===POWHO?TALK.txt:null,
+    clerk:{R:PO.bk.R,L:PO.bk.L,look:+(PO.bk.lk||0).toFixed(2),yaw:+PO.bk.yaw.toFixed(2),wave:+PO.bk.wave.toFixed(2)}}; },
+  /* where on the screen the door, the pillar box, Bríd, the counter's card and the sign are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const p=what==='door'?poW(PW.DX,1.1,PO.on?PW.d/2-.1:PW.d/2+.04,poV):what==='box'?poW(PW.BOX[0],.75,PW.BOX[1],poV):what==='clerk'?poW(PW.BK[0],PW.FL+1.2,PW.BK[1],poV):what==='card'?poW(PO.at.card[0],PO.at.top,PO.at.card[1],poV):what==='sign'?poW(-.12,2.3,PW.d/2+.09,poV):poW(PW.DX,1.1,PW.d/2,poV);
+    const q=p.project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
+/* ===================== (the post office ends here) ===================== */
 })();

@@ -704,6 +704,18 @@ const A=(()=>{
     tube(k=1){ if(!on||muted||!ctx) return; const v=vr(.08); tone(3150*v,.02,.016*k,'sine',0,0,0,.001); tone(4700*v,.012,.006*k,'sine',0,0,0,.001);
       const t0=ctx.currentTime, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(); o.type='sawtooth'; o.frequency.value=100; b.type='bandpass'; b.frequency.value=720; b.Q.value=2.2;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.02*k,t0+.008); a.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(b); b.connect(a); a.connect(comp); o.start(t0); o.stop(t0+.12); },
+    /* ---------- the post office: the bell over its door, the rubber stamp, the pillar box's flap, a card among the post.
+       Short, and about as loud as a footstep ---------- */
+    /* the shop bell on its spring: the latch, then a quick bright tinkle dying away (shut: the door knocks home, and fewer, softer strikes) */
+    poBell(open=true){ if(!on||muted||!ctx) return; const v=vr(.04), k=open?1:.5, f0=2480*vr(.03);
+      noise(.03,.03*k,3600*v,2200,'bandpass',2.4); tone(1100*v,.025,.01*k,'triangle'); if(!open) tone(120*v,.14,.016,'sine',70);
+      for(let j=0;j<(open?7:4);j++){ const dl=.05+j*.06+Math.random()*.012, a=.014*k*Math.pow(.76,j); [[1,1,.5],[2.76,.35,.24],[5.4,.12,.1]].forEach(([m,g,d])=>tone(f0*m*(j%2?1.012:1),d,a*g,'sine',0,dl,.3,.002)); } },
+    /* the rubber stamp coming down on the card: a deep wooden knock, the slap of the rubber, the counter answering (k: how hard; light for inking it on the pad) */
+    poThunk(k=1){ if(!on||muted||!ctx) return; const v=vr(.05); tone(118*v,.16,.02*k,'sine',62); tone(240*v,.07,.01*k,'triangle',130); noise(.05,.012*k,1800*v,400,'lowpass',.9); noise(.09,.005*k,600,180,'bandpass',1.2,.02); },
+    /* the pillar box: the card sliding in under the flap, then the flap falling back with a small iron clack */
+    poFlap(){ if(!on||muted||!ctx) return; const v=vr(.05); noise(.14,.016,2800*v,1300,'bandpass',1.3); tone(760*v,.06,.016,'triangle',520,.17); tone(1650*v,.03,.007,'sine',0,.17,0,.001); tone(160*v,.08,.022,'sine',90,.18); },
+    /* paper: a card slid across the counter, or dropped into the sack among the letters (k: how much) */
+    poShuffle(k=1){ if(!on||muted||!ctx) return; noise(.18,.02*k,3400,1600,'bandpass',.9); noise(.12,.012*k,5200,2600,'highpass',.7,.08); noise(.08,.01*k,900,500,'lowpass',.8,.15); },
     /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
        As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
        plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */
