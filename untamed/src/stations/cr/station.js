@@ -308,9 +308,9 @@ function buildTown(){
   // the café
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
-        [[-1.15,1.85],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
+        /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
         } });
-    obs(3-1.15,-13.4+1.85,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
+    obs(3+REGT.x,-13.4+REGT.z,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
   { const M=frameAt(PAD[0],PAD[1],0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); } obs(PAD[0],PAD[1],1.3,4.5); }
@@ -618,15 +618,20 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   // legs: trousers tapering to the ankle; and shoes: a sole rounded at the toe and the heel, a low toe and a heel cup on it,
   // laces down the front, and the hem of the trousers resting on top. Toes turn out a touch, as people stand
   const sole=o.sole||tint(o.shoes,-.35), lt=C3(o.shoes), lace=o.lace||tint(o.shoes,lt.r*.3+lt.g*.59+lt.b*.11>.55?-.28:.42);
-  const legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.074*W,.5,0); const L=part();
-    L.put(FG.sph,o.pants,0,0,0,.07); L.put(FG.limb,o.pants,0,-.215,0,.069,.43,.069); L.put(FG.tube,o.pants,0,-.418,0,.058,.026,.06);
-    const ry=s*.1, fz=(g,c,y,z,sx,sy,sz,rx=0)=>L.put(g,c,Math.sin(ry)*z,y,Math.cos(ry)*z,sx,sy,sz,rx,ry);   // (turned about the ankle)
+  /* knee: the leg bends at the knee as well (for someone sitting down), the shin and the shoe a piece of their own hung from
+     it; without it each leg is one piece, as it always was */
+  const knees=[], legs=[-1,1].map(s=>{ const l=new T.Group(); l.position.set(s*.074*W,.5,0); const L=part(), K=o.knee?part():L;
+    L.put(FG.sph,o.pants,0,0,0,.07);
+    if(o.knee){ L.put(FG.limb,o.pants,0,-.11,0,.069,.22,.069); K.put(FG.sph,o.pants,0,-.22,0,.061); K.put(FG.limb,o.pants,0,-.325,0,.06,.21,.06); }
+    else L.put(FG.limb,o.pants,0,-.215,0,.069,.43,.069);
+    K.put(FG.tube,o.pants,0,-.418,0,.058,.026,.06);
+    const ry=s*.1, fz=(g,c,y,z,sx,sy,sz,rx=0)=>K.put(g,c,Math.sin(ry)*z,y,Math.cos(ry)*z,sx,sy,sz,rx,ry);   // (turned about the ankle)
     fz(FG.box,sole,-.487,.025,.088,.026,.122); fz(FG.can,sole,-.487,-.036,.045,.026,.047); fz(FG.can,sole,-.487,.086,.045,.026,.047);
     fz(FG.sph,o.shoes,-.469,.05,.045,.036,.072,-.05);   // the toe, low and long
     fz(FG.sph,o.shoes,-.452,-.028,.047,.046,.052);   // the heel and the ankle
     fz(FG.box,lace,-.44,.036,.03,.008,.056,-.38);   // the laces
-    L.put(FG.tube,tint(o.pants,-.12),0,-.432,0,.06,.01,.062);
-    l.add(L.mesh()); body.add(l); return l; });
+    K.put(FG.tube,tint(o.pants,-.12),0,-.432,0,.06,.01,.062);
+    l.add(L.mesh()); if(o.knee){ const km=K.mesh(0,-.22,0); l.add(km); knees.push(km); } body.add(l); return l; });
   // arms: a rounded shoulder and the upper arm in one piece, the forearm and hand in another, so a wave can bend at the elbow
   const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
     U.put(FG.sph,sh,0,-.012,0,.049*Aw);
@@ -655,7 +660,7 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   let prop=null;
   if(o.prop==='drone'){ prop=drone('#7fd3ff'); prop.matrixAutoUpdate=true; prop.scale.setScalar(.62); prop.position.set(-.46,1.48,.06); g.add(prop); }   // Aetos: a little drone at his shoulder, clear of the hand he waves with
   const shd=new T.Mesh(SHG,SHM); shd.scale.set(.62,1,.62); shd.position.y=.025; shd.renderOrder=1; shd.layers.set(1); g.add(shd);
-  g.userData={legs,arms,fore,head,body,eyes:[em],drone:o.prop==='drone'?prop:null}; return g; }
+  g.userData={legs,knees,arms,fore,head,body,eyes:[em],drone:o.prop==='drone'?prop:null}; return g; }
 /* what each of us says: every landmark stands, so we talk about them as they are, and mention it if you came by way of
    the flight and stopped at one of them up there */
 const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
@@ -847,7 +852,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
     if(on!==DM.hov){ DM.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Say hello'; ce.classList.add('big'); } else if(!hov) ce.classList.remove('big'); } } },{passive:true});
   addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on||!(e.code==='KeyE'||e.code==='Enter')) return;
     if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
-    if(DM.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ buskAsk(); e.preventDefault(); } },true);
+    if(DM.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)&&!regNear(DM.d)){ buskAsk(); e.preventDefault(); } },true);   // (Gideon or Owen, if one of them is nearer)
   st._dbg.busk={DM,ask:buskAsk,pick:pickBusk,level:buskLevel,update:buskUpdate,get state(){ return {st:DM.st,d:+DM.d.toFixed(2),lv:+DM.lv.toFixed(3),goal:DM.goal,att:+DM.att.toFixed(2),ct:+DM.ct.toFixed(2),sct:+DM.sct.toFixed(2)}; },spot:[DM.x,DM.z]}; }
 /* the score as moments: strums (three strings or more at once) and single notes, each with the strings in the order struck,
    and the fret the left hand is at: the chord's shape for his piece, the note itself for the solo */
@@ -922,9 +927,10 @@ function buskNotes(dt,on,nk){ const N=DM.notes; if(!N) return; let live=false;
     dmV.copy(DM.nO).addScaledVector(DM.nU,k*1.05).addScaledVector(DM.nS,n.x+Math.sin(n.t*2.4+i)*.1*k).addScaledVector(DM.nF,n.y);
     P.setXYZ(i,dmV.x,dmV.y,dmV.z); Aa.setXYZ(i,a,n.r+Math.sin(n.t*1.9+i*2.1)*.22,n.s*(.75+.25*sstep(0,.5,n.t))); });
   N.visible=live; if(live){ P.needsUpdate=true; Aa.needsUpdate=true; N.material.uniforms.uH.value=colRT.height||innerHeight; N.material.uniforms.uDim.value=1-.3*nk; } }
-/* an arm reaching a point (in his body's frame): the elbow out toward pole, the upper arm and forearm laid along the two halves */
+/* an arm reaching a point (in his body's frame): the elbow out toward pole, the upper arm and forearm laid along the two halves
+   (a and b: how long they are; his own unless someone else's are given) */
 const rU=new T.Vector3(), rN=new T.Vector3(), rE=new T.Vector3(), rF=new T.Vector3(), rQ=new T.Quaternion();
-function reach(arm,fore,H,pole){ const S=arm.position, a=DM.ua, b=DM.fa; rU.subVectors(H,S); const D0=rU.length()||1, D=clamp(D0,Math.abs(a-b)+.002,a+b-.002); rU.divideScalar(D0);
+function reach(arm,fore,H,pole,a=DM.ua,b=DM.fa){ const S=arm.position; rU.subVectors(H,S); const D0=rU.length()||1, D=clamp(D0,Math.abs(a-b)+.002,a+b-.002); rU.divideScalar(D0);
   const ca=clamp((a*a+D*D-b*b)/(2*a*D),-1,1); rN.copy(pole).addScaledVector(rU,-pole.dot(rU)).normalize(); rE.copy(rN).multiplyScalar(a*Math.sqrt(1-ca*ca)).addScaledVector(rU,a*ca);   // the elbow, from the shoulder
   arm.quaternion.setFromUnitVectors(DOWN,rF.copy(rE).divideScalar(a)); rF.copy(rU).multiplyScalar(D).sub(rE).normalize().applyQuaternion(rQ.copy(arm.quaternion).invert());
   fore.quaternion.setFromUnitVectors(DOWN,rF); }
@@ -960,6 +966,151 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
   const nodK=DM.st==='nod'?.2*Math.max(0,Math.sin(TAU*DM.stT/.45))*sstep(.15,.3,DM.stT):0;
   d.head.rotation.set(lerp(.36+.05*nod,lpt,DM.att)+nodK,lerp(.32,ly,DM.att),lerp(.05*sway,0,DM.att)); d.body.rotation.y+=clamp(ly*.2,-.2,.2)*DM.att;
   DM.blink-=dt; if(DM.blink<0) DM.blink=2+Math.random()*3; d.eyes[0].scale.y=DM.blink<.12?.15:1; }
+
+/* ---------- Gideon and Owen, regulars at the café ----------
+   The same two as in the launch scene (their looks are its QLOOKS), perched on the stools at the café's left-hand table, in
+   front of its window, a coffee each, both turned a little toward the street so it sees their faces. They talk to each other
+   in turns (whoever is talking has a hand going; the other listens, and nods now and then), sip their coffee (the cup up to
+   the mouth and back down on its saucer, with a quiet clink), glance out at the street, and look up at you as you come near.
+   Tap either of them (or press E beside them, or tap a name tag from across town) and that one talks to you, in the same box
+   as Diarmuid: guests, so no photo, no page and nobody counted as met. They are figures, not anyone's photograph.
+   They are made with the town, of the figures' own material (so nothing new has to be compiled), drawn only within sight of
+   the café, and hidden for the last flight and the launch scene before it, where the same two stand at the desk. */
+const REGT={x:-1.45,z:1.85};   // their table, in the café's frame (x across, z out to the street): along from the door, by the left window
+const REGS=[
+  {key:'gideon',i:4,first:'Gideon',pitch:400,seat:-1,
+    L0:['Hi, I\'m Gideon, one of Heloria\'s investors. So technically, this coffee counts as a meeting.','Everything round here, Ahroon, Michael and Abraham built themselves. Owen and I mostly keep this table warm.'],
+    L1:['Still here. This table doesn\'t keep itself warm.']},
+  {key:'owen',i:5,first:'Owen',pitch:450,seat:1,
+    L0:['I\'m Owen. What do they build? A radar that spots the one drone that matters, and a drone that finds its way without GPS.','A rocket that reworks itself to reach the height you name, and a buyer who answers back. And still they found time to name a flat white after themselves.'],
+    L1:['Back again? Try the Kríos Cortado. It answers back.']}];
+/* each is a guest to talk to, as Diarmuid is (see DMP), with what it takes to sit, sip, look round and be tapped */
+REGS.forEach(r=>Object.assign(r,{guest:true,name:r.first,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,met:false,d:99,g:null,lb:null,lbw:0,
+  sip:-1,sipT:5+r.seat*2.5+2.5,nod:0,gl:-1,glT:7+r.i,att:0,attT:2,gk:0,hy:0,hp0:0,blink:2+r.i*.4,
+  onClose(done){ if(done) this.met=true; this.att=1; this.attT=1.2; REG.tt=Math.max(REG.tt,1.8); REG.shut=performance.now(); }}));
+const REG={built:false,vis:true,hov:null,goal:null,turn:0,tt:3.5,M:null,pick:[],cx:0,cz:0,shut:-1e9};
+const rgV=new T.Vector3(), rgW=new T.Vector3(), rgH=new T.Vector3(), rgM=new T.Matrix4(), rgQ=new T.Quaternion(), rgS=new T.Vector3();
+const RG_RP=new T.Vector3(-.5,-.75,-.45).normalize(), RG_LP=new T.Vector3(.5,-.75,-.45).normalize();   // where their elbows go: down, out and back
+const RG_LIFT=-.06, RG_A=.18, RG_B=.19;   // how far they sit down into the stool's top, and how long an upper arm and a forearm are
+function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), TOP=.75;   // the café's own frame, which its tables were laid out in
+  const cf=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(M);
+  [REG.cx,REG.cz]=loc(cf(REGT.x,0,REGT.z).normalize());
+  /* a cup and its saucer: white china, the coffee in the top */
+  const C=part(); C.put(FG.can,'#f4efe6',0,.026,0,.033,.052,.033); C.put(FG.can,'#6a4430',0,.0505,0,.029,.003,.029); C.put(FG.box,'#f4efe6',-.041,.029,0,.012,.03,.009);
+  const Cg=C.mesh().geometry, Sp=part(); Sp.put(FG.can,'#f4efe6',0,.005,0,.062,.008,.062); Sp.put(FG.can,'#e4ddd0',0,.009,0,.036,.002,.036); const Sg=Sp.mesh().geometry;
+  REGS.forEach((r,k)=>{ const s=r.seat, yaw=-s*(Math.PI/2-.36), fx=Math.sin(yaw), fz=Math.cos(yaw), px=REGT.x+s*.55+fx*.04, pz=REGT.z+fz*.04, K=r.key==='gideon'?1.035:1;
+    /* turned toward the table, and a little out to the street; on the front of the stool */
+    const g=figure({...QLOOKS[r.key],knee:true}), d=g.userData; g.matrixAutoUpdate=false;
+    g.matrix.copy(M).multiply(rgM.compose(rgV.set(px,0,pz),rgQ.setFromAxisAngle(UPY,yaw),rgS.set(K,K,K))); sc.add(g); g.updateMatrixWorld(true);
+    r.g=g; r.inv=g.matrixWorld.clone().invert(); REG.pick.push(g);
+    [r.x,r.z]=loc(cf(px,0,pz).normalize()); r.dir.copy(at(r.x,r.z));
+    r.foot=cf(px,.05,pz); r.top=cf(px,1.3*K,pz); r.tag=cf(px,1.48*K,pz);
+    /* sitting: down onto the stool, the knees bent, one foot a little further out than the other */
+    d.body.position.y=RG_LIFT; const lg=s<0?[[-.92,.62],[-.72,.3]]:[[-.76,.36],[-.95,.66]];
+    d.legs.forEach((l,i)=>{ l.rotation.set(lg[i][0],0,(i?1:-1)*.05); d.knees[i].rotation.x=lg[i][1]; });
+    /* the cup on its saucer in front of them, the other hand on the table: in the café's frame, then in their own */
+    const tx=REGT.x, tz=REGT.z, ux=px-tx, uz=pz-tz, ul=Math.hypot(ux,uz), wx=ux/ul, wz=uz/ul, rx=-fz, rz=fx;
+    const toL=(x,y,z)=>cf(x,y,z).applyMatrix4(r.inv);
+    r.rest=toL(tx+wx*.2+rx*.07,TOP,tz+wz*.2+rz*.07); r.lrest=toL(tx+wx*.22-rx*.11,TOP+.035,tz+wz*.22-rz*.11);
+    const sau=new T.Mesh(Sg,FIGM); sau.position.copy(r.rest); sau.position.y-=.001; g.add(sau);
+    r.cup=new T.Mesh(Cg,FIGM); r.cup.position.copy(r.rest).y+=.009; g.add(r.cup); r.rest.y+=.009;
+    r.hp=new T.Vector3(0,(1.165+RG_LIFT),0); r.mouth=new T.Vector3(-.012,r.hp.y-.15,.2);
+    r.street=cf(REGT.x+s*.4,1.3,7);
+    /* solid where they sit; and so is the walking grid round them, which was laid out before they sat down (a little wider
+       there than the grid keeps from most things, so a way past keeps off their knees and the stool's foot) */
+    obs(r.x,r.z,.26,1.4); r.ob=OBS[OBS.length-1];
+    if(NAV.free){ const o=r.ob, m=o.r+.42, N=NAV.N; for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2<m*m) NAV.free[j*N+i]=0; } }
+    /* where you stand to talk to them: out on the pavement in front of the table, their side of it */
+    r.go=loc(cf(REGT.x+s*.45,0,REGT.z+1.15).normalize());
+    /* their name tags, the same as everyone's; a tap on one asks them */
+    const lb=document.createElement('span'); lb.className='crl ui'; lb.textContent=r.first; $('#crLabels',el).appendChild(lb); r.lb=lb;
+    lb.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&performance.now()-REG.shut>450) regAsk(r); }); });   // (not the click a phone sends after the tap that ended a conversation, should it land on a tag lit up since)
+  /* each looks at the other across the table, or out at the street: where those are from where their head is */
+  REGS.forEach((r,k)=>{ const o=REGS[1-k], ang=w=>{ rgV.copy(w).applyMatrix4(r.inv).sub(r.hp); return [clamp(Math.atan2(rgV.x,rgV.z),-1.2,1.2),clamp(-Math.atan2(rgV.y,Math.hypot(rgV.x,rgV.z)),-.4,.45)]; };
+    r.aO=ang(o.g.localToWorld(rgH.copy(o.hp))); r.aS=ang(r.street); r.ang=ang; r.hy=r.aO[0]; r.hp0=r.aO[1]; });
+  /* on a computer, pointing at either shows their name; E beside them (with none of us, and not Diarmuid, closer) asks them */
+  addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||e.pointerType!=='mouse'||down) return; const k=!hov&&!CAFE.on&&!DM.hov?pickReg(e):null, on=k?k.r:null;
+    if(on!==REG.hov){ REG.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Say hello'; ce.classList.add('big'); } else if(!hov&&!DM.hov) ce.classList.remove('big'); } } },{passive:true});
+  addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on||!(e.code==='KeyE'||e.code==='Enter')) return;
+    if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
+    const r=regNear(3.4); if(r&&!(DM.d<r.d)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ regAsk(r,3.4); e.preventDefault(); } },true);
+  REG.built=true;
+  st._dbg.regs={REG,REGS,REGT,ask:regAsk,pick:pickReg,tap:regTap,update:regUpdate,
+    get state(){ return REGS.map(r=>({who:r.first,x:+r.x.toFixed(2),z:+r.z.toFixed(2),d:+r.d.toFixed(2),vis:r.g.visible,sip:+r.sip.toFixed(2),att:+r.att.toFixed(2),met:r.met,tag:r.lb.classList.contains('on'),can:r.lb.classList.contains('can'),goal:REG.goal===r})); },
+    /* where on the screen their middle, head and tag are, and whether the camera sees them (nothing in front of them) */
+    screen(i){ stCam.updateMatrixWorld(); const r=REGS[i], p=v=>{ const q=rgV.copy(v).project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; };
+      r.g.updateMatrixWorld(true); const mid=r.g.localToWorld(rgH.set(0,.95,.05)).clone(), head=r.g.localToWorld(rgH.copy(r.hp)).clone();
+      ray.set(stCam.position,rgW.copy(mid).sub(stCam.position).normalize()); ray.layers.set(0); hits.length=0; ray.intersectObjects(sc.children,true,hits);
+      const first=hits.find(h=>h.object.visible&&!h.object.isPoints&&h.object.material&&h.object.material.depthWrite!==false); let o=first?first.object:null; while(o&&o!==r.g) o=o.parent;
+      return {mid:p(mid),head:p(head),seen:!!o,by:first?(first.object.name||first.object.type):null}; }}; }
+/* the nearer of the two within reach, if either is */
+function regNear(m){ if(!REG.built||!REG.vis) return null; let b=null; for(const r of REGS) if(r.d<m&&(!b||r.d<b.d)) b=r; return b; }
+/* what you tapped: one of them squarely, or close enough to one on the screen */
+function pickReg(e){ if(!REG.built||!REG.vis) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
+  ray.intersectObjects(REG.pick,true,hits); for(const h of hits){ let o=h.object; while(o&&!REG.pick.includes(o)) o=o.parent; if(o) return {r:REGS[REG.pick.indexOf(o)],direct:true,dist:h.distance}; }
+  let best=null, bd=1; for(const r of REGS){ const f=rgV.copy(r.foot).project(stCam); if(f.z>1) continue;
+    const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=rgW.copy(r.top).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
+    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, tt=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*tt,e.clientY-fy-ey*tt), q=dd/Math.max(22,Math.sqrt(L2)*.4);
+    if(q<bd){ bd=q; best=r; } }
+  return best?{r:best,direct:false,dist:1e9}:null; }
+/* a click or tap: theirs, unless one of us or Diarmuid is the one you meant (squarely hit and nearer, or near the pointer
+   when neither of them is squarely under it) */
+function regTap(e,p){ if(!REG.built||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return false; const k=pickReg(e); if(!k) return false;
+  const b=pickBusk(e);
+  if(k.direct){ if(b&&b.direct&&b.dist<k.dist) return false;
+    if(p){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0; ray.intersectObject(p.g,true,hits); if(hits.length&&hits[0].distance<k.dist) return false; } }
+  else if(p||b) return false;
+  regAsk(k.r); return true; }
+/* asking one of them: beside the table they look up and talk; from further off you walk over first */
+function regAsk(r,near=3.2){ if(!REG.built||!REG.vis||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
+  if(r.d<near){ REG.goal=null; r.lines=r.met?r.L1:r.L0; openTalk(r,0); return; }
+  TALK.goal=null; DM.goal=false; const path=navPath(P.x,P.z,r.x,r.z,2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(r.go[0],r.go[1]).multiplyScalar(R); }
+  REG.goal=r; P.stuck=0; A.tick(); r.lb.classList.add('ask'); }
+function regUpdate(dt,t){ if(!REG.built) return; const P=player;
+  /* not while the last flight (or the launch scene before it) is on: the same two are at the desk then */
+  const vis=!FIN.on&&!(QS.figs.gideon&&QS.figs.gideon.visible)&&Math.hypot(P.x-REG.cx,P.z-REG.cz)<26;
+  if(vis!==REG.vis){ REG.vis=vis; REGS.forEach(r=>{ r.g.visible=vis; }); if(!vis){ REG.goal=null; REG.hov=null; if(REGS.includes(TALK.p)) closeTalk(); } }
+  for(const r of REGS) r.d=Math.hypot(P.x-r.x,P.z-r.z);
+  /* walking over: talk on arrival; set off somewhere else (or asked by someone else) and it is forgotten */
+  if(REG.goal){ const r=REG.goal; if(TALK.goal||TALK.p||DM.goal||CAFE.st!=='out'||CL.st==='go'||CL.k==='go'||!vis) REG.goal=null;
+    else if(r.d<2.5||(!P.path&&!P.tgt&&r.d<3.6)){ REG.goal=null; P.path=null; P.tgt=null; regAsk(r,3.6); } else if(!P.path&&!P.tgt) REG.goal=null; }
+  /* their tags: when you point at them, are near, or are on your way over */
+  const quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GLN.t>=0||PHS.on, sp=[];
+  for(const r of REGS){ const lb=r.lb, q=rgV.copy(r.tag).project(stCam), go=REG.goal===r, on=vis&&(REG.hov===r||r.d<4||go)&&q.z<1&&!quiet;
+    lb.classList.toggle('on',on); lb.classList.toggle('ask',go&&!quiet); lb.classList.toggle('can',vis&&r.d<3.4&&!quiet);
+    if(on&&!r.lbw) r.lbw=lb.offsetWidth; sp.push([(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,on]); }
+  /* side by side at one table: should their tags meet on the screen, they move apart */
+  if(sp[0][2]&&sp[1][2]&&Math.abs(sp[0][1]-sp[1][1])<34){ const need=(REGS[0].lbw+REGS[1].lbw)/2+8, gap=sp[1][0]-sp[0][0];
+    if(Math.abs(gap)<need){ const s=gap<0?-1:1, push=(need-Math.abs(gap))/2; sp[0][0]-=s*push; sp[1][0]+=s*push; } }
+  REGS.forEach((r,k)=>{ r.lb.style.transform=`translate(${sp[k][0].toFixed(1)}px,${sp[k][1].toFixed(1)}px) translate(-50%,-100%)`; });
+  if(!vis) return;
+  regPose(dt,t); }
+/* the two of them at their table: turns at talking, sips, glances, and you */
+function regPose(dt,t){ const talking=REGS.includes(TALK.p)?TALK.p:null, near=Math.min(REGS[0].d,REGS[1].d), P=player;
+  REG.tt-=dt; if(REG.tt<=0&&!talking){ const nx=REGS[1-REG.turn]; if(nx.sip>=0) REG.tt=.4; else { REG.turn=1-REG.turn; REG.tt=2.6+Math.random()*3.6; if(Math.random()<.65) REGS[1-REG.turn].nod=.001; } }
+  const you=near<9?rgW.copy(P.u).multiplyScalar(R+P.h+1.3):null;
+  REGS.forEach((r,k)=>{ const d=r.g.userData, speak=talking?talking===r:REG.turn===k;
+    /* a sip now and then, never mid-sentence: up to the mouth, a moment, and back down onto the saucer */
+    r.sipT-=dt; if(r.sip<0&&r.sipT<=0&&!speak){ r.sip=0; r.sipT=7+Math.random()*9; }
+    let ck=0, tilt=0; if(r.sip>=0){ const s0=r.sip, s=r.sip+=dt; ck=sstep(0,.8,s)*(1-sstep(2.1,2.85,s)); tilt=sstep(.45,.95,s)*(1-sstep(1.95,2.45,s))*(.5+.25*sstep(1.1,1.7,s));
+      if(s0<2.8&&s>=2.8&&r.d<9&&!CAFE.on&&!FIN.on&&A.clink) A.clink(.009*(1-r.d/9));   // (quiet: a cup on its saucer across the pavement)
+      if(s>3.1) r.sip=-1; }
+    const cp=r.cup.position.lerpVectors(r.rest,r.mouth,ck); cp.y+=.05*Math.sin(Math.PI*ck); r.cup.rotation.x=-tilt;
+    /* the right hand on the cup's handle, the left on the table, or going as they talk */
+    rgH.set(-.05,.029,0).applyAxisAngle(rgV.set(1,0,0),-tilt).add(cp); rgH.y-=RG_LIFT; reach(d.arms[0],d.fore[0],rgH,RG_RP,RG_A,RG_B);
+    r.gk=damp(r.gk,speak?1:0,speak?3:2,dt); const gk=r.gk;
+    rgH.copy(r.lrest).add(rgV.set(.025*Math.sin(t*2.3+k*2),(.11+.04*Math.sin(t*3.6+k))*gk,(-.08+.02*Math.sin(t*1.9+k))*gk)); rgH.y-=RG_LIFT; reach(d.arms[1],d.fore[1],rgH,RG_LP,RG_A,RG_B);
+    /* where they look: at each other, out at the street now and then, and up at you */
+    r.attT-=dt; let want=0; if(talking) want=talking===r?1:.7; else if(near<6&&r.attT<0){ want=1; if(r.attT<-1.7) r.attT=5+Math.random()*7; }
+    r.att=damp(r.att,want,want>r.att?5:2.5,dt);
+    r.glT-=dt; if(r.gl<0&&r.glT<0&&!speak&&!talking&&r.sip<0){ r.gl=0; r.glT=9+Math.random()*9; } if(r.gl>=0&&(r.gl+=dt)>1.7) r.gl=-1;
+    const base=r.gl>=0?r.aS:r.aO, pl=you?r.ang(you):base;
+    r.hy=damp(r.hy,lerp(base[0],pl[0],r.att),6,dt); r.hp0=damp(r.hp0,lerp(base[1],pl[1],r.att),6,dt);
+    let nod=0; if(r.nod>0){ r.nod+=dt; nod=.11*Math.max(0,Math.sin(TAU*r.nod/.5)); if(r.nod>1) r.nod=0; }
+    d.head.rotation.set(r.hp0+nod+(speak?.025*Math.sin(t*6.1+k):0)-.22*tilt,r.hy,speak?.03*Math.sin(t*2.2+k):0);
+    d.body.position.y=RG_LIFT+.003*Math.sin(t*1.6+k*2);
+    r.blink-=dt; if(r.blink<0) r.blink=2+Math.random()*3.2; d.eyes[0].scale.y=r.blink<.12?.15:1; }); }
 
 /* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
 const RKR=1.2, RKH=4.4, RKB=.35, FLOOR=.42, BAND=2.05, GAP=.42, rAt=y=>RKR*(1-(y-RKB)/RKH);
@@ -1828,7 +1979,7 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!CAFE.g) r
   /* the cursor says what a click would do */
   if(e.pointerType!=='mouse'||(CAFE.st==='out'&&down)) return; let lab=null, hv=-1;
   if(CAFE.st==='in'&&(CAFE.ph==='menu'||CAFE.ph==='served'||CAFE.ph==='brew')){ const p=cafePick(e); if(p){ if(p.drink!=null&&CAFE.ph!=='brew'){ lab='Order'; hv=p.drink; } else if(p.cup&&CAFE.ph==='served') lab='Look in'; else if(p.door&&CAFE.ph!=='brew') lab='Leave'; } }
-  else if(CAFE.st==='out'&&!cbusy()&&CAFE.g.visible&&Math.hypot(player.x-CAFE.x,player.z-CAFE.z)<26&&cafePick(e)&&!pickPerson(e)) lab='Go in';
+  else if(CAFE.st==='out'&&!cbusy()&&CAFE.g.visible&&Math.hypot(player.x-CAFE.x,player.z-CAFE.z)<26&&cafePick(e)&&!pickPerson(e)&&!pickReg(e)) lab='Go in';
   if(hv!==CAFE.hov){ CAFE.hov=hv; if(CAFE.bdraw) CAFE.bdraw(); }
   const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); CAFE.cur=true; } else if(CAFE.cur){ ce.classList.remove('big'); CAFE.cur=false; } },{passive:true});
 addEventListener('pointerup',e=>{ const D=CAFE.drag; if(!D||e.pointerId!==D.id) return; CAFE.drag=null; if(!D.moved&&S.st===st&&S.mode==='station') cafeTapIn(e); });
@@ -1839,7 +1990,7 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!CAFE.g) retur
   if(k==='Tab'||k==='Enter'||k==='Space'||k==='KeyE') CAFE.kb=true;
   if(CAFE.st==='out'||CAFE.st==='go'){
     if(CAFE.st==='go'&&k==='Escape'){ cset('out'); player.path=null; e.stopImmediatePropagation(); return; }
-    if((k==='KeyE'||k==='Enter')&&!ctl&&!cbusy()&&CAFE_ON&&cafeAtDoor(1.6)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ cafeEnter(); e.preventDefault(); e.stopImmediatePropagation(); }
+    if((k==='KeyE'||k==='Enter')&&!ctl&&!cbusy()&&CAFE_ON&&cafeAtDoor(1.6)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)&&!(regNear(3.4)&&!cafeAtDoor())){   /* (beside the door but not squarely in front of it, Gideon or Owen) */ cafeEnter(); e.preventDefault(); e.stopImmediatePropagation(); }
     return; }
   if(k==='Escape'){ if(CAFE.ph==='dive'||CAFE.ph==='card') cafeRise(); else if(CAFE.st==='in') cafeLeave(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ if(CAFE.st==='in'&&CAFE.ph==='served') cafeDive(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
@@ -1926,6 +2077,7 @@ st.build=async function(){
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
+  buildRegulars();   // Gideon and Owen at their table outside it (the same)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
@@ -2006,7 +2158,7 @@ addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
 addEventListener('pointerup',e=>{ if(PHS.drag&&e.pointerId===PHS.drag.id){ PHS.drag=null; return; } if(look&&e.pointerId===look.id){ look=null; return; } if(S.st!==st||!down||e.pointerId!==down.id) return; const d=down; down=null; stickOff(); if(d.moved||S.mode!=='station'||CUT.on) return;
   if(CL.tap&&CL.tap.id===e.pointerId&&CL.tap.stood) return;   // (the tap that stands you up from the bench does only that: it does not also send you off to the café, him, or one of us)
   if(TALK.p){ nextTalk(); return; }   // talking, a click anywhere goes on
-  const p=pickPerson(e); if(buskTap(e,p)) return; if(p) goTalk(p); else cafeTap(e); });
+  const p=pickPerson(e); if(regTap(e,p)) return; if(buskTap(e,p)) return; if(p) goTalk(p); else cafeTap(e); });
 addEventListener('pointercancel',()=>{ down=null; look=null; PHS.drag=null; stickOff(); });
 $('#crSkip',el).addEventListener('click',e=>{ e.stopPropagation(); skipCut(); });
 addEventListener('wheel',e=>{ if(S.st!==st||S.mode!=='station'||CUT.on||S.wheelSettle) return; C.zoom=clamp(C.zoom*Math.exp(e.deltaY*.0008),.7,1.6); },{passive:true});
@@ -2429,6 +2581,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       if(!quiet&&d0<15) A.vent(0); } }
   if(BE) BE.lt.visible=(t/1.6)%1<.3;
   buskUpdate(dt,t);   // Diarmuid: his guitar, his hands, his lights
+  regUpdate(dt,t);   // Gideon and Owen at the café
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
     KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;

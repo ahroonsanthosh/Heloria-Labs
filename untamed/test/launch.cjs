@@ -25,7 +25,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* before: nothing of the scene, and the pad whole */
   { const s = await L(); rec(s.hole === 0 && !s.on && !s.figs && !s.desk, 'before it: the pad is whole and nothing of the scene is drawn', JSON.stringify({ hole: s.hole, figs: s.figs, desk: s.desk })); }
-  rec(await D(d => d.people.length === 3 && !d.people.some(p => /Gideon|Owen/.test(p.first))) && await page.evaluate(() => ![...document.querySelectorAll('#crLabels > *')].some(e => /Gideon|Owen/.test(e.textContent))), 'Gideon and Owen are not among the three to meet and have no tags');
+  /* (their only tags are the ones at the café, where they are regulars: see regulars.cjs; none is shown while the scene plays) */
+  rec(await D(d => d.people.length === 3 && !d.people.some(p => /Gideon|Owen/.test(p.first))) && await page.evaluate(() => [...document.querySelectorAll('#crLabels > *')].filter(e => /Gideon|Owen/.test(e.textContent)).length === 2), 'Gideon and Owen are not among the three to meet, and have no tags but their own at the café');
 
   /* meet all three, heard out to the end: the scene is made ready in a quiet moment, its sound with it */
   await D(d => { d.place(); [0, 1, 2].forEach(i => { d.openTalk(d.people[i], d.people[i].lines.length - 1); d.closeTalk(true); }); });

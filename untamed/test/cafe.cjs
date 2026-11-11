@@ -52,7 +52,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await page.evaluate(() => getComputedStyle(document.querySelector('#crLabels')).opacity === '0'), 'the name tags from the street are not drawn over the room');
   const mus = await H(h => h.A._lv().mus); log('music level inside', mus);
   /* the barista: a person behind the counter, who says hello and wipes the counter while you choose; not one of the three of us */
-  s = await state(); const bar = await C((c, d) => ({ people: d.people.length, tags: [...document.querySelectorAll('#crLabels .crl')].filter(e => !['Sit', 'Kite', 'Diarmuid'].includes(e.textContent)).length, fig: !!c.C.bar.fig && c.C.bar.fig.parent === c.C.g, inPeople: d.people.some(p => p.g === c.C.bar.fig), home: c.BP.home }));
+  s = await state(); const bar = await C((c, d) => ({ people: d.people.length, tags: [...document.querySelectorAll('#crLabels .crl')].filter(e => !['Sit', 'Kite', 'Diarmuid', 'Gideon', 'Owen'].includes(e.textContent)).length, fig: !!c.C.bar.fig && c.C.bar.fig.parent === c.C.g, inPeople: d.people.some(p => p.g === c.C.bar.fig), home: c.BP.home }));
   rec(bar.fig && !bar.inPeople && bar.people === 3 && bar.tags === 3, 'the barista is there, and is not one of the three of us (no name tag, no conversation)', JSON.stringify(bar));
   rec(/^Hello/.test(s.say) && s.bar[2] === 'wipe' && Math.abs(s.bar[0] - bar.home[0]) < .05, 'they say hello and wipe the counter while you choose', JSON.stringify({ say: s.say, bar: s.bar }));
   await shot(P + 'cafe-inside');
