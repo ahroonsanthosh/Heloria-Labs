@@ -255,8 +255,12 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
       rec(moved.shown && moved.hidden && moved.dist > 1, 'the touch stick walks you, and goes away when you let go', JSON.stringify(moved));
     }
   }
-  await covered('#station > #back', 'Earth back button');
-  await tap('#back', 'Earth Orbit button'); rec(await until(() => window.__heloria.S.mode === 'hub' || window.__heloria.S.mode === 'tohub', null, 180000), 'the Orbit button takes you from Earth back to orbit');
+  /* on Earth there is no Orbit button and Escape does not leave: the way out is Home (the last flight aside) */
+  rec(await page.evaluate(() => { const b = document.querySelector('#back'); return !b || getComputedStyle(b).display === 'none'; }), 'no Orbit button on Earth');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(600);
+  rec(await H(h => h.S.mode === 'station' && h.S.stId === 'cr'), 'Escape on Earth stays on Earth');
+  rec(await page.evaluate(() => { const a = document.querySelector('#home'); return !!a && getComputedStyle(a).display !== 'none' && !!a.getAttribute('href'); }), 'Home is there instead');
+  await H(h => h.leaveEarth()); rec(await until(() => window.__heloria.S.mode === 'hub' || window.__heloria.S.mode === 'tohub', null, 180000), 'leaving Earth by its own means still takes you back to orbit');
   rec(await until(() => window.__heloria.S.mode === 'hub', null, 180000), 'back in orbit and flying');
   rec(await H(h => h.S.guide === 'off' && !h.S.lead), 'back from Earth, orbit is quiet: no instruction and no lead-in');
 

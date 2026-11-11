@@ -24,7 +24,7 @@ addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('input')) return;
   keys.add(e.code);
   if(e.code==='KeyE'&&S.mode==='hub'&&S.near&&!S.lead) dock(S.near);
-  if(e.code==='Escape'&&S.mode==='station') undock();
+  if(e.code==='Escape'&&S.mode==='station'&&S.stId!=='cr') undock();   // (Earth has no way back up but the last flight: Escape there closes what is open, never more)
   if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&(S.mode==='hub'||S.mode==='tohub')){ if(!S.lead) S.ap=null; e.preventDefault(); }
 });
 addEventListener('keyup',e=>keys.delete(e.code));
