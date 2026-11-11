@@ -138,4 +138,7 @@ const POST={};
     for(let i=QL.bloomLv-2;i>=0;i--){ POST.upM.uniforms.t.value=u.texture; POST.upM.uniforms.tAdd.value=POST.down[i].texture; POST.upM.uniforms.uHp.value.set(.5/u.width,.5/u.height); POST.pass(POST.upM,POST.up[i]); u=POST.up[i]; }
     return u.texture;
   };
+  /* the glow's two shaders and the picture's own, sent off to be made before anything is drawn with them, so a browser that
+     makes shaders in the background makes them alongside the lake's (see boot) */
+  POST.prep=()=>{ const was=renderer.getRenderTarget(); try{ for(const [m,t] of [[POST.downM,POST.down[0]],[POST.upM,POST.up[0]],[POST.comp,null]]){ quad.material=m; renderer.setRenderTarget(t); renderer.compile(scene,cam); } } finally{ renderer.setRenderTarget(was); } };
 })();

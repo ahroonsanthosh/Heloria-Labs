@@ -29,6 +29,8 @@ function makeSim(){
   const W=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], want={x:SIM.rect.x,y:SIM.rect.y}, TX=SIM.rect.z/N, _f=v3();
   const sim={ get tex(){ return cur.texture; },
     clear(){ [a,b].forEach(t=>{ renderer.setRenderTarget(t); renderer.setClearColor(0,0); renderer.clear(); }); renderer.setClearColor(0,0); },
+    /* its shader sent off to be made before its first step (see boot) */
+    prep(){ const was=renderer.getRenderTarget(); renderer.setRenderTarget(prev); try{ renderer.compile(sc,cam); } finally{ renderer.setRenderTarget(was); } },
     /* x,z world position, radius metres, strength: kept in the world until the next step places it in the patch */
     drop(x,z,r,k){ if(nd>=4) return; const w=W[nd++]; w[0]=x; w[1]=z; w[2]=r; w[3]=k; },
     stroke(x0,z0,x1,z1,k){ segW=[x0,z0,x1,z1,k]; },

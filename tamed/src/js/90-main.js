@@ -278,6 +278,9 @@ async function boot(){
   OUT.sim.clear();
   resize();
   setLayout();
+  /* the shaders needed by the end of the loader that no scene holds (the glow, the picture, the water's ripples) are sent off
+     first, so that a browser that makes shaders in the background makes them alongside the lake's */
+  try{ POST.prep(); OUT.sim.prep(); }catch(e){}
   /* compile and draw every shader once behind the loader, so the walk never stalls (the gallery's after the gate, where it
      is made then: see GLATE) */
   const steps=late?[[0,'out'],[5,'out']]:[[0,'out'],[1,'gal'],[2,'gal'],[3,'gal'],[4,'gal'],[5,'out']], k0=late?.3:.45, k1=late?.6:.5;
