@@ -34,6 +34,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const tue = await M((e, d, h, a) => e.at(a, '21:30'), TUE);
   rec(!tue.open && !tue.vis && tue.e === 0 && !tue.solid && tue.inOBS === 0 && !tue.amp && tue.figs.every(f => !f.vis), 'no market on a Tuesday night', JSON.stringify(tue));
   const tueLv = await M(e => +window.__heloria.ST.cr._dbg.busk.level(window.__heloria.ST.cr._dbg.busk.DM.x + 11.5, window.__heloria.ST.cr._dbg.busk.DM.z).toFixed(3));
+  /* (the other worlds are made after the loader, a step at a quiet moment: they finish first, so what is counted below is the market's alone) */
+  await page.waitForFunction(() => window.__heloria.late().ready, null, { timeout: 900000, polling: 500 }).catch(() => {});
   await look(); const progTue = await H(h => h.renderer.info.programs.length); await shot(pre + 'market-tuesday-night');
   const morn = await M((e, d, h, a) => e.at(a, '10:00'), FRI);
   rec(!morn.open && !morn.vis && morn.e === 0 && !morn.solid && !morn.amp, 'no market on a Friday morning', JSON.stringify({ open: morn.open, vis: morn.vis, e: morn.e, dow: morn.dow }));
