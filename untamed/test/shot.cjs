@@ -37,6 +37,9 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const log = (...a) => console.log(...a);
   await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the other ways in; --query time=21:30 and the like
   await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
+  /* --prebuild: every world made behind the loader before the test begins (as before worlds were made after it), for the long
+     tests of what the buttons do rather than of loading */
+  if (opt.prebuild) { const t0 = Date.now(); await page.waitForFunction(() => !window.__heloria.late || window.__heloria.late().ready, null, { timeout: 3600000, polling: 1000 }).catch(() => console.log('NOTE the worlds were still being made after an hour')); console.log('prebuilt in', Math.round((Date.now() - t0) / 1000), 's'); }
   if (opt.station) { await H((h, id) => h.jump(id), opt.station); await W(+(opt.settle || 3000));
     /* the worlds made after the loader finish first (on this slow machine each part takes seconds where a real one takes a moment,
        and a click or a picture taken while one is being made waits on it): a test of a station tests the station, not loading.

@@ -1,5 +1,5 @@
 /* Every-button test for the whole site. Run with the harness:
-   node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/btn --scenario untamed/test/buttons.cjs [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --out /tmp/btn --scenario untamed/test/buttons.cjs --prebuild [--mobile]
    Set BTN_ONLY=kr,ae to test only some stations.
    It clicks real elements (Playwright refuses if anything covers them), checks each click does what it should,
    and checks every visible button in each screen is the topmost element at its centre. */
