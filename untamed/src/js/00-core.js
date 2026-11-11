@@ -410,7 +410,13 @@ const A=(()=>{
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   setInterval(soloEnd,100);
   let making=!!OAC;
-  { const Q=[MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO]; let qi=0; const go=()=>{ if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+  /* made one after another, in the order the way in hears them: Land, Earth's music and the rocket's roar as it comes down,
+     then the rest of Earth's; Fly and the rocket's way in, the orbit's score, then the rest of the orbit's, Earth's last.
+     (The way in is known by the time the first is made) */
+  { let Q=null, qi=0; const go=()=>{
+      if(!Q){ const earth=[MUS,RD,RO,TH,HS,RAINL,BUSK,SOLO], orbit=[PAD,SUB,CF,CN,TH,RD,RO,HS,...['ae','kr','ph','og','be'].map(id=>BEDL[id])];
+        Q=[...new Set([...(S.entry==='land'?earth.concat(orbit):orbit.concat(earth)),MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO].filter(Boolean))]; }
+      if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
   /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
      Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
      step with the scene's clock: it is not a loop, it is played once from wherever the scene is. Each thing that moves has
@@ -527,6 +533,10 @@ const A=(()=>{
        recordings playing now are together */
     _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
+    /* the recordings the way in is heard with first (Land: Earth's music and the rocket coming down; otherwise the orbit's
+       score) made, or three seconds gone: the loader waits for these, so nothing sounds late however soon you are let in */
+    firstReady(){ const want=S.entry==='land'?[MUS,RD,RO]:[PAD,SUB], t0=performance.now();
+      return new Promise(res=>{ const ck=()=>{ if(!OAC||want.every(r=>r.els.length)||performance.now()-t0>3000) res(); else setTimeout(ck,40); }; ck(); }); },
     _loopRms(){ let q=0; if(BUFP&&window.__meter) return 0; /* (where a meter listens to the page, buffer players, the score's too, are heard by it already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
       if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to
       return Math.sqrt(q); },
