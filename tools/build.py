@@ -42,8 +42,9 @@ HEADERS = """/*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
 
+# every script and style is asked for by its version (?v=...), so a browser may keep each one for good: a new version is a new address
 /assets/*
-  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cache-Control: public, max-age=31536000, immutable
 
 /assets/img/*
   ! Cache-Control
