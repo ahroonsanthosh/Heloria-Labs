@@ -1264,10 +1264,10 @@ const REGT={x:-1.45,z:1.85};   // their table, in the café's frame (x across, z
 const REGS=[
   {key:'gideon',i:4,first:'Gideon',pitch:400,seat:-1,
     L0:['Hi, I\'m Gideon, one of Heloria\'s investors. So happy to be onboard.','The guys are up to some pretty cool stuff, you should talk to them!'],
-    L1:['Still here. This table doesn\'t keep itself warm.']},
+    L1:['Still here! Go on, have a chat with the lads.']},
   {key:'owen',i:5,first:'Owen',pitch:450,seat:1,
     L0:['I\'m Owen. Who are they? Three lads with a bright future ahead of them!','Have you ever flown a rocket? I can\'t wait to see what theirs is like.'],
-    L1:['Back again? Try the Kríos Cortado. It answers back.']}];
+    L1:['Back again? Try the Kríos Cortado while you\'re here.']}];
 /* each is a guest to talk to, as Diarmuid is (see DMP), with what it takes to sit, sip, look round and be tapped */
 REGS.forEach(r=>Object.assign(r,{guest:true,name:r.first,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,met:false,d:99,g:null,lb:null,lbw:0,
   sip:-1,sipT:5+r.seat*2.5+2.5,nod:0,gl:-1,glT:7+r.i,att:0,attT:2,gk:0,hy:0,hp0:0,blink:2+r.i*.4,
