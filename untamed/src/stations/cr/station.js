@@ -1263,10 +1263,10 @@ function mktSmoke(dt,e,dk){ const S0=MKT.smoke, N=S0.m.geometry, Pp=N.attributes
 const REGT={x:-1.45,z:1.85};   // their table, in the café's frame (x across, z out to the street): along from the door, by the left window
 const REGS=[
   {key:'gideon',i:4,first:'Gideon',pitch:400,seat:-1,
-    L0:['Hi, I\'m Gideon, one of Heloria\'s investors. So technically, this coffee counts as a meeting.','Everything round here, Ahroon, Michael and Abraham built themselves. Owen and I mostly keep this table warm.'],
+    L0:['Hi, I\'m Gideon, one of Heloria\'s investors. So happy to be onboard.','The guys are up to some pretty cool stuff, you should talk to them!'],
     L1:['Still here. This table doesn\'t keep itself warm.']},
   {key:'owen',i:5,first:'Owen',pitch:450,seat:1,
-    L0:['I\'m Owen. What do they build? A radar that spots the one drone that matters, and a drone that finds its way without GPS.','A rocket that reworks itself to reach the height you name, and a buyer who answers back. And still they found time to name a flat white after themselves.'],
+    L0:['I\'m Owen. Who are they? Three lads with a bright future ahead of them!','Have you ever flown a rocket? I can\'t wait to see what theirs is like.'],
     L1:['Back again? Try the Kríos Cortado. It answers back.']}];
 /* each is a guest to talk to, as Diarmuid is (see DMP), with what it takes to sit, sip, look round and be tapped */
 REGS.forEach(r=>Object.assign(r,{guest:true,name:r.first,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,met:false,d:99,g:null,lb:null,lbw:0,
