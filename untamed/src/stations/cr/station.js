@@ -881,8 +881,9 @@ function buskAsk(){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on)
     DM.st='talk'; DM.stT=0; DMP.lines=DM.met?DMP.L1:DMP.L0; openTalk(DMP,0); return; }
   TALK.goal=null; const path=navPath(P.x,P.z,DM.x,DM.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(DM.x,DM.z).multiplyScalar(R); } DM.goal=true; P.stuck=0; A.tick(); buskSay(false); }
 const BEAT=60/72;
-/* how much of him you hear at (x, z): all of him within a couple of metres, none by ten, and next to nothing from inside a house */
-function buskLevel(x,z){ const d=Math.hypot(x-DM.x,z-DM.z); if(d>=10) return 0; let k=Math.pow(sstep(10,2.3,d),1.6);
+/* how much of him you hear at (x, z): all of him within a couple of metres, none by ten, and next to nothing from inside a house.
+   On a market night his big amp carries further: heard from thirteen metres, all of him from nearly three (never louder) */
+function buskLevel(x,z){ const d=Math.hypot(x-DM.x,z-DM.z), big=MKT.e, far=10+3*big; if(d>=far) return 0; let k=Math.pow(sstep(far,2.3+.6*big,d),1.6);
   for(const H of DM.houses){ at(x,z,dmV).multiplyScalar(R).applyMatrix4(H.inv); if(Math.abs(dmV.x)<H.w/2&&Math.abs(dmV.z)<H.d/2){ k*=.035; break; } } return k; }
 function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM.x,P.z-DM.z); DM.d=d;
   /* the sound: nothing during the landing or the last flight; from inside the café (you stand at its door while the view goes
@@ -964,6 +965,285 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
   const nodK=DM.st==='nod'?.2*Math.max(0,Math.sin(TAU*DM.stT/.45))*sstep(.15,.3,DM.stT):0;
   d.head.rotation.set(lerp(.36+.05*nod,lpt,DM.att)+nodK,lerp(.32,ly,DM.att),lerp(.05*sway,0,DM.att)); d.body.rotation.y+=clamp(ly*.2,-.2,.2)*DM.att;
   DM.blink-=dt; if(DM.blink<0) DM.blink=2+Math.random()*3; d.eyes[0].scale.y=DM.blink<.12?.15:1; }
+
+/* ---------- the market: Friday nights in the square ----------
+   On a Friday from six in the evening until two in the morning (the visitor's own clock, as the sky is), the square fills
+   up: festoons of warm bulbs on four poles across it, a chipper van and a crêpe and coffee cart, a few people queuing,
+   eating at a high table and reading the boards, and outside the café Diarmuid has his big amp out. Any other time there
+   is none of it. It is all built with the town and kept hidden; when the clock crosses into or out of market hours it
+   fades in or out over a few seconds (the solid things dissolve, the bulbs and their glow come up or go down), so nothing
+   pops. In rain or snow the stalls stay open and the festoons swing a little more, but the people at the high table go
+   home and only the queue stays. The stalls stand on the grass north of Kríos facing the paths, so the paths across the
+   square and the ways to everyone you talk to stay open; what is solid is only solid (and only marks the walking grid)
+   while the market is up. */
+const MKT={k:0,e:0,want:0,warm:true,snap:true,solid:false,wet:0,dark:0,glow:0,u:{value:0},obs:[],cells:[],g:null,figs:[],fry:1.5,bsk:5,clk:3,
+  OPEN:18,SHUT:2,VAN:[4.8,2.05],CART:[-4.3,1.75],TABLE:[-1.5,5.0],POLES:[[2.1,3.9],[-2.1,3.9],[-2.0,-4.3],[2.0,-4.3]],FADE:7};
+const mkRnd=seeded(31), mktOpen=()=>(SKY.dow===5&&SKY.h>=MKT.OPEN)||(SKY.dow===6&&SKY.h<MKT.SHUT);
+/* fading in and out: a dissolve, the same in the colour and in the ink, so a stall's outline comes and goes with it */
+const MK_DIS=`uniform float uMk; void mkFade(){ if(uMk<.999&&uMk<fract(52.9829189*fract(dot(gl_FragCoord.xy+vec2(23.,7.),vec2(.06711056,.00583715))))) discard; }`;
+const MKT_F=TOON_F.replace('void main(){',MK_DIS+'\n  void main(){ mkFade();'), MKT_IF=INK_F.replace('void main(){',MK_DIS+'\n void main(){ mkFade();');
+function mktMat(u,o={}){ const m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:new T.Color(1,1,1)},uOp:{value:1},uCut:{value:o.fig?0:1},uKit:{value:o.kit?1:0},uMk:u},LU),
+  vertexShader:TOON_V(),fragmentShader:MKT_F,vertexColors:true}); m.userData.inkF=MKT_IF; return m; }
+/* the boards: painted by day, lit from inside by night */
+const MKS_F=`uniform sampler2D uMap; uniform float uGlow; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR} ${MK_DIS}
+  void main(){ mkFade(); nearFade(vW); vec3 n=normalize(vN), t=texture2D(uMap,vUv).rgb; gl_FragColor=vec4(toon(t,n,vW)+t*uGlow,1.); }`;
+/* the festoons: the wire and its bulbs swing a little, most in the middle of each span (aSw: which way, and how much there) */
+const MK_SW=`uniform float uTime,uSway; attribute vec4 aSw; attribute float aPh; vec3 swing(){ return aSw.xyz*aSw.w*uSway*(sin(uTime*1.25+aPh)+.35*sin(uTime*2.7+aPh*1.7)); }`;
+/* several meshes (each with its own matrix) as one: positions, normals and whatever else they all have */
+function mktMerge(list,keys=['color']){ const P=[],N=[],X=keys.map(()=>[]), nm=new T.Matrix3(), v=new T.Vector3();
+  for(const [g0,M] of list){ const g=g0.index?g0.toNonIndexed():g0, p=g.attributes.position, q=g.attributes.normal; nm.getNormalMatrix(M);
+    for(let i=0;i<p.count;i++){ v.fromBufferAttribute(p,i).applyMatrix4(M); P.push(v.x,v.y,v.z); v.fromBufferAttribute(q,i).applyMatrix3(nm).normalize(); N.push(v.x,v.y,v.z);
+      keys.forEach((k,j)=>{ const a=g.attributes[k]; for(let c=0;c<a.itemSize;c++) X[j].push(a.array[i*a.itemSize+c]); }); } }
+  const o=new T.BufferGeometry(); o.setAttribute('position',new T.Float32BufferAttribute(P,3)); o.setAttribute('normal',new T.Float32BufferAttribute(N,3));
+  keys.forEach((k,j)=>o.setAttribute(k,new T.Float32BufferAttribute(X[j],list[0][0].attributes[k].itemSize))); return o; }
+/* what is solid while the market is up: a circle, or a row of them along a stall */
+function mktObs(x,z,r,h=1.2){ const o={x,z,r,r0:r,h}; MKT.obs.push(o); return o; }
+function mktRect(M,lx,lz,w,d,h){ const n=Math.max(1,Math.ceil(w/d)); for(let k=0;k<n;k++){ const t=(n===1?0:(k/(n-1)-.5))*(w-d), [x,z]=loc(V.set(lx+t,0,lz).applyMatrix4(M).normalize()); mktObs(x,z,d/2+.12,h); } }
+/* the people: the town's own figure, merged into one mesh but for the head and the arm that moves, so each costs four
+   draws. arm: which arm moves (0 right, 1 left); hold: what is in that hand (chips, a coffee, a phone); hat and apron: the
+   stallholders' whites; act: what they are doing; dry: goes home when it rains */
+const MKT_PEOPLE=[
+  {id:'chipper',look:{shirt:'#f4f1ea',crew:true,pants:'#3a3f4a',shoes:'#2b2b2e',skin:'#e2b08e',hair:'short',hairC:'#6b4a33',cheeks:true},arm:0,act:'fry',hat:true,apron:true,van:[.12,.32],s:.92},
+  {id:'crepes',look:{shirt:'#2f6f6b',short:true,polo:'#245955',pants:'#2f3137',shoes:'#e8e2d6',skin:'#b27a56',hair:'curly',hairC:'#231a15',mouth:'grin'},arm:0,act:'crepe',apron:true,at:[-4.3,2.42],to:[-4.3,1.2]},
+  {id:'queue1',look:{shirt:'#c45d4a',funnel:.45,zip:'#d8d2c4',pants:'#39414f',shoes:'#2b2b2e',skin:'#d9a27e',hair:'textured',hairC:'#5a3c26'},arm:1,act:'queue',at:[4.72,.96],to:[4.72,2.4]},
+  {id:'queue2',look:{shirt:'#3f6e8c',crew:true,under:'#e9e4d6',pants:'#c9b48e',shoes:'#e8e2d6',skin:'#8d5a3c',hair:'wavy',hairC:'#1d1612',mous:true},arm:0,act:'phone',hold:'phone',at:[3.75,1.15],to:[4.7,1.7],dry:true},
+  {id:'cart1',look:{shirt:'#e3b04a',pants:'#2f3640',shoes:'#6b4a33',skin:'#f0c9a8',hair:'tousled',hairC:'#b5793f',pack:'#5b6b7d'},arm:1,act:'queue',at:[-4.15,.95],to:[-4.3,1.75]},
+  {id:'table1',look:{shirt:'#6d5a8c',crew:true,pants:'#2b2d33',shoes:'#c94f3d',skin:'#c48c66',hair:'short',hairC:'#2a1d16',glasses:'#2a2420'},arm:0,act:'eat',hold:'chips',at:[-2.0,4.82],to:[-1.5,5.0],dry:true},
+  {id:'table2',look:{shirt:'#d8cbb2',funnel:.5,zip:'#6b6257',under:'#b04a3a',pants:'#4a4f5a',shoes:'#2b2b2e',skin:'#9c6646',hair:'curly',hairC:'#1b1411'},arm:1,act:'sip',hold:'cup',at:[-1.02,4.78],to:[-1.5,5.0],dry:true}];
+function mktFigure(o){ const g=figure(o.look), d=g.userData, u={value:0}, mat=mktMat(u,{fig:true}); g.updateMatrixWorld(true);
+  const keep=d.arms[o.arm], under=(m,r)=>{ for(let q=m;q;q=q.parent) if(q===r) return true; return false; }, rel=(m,r)=>new T.Matrix4().copy(r.matrixWorld).invert().multiply(m.matrixWorld);
+  const B=[], Hd=[]; d.body.traverse(m=>{ if(!m.isMesh) return; if(under(m,d.head)) Hd.push([m.geometry,rel(m,d.head)]); else if(!under(m,keep)) B.push([m.geometry,rel(m,d.body)]); });
+  /* the extras, each a part in the frame of what it goes with */
+  if(o.apron){ const p=part(); p.put(FG.box,'#fbf8f2',0,.63,.104,.19,.32,.012); p.put(FG.box,'#fbf8f2',0,.83,.1,.12,.1,.012); B.push([p.mesh().geometry,new T.Matrix4()]); }
+  if(o.hat){ const p=part(); p.put(FG.box,'#fbf8f2',0,.2,-.01,.17,.07,.25); p.put(FG.box,'#e9744f',0,.172,-.01,.172,.012,.252); Hd.push([p.mesh().geometry,new T.Matrix4()]); }
+  const bm=new T.Mesh(mktMerge(B),mat), hm=new T.Mesh(mktMerge(Hd),mat);
+  d.body.children.slice().forEach(c=>{ if(c!==d.head&&c!==keep) d.body.remove(c); }); d.body.add(bm);
+  d.head.children.slice().forEach(c=>d.head.remove(c)); d.head.add(hm);
+  const up=keep.children.find(c=>c.isMesh), fa=d.fore[o.arm], fm=fa.children.find(c=>c.isMesh); up.material=mat;
+  if(o.hold){ const p=part(), z=.03;
+    if(o.hold==='chips'){ p.put(FG.cone,'#f3ead8',0,-.2,z,.035,.1,.035,Math.PI); for(let k=0;k<5;k++) p.put(FG.box,'#e8b84a',(k%3-1)*.012,-.145+(k%2)*.012,z+(k-2)*.008,.009,.05,.009,(k-2)*.2,0,(k%3-1)*.3); }
+    if(o.hold==='cup'){ p.put(FG.can,'#f3ede2',0,-.2,z,.026,.07,.026); p.put(FG.can,'#8a5a3c',0,-.16,z,.027,.012,.027); }
+    if(o.hold==='phone') p.put(FG.box,'#1f2226',0,-.2,.03,.04,.075,.008,-.3);
+    const nf=new T.Mesh(mktMerge([[fm.geometry,new T.Matrix4()],[p.mesh().geometry,new T.Matrix4()]]),mat); fa.remove(fm); fa.add(nf); } else fm.material=mat;
+  /* its shadow fades with it */
+  const sh=g.children.find(c=>c.isMesh&&c.material===SHM); sh.material=new T.ShaderMaterial({uniforms:{uK:u},transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,vertexShader:SHM.vertexShader,
+    fragmentShader:`uniform float uK; varying vec2 vU; void main(){ float r=length(vU-.5)*2.; gl_FragColor=vec4(.12,.18,.16,(1.-smoothstep(.55,1.,r))*.32*uK); }`});
+  if(o.s) g.scale.setScalar(o.s);
+  return {...o,g,d,u,mat,sh,k:0,ph:mkRnd()*TAU,t:mkRnd()*4,look0:0}; }
+/* the boards, all on one canvas: inside the van, its menu, its name, the cart's name */
+const MKB={W:1024,H:512,in:[0,0,512,256],menu:[512,0,256,320],name:[0,256,512,128],cart:[0,400,512,104]};
+function mktBoards(){ const {W,H}=MKB, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+  const draw=()=>{ const c=cv.getContext('2d'), F=s=>`900 ${s}px Doto, monospace`, fit=(t,s,w)=>{ c.font=F(s); const m=c.measureText(t).width; return m>w?s*w/m:s; };
+    /* inside the van: warm tiles, the steel hood over the fryers, a shelf of vinegar and salt */
+    const g=c.createLinearGradient(0,0,0,256); g.addColorStop(0,'#f2cf8e'); g.addColorStop(1,'#d99a4e'); c.fillStyle=g; c.fillRect(0,0,512,256);
+    c.strokeStyle='rgba(140,92,44,.22)'; c.lineWidth=2; for(let x=16;x<512;x+=32){ c.beginPath(); c.moveTo(x,60); c.lineTo(x,256); c.stroke(); } for(let y=60;y<256;y+=32){ c.beginPath(); c.moveTo(0,y); c.lineTo(512,y); c.stroke(); }
+    c.fillStyle='#c3c6c8'; c.fillRect(0,0,512,52); c.fillStyle='#8e9295'; c.fillRect(0,52,512,8);
+    c.fillStyle='#7a5a3c'; c.fillRect(320,128,170,8); [['#e8e2d0',332],['#b4512e',360],['#e8e2d0',388],['#7f9e6a',420],['#e8e2d0',452]].forEach(([cl,x])=>{ c.fillStyle=cl; c.fillRect(x,92,18,36); c.fillRect(x+5,84,8,8); });
+    /* the menu: a dark board, the dot type in cream */
+    let [x0,y0,w,h]=MKB.menu; c.fillStyle='#2a241d'; c.fillRect(x0,y0,w,h); c.strokeStyle='#f3ead8'; c.lineWidth=5; c.strokeRect(x0+9,y0+9,w-18,h-18);
+    c.fillStyle='#f3ead8'; c.textAlign='center'; c.textBaseline='middle'; c.font=F(fit('MENU',40,w-50)); c.fillText('MENU',x0+w/2,y0+40);
+    const L=[['SINGLE','4.50'],['CURRY CHIPS','5.50'],['ONE AND ONE','11'],['SPICE BAG','9'],['SAUSAGE','3']];
+    L.forEach(([a,b],i)=>{ const y=y0+90+i*44; c.textAlign='left'; c.font=F(fit(a,24,140)); c.fillText(a,x0+22,y); c.textAlign='right'; c.font=F(22); c.fillText(b,x0+w-22,y); });
+    /* the van's name, in a lightbox on its roof */
+    [x0,y0,w,h]=MKB.name; c.fillStyle='#f6eedb'; c.fillRect(x0,y0,w,h); c.fillStyle='#2f6b5a'; c.fillRect(x0,y0+h-16,w,16); c.fillStyle='#c8483a'; c.fillRect(x0,y0,w,10);
+    c.fillStyle='#2f6b5a'; c.textAlign='center'; c.font=F(fit('CHIPPER',84,w-60)); c.fillText('CHIPPER',x0+w/2,y0+h/2+2);
+    /* the cart's */
+    [x0,y0,w,h]=MKB.cart; c.fillStyle='#fbf6ec'; c.fillRect(x0,y0,w,h); c.fillStyle='#24605c'; c.font=F(fit('CRÊPES · COFFEE',58,w-40)); c.fillText('CRÊPES · COFFEE',x0+w/2,y0+h/2+2);
+    tx.needsUpdate=true; };
+  draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{}); return tx; }
+/* a board: a plane w by h at a point in a thing's frame, showing region r of the canvas */
+function mktBoard(list,M,r,x,y,z,w,h,ry=0,rx=0){ const g=new T.PlaneGeometry(w,h), uv=g.attributes.uv;
+  for(let i=0;i<uv.count;i++) uv.setXY(i,(r[0]+uv.getX(i)*r[2])/MKB.W,1-(r[1]+r[3])/MKB.H+uv.getY(i)*r[3]/MKB.H);
+  list.push([g,new T.Matrix4().multiplyMatrices(M,new T.Matrix4().compose(V.set(x,y,z),new T.Quaternion().setFromEuler(new T.Euler(rx,ry,0,'YXZ')),V2.set(1,1,1)))]); }
+/* (gap: what the town's build waits on between its larger parts; the market takes one before its people, the bigger half) */
+async function buildMarket(gap){ const g=new T.Group(); MKT.g=g; g.visible=false; sc.add(g); const boards=[], lift=(x,z)=>standH(x,z);
+  kitTo('mkt');
+  /* the chipper van: a catering trailer, cream with a green skirt, its hatch open on the path with the flap propped up over
+     it, the counter, the fryers and the chipper inside; its name lit on the roof and its menu lit beside the hatch */
+  const [vx,vz]=MKT.VAN, VM=frameAt(vx,vz,yawTo(vx,vz,vx,0),lift(vx,vz)), C1='#f1e6cf', GR='#2f6b5a', RD='#c8483a', ST='#c3c6c8', DK='#3a3a3c'; MKT.VM=VM;
+  box(VM,DK,0,.3,0,2.2,.08,1.08); [-1.04,1.04].forEach(x=>[-.48,.48].forEach(z=>box(VM,DK,x,0,z,.05,.32,.05)));   // the chassis and its legs
+  [-.6,.6].forEach(z=>{ put(VM,'cyl','#2a2a2c',-.15,.23,z*1.0,.23,.14,.23,0,Math.PI/2); put(VM,'cyl',ST,-.15,.23,z*1.12,.1,.02,.1,0,Math.PI/2); box(VM,C1,-.15,.46,z*.98,.62,.06,.08); });
+  box(VM,C1,0,.38,-.225,2.3,1.57,.75); box(VM,C1,0,.38,.375,2.3,.6,.45); box(VM,C1,0,1.76,.375,2.3,.19,.45); box(VM,C1,-.96,.98,.375,.38,.78,.45); box(VM,C1,.86,.98,.375,.58,.78,.45);
+  box(VM,GR,0,.38,0,2.32,.3,1.22); box(VM,RD,0,.68,0,2.32,.035,1.22); box(VM,GR,0,1.9,0,2.32,.05,1.22);   // the skirt, a red line, a green band at the top
+  box(VM,'#e9e1cf',0,1.95,0,2.4,.07,1.3);   // the roof
+  box(VM,ST,-.1,.96,.62,1.4,.04,.32); box(VM,ST,-.48,.98,.27,.52,.16,.24); box(VM,'#d8a64a',-.48,1.14,.27,.44,.01,.18);   // the counter, the fryer and its oil
+  box(VM,ST,.32,.98,.2,.3,.22,.2);   // the warmer
+  box(VM,C1,-.1,1.79,.92,1.42,.03,.64,0,-.26); box(VM,GR,-.1,1.77,1.23,1.42,.07,.025,0,-.26);   // the flap, propped up over the hatch
+  [-.72,.52].forEach(x=>put(VM,'cyl8',ST,x,1.39,.84,.012,.82,.012,0,-.46));   // and its two struts
+  box(VM,DK,0,1.98,.05,1.36,.36,.14); cyl(VM,DK,-.4,1.98,.05,.03,.06,'cyl8'); cyl(VM,DK,.4,1.98,.05,.03,.06,'cyl8');   // the name's lightbox
+  cyl(VM,'#9aa0a4',.78,1.95,-.32,.06,.44,'cyl8'); put(VM,'cone8','#9aa0a4',.78,2.45,-.32,.12,.09,.12);   // the flue
+  box(VM,DK,-1.45,.36,.18,.7,.05,.05,.3); box(VM,DK,-1.45,.36,-.18,.7,.05,.05,-.3); cyl(VM,DK,-1.76,.06,0,.03,.34,'cyl8'); put(VM,'cyl','#2a2a2c',-1.76,.06,0,.06,.04,.06,0,Math.PI/2);   // the hitch, its jockey wheel
+  mktBoard(boards,VM,MKB.in,-.1,1.37,.152,1.3,.74); mktBoard(boards,VM,MKB.menu,.86,1.37,.602,.5,.62); mktBoard(boards,VM,MKB.name,0,2.16,.122,1.3,.32);
+  mktRect(VM,0,0,2.4,1.25,2.1); mktObs(...loc(V.set(-1.6,0,0).applyMatrix4(VM).normalize()),.3,.5);
+  /* the crêpe and coffee cart: two big wheels, a striped awning on four poles, a hotplate with a crêpe on it, the coffee machine */
+  const [cx,cz]=MKT.CART, CM=frameAt(cx,cz,yawTo(cx,cz,cx,0),lift(cx,cz)), TE='#3f8f8a', CR='#fbf6ec', WD='#3a2e27'; MKT.CM=CM;
+  box(CM,TE,0,.34,0,1.3,.6,.72); box(CM,CR,0,.36,.362,1.3,.05,.005); box(CM,CR,0,.92,0,1.38,.05,.8);
+  [-.41,.41].forEach(z=>{ put(CM,'cyl',WD,-.2,.32,z,.32,.05,.32,0,Math.PI/2); put(CM,'cyl',CR,-.2,.32,z*1.06,.06,.03,.06,0,Math.PI/2); for(let k=0;k<4;k++) box(CM,'#8a6a4a',-.2,.31,z+Math.sign(z)*.03,.6,.025,.012,0,0,k*Math.PI/4); });
+  box(CM,WD,.58,0,0,.05,.34,.5); [-.28,.28].forEach(z=>box(CM,WD,.86,.72,z,.5,.035,.035));   // a leg, the handles
+  [[-.62,-.33],[.62,-.33],[-.62,.33],[.62,.33]].forEach(([x,z])=>cyl(CM,'#e9e1cf',x,.97,z,.02,.92,'cyl8'));
+  for(let k=0;k<7;k++) box(CM,k%2?CR:TE,-.63+k*.21,1.84,.04,.21,.035,1.0,0,.2);   // the awning
+  box(CM,TE,0,1.64,.54,1.48,.12,.02);
+  cyl(CM,'#2b2b2b',-.3,.97,.05,.19,.04); cyl(CM,'#e8c27a',-.3,1.01,.05,.15,.008);   // the hotplate and a crêpe on it
+  box(CM,ST,.3,.97,-.1,.3,.3,.24); box(CM,DK,.3,1.27,-.1,.3,.03,.24); for(let k=0;k<3;k++) cyl(CM,'#f3ede2',.08,.97+k*.05,.2,.035,.045);   // the coffee machine, cups
+  mktBoard(boards,CM,MKB.cart,0,1.7,.556,1.0,.2,0,0);
+  mktRect(CM,0,0,1.45,.85,1.9); mktObs(...loc(V.set(.95,0,0).applyMatrix4(CM).normalize()),.26,.8);
+  /* the high table, a chip box and two cups on it */
+  { const [tx,tz]=MKT.TABLE, M=frameAt(tx,tz,0,lift(tx,tz)); cyl(M,'#3c4746',0,0,0,.24,.03,'cyl8'); cyl(M,'#3c4746',0,.03,0,.035,1.0,'cyl8'); cyl(M,'#b8834f',0,1.03,0,.33,.04);
+    box(M,'#e9e0c8',.08,1.07,-.06,.13,.06,.1); cyl(M,'#f3ede2',-.12,1.07,.08,.035,.09); cyl(M,'#f3ede2',.1,1.07,.12,.035,.09); mktObs(tx,tz,.34,1.1); }
+  /* the festoon poles: slim, a weighted foot, a ball on top where the wires meet */
+  const tops=MKT.POLES.map(([x,z])=>{ const M=frameAt(x,z,0,lift(x,z)); cyl(M,'#3c4746',0,0,0,.11,.12,'cyl8'); cyl(M,'#3c4746',0,.12,0,.034,3.38,'cyl8'); put(M,'sph','#3c4746',0,3.5,0,.045,.045,.045); mktObs(x,z,.12,3.5);
+    return V.set(0,3.46,0).applyMatrix4(M).clone(); });
+  kitTo(); const K=KITS.mkt, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(K.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(K.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(K.C,3)); K.P.length=K.N.length=K.C.length=0;
+  MKT.kitM=mktMat(MKT.u,{kit:true}); const kit=new T.Mesh(kg,MKT.kitM); g.add(kit);
+  MKT.signM=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:mktBoards()},uGlow:{value:0},uMk:MKT.u},LU),vertexShader:TOON_V(true),fragmentShader:MKS_F}); MKT.signM.userData.inkF=MKT_IF;
+  g.add(new T.Mesh(mktMerge(boards,['uv']),MKT.signM));
+  /* the festoons: six spans between the poles, round the square and across it over Kríos, a warm bulb every half metre or so */
+  const SP=[[0,1,.3],[1,2,.46],[2,3,.3],[3,0,.46],[0,2,.36],[1,3,.36]], WP=[], WN=[], WS=[], WPh=[], BM=[], BS=[], BPh=[], hp=[], hs=[], hsw=[], hph=[];
+  SP.forEach(([a,b,sag],si)=>{ const A=tops[a], Bp=tops[b], mid=V.copy(A).add(Bp).normalize(), side=new T.Vector3().crossVectors(mid,V2.copy(Bp).sub(A)).normalize();
+    const pts=[]; for(let k=0;k<=16;k++){ const t=k/16, p=A.clone().lerp(Bp,t); p.addScaledVector(V3.copy(p).normalize(),-sag*4*t*(1-t)); pts.push(p); }
+    const cur=new T.CatmullRomCurve3(pts), TS=40, RS=4, tg=new T.TubeGeometry(cur,TS,.008,RS,false).toNonIndexed(), n=tg.attributes.position.count, tsg=new T.TubeGeometry(cur,TS,.008,RS,false);
+    /* (each vertex's place along the wire, from the indexed tube it came from) */
+    const idx=tsg.index.array; for(let i=0;i<n;i++){ const s=Math.floor(idx[i]/(RS+1))/TS, w=4*s*(1-s); WS.push(side.x,side.y,side.z,w); WPh.push(si*1.9+s*1.4); }
+    for(let i=0;i<n;i++){ WP.push(tg.attributes.position.getX(i),tg.attributes.position.getY(i),tg.attributes.position.getZ(i)); WN.push(tg.attributes.normal.getX(i),tg.attributes.normal.getY(i),tg.attributes.normal.getZ(i)); }
+    const nb=Math.max(5,Math.round(A.distanceTo(Bp)/.52));
+    for(let k=0;k<nb;k++){ const s=(k+.5)/nb, p=cur.getPoint(s), u=V3.copy(p).normalize(), w=4*s*(1-s), c=p.clone().addScaledVector(u,-.07);
+      BM.push(new T.Matrix4().compose(c,new T.Quaternion().setFromUnitVectors(UPY,u),V4.set(1,1,1))); BS.push(side.x,side.y,side.z,w); BPh.push(si*1.9+s*1.4);
+      hp.push(c.x,c.y,c.z); hs.push(.36); hsw.push(side.x,side.y,side.z,w); hph.push(si*1.9+s*1.4); } });
+  const SWU={uTime:G.uTime,uSway:{value:.05}}; MKT.sway=SWU.uSway;
+  { const wg=new T.BufferGeometry(); wg.setAttribute('position',new T.Float32BufferAttribute(WP,3)); wg.setAttribute('normal',new T.Float32BufferAttribute(WN,3)); wg.setAttribute('aSw',new T.Float32BufferAttribute(WS,4)); wg.setAttribute('aPh',new T.Float32BufferAttribute(WPh,1));
+    const wm=new T.Mesh(wg,new T.ShaderMaterial({uniforms:Object.assign({uMk:MKT.u,uC:{value:C3('#2e2c2b')}},SWU),
+      vertexShader:`${MK_SW} void main(){ vec4 w=modelMatrix*vec4(position,1.); w.xyz+=swing(); gl_Position=projectionMatrix*viewMatrix*w; }`,
+      fragmentShader:`${MK_DIS} uniform vec3 uC; void main(){ mkFade(); gl_FragColor=vec4(uC,1.); }`}));
+    wm.layers.set(1); wm.frustumCulled=false; g.add(wm); }
+  /* the bulbs: one instanced mesh; pale glass by day, warm and a little alive by night */
+  { const nb=BM.length, bg=new T.SphereGeometry(.034,10,7).scale(1,1.3,1); bg.setAttribute('aSw',new T.InstancedBufferAttribute(new Float32Array(BS),4)); bg.setAttribute('aPh',new T.InstancedBufferAttribute(new Float32Array(BPh),1));
+    const bm=new T.InstancedMesh(bg,new T.ShaderMaterial({uniforms:Object.assign({uMk:MKT.u,uGlow:{value:0},uSun:LU.uSun,uNight:LU.uNight},SWU),
+      vertexShader:`${MK_SW} varying vec3 vN; varying float vF; void main(){ vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); w.xyz+=swing(); vN=normalize(mat3(modelMatrix)*mat3(instanceMatrix)*normal);
+        vF=.93+.07*sin(uTime*3.1+aPh*13.); gl_Position=projectionMatrix*viewMatrix*w; }`,
+      fragmentShader:`${MK_DIS} uniform vec3 uSun; uniform float uGlow,uNight; varying vec3 vN; varying float vF; void main(){ mkFade(); float l=.6+.4*max(dot(normalize(vN),uSun),0.);
+        gl_FragColor=vec4(mix(vec3(.93,.91,.85)*l*(1.-.6*uNight),vec3(1.5,1.1,.62)*vF,uGlow),1.); }`}),nb);
+    BM.forEach((M,i)=>bm.setMatrixAt(i,M)); bm.layers.set(1); bm.frustumCulled=false; g.add(bm); MKT.bulbs=bm; }
+  /* at night a soft glow round each bulb, the hatch and the cart, and a warm wash of light on the ground under it all */
+  const VH=V.set(-.1,1.25,1.0).applyMatrix4(VM).clone(), CH=V.set(0,1.2,.62).applyMatrix4(CM).clone();
+  [[VH,1.2],[CH,.9]].forEach(([p,s])=>{ hp.push(p.x,p.y,p.z); hs.push(s); hsw.push(0,0,0,0); hph.push(0); });
+  { const hg=new T.BufferGeometry(); hg.setAttribute('position',new T.Float32BufferAttribute(hp,3)); hg.setAttribute('aS',new T.Float32BufferAttribute(hs,1)); hg.setAttribute('aSw',new T.Float32BufferAttribute(hsw,4)); hg.setAttribute('aPh',new T.Float32BufferAttribute(hph,1));
+    const halo=new T.Points(hg,new T.ShaderMaterial({uniforms:Object.assign({uK:{value:0},uH:{value:800}},SWU),transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+      vertexShader:`attribute float aS; uniform float uH; ${MK_SW} void main(){ vec4 mv=modelViewMatrix*vec4(position+swing(),1.); gl_Position=projectionMatrix*mv; gl_PointSize=aS*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); }`,
+      fragmentShader:`uniform float uK; void main(){ vec2 q=gl_PointCoord*2.-1.; float r=dot(q,q), a=exp(-r*5.)*(1.-smoothstep(.6,1.,r)); gl_FragColor=vec4(vec3(1.,.72,.38)*a*uK*.8,1.); }`}));
+    halo.layers.set(1); halo.frustumCulled=false; halo.renderOrder=7; g.add(halo); MKT.halo=halo; }
+  { const S=.4, X0=-6.4, X1=6.6, Z0=-5.4, Z1=5.6, NX=Math.round((X1-X0)/S)+1, NZ=Math.round((Z1-Z0)/S)+1, P=[], Kk=[], I=[], src=[];
+    for(let i=0;i<hp.length/3;i++){ const [x,z]=loc(V.set(hp[i*3],hp[i*3+1],hp[i*3+2]).normalize()); src.push([x,z,hs[i]>.5?2.2:1.1,hs[i]>.5?.8:.42]); }
+    for(let j=0;j<NZ;j++) for(let i=0;i<NX;i++){ const x=X0+i*S, z=Z0+j*S; let k=0; for(const [sx,sz,r,w] of src) k+=w*Math.exp(-((x-sx)**2+(z-sz)**2)/(r*r)); k=Math.min(1,k);
+      at(x,z,V).multiplyScalar(R+standH(x,z)+.04); P.push(V.x,V.y,V.z); Kk.push(k); }
+    for(let j=0;j<NZ-1;j++) for(let i=0;i<NX-1;i++){ const a=j*NX+i, b=a+1, c=a+NX, d=c+1; I.push(a,c,b, b,c,d); }
+    const pg=new T.BufferGeometry(); pg.setAttribute('position',new T.Float32BufferAttribute(P,3)); pg.setAttribute('aK',new T.Float32BufferAttribute(Kk,1)); pg.setIndex(I);
+    const pool=new T.Mesh(pg,new T.ShaderMaterial({uniforms:{uK:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+      vertexShader:`attribute float aK; varying float vK; void main(){ vK=aK; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+      fragmentShader:`uniform float uK; varying float vK; void main(){ gl_FragColor=vec4(vec3(1.,.68,.36)*vK*vK*(3.-2.*vK)*uK*.26,1.); }`}));
+    pool.layers.set(1); pool.renderOrder=2; pool.frustumCulled=false; g.add(pool); MKT.pool=pool; }
+  /* smoke from the van's flue, steam off the hotplate: a few soft puffs, rising and drifting */
+  { const FL=V.set(.78,2.52,-.32).applyMatrix4(VM).clone(), HP=V.set(-.3,1.06,.05).applyMatrix4(CM).clone(), N=LO?10:16, sg=new T.BufferGeometry();
+    sg.setAttribute('position',new T.BufferAttribute(new Float32Array(N*3),3)); sg.setAttribute('aA',new T.BufferAttribute(new Float32Array(N*3),3));
+    const sm=new T.Points(sg,new T.ShaderMaterial({uniforms:{uH:{value:800},uK:{value:0},uL:{value:1}},transparent:true,depthWrite:false,
+      vertexShader:`attribute vec3 aA; uniform float uH; varying vec3 vA; void main(){ vA=aA; vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; gl_PointSize=aA.y*projectionMatrix[1][1]*uH*.5/max(-mv.z,.1); if(aA.x<.003) gl_Position=vec4(2.,2.,2.,1.); }`,
+      fragmentShader:`uniform float uK,uL; varying vec3 vA; void main(){ vec2 q=gl_PointCoord*2.-1.; float r=dot(q,q), a=(1.-smoothstep(.15,1.,r))*vA.x*uK; if(a<.004) discard;
+        gl_FragColor=vec4(mix(vec3(.66,.64,.62),vec3(.96,.96,.94),vA.z)*uL,a); }`}));
+    sm.layers.set(1); sm.frustumCulled=false; sm.renderOrder=6; g.add(sm);
+    MKT.smoke={m:sm,src:[FL,HP],up:[FL.clone().normalize(),HP.clone().normalize()],side:new T.Vector3().crossVectors(FL.clone().normalize(),new T.Vector3(0,0,1)).normalize(),
+      p:Array.from({length:N},(_,i)=>({t:9,life:1,s:i%3===2?1:0,x:0,z:0})),k:0}; }
+  await gap();
+  /* the people: the two at the stalls, two in the queue for chips, one at the cart, two at the high table */
+  MKT_PEOPLE.forEach(o=>{ const f=mktFigure(o); let x, z, h, u, fw;
+    if(o.van){ const p=V.set(o.van[0],.4,o.van[1]).applyMatrix4(VM); u=p.clone().normalize(); [x,z]=loc(u); h=p.length()-R; fw=tang(u,V2.set(0,0,1).transformDirection(VM),new T.Vector3()); }
+    else { [x,z]=o.at; u=at(x,z); h=standH(x,z); fw=tang(u,at(o.to[0],o.to[1]),new T.Vector3()); f.ob=mktObs(x,z,.3,1.3); }
+    standOn(f.g,u,fw,h); f.x=x; f.z=z; f.dir=u.clone(); g.add(f.g); MKT.figs.push(f); });
+  /* Diarmuid's big amp: a two-speaker cabinet with the head on top, beside him on the pavement (away from the café's door
+     and its tables), and a lead from his little amp into it, along the ground behind him */
+  { const Pp=part(), AM=new T.Matrix4().compose(v3(.72,0,-.2),dmQ.setFromAxisAngle(UPY,-.35),v3(1,1,1));
+    const pp=(geo,col,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>Pp.geo(geo,col,dmM.multiplyMatrices(AM,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,ry,rz,'YXZ')),dmW.set(sx,sy,sz))));
+    pp(FG.box,'#2a2624',0,.29,0,.62,.54,.34); pp(FG.box,'#4a433d',0,.29,.171,.55,.46,.004); [-.135,.135].forEach(x=>{ pp(FG.can,'#1f1c1a',x,.29,.174,.11,.006,.11,Math.PI/2); pp(FG.can,'#5a524b',x,.29,.178,.035,.004,.035,Math.PI/2); });
+    pp(FG.box,'#d9d0bc',0,.56,0,.64,.014,.36); [-.27,.27].forEach(x=>[-.13,.13].forEach(z=>pp(FG.can,'#1e1c1b',x,.012,z,.025,.024,.025)));   // piping, its feet
+    pp(FG.box,'#2f2b29',0,.68,-.01,.62,.23,.31); pp(FG.box,'#d9d0bc',0,.69,.146,.56,.085,.006); for(let k=0;k<6;k++) pp(FG.can,'#1e1c1b',-.2+k*.07,.69,.153,.013,.014,.013,Math.PI/2);
+    pp(FG.sph,'#c2412f',.25,.69,.152,.013,.013,.007); pp(FG.box,'#1e1c1b',0,.805,-.01,.18,.025,.04);
+    const e=v3(-.31,.6,-.1).applyMatrix4(AM);   // (his little amp stands at -.5, 0, -.02: see buildBusker)
+    Pp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([v3(-.46,.22,-.1),v3(-.44,.012,-.2),v3(-.15,.012,-.38),v3(.3,.012,-.42),v3(e.x-.05,.012,e.z-.05),v3(e.x,.2,e.z),e]),40,.0065,4,false).toNonIndexed(),'#1f1d1c',new T.Matrix4());
+    const m=Pp.mesh(); m.material=mktMat(MKT.u); m.visible=false; DM.spot.add(m); MKT.amp=m;
+    const [ax,az]=loc(V.set(.72,0,-.2).applyMatrix4(DM.spot.matrix).normalize()); MKT.ampAt=[ax,az]; mktObs(ax,az,.36,.9); }
+  st._dbg.market={MKT,open:mktOpen,update:mktUpdate,solid:mktSolid,
+    step(sec){ for(let i=0;i<sec*10;i++) mktUpdate(.1,G.uTime.value+i*.1,true); },
+    get state(){ return {open:mktOpen(),k:+MKT.k.toFixed(3),e:+MKT.e.toFixed(3),u:+MKT.u.value.toFixed(3),vis:MKT.g.visible,solid:MKT.solid,glow:+MKT.glow.toFixed(3),wet:+MKT.wet.toFixed(2),dow:SKY.dow,h:+SKY.h.toFixed(3),
+      figs:MKT.figs.map(f=>({id:f.id,k:+f.k.toFixed(2),vis:f.g.visible&&MKT.g.visible})),amp:MKT.amp.visible&&MKT.u.value>.5,obs:MKT.obs.length,inOBS:MKT.obs.filter(o=>OBS.includes(o)).length,cells:MKT.cells.length}; }}; }
+/* solid or not: the stalls, the poles, the table, the people and the amp in the town's list of things to walk round, and
+   their ground taken off the walking grid; and anyone standing where one of them now is steps out of its way */
+function mktSolid(on){ if(MKT.solid===on) return; MKT.solid=on;
+  if(on){ for(const o of MKT.obs) if(!OBS.includes(o)) OBS.push(o); MKT.cells=[];
+    if(NAV.free){ const N=NAV.N; for(const o of MKT.obs){ const m=o.r0+.3;   // (r0: as built; someone gone home in the rain keeps their spot on the grid)
+      for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S, c=j*N+i; if((x-o.x)**2+(z-o.z)**2<m*m&&NAV.free[c]===1){ NAV.free[c]=0; MKT.cells.push(c); } } } }
+    const P=player; for(const o of MKT.obs){ const dx=P.x-o.x, dz=P.z-o.z, d=Math.hypot(dx,dz), m=o.r+.3; if(d<m){ const k=d>1e-4?m/d:1; P.x=o.x+(d>1e-4?dx:m)*k; P.z=o.z+(d>1e-4?dz:0)*k; at(P.x,P.z,P.u); tang(P.u,P.f,P.f); } } }
+  else { for(const o of MKT.obs){ const i=OBS.indexOf(o); if(i>=0) OBS.splice(i,1); } if(NAV.free) for(const c of MKT.cells) NAV.free[c]=1; MKT.cells=[]; } }
+const mtV=new T.Vector3(), mtR=new T.Vector3();
+function mktUpdate(dt,t,manual){ if(!MKT.g) return; const P=player;
+  /* behind the loader, once: everything drawn, so its shaders are made with the rest of Earth's and the market's first
+     evening never waits on them */
+  const warm=MKT.warm&&!S.ready; if(MKT.warm&&S.ready){ MKT.warm=false; MKT.snap=true; }
+  MKT.want=mktOpen()?1:0;
+  const snap=MKT.snap; if(snap){ MKT.k=MKT.want; MKT.snap=false; } else MKT.k=MKT.want>MKT.k?Math.min(MKT.want,MKT.k+dt/MKT.FADE):Math.max(MKT.want,MKT.k-dt/MKT.FADE);
+  const e=warm?1:MKT.k*MKT.k*(3-2*MKT.k); MKT.e=e;
+  MKT.wet=damp(MKT.wet,WX.rain>.3?1:0,.6,dt); MKT.dark=sstep(.05,.7,Math.max(SKY.night,SKY.dusk*.85));
+  mktSolid(!warm&&e>.02);
+  /* round the curve of the world (well past the square) none of it can be seen, so none of it is drawn */
+  const far=stCam.position.distanceTo(mtV.set(0,R,0))>34, show=warm||(e>.002&&!far); if(MKT.g.visible!==show) MKT.g.visible=show; MKT.amp.visible=warm||e>.002;
+  MKT.u.value=e; const dk=MKT.dark; MKT.glow=e*(.3+.7*dk);
+  /* the people: each fades with the market, and those who would not stand about in the rain go home in it */
+  MKT.figs.forEach(f=>{ const want=warm?1:e*(f.dry?1-MKT.wet:1); f.k=warm||snap?want:want>f.k?Math.min(want,f.k+dt/3):Math.max(want,f.k-dt/3); f.u.value=f.k;
+    const v=f.k>.002; if(f.g.visible!==v) f.g.visible=v; if(f.ob) f.ob.r=f.k>.05?.3:-1; });   // (gone home: nothing left to walk round)
+  if(!show&&!warm) return;
+  MKT.bulbs.material.uniforms.uGlow.value=MKT.glow; MKT.halo.material.uniforms.uK.value=e*dk*(.94+.06*Math.sin(t*2.1)); MKT.pool.material.uniforms.uK.value=e*dk;
+  MKT.halo.material.uniforms.uH.value=MKT.smoke.m.material.uniforms.uH.value=colRT.height||innerHeight; MKT.signM.uniforms.uGlow.value=e*(.1+.62*dk);
+  MKT.kitM.uniforms.uC.value.setRGB(1+.16*dk,1+.08*dk,1); MKT.sway.value=.045+.05*MKT.wet;
+  if(warm){ MKT.g.traverse(o=>{ if(o.isMesh||o.isPoints) o.frustumCulled=false; }); MKT.amp.frustumCulled=false; MKT.halo.material.uniforms.uK.value=MKT.pool.material.uniforms.uK.value=1; }
+  else if(MKT.culled!==true){ MKT.culled=true; MKT.g.traverse(o=>{ if(o.isMesh&&o.geometry&&!o.isInstancedMesh&&!o.layers.isEnabled(1)) o.frustumCulled=true; }); MKT.amp.frustumCulled=true; }
+  const quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on;
+  MKT.figs.forEach(f=>{ if(f.g.visible) mktPose(f,dt,t,P); });
+  /* the smoke and the steam; now and then the chipper lifts the basket and shakes it */
+  mktSmoke(dt,e,dk); MKT.bsk-=dt; if(MKT.bsk<=0){ MKT.bsk=8+Math.random()*7; MKT.shake=1.1; MKT.bskGo=true; }
+  /* and the sounds: the fryer spitting now and then, the basket shaken, glasses at the table; only near, never under a conversation */
+  if(warm||manual||quiet||e<.6||S.mode!=='station'){ MKT.bskGo=false; return; }
+  const vd=Math.hypot(P.x-MKT.VAN[0],P.z-MKT.VAN[1]), td=Math.hypot(P.x-MKT.TABLE[0],P.z-MKT.TABLE[1]), lv=d=>Math.pow(clamp(1-d/14,0,1),1.5);
+  mtR.crossVectors(C.f,P.u); const pan=(x,z)=>{ tang(P.u,at(x,z,mtV),mtV); return mtV.dot(mtR); };
+  MKT.fry-=dt; if(MKT.fry<=0){ MKT.fry=1.6+Math.random()*2.6; if(vd<14) A.mktFry&&A.mktFry(.04*lv(vd),pan(...MKT.VAN)); }
+  if(MKT.bskGo){ MKT.bskGo=false; if(vd<14) A.mktBasket&&A.mktBasket(.02*lv(vd),pan(...MKT.VAN)); }
+  MKT.clk-=dt; if(MKT.clk<=0){ MKT.clk=5+Math.random()*7; const tk=Math.min(...MKT.figs.filter(f=>f.dry).map(f=>f.k)); if(td<14&&tk>.5) A.mktClink&&A.mktClink(.016*lv(td)*tk,pan(...MKT.TABLE)); } }
+/* how each of them stands: a breath and a slow sway, looking about (and at you, when you come close), and what their
+   hands are doing: chips to the mouth, a sip of coffee, a look at the phone, the basket shaken, the crêpe spread */
+const mtL=new T.Vector3();
+function mktPose(f,dt,t,P){ const d=f.d, a=d.arms[f.arm], fa=d.fore[f.arm], s=f.arm?-1:1, ph=f.ph; f.t+=dt;
+  d.body.position.y=.004*Math.sin(t*1.6+ph); d.body.rotation.set(0,.06*Math.sin(t*.37+ph),.014*Math.sin(t*.29+ph*2));
+  let yaw=.42*Math.sin(t*.21+ph)*Math.sin(t*.13+ph*.7), pitch=.04;
+  if(f.act==='queue') pitch=-.12+.06*Math.sin(t*.4+ph), yaw*=.6;   // reading the board over the hatch
+  if(f.act==='phone') pitch=.42, yaw=.1*Math.sin(t*.3+ph);
+  if(f.act==='fry'||f.act==='crepe') pitch=.3, yaw*=.5;
+  /* you, close by: a look up at you now and then */
+  const near=Math.hypot(P.x-f.x,P.z-f.z)<4.5; f.look0=damp(f.look0,near&&Math.sin(t*.5+ph)>-.2?1:0,2.2,dt);
+  if(f.look0>.01){ f.g.updateWorldMatrix(true,false); const lp=f.g.worldToLocal(mtL.copy(P.u).multiplyScalar(R+P.h+1.2)); lp.y-=1.17;
+    yaw=lerp(yaw,clamp(Math.atan2(lp.x,lp.z),-1.1,1.1),f.look0); pitch=lerp(pitch,clamp(-Math.atan2(lp.y,Math.hypot(lp.x,lp.z)),-.3,.4),f.look0); }
+  d.head.rotation.set(pitch,yaw,0);
+  /* the arm that moves */
+  let ax=.02*Math.sin(t*.8+ph), az=0, fx=-.12;
+  if(f.act==='eat'){ const c=(f.t%4.2)/4.2, k=sstep(.05,.22,c)*(1-sstep(.4,.58,c)); ax=-.35-.25*k; az=s*.3*k; fx=-1.2-.9*k; }
+  else if(f.act==='sip'){ const c=(f.t%6.5)/6.5, k=sstep(.1,.25,c)*(1-sstep(.45,.6,c)); ax=-.3-.3*k; az=s*.28*k; fx=-1.25-.85*k; }
+  else if(f.act==='phone'){ ax=-.32; az=s*.12; fx=-1.35; }
+  else if(f.act==='fry'){ const sk=MKT.shake>0?Math.sin(t*26)*.1:0; MKT.shake=Math.max(0,(MKT.shake||0)-dt); ax=-.75+sk; az=s*.15; fx=-.55; }   // (the basket, over the oil)
+  else if(f.act==='crepe'){ ax=-.62+.05*Math.sin(t*2.4); az=s*(.18+.1*Math.cos(t*2.4)); fx=-.7; }
+  a.rotation.set(ax,0,az); fa.rotation.set(fx,0,0); }
+function mktSmoke(dt,e,dk){ const S0=MKT.smoke, N=S0.m.geometry, Pp=N.attributes.position, Aa=N.attributes.aA; let live=false;
+  S0.k-=dt; if(e>.3&&S0.k<=0){ const q=S0.p.find(q=>q.t>=q.life); if(q){ q.t=0; q.s=Math.random()<.4?1:0; q.life=q.s?1.6:2.6; q.x=(Math.random()-.5)*.08; q.z=(Math.random()-.5)*.08; } S0.k=.22+Math.random()*.25; }
+  S0.p.forEach((q,i)=>{ if(q.t<q.life){ q.t+=dt; live=true; } const k=Math.min(1,q.t/q.life), a=q.t>=q.life?0:sstep(0,.2,k)*(1-sstep(.45,1,k)), up=S0.up[q.s], o=S0.src[q.s];
+    mtV.copy(o).addScaledVector(up,k*(q.s?.55:1.1)).addScaledVector(S0.side,q.x+k*(q.s?.1:.35)+.05*Math.sin(q.t*2.3+i)); Pp.setXYZ(i,mtV.x,mtV.y,mtV.z);
+    Aa.setXYZ(i,a*(q.s?.45:.5),(q.s?.16:.22)*(.5+k),q.s); });
+  if(MKT.warm&&!S.ready){ live=true; Aa.setXYZ(0,.5,.2,0); }   // (drawn once behind the loader, with the rest)
+  S0.m.visible=live; if(live){ Pp.needsUpdate=true; Aa.needsUpdate=true; S0.m.material.uniforms.uK.value=e; S0.m.material.uniforms.uL.value=1-.55*dk; } }
 
 /* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
 const RKR=1.2, RKH=4.4, RKB=.35, FLOOR=.42, BAND=2.05, GAP=.42, rAt=y=>RKR*(1-(y-RKB)/RKH);
@@ -1087,7 +1367,7 @@ function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
    out. Now and then it rains (and in December it snows instead), sea fog rolls in with the foghorn, and after the rain
    there is a rainbow. Leaves turn in autumn and blossom in spring; there is snow and fairy lights in December and
    pumpkins on the doorsteps at Halloween. ?time=21:30, ?date=12-24 and ?weather=rain|fog|clear set any of it. */
-const SKY={h:15,doy:200,md:'07-15',e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false}, SEA={};
+const SKY={h:15,doy:200,md:'07-15',dow:3,e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false}, SEA={};
 const QPS=new URLSearchParams(location.search), SKYSET={time:QPS.get('time'),date:QPS.get('date'),weather:QPS.get('weather')};
 const D2R=Math.PI/180, SOUTH=new T.Vector3(.38,0,.46).normalize(), WEST=new T.Vector3(SOUTH.z,0,-SOUTH.x);
 /* where the sun is: elevation from the hour angle, the sun's declination for the day and our latitude; the moon opposite */
@@ -1099,11 +1379,12 @@ const doyOf=(m,d)=>Math.round([0,31,59,90,120,151,181,212,243,273,304,334][m-1]+
 const inRange=(md,a,b)=>a<=b?md>=a&&md<=b:md>=a||md<=b;   // month-day strings, wrapping the new year
 /* how much of a season there is on a day: ramps in and out over a few days at each end */
 function seasonK(doy,a,b,ramp){ const span=(b-a+365)%365, x=(doy-a+365)%365; if(x>span) return 0; return Math.min(1,x/ramp,(span-x)/ramp); }
-function skyClock(){ const now=new Date(); let h=now.getHours()+now.getMinutes()/60+now.getSeconds()/3600, m=now.getMonth()+1, d=now.getDate();
-  if(window.__TEST&&!SKYSET.time){ h=15; } if(window.__TEST&&!SKYSET.date){ m=7; d=15; }   // the tests see one fixed afternoon unless they ask
-  if(SKYSET.time){ const p=SKYSET.time.split(':'); h=clamp((+p[0]||0)+(+p[1]||0)/60,0,23.99); }
-  if(SKYSET.date){ const p=SKYSET.date.split('-'); m=clamp(+p[0]||1,1,12); d=clamp(+p[1]||1,1,31); }
-  SKY.h=h; SKY.doy=doyOf(m,d); SKY.md=String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+function skyClock(){ const now=new Date(); let h=now.getHours()+now.getMinutes()/60+now.getSeconds()/3600, m=now.getMonth()+1, d=now.getDate(), y=now.getFullYear();
+  if(window.__TEST&&!SKYSET.time){ h=15; } if(window.__TEST&&!SKYSET.date){ m=7; d=15; y=2026; }   // the tests see one fixed afternoon unless they ask (a Wednesday)
+  if(SKYSET.time){ const p=SKYSET.time.split(':'); h=clamp((+p[0]||0)+(+p[1]||0)/60+(+p[2]||0)/3600,0,23.9999); }
+  /* a date is month and day (this year), or the year too: 2026-11-13. The day of the week is worked out from it */
+  if(SKYSET.date){ const p=SKYSET.date.split('-'); if(p.length>2) y=+p.shift()||y; m=clamp(+p[0]||1,1,12); d=clamp(+p[1]||1,1,31); }
+  SKY.h=h; SKY.doy=doyOf(m,d); SKY.md=String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); SKY.dow=new Date(y,m-1,d).getDay(); }
 /* the weather for this visit: the same for everyone within the same three hours of the same day */
 function skyWeather(){ let k='clear'; const now=new Date(), seed=(now.getFullYear()*400+SKY.doy)*8+Math.floor(SKY.h/3), r=fract(Math.sin(seed*12.9898)*43758.5453);
   if(r<.2) k='rain'; else if(r<.36) k='fog';
@@ -1866,7 +2147,7 @@ function buildBirds(){ for(let i=0;i<6;i++){ const g=new T.Group(), wl=mesh(BOXG
 const INK=[], inkC=new Map(), shdC=new Map();
 const variant=(cache,m,frag,side)=>{ let k=cache.get(m); if(!k){ k=new T.ShaderMaterial({uniforms:m.uniforms,vertexShader:m.vertexShader,fragmentShader:frag,side:side??m.side,vertexColors:m.vertexColors}); cache.set(m,k); } return k; };
 function registerInk(){ sc.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true) return;
-  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide);
+  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide);   // (inkF: the market's things fade in the ink too)
   if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); }); }
 const shRT=new T.WebGLRenderTarget(SHN,SHN,{depthBuffer:true}); shRT.depthTexture=new T.DepthTexture(SHN,SHN); LU.uShM.value=shRT.depthTexture;
 const shCam=new T.OrthographicCamera(-30,30,30,-30,1,160);
@@ -1931,6 +2212,7 @@ st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // bet
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
+  await buildMarket(gap); await gap();   // the Friday night market in the square, kept hidden on other nights (after Diarmuid, whose big amp is in it)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
@@ -2278,7 +2560,7 @@ st.enter=function(){ post.uniforms.uFlat.value=1;   /* Earth's daylight from the
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone');
   $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
-  marksEnter(); cafeReset(); stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
+  marksEnter(); cafeReset(); MKT.snap=true; stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.dispose(); shRT.depthTexture.dispose(); baked=false; }   /* Earth's own drawing buffers and its sun's shadow are given back while you are not on Earth: the next frame here makes them again */
   CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); cafeReset(true); A.music(0); A.hush(); };
@@ -2438,6 +2720,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       if(!quiet&&d0<15) A.vent(0); } }
   if(BE) BE.lt.visible=(t/1.6)%1<.3;
   buskUpdate(dt,t);   // Diarmuid: his guitar, his hands, his lights
+  mktUpdate(dt,t);   // the market in the square, on a Friday night
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
     KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;
