@@ -67,7 +67,7 @@ function lateNeed(id){ const w=worldOf(id); if(w.stage<4&&id!=='U'&&!ST[id]) w.s
 const HELD=new Set(); addEventListener('keydown',e=>HELD.add('k'+e.code),{capture:true,passive:true}); addEventListener('keyup',e=>HELD.delete('k'+e.code),{capture:true,passive:true});
 addEventListener('pointerdown',e=>HELD.add('p'+e.pointerId),{capture:true,passive:true}); ['pointerup','pointercancel'].forEach(ev=>addEventListener(ev,e=>HELD.delete('p'+e.pointerId),{capture:true,passive:true}));
 addEventListener('blur',()=>HELD.clear());
-addEventListener('pointermove',e=>{ if(e.buttons||S.mode==='load') LATE.lastIn=performance.now(); },{capture:true,passive:true});   // (on the loader, a hand on the mouse is about to begin)
+addEventListener('pointermove',e=>{ if(e.buttons||e.pointerType==='mouse'||S.mode==='load') LATE.lastIn=performance.now(); },{capture:true,passive:true});   // (a hand moving the mouse is about to do something: the worlds still to make wait until it rests)
 function lateCalm(now){ if(S.mode!==LATE.mode){ LATE.mode=S.mode; LATE.modeAt=now; }
   if(S.mode==='load') return now-LATE.lastIn>1500;   // behind the loader any time, except while you are reaching for it: then you come first
   if(now-LATE.lastIn<2500||HELD.size) return false;
