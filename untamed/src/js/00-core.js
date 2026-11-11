@@ -127,10 +127,14 @@ const A=(()=>{
      on. Every overlap is of sounds that are not copies of each other (fresh noise, another chord), so nothing phases */
   const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   const IOS=(()=>{ try{ const a=new Audio(); a.volume=.5; return Math.abs(a.volume-.5)>.01; }catch(e){ return false; } })();   // an iPhone will not let a page set a recording's volume: there each one plays or pauses
+  const LE16=new Uint8Array(new Uint16Array([1]).buffer)[0]===1;
   const wav=(d,o,N,sr)=>{ const ab=new ArrayBuffer(44+N*2), v=new DataView(ab), str=(p,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(p+i,x.charCodeAt(i)); };
     str(0,'RIFF'); v.setUint32(4,36+N*2,true); str(8,'WAVE'); str(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
     v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); str(36,'data'); v.setUint32(40,N*2,true);
-    let sq=0; for(let i=0;i<N;i++){ let x=d[o+i]; if(!(x>-1)) x=x!==x?0:-1; else if(x>1) x=1; sq+=x*x; v.setInt16(44+i*2,x*32767,true); }
+    /* the samples go straight into a 16-bit view where the device stores numbers low byte first (every phone and computer
+       does): the same bytes as through the DataView, sooner */
+    const pcm=LE16?new Int16Array(ab,44,N):null;
+    let sq=0; for(let i=0;i<N;i++){ let x=d[o+i]; if(!(x>-1)) x=x!==x?0:-1; else if(x>1) x=1; sq+=x*x; if(pcm) pcm[i]=x*32767; else v.setInt16(44+i*2,x*32767,true); }
     return {url:URL.createObjectURL(new Blob([ab],{type:'audio/wav'})),rms:Math.sqrt(sq/Math.max(1,N))}; };
   /* a recording: P its period in seconds, H the overlap, R a second of run-in that is thrown away (so every filter and
      the room have settled where the recording begins), ref the level the recording is made at (a player's volume is the
@@ -863,6 +867,11 @@ if(RTS>0&&!rtWorks(RTS)) RTS=0;
 if(!rtWorks(0)) noGL();
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter,samples:RTS});
 const rtA=mkRT(), rtB=mkRT();
+/* every world is drawn into a target and only the finished picture goes to the screen, so a shader made ready ahead of time
+   is made with a target bound. Made while the screen happens to be bound (as it is after every frame), it comes out in the
+   screen's colour space: a second program that nothing ever draws with, while the one that is drawn with still waits for
+   its first frame. (Which target makes no difference to the shader, only that it is one) */
+function intoTarget(fn){ const was=renderer.getRenderTarget(); renderer.setRenderTarget(rtA); try{ return fn(); } finally{ renderer.setRenderTarget(was); } }
 /* the full-screen targets are the biggest things on the graphics card. Orbit draws into one, a station into the other,
    and only a doorway between them needs both; so each is held only while it is being drawn and given back the moment it
    is not, and a phone or a laptop never carries one it is not using. One that is needed again is made full size before

@@ -3,6 +3,8 @@
 
   python3 tools/build.py            # docs/ (what Cloudflare serves) and the single-file builds in dist/
   python3 tools/build.py --docs /tmp/site   # the site somewhere else, nothing in dist/
+  python3 tools/build.py --no-minify        # the deployed script and styles as written (esbuild minifies them otherwise:
+                                            # npm install, once)
   python3 tools/build.py --bundle /tmp/one  # everything as one claude.ai artifact: index.html (the page) and
                                             # untamed/index.html (a page of its own), linked in the same tab
 
@@ -77,6 +79,7 @@ def main():
     ap = argparse.ArgumentParser(description='Build the Heloria Labs site')
     ap.add_argument('--docs', default='docs', help='where to write the site (default docs/)')
     ap.add_argument('--bundle', help='write the one-artifact build here, and nothing else')
+    ap.add_argument('--no-minify', action='store_true', help='leave the deployed script and styles as written (larger, otherwise the same)')
     a = ap.parse_args()
     untamed = load('untamed_build', 'untamed/build.py')
     tamed = load('tamed_build', 'tamed/build.py')
@@ -93,8 +96,8 @@ def main():
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(out)
-    untamed.write_site(out)   # first: it also lays down the shared files in assets/
-    tamed.write_site(out)
+    untamed.write_site(out, minify=not a.no_minify)   # first: it also lays down the shared files in assets/
+    tamed.write_site(out, minify=not a.no_minify)
     shutil.copy(os.path.join(ROOT, 'untamed', 'src', 'assets', 'favicon.ico'), os.path.join(out, 'favicon.ico'))   # where browsers and search engines look first
     open(os.path.join(out, '_headers'), 'w').write(HEADERS)
     open(os.path.join(out, '_redirects'), 'w').write(REDIRECTS)

@@ -4,7 +4,7 @@ const WHITE=new T.Color(1,1,1);
 
 /* ---------- boot: build every world and compile every shader behind the loader ---------- */
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
-async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([renderer.compileAsync(sc,cam),wait(8000)]); else renderer.compile(sc,cam); }catch(e){} }
+async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
 async function boot(){
   const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
@@ -25,7 +25,7 @@ async function boot(){
   const warm=mkRT(); warm.setSize(64,64);
   for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); await compileQuiet(st.scene,stCam);
     st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
-    try{ renderer.compile(st.scene,stCam); }catch(e){} if(st.render){ try{ st.render(warm); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warm); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
+    try{ intoTarget(()=>renderer.compile(st.scene,stCam)); }catch(e){} if(st.render){ try{ st.render(warm); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warm); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
   warm.dispose(); renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   setP(1); $('#load').classList.add('ready'); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
 }

@@ -2885,8 +2885,8 @@ function csDesk(){ const [dx,dz]=QDK, M=frameAt(dx,dz,DESK.yaw), g=new T.Group()
   QS.lever={g:lv,PM}; QS.desk=g; QS.glow=new T.Vector3(.12,.3,.05).applyMatrix4(PM); qOwn(g); qInk(g); setLever(-.6); }
 /* the new materials are made ready for the screen now, out of sight, so the first frame of the scene does not wait on them */
 function csWarm(){ qSwaps(); const all=[QS.figs.gideon,QS.figs.owen,...QS.shaft,QS.halo,QS.lift,QS.desk,...QS.doors.map(d=>d.g)];
-  try{ for(const o of all){ renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.inkM) m.material=m.userData.inkM; }); renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.col) m.material=m.userData.col; }); }
-    for(const w of QS.swap){ w.o.material=w.v; renderer.compile(w.o,stCam,sc); if(w.iv){ w.o.material=w.iv; renderer.compile(w.o,stCam,sc); } w.o.material=w.m; } }
+  try{ intoTarget(()=>{ for(const o of all){ renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.inkM) m.material=m.userData.inkM; }); renderer.compile(o,stCam,sc); o.traverse(m=>{ if(m.userData.col) m.material=m.userData.col; }); }
+    for(const w of QS.swap){ w.o.material=w.v; renderer.compile(w.o,stCam,sc); if(w.iv){ w.o.material=w.iv; renderer.compile(w.o,stCam,sc); } w.o.material=w.m; } }); }
   catch(e){ for(const o of all) o.traverse(m=>{ if(m.userData.col) m.material=m.userData.col; }); for(const w of QS.swap) w.o.material=w.m; } }
 /* the scene's own versions of the town's materials: the same uniforms (so the same light, the same hour), with the cut
    (QHOLE), the shaft's light (QSHAFT) and the scene's lamps (QLAMP) compiled in. The ground, the sea, the grass and the

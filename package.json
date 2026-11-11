@@ -1,0 +1,8 @@
+{
+  "name": "heloria-labs",
+  "private": true,
+  "description": "Build tooling only: python3 tools/build.py uses esbuild to minify the deployed scripts and styles",
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
