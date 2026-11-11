@@ -135,7 +135,7 @@ const A=(()=>{
        does): the same bytes as through the DataView, sooner */
     const pcm=LE16?new Int16Array(ab,44,N):null;
     let sq=0; for(let i=0;i<N;i++){ let x=d[o+i]; if(!(x>-1)) x=x!==x?0:-1; else if(x>1) x=1; sq+=x*x; if(pcm) pcm[i]=x*32767; else v.setInt16(44+i*2,x*32767,true); }
-    return {url:URL.createObjectURL(new Blob([ab],{type:'audio/wav'})),rms:Math.sqrt(sq/Math.max(1,N))}; };
+    const blob=new Blob([ab],{type:'audio/wav'}); return {url:URL.createObjectURL(blob),blob,rms:Math.sqrt(sq/Math.max(1,N))}; };
   /* a recording: P its period in seconds, H the overlap, R a second of run-in that is thrown away (so every filter and
      the room have settled where the recording begins), ref the level the recording is made at (a player's volume is the
      level asked for over ref), tc how quickly it follows (tcOut going down). On an iPhone, where a player is only on or
@@ -168,14 +168,25 @@ const A=(()=>{
   const player=r=>{ const el=BUFP?new BufPlayer(()=>{ if(r.bb) return r.bb; const q=r.pcm, b=ctx.createBuffer(1,q.length,r.sr), ch=b.getChannelData(0); for(let i=0;i<q.length;i++){ const x=q[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } r.bb=b; return b; }):new Audio(); el.preload='auto'; if(!BUFP) el.src=r.url; el._on=false; el._primed=false;
     try{ el.preservesPitch=false; el.mozPreservesPitch=false; el.webkitPreservesPitch=false; }catch(e){}   // so a slower rate is a lower pitch, as on tape
     el.addEventListener('ended',()=>{ el._on=false; }); return el; };
-  function render(r,next){ const fin=()=>{ r.busy=false; if(next) setTimeout(next,120); };
-    if(!OAC||r.url||r.busy) return fin(); r.busy=true;
-    const sr=r.sr, R=Math.round(sr*r.R), P=Math.round(sr*r.P), H=Math.round(sr*r.H), N=P+H; let oc;
-    try{ oc=new OAC(1,R+N,sr); r.make(oc,r.R); }catch(e){ console.warn('sound',r.name,e); return fin(); }
+  const keptAs=r=>r.name+(IOS?'.ios':'')+(BUFP?'.f32':'.wav');   // (made at another level on an iPhone; a buffer player keeps the samples)
+  function render(r,next){ const fin=k=>{ r.busy=false; if(next){ if(k) next(); else setTimeout(next,120); } };   // (a kept one is followed at once: nothing was made)
+    if(!OAC||r.url||r.busy){ if(next) setTimeout(next,0); return; } r.busy=true;   // (one already being made is left to finish)
+    const sr=r.sr, R=Math.round(sr*r.R), P=Math.round(sr*r.P), H=Math.round(sr*r.H), N=P+H, kn=keptAs(r); let oc;
+    /* kept from an earlier visit (see KEEP): the very recording made then, and nothing to work out. A buffer player plays
+       the samples themselves, so those are what is kept for it */
+    KEEP.get(kn).then(async k=>{ try{ if(k&&isFinite(k.rms)&&k.blob.size===(BUFP?N*4:44+N*2)){
+          if(BUFP){ const d=new Float32Array(await k.blob.arrayBuffer()), w=wav(d,0,N,sr); r.url=w.url; r.rms=w.rms; r.pcm=d; r.sr=sr; }
+          else { r.url=URL.createObjectURL(k.blob); r.rms=k.rms; }
+          r.els=[player(r),player(r)]; return fin(true); } }catch(e){} make(); });
+    /* a recipe may work out part of its sound itself (a guitar string by string), a little at a time: then it is rendered
+       once that is done */
+    function make(){ let m; try{ oc=new OAC(1,R+N,sr); m=r.make(oc,r.R); }catch(e){ console.warn('sound',r.name,e); return fin(); }
+      if(m&&m.then) m.then(go,e=>{ console.warn('sound',r.name,e); fin(); }); else go(); }
     const done=b=>{ const d=b.getChannelData(0);
       if(r.fade) for(let i=0;i<H;i++){ const k=i/H*Math.PI/2; d[R+i]*=Math.sin(k); d[R+P+i]*=Math.cos(k); }   // in at the top, out over the overlap
-      const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; if(BUFP){ r.pcm=d.slice(R,R+N); r.sr=sr; } r.els=[player(r),player(r)]; fin(); };
-    try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,fin); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ fin(); } }
+      const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; if(BUFP){ r.pcm=d.slice(R,R+N); r.sr=sr; } r.els=[player(r),player(r)];
+      KEEP.put(kn,BUFP?new Blob([r.pcm]):w.blob,w.rms); fin(); };
+    function go(){ try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>fin()); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ fin(); } } }
   /* the mixer: every recording follows the level asked of it, and the two players hand over */
   let mixT=0;
   function mix(){ const now=performance.now(), dt=mixT?Math.min(.25,(now-mixT)/1000):0; mixT=now;
@@ -282,7 +293,11 @@ const A=(()=>{
      a patter and not a wash; duller taps on wood and roofs nearby; now and then a drop into a puddle; and under it, dark
      and quiet, the rain further off, rising and falling with the gusts. Nothing above about 4 kHz, where hiss lives. It is
      worked out sample by sample here and only played through the bus */
-  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,make(oc){ const b=bus(oc,.25), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0), L=n/sr;
+  /* what a recipe works out itself, sample by sample (the rain, the busker's guitar), is done a piece at a time with the page
+     let go on in between: each piece a few milliseconds, so no frame waits on it; but where the page is long in giving it
+     back (a page held up by much more than a frame anyway), as long as that, so it is still made soon */
+  const pacer=()=>{ let t0=performance.now(), most=6; return async()=>{ if(performance.now()-t0<most) return; const y=performance.now(); await wait(0); t0=performance.now(); most=t0-y>50?t0-y:6; }; };
+  const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,async make(oc){ const b=bus(oc,.25), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0), L=n/sr;
       let seed=97; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
       /* one hit: a short burst of decaying noise rung through a band-pass at f (Q q), about tau seconds long, at level g */
       const hit=(t,f,q,tau,g)=>{ const i0=Math.floor(t*sr); if(i0>=n) return; const w=2*Math.PI*Math.min(f,sr*.45)/sr, al=Math.sin(w)/(2*q), a0=1+al, b0=al/a0, a1=-2*Math.cos(w)/a0, a2=(1-al)/a0;
@@ -291,9 +306,11 @@ const A=(()=>{
       /* a drop into a puddle: a little bubble that rings and rises in pitch as it closes */
       const plip=(t,f0,g)=>{ const i0=Math.floor(t*sr), N=Math.min(n-i0,Math.floor(sr*.06)); let ph=0;
         for(let k=0;k<N;k++){ const u=k/sr, f=f0*(1+u*38), e=(u<.0015?u/.0015:1)*Math.exp(-u/.012); ph+=2*Math.PI*f/sr; d[i0+k]+=Math.sin(ph)*e*g; } };
-      for(let t=.005;t<L;t+=.0012+rnd()*.0055){ const r=rnd(); hit(t,900+2600*Math.pow(rnd(),1.3),.8+rnd()*.9,.0016+rnd()*.004,.07+.7*Math.pow(r,5)); }   // the patter, mostly very soft, a few nearer
+      const pause=pacer();
+      for(let t=.005;t<L;t+=.0012+rnd()*.0055){ const r=rnd(); hit(t,900+2600*Math.pow(rnd(),1.3),.8+rnd()*.9,.0016+rnd()*.004,.07+.7*Math.pow(r,5)); await pause(); }   // the patter, mostly very soft, a few nearer
       for(let t=.05;t<L;t+=.09+rnd()*.32) hit(t,380+rnd()*520,2.4+rnd()*1.5,.005+rnd()*.007,.16+rnd()*.2);   // on wood and roofs
       for(let t=.1;t<L;t+=.22+rnd()*.7) plip(t,520+rnd()*620,.045+rnd()*.05);   // into puddles
+      await pause();
       { let l1=0,l2=0,h1=0,g=.7,gt=.7; const c=Math.exp(-2*Math.PI*1300/sr), ch=Math.exp(-2*Math.PI*380/sr);   // further off: a dark band, in gusts
         for(let i=0;i<n;i++){ if(i%2048===0) gt=.45+.55*rnd(); g+=(gt-g)*.00004; const x=rnd()*2-1; l1=l1*c+x*(1-c); l2=l2*c+l1*(1-c); h1=h1*ch+l2*(1-ch); d[i]+=(l2-h1)*g*.5; } }
       for(let i=0;i<n;i++) d[i]*=.235;   // (soft: a little under where it was first set)
@@ -379,9 +396,11 @@ const A=(()=>{
       out[o]+=y*g;
       const a=y<0?-y:y; if(a>pkA) pkA=a; if((i&255)===255){ if(pkA<6e-5*n.v){ if(++quiet>3) break; } else quiet=0; pkA=0; } } }
   /* the strings into the amp: the whole score into one stretch of sound, then the overdrive, the cabinet and the room */
-  function amp(oc,t0,sc,o){ const sr=oc.sampleRate, g=new Float32Array(oc.length); let seed=271; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  async function amp(oc,t0,sc,o){ const sr=oc.sampleRate, g=new Float32Array(oc.length); let seed=271; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
     const by=GTR.map(()=>[]); for(const n of sc) by[n.s].push(n);
-    for(const q of by){ q.sort((a,b)=>a.t-b.t); q.forEach((n,i)=>pluck(g,sr,t0,n,Math.min(q[i+1]?q[i+1].t:1e9,o.cut||1e9),rnd)); }
+    /* note by note, a piece at a time (see pacer): the same notes in the same order */
+    const pause=pacer();
+    for(const q of by){ q.sort((a,b)=>a.t-b.t); for(let i=0;i<q.length;i++){ pluck(g,sr,t0,q[i],Math.min(q[i+1]?q[i+1].t:1e9,o.cut||1e9),rnd); await pause(); } }
     let pk=0; for(const v of g) pk=Math.max(pk,Math.abs(v)); const b=oc.createBuffer(1,oc.length,sr), d=b.getChannelData(0), k=.9/(pk||1); for(let i=0;i<g.length;i++) d[i]=g[i]*k;
     const src=oc.createBufferSource(); src.buffer=b; src.start(0);
     const f=(type,fr,q,gn=0)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=fr; x.Q.value=q; x.gain.value=gn; return x; };
@@ -402,21 +421,25 @@ const A=(()=>{
       const ts=oc.createBufferSource(); ts.buffer=tb; ts.start(0); const thp=f('highpass',1800,.6), tlp=f('lowpass',5800,.6), tg=oc.createGain(); tg.gain.value=o.tambLevel||.04; ts.connect(thp); thp.connect(tlp); tlp.connect(tg); tg.connect(B.in); tg.connect(B.rv); }
     if(o.echo){ const dl=oc.createDelay(1), fb=oc.createGain(), el=f('lowpass',2000,.5), ew=oc.createGain(); dl.delayTime.value=o.echo; fb.gain.value=.26; ew.gain.value=.22;
       lv.connect(dl); dl.connect(el); el.connect(fb); fb.connect(dl); el.connect(ew); ew.connect(B.in); } }
-  const BUSK=loop({name:'busk',sr:22050,P:BKS.P,H:.9,R:.2,fade:false,ref:1,tc:.45,tcOut:.3,gate:.3,make(oc,t0){ amp(oc,t0,BKS.notes,{drive:1.6,cab:2500,level:.22,wet:.3,cut:BKS.P}); }});
+  const BUSK=loop({name:'busk',sr:22050,P:BKS.P,H:.9,R:.2,fade:false,ref:1,tc:.45,tcOut:.3,gate:.3,make(oc,t0){ return amp(oc,t0,BKS.notes,{drive:1.6,cab:2500,level:.22,wet:.3,cut:BKS.P}); }});
   /* the solo is played once: near its end (where only the last chord is still ringing) it is let go, even if the page has
      stalled, so it never goes round again */
   const soloEnd=()=>{ const a=SOLO.els[SOLO.cur]; if(a&&a._on&&a.currentTime>SOLO.P-2){ BK.done=true; SOLO.want=0; } };
-  const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ amp(oc,t0,BKS.solo.notes,{drive:3.4,cab:2800,level:.1,wet:.42,room:.6,kick:BKS.solo.kick,kickLevel:.16,tamb:BKS.solo.tamb,tambLevel:.035}); }});
+  const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ return amp(oc,t0,BKS.solo.notes,{drive:3.4,cab:2800,level:.1,wet:.42,room:.6,kick:BKS.solo.kick,kickLevel:.16,tamb:BKS.solo.tamb,tambLevel:.035}); }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   setInterval(soloEnd,100);
   let making=!!OAC;
+  const firstSounds=()=>S.entry==='land'?[MUS,RD,RO]:[PAD,SUB];   // what each way in is heard with first
   /* made one after another, in the order the way in hears them: Land, Earth's music and the rocket's roar as it comes down,
      then the rest of Earth's; Fly and the rocket's way in, the orbit's score, then the rest of the orbit's, Earth's last.
      (The way in is known by the time the first is made) */
   { let Q=null, qi=0; const go=()=>{
       if(!Q){ const earth=[MUS,RD,RO,TH,HS,RAINL,BUSK,SOLO], orbit=[PAD,SUB,CF,CN,TH,RD,RO,HS,...['ae','kr','ph','og','be'].map(id=>BEDL[id])];
-        Q=[...new Set([...(S.entry==='land'?earth.concat(orbit):orbit.concat(earth)),MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO].filter(Boolean))]; }
-      if(qi<Q.length) render(Q[qi++],go); else making=false; }; setTimeout(go,60); }
+        Q=[...new Set([...(S.entry==='land'?earth.concat(orbit):orbit.concat(earth)),MUS,PAD,SUB,WL,WH,TH,RD,RO,HS,CF,CN,...Object.values(BEDL),RAINL,BUSK,SOLO].filter(Boolean))];
+        /* what the way in is heard with first, which the loader waits for (see firstReady), is made side by side: a browser
+           works out each on a thread of its own, so the wait is for the longest of them, not for all of them in turn */
+        KEEP.want(Q.map(keptAs)); firstSounds().slice(1).forEach(r=>render(r)); }
+      if(qi<Q.length) render(Q[qi++],go); else { making=false; KEEP.tidy(); } }; setTimeout(go,60); }
   /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
      Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
      step with the scene's clock: it is not a loop, it is played once from wherever the scene is. Each thing that moves has
@@ -535,7 +558,7 @@ const A=(()=>{
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
     /* the recordings the way in is heard with first (Land: Earth's music and the rocket coming down; otherwise the orbit's
        score) made, or three seconds gone: the loader waits for these, so nothing sounds late however soon you are let in */
-    firstReady(){ const want=S.entry==='land'?[MUS,RD,RO]:[PAD,SUB], t0=performance.now();
+    firstReady(){ const want=firstSounds(), t0=performance.now();
       return new Promise(res=>{ const ck=()=>{ if(!OAC||want.every(r=>r.els.length)||performance.now()-t0>3000) res(); else setTimeout(ck,40); }; ck(); }); },
     _loopRms(){ let q=0; if(BUFP&&window.__meter) return 0; /* (where a meter listens to the page, buffer players, the score's too, are heard by it already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
       if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to

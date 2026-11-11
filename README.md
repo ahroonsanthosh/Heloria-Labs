@@ -47,7 +47,8 @@ conversation finishes with a photo and a link, and a board outside the café boo
   layers (the music, the water, the engine, each room's and station's air) are rendered once at load with an
   OfflineAudioContext into recordings that play through audio elements, so they hold up while the graphics card is
   busy. A browser pauses for a moment each time it loops a file, so two players take turns on every recording and
-  overlap across the seam. Leave the page and the sound stops; come back and it picks up again.
+  overlap across the seam. Each recording is then kept in the browser's own store, so a second visit plays the very
+  same recordings without working anything out. Leave the page and the sound stops; come back and it picks up again.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
 - Earth keeps your time. The sun stands where it would at your hour and on your date, so an evening visit gets a sunset

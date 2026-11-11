@@ -15,7 +15,7 @@ import argparse, base64, glob, json, os, shutil
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'untamed', 'src')
 ORDER = ['kr', 'ae', 'ph', 'og', 'cr', 'be']
-CORE_JS = ['00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js', '29-station.js']
+CORE_JS = ['00-keep.js', '00-core.js', '05-bh.js', '10-universe.js', '20-hub.js', '25-story.js', '29-station.js']
 CREW = ['ahroon', 'michael', 'abraham']   # crew order: Ahroon first
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
 FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&display=swap'
@@ -55,6 +55,9 @@ def parts(only, tamed_url=TAMED_ARTIFACT, entry='', fly='', pretty=False):
             data['%s/%s' % (i, os.path.splitext(os.path.basename(f))[0])] = json.load(open(f))
     js = 'const DATA=%s;\n' % json.dumps(data, separators=(',', ':')) + js
     js = js.replace("'__ENTRY__'", json.dumps(entry)).replace("'__FLY__'", json.dumps(fly)).replace("'__PRETTY__'", json.dumps(pretty))
+    # the recordings a browser keeps from one visit to the next (js/00-keep.js) are kept under a fingerprint of the code
+    # that makes them, so a change to any sound makes them all afresh
+    js = js.replace("'__SOUNDV__'", json.dumps(hashlib.sha1((read('js/00-keep.js') + read('js/00-core.js')).encode('utf-8')).hexdigest()[:10]))
     return ids, css, html, js
 
 # Earth's café board, "book a chat with us": in the previews and the tests, and on the live site only once this is True

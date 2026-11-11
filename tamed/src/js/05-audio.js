@@ -135,7 +135,11 @@ const A=(()=>{
         else { const w=Math.sqrt(sr/(48000*rate)); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*w; }
         const s=oc.createBufferSource(); s.buffer=b; s.connect(to); s.start(0); }};
   }
-  function render(L,next){
+  /* kept from an earlier visit (see KEEP): the very recording made then, and nothing to work out */
+  function render(L,next){ const N=Math.round(L.P*L.sr)+Math.round(L.H*L.sr);
+    KEEP.get(L.name).then(async k=>{ try{ if(k&&isFinite(k.rms)&&k.blob.size===44+N*2){ const ab=BUFP?await k.blob.arrayBuffer():null;   // (a media player needs only the file)
+          L.rms=k.rms; L.bytes=k.blob.size; L.kept=true; use(L,ab,k.blob); return next(); } }catch(e){} make(L,next); }); }
+  function make(L,next){
     const sr=L.sr, len=Math.ceil((L.pre+L.P+L.H)*sr)+256; let oc;
     try{ oc=new OAC(2,len,sr); }catch(e){ return next(); }
     /* two channels: the first is the recording; the second only measures by, the layer as the live chain heard it (at its
@@ -170,20 +174,25 @@ const A=(()=>{
       slices(N,(p,q)=>{ for(let i=p;i<q;i++){ let x=a[i0+i]*k; if(i<NH) x*=Math.sin(i/NH*Math.PI/2); else if(i>=NP) x*=Math.cos((i-NP)/NH*Math.PI/2); else sq+=x*x;
           const m=x<0?-x:x; if(m>.7) x=(x<0?-1:1)*(.7+.28*Math.tanh((m-.7)/.28)); const s=Math.round(x*32767); if(pcm) pcm[i]=s; else v.setInt16(44+i*2,s,true); } },()=>{
         L.rms=Math.sqrt(sq/Math.max(1,NP-NH)); L.bytes=ab.byteLength;
-        const url=BUFP?'':URL.createObjectURL(new Blob([ab],{type:'audio/wav'}));
+        const blob=new Blob([ab],{type:'audio/wav'}); KEEP.put(L.name,blob,L.rms); use(L,ab,blob);
+        next(); }); });
+  }
+  /* a recording made (or kept from an earlier visit), and its two players: a buffer player reads the samples (ab), a
+     media player the file (blob) */
+  function use(L,ab,blob){ const sr=L.sr, N=(blob.size-44)/2, pcm=ab&&LE?new Int16Array(ab,44,N):null;
+        const url=BUFP?'':URL.createObjectURL(blob);
         let bb=null; const getB=()=>{ if(bb) return bb; bb=ctx.createBuffer(1,N,sr); const ch=bb.getChannelData(0);   // (the buffer player's copy, made the first time it plays)
           if(pcm) for(let i=0;i<N;i++) ch[i]=pcm[i]/32768; else { const dv=new DataView(ab,44); for(let i=0;i<N;i++) ch[i]=dv.getInt16(i*2,true)/32768; } return bb; };
         L.els=[0,1].map(()=>{ const e=BUFP?new BufPlayer(getB):new Audio(); e.preload='auto'; if(!BUFP) e.src=url; e.loop=false; e.volume=0; e._end=L.P+L.H-.03;
           if(L.tape){ e.preservesPitch=e.mozPreservesPitch=e.webkitPreservesPitch=false; L.canRate=('preservesPitch' in e)||('webkitPreservesPitch' in e)||('mozPreservesPitch' in e); }
           e.addEventListener('ended',()=>{ e.currentTime=0; }); return e; });
-        next(); }); });
   }
   /* worked out one after another, a moment after the page loads: first what the gate needs, then the walk in order */
   let qi=0; const REN={t0:0,ms:0};
   let QU=null;
-  function renderNext(){ if(!QU) QU=[LP.music,...LOOPS.filter(L=>L!==LP.music)];
-    if(qi>=QU.length){ for(const k in IRS) delete IRS[k]; REN.ms=Math.round(performance.now()-REN.t0); return; }
-    const L=QU[qi++], t=performance.now(); render(L,()=>{ L.ms=Math.round(performance.now()-t); setTimeout(renderNext,30); }); }
+  function renderNext(){ if(!QU){ QU=[LP.music,...LOOPS.filter(L=>L!==LP.music)]; KEEP.want(QU.map(L=>L.name)); }
+    if(qi>=QU.length){ for(const k in IRS) delete IRS[k]; REN.ms=Math.round(performance.now()-REN.t0); KEEP.tidy(); return; }
+    const L=QU[qi++], t=performance.now(); render(L,()=>{ L.ms=Math.round(performance.now()-t); if(L.kept) renderNext(); else setTimeout(renderNext,30); }); }   // (kept ones follow each other at once: there is nothing to make)
   if(OAC) setTimeout(()=>{ REN.t0=performance.now(); renderNext(); },60);
 
   /* the mixer: every 40 ms each recording's volume is eased towards where you are (as the live gains were), a recording

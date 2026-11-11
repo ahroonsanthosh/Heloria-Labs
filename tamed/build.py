@@ -85,6 +85,10 @@ def parts(links, photo_list, land):
         if key not in js:
             sys.exit('the app script lost its %s placeholder' % key)
     js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__LANDIMG__', land)
+    # the recordings a browser keeps from one visit to the next (js/04-keep.js) are kept under a fingerprint of the code
+    # that makes them, so a change to any sound makes them all afresh
+    import hashlib
+    js = js.replace("'__SOUNDV__'", json.dumps(hashlib.sha1(''.join(read('js/' + f) for f in ('04-keep.js', '00-base.js', '05-audio.js')).encode('utf-8')).hexdigest()[:10]))
     for key, url in links.items():
         js = js.replace(key, url)
     app = "(()=>{\n'use strict';\n" + js + "\n})();\n"
