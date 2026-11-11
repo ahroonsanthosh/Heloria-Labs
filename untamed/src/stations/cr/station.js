@@ -156,9 +156,11 @@ const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:
 const KITS={main:{P:[],N:[],C:[]}}; let KP=KITS.main.P, KN=KITS.main.N, KC=KITS.main.C; const kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
 /* what goes into the static mesh can be sent to a landmark's own mesh instead, so it can be shown, hidden and grown on its own */
 function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; }
-function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal; kNM.getNormalMatrix(M); const col=C3(c);
+/* a colour named in a string, read once: the same colour every time it is asked for (never handed out to be changed) */
+const C3S=new Map(), C3R=c=>typeof c==='string'?(C3S.get(c)||C3S.set(c,C3(c)).get(c)):C3(c);
+function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal; kNM.getNormalMatrix(M); const col=C3R(c);
   for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); } }
-function ktri(a,b,c,n,col){ const C=C3(col); for(const p of [a,b,c]){ KP.push(p.x,p.y,p.z); KN.push(n.x,n.y,n.z); KC.push(C.r,C.g,C.b); } }
+function ktri(a,b,c,n,col){ const C=C3R(col); KP.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); KN.push(n.x,n.y,n.z,n.x,n.y,n.z,n.x,n.y,n.z); KC.push(C.r,C.g,C.b,C.r,C.g,C.b,C.r,C.g,C.b); }
 const qA=new T.Vector3(), qB=new T.Vector3();
 function kquad(a,b,c,d,n,col){ qA.subVectors(b,a); qB.subVectors(c,a); if(qA.cross(qB).dot(n)>=0){ ktri(a,b,c,n,col); ktri(a,c,d,n,col); } else { ktri(a,c,b,n,col); ktri(a,d,c,n,col); } }
 const prismG=(()=>{ const A=[-.5,0,-.5],B=[.5,0,-.5],Cc=[0,1,-.5],A2=[-.5,0,.5],B2=[.5,0,.5],C2=[0,1,.5];
@@ -471,8 +473,8 @@ const v3=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), fM=new T.Matrix4(), fNM=new T.Matr
 const tint=(c,k)=>C3(c).clone().lerp(C3(k>0?'#ffffff':'#000000'),Math.abs(k));
 function part(){ const P=[],N=[],C=[], o={};
   /* one triangle, turned to face the way its normals point */
-  o.tri=(a,na,b,nb,c,nc,col)=>{ fU.subVectors(b,a).cross(fW.subVectors(c,a)); if(fU.dot(fW.copy(na).add(nb).add(nc))<0){ [b,c]=[c,b]; [nb,nc]=[nc,nb]; } const k=C3(col);
-    for(const [p,n] of [[a,na],[b,nb],[c,nc]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); C.push(k.r,k.g,k.b); } };
+  o.tri=(a,na,b,nb,c,nc,col)=>{ fU.subVectors(b,a).cross(fW.subVectors(c,a)); if(fU.dot(fW.copy(na).add(nb).add(nc))<0){ let t=b; b=c; c=t; t=nb; nb=nc; nc=t; } const k=C3R(col);
+    P.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); N.push(na.x,na.y,na.z,nb.x,nb.y,nb.z,nc.x,nc.y,nc.z); C.push(k.r,k.g,k.b,k.r,k.g,k.b,k.r,k.g,k.b); };
   /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap */
   o.grid=(G,col,wrap)=>{ for(let i=0;i<G.length-1;i++) for(let j=0;j<G[i].length-(wrap?0:1);j++){ const j2=(j+1)%G[i].length, a=G[i][j], b=G[i][j2], c=G[i+1][j2], d=G[i+1][j];
     o.tri(a.p,a.n,b.p,b.n,c.p,c.n,col); o.tri(a.p,a.n,c.p,c.n,d.p,d.n,col); } };
@@ -1917,14 +1919,15 @@ function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]
     kquad(Pq(-.9,-.12),Pq(.9,-.12),Pq(.9,.12),Pq(-.9,.12),up,'#f1ecdf'); } }
 
 /* ---------- build, in steps so the loader keeps breathing ---------- */
-st.build=async function(){
-  buildGround(); await nextFrame();
+st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the next frame, or (made after the loader) the next quiet one
+  buildGround(); await gap();
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
-  buildTown(); await nextFrame(); buildNature(); buildPeople(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe();
+  /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
+  buildTown(); await gap(); buildNature(); await gap(); buildPeople(); await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
-  SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; });
+  SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -2278,6 +2281,10 @@ st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.disp
   CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); stickOff(); down=null; A.thrust(0); A.roar(0); stCam.up.set(0,1,0); stCam.layers.set(0); if(stCam.fov!==36){ stCam.fov=36; stCam.updateProjectionMatrix(); } document.documentElement.classList.remove('earth');
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); cafeReset(true); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
+/* Earth is drawn three ways: in colour, in ink and from the sun for its shadow; its shaders are made ahead in all three */
+st.matSets=[o=>o.userData.inkM,o=>o.userData.shdM];
+/* a quiet moment on Earth, for the worlds still being made after the loader: you standing still, with no scene playing */
+st.calm=()=>!CUT.on&&!FIN.on&&!QS.on&&!PHS.on&&!CAFE.on&&!GAR.on&&!down&&!player.tgt&&player.speed<.05;
 
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
 const sT=new T.Vector3();

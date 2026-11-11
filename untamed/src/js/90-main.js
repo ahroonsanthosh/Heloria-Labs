@@ -2,9 +2,29 @@
 let peerList=[], room=null, lastPres=0;
 const WHITE=new T.Color(1,1,1);
 
-/* ---------- boot: build every world and compile every shader behind the loader ---------- */
+/* ---------- boot: what the way in shows first is built behind the loader, and every shader it needs compiled and drawn
+   once; the other worlds are made after (LATE, below) ---------- */
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
 async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
+/* what each way in shows first: Land, Earth; Fly, the orbit round the hole (U); the rocket from the walk, the orbit with Aetos
+   ahead of you */
+const FIRST={land:['cr'],aetos:['U','ae'],fly:['U']};
+const worldName=id=>id==='cr'?'Earth':(STA.find(s=>s.id===id)||{}).name||id;
+/* a world drawn once into a small target of the same kind, so its textures are sent and every shader it draws with is made,
+   and nothing stalls the first time you see it. full: entered and left again round it, as it will be when you arrive; that
+   is done behind the loader, or the moment the world is wanted; otherwise a station is only drawn as it stands, which
+   touches nothing you can see or hear */
+let warmRT=null;
+function warmWorld(id,full){
+  if(id==='U'){ universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
+    renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
+    universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=false; return; }
+  const st=ST[id]; if(!st) return; if(!warmRT){ warmRT=mkRT(); warmRT.setSize(64,64); }
+  if(full){ st.enter(); st.update(.016,0); }
+  stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
+  try{ intoTarget(()=>renderer.compile(st.scene,stCam)); }catch(e){}
+  if(st.render&&full){ try{ st.render(warmRT); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warmRT); renderer.render(st.scene,stCam); }
+  if(full) st.exit(); }
 async function boot(){
   const mark=$('#mark'), bootEl=$('#boot'), txt={set textContent(v){ bootEl.textContent=v; }}; // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
@@ -13,22 +33,91 @@ async function boot(){
   resize();
   txt.textContent='Tracing geodesics'; await nextFrame();
   try{ BH.makeSky(); }catch(e){ console.warn('sky',e); } BH.render(hubCam); renderer.setRenderTarget(null); setP(.1);
-  const steps=STA.map(s=>[s.name,s.id]).concat([['Earth','cr']]).filter(x=>ST[x[1]]); // Earth is not in orbit but is built with the rest
-  for(let i=0;i<steps.length;i++){ txt.textContent='Building '+steps[i][0]; await nextFrame(); try{ await ST[steps[i][1]].build(); }catch(err){ console.error('build '+steps[i][1],err); delete ST[steps[i][1]]; } setP(.1+.5*(i+1)/steps.length); }
-  txt.textContent='Compiling shaders'; await nextFrame();
-  universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
-  await compileQuiet(U.scene,hubCam); renderer.setRenderTarget(rtA); renderer.render(U.scene,hubCam);
-  universeVisible(0); U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=false; setP(.7);
-  /* every station is drawn once now, so nothing stalls the first time you see it: its shaders compiled (in the background
-     where the browser can) and its textures sent, into a small target of the same kind, so the warming never holds a
-     full screen's worth of memory for a station you are not in */
-  const warm=mkRT(); warm.setSize(64,64);
-  for(const [nm,id] of steps){ const st=ST[id]; if(!st) continue; txt.textContent='Warming '+nm; await nextFrame(); await compileQuiet(st.scene,stCam);
-    st.enter(); st.update(.016,0); stCam.position.copy(st.camP); stCam.lookAt(st.camL); setPx(stCam);
-    try{ intoTarget(()=>renderer.compile(st.scene,stCam)); }catch(e){} if(st.render){ try{ st.render(warm); }catch(e){ console.error('render '+id,e); } } else { renderer.setRenderTarget(warm); renderer.render(st.scene,stCam); } st.exit(); setP(.7+.3*(steps.findIndex(s=>s[1]===id)+1)/steps.length); }
-  warm.dispose(); renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  const first=FIRST[S.entry]||FIRST.fly, sts=first.filter(id=>id!=='U'&&ST[id]);
+  for(let i=0;i<sts.length;i++){ const id=sts[i]; txt.textContent='Building '+worldName(id); await nextFrame(); try{ await ST[id].build(); }catch(err){ console.error('build '+id,err); delete ST[id]; } setP(.1+.5*(i+1)/sts.length); }
+  if(first.includes('U')){ txt.textContent='Compiling shaders'; await nextFrame();
+    universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
+    await compileQuiet(U.scene,hubCam); warmWorld('U'); worldOf('U').stage=4; }
+  setP(.7);
+  for(let i=0;i<sts.length;i++){ const id=sts[i]; if(!ST[id]) continue; txt.textContent='Warming '+worldName(id); await nextFrame(); await compileQuiet(ST[id].scene,stCam);
+    warmWorld(id,true); worldOf(id).stage=4; setP(.7+.3*(i+1)/sts.length); }
+  sts.forEach(id=>{ worldOf(id).stage=4; });
+  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  /* the rest, in the order you can come to them: the orbit (from Earth), Aetos (where the radar leads you first), the other
+     stations, and Earth (past the horizon, at the end) */
+  LATE.q=['U','ae',...STA.map(s=>s.id).filter(id=>id!=='ae'),'cr'].filter((id,i,a)=>a.indexOf(id)===i&&!lateReady(id)&&(id==='U'||ST[id]));
   setP(1); $('#load').classList.add('ready'); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
 }
+
+/* ---------- the other worlds, made after the loader ----------
+   Behind the loader (it covers the screen) a step every frame; once you are in, a step only at a quiet moment: nothing
+   touched for a little while, and nothing moving that a pause would show (a chapter turning, a flight on autopilot, a walk,
+   a game, a scene). A step is one world built, or its shaders compiled, or some of them linked (a few milliseconds' worth),
+   or the world drawn once. A world you go to before it is made is made that moment: behind a white that stays a moment
+   longer (into orbit from Earth, or on to Earth past the horizon), or with the probe held at the station (docking). The
+   frame timer never counts these frames against the device */
+const LATE={q:[],W:{},need:[],busy:false,after:0,lastIn:-1e9,qm:0,dockW:null,log:[]};
+function worldOf(id){ return LATE.W[id]||(LATE.W[id]={id,stage:0,cbs:[]}); }   // stage: 0 to build, 1 to compile, 2 to link, 3 to draw once, 4 made
+const lateReady=id=>worldOf(id).stage>=4;
+function lateNeed(id){ const w=worldOf(id); if(w.stage<4&&id!=='U'&&!ST[id]) w.stage=4; if(w.stage>=4) return Promise.resolve();
+  if(!LATE.need.includes(id)) LATE.need.push(id); return new Promise(r=>w.cbs.push(r)); }
+['pointerdown','wheel','keydown','touchstart','touchmove'].forEach(ev=>addEventListener(ev,()=>{ LATE.lastIn=performance.now(); },{capture:true,passive:true}));
+addEventListener('pointermove',e=>{ if(e.buttons) LATE.lastIn=performance.now(); },{capture:true,passive:true});
+function lateCalm(now){ if(S.mode==='load') return true; if(now-LATE.lastIn<2500) return false;
+  if(S.mode==='story') return !(story.busy>0);
+  if(S.mode==='hub') return !S.ap&&!LATE.dockW;
+  if(S.mode==='station') return !!S.st&&(S.st.calm?S.st.calm():S.st.state==='menu');
+  return false; }
+/* may this world be drawn once here: behind the loader, any; the orbit while you are on Earth; a station as it stands while
+   you are in orbit or the story; Earth only behind the loader or when it is wanted */
+function lateDrawOK(id){ if(S.mode==='load') return true; if(id==='U') return S.mode==='station'; if(id==='cr') return false; return !S.st&&(S.mode==='story'||S.mode==='hub'); }
+/* the shaders compiled ahead of time are linked a few at a time; where the browser compiles in the background, only those it
+   has finished, so nothing waits on the graphics chip at all */
+const LINKED=new WeakSet(); let PAR=null;
+function linkSome(ms){ if(PAR===null){ try{ PAR=!!renderer.getContext().getExtension('KHR_parallel_shader_compile'); }catch(e){ PAR=false; } }
+  const t0=performance.now(); let left=false;
+  for(const p of renderer.info.programs){ if(LINKED.has(p)) continue; if(PAR&&!p.isReady()){ left=true; continue; }
+    try{ p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
+  return left; }
+/* a world's shaders compiled a few objects at a time, and each object's linked at once, so the graphics chip's work comes in
+   small pieces rather than all of the world's in one (asking about the first would wait for every one sent before it). An
+   object with a light of its own waits for the whole scene at the end: three would count its light twice (from the scene and
+   from the object). A world drawn more than one way (Earth: its ink and its sun's shadow) has those compiled with it */
+const hasLight=o=>{ let l=false; o.traverse(x=>{ if(x.isLight) l=true; }); return l; };
+function compileSome(w,ms){ const id=w.id, sc=id==='U'?U.scene:ST[id].scene, cam=id==='U'?hubCam:stCam, sets=id==='U'?null:ST[id].matSets;
+  if(!w.objs){ w.objs=[]; sc.traverse(o=>{ if(o.material&&!Array.isArray(o.material)&&!hasLight(o)) w.objs.push(o); }); w.oi=0; }
+  const t0=performance.now();
+  intoTarget(()=>{ while(w.oi<w.objs.length){ const o=w.objs[w.oi++];
+      try{ renderer.compile(o,cam,sc); if(sets) for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); } finally{ o.material=m0; } } } }catch(e){}
+      linkSome(1e9,true); if(performance.now()-t0>ms) break; } });
+  return w.oi<w.objs.length; }
+async function lateStep(w,force){ const id=w.id, st=ST[id], ms=force?1e9:S.mode==='load'?30:8;
+  if(id!=='U'&&!st) w.stage=4;
+  else if(w.stage===0){ if(id!=='U'){ st.pace=()=>latePace(id); try{ await st.build(); }catch(err){ console.error('build '+id,err); delete ST[id]; w.stage=4; } delete st.pace; } if(w.stage<4) w.stage=1; }
+  else if(w.stage===1){ if(!compileSome(w,ms)){ w.objs=null; await compileQuiet(id==='U'?U.scene:st.scene,id==='U'?hubCam:stCam); w.stage=2; } }
+  else if(w.stage===2){ if(!linkSome(ms)) w.stage=3; }
+  else if(w.stage===3){ warmWorld(id,force||S.mode==='load'); w.stage=4; }
+  if(w.stage>=4) w.cbs.splice(0).forEach(f=>f()); }
+/* a world built in parts (Earth) waits between them for the next quiet frame, or for none once anything is wanted now */
+function latePace(id){ return new Promise(r=>{ const go=()=>{ if(LATE.need.length||lateCalm(performance.now())) r(); else requestAnimationFrame(go); }; requestAnimationFrame(go); }); }
+/* the next step to take now, if there is one: what is wanted first, whatever is happening; otherwise, at a quiet moment, the
+   next world in the order you can come to them */
+function lateNext(now){ LATE.need=LATE.need.filter(id=>!lateReady(id));
+  if(LATE.need.length) return [worldOf(LATE.need[0]),true];
+  if(now<LATE.after||!lateCalm(now)) return null;
+  if(holeOpen()&&LATE.q[LATE.q.length-1]==='cr') LATE.q.unshift(LATE.q.pop());   // the horizon is open: Earth is next
+  for(const id of LATE.q){ const x=worldOf(id); if(x.stage>=4) continue; if(id!=='U'&&!ST[id]){ x.stage=4; continue; } if(x.stage===3&&!lateDrawOK(id)) continue; return [x,false]; }
+  if(warmRT&&LATE.q.every(lateReady)){ warmRT.dispose(); warmRT=null; } return null; }
+/* once a frame, a moment after it is drawn: a step. Behind the loader, or for a world wanted now, the steps then follow each
+   other with only a pause for anything you do in between (the loader covers the screen; what is wanted is waited for);
+   at a quiet moment, one */
+function lateTick(now){ if(!S.ready||LATE.busy) return; let n=lateNext(now); if(!n) return;
+  LATE.busy=true;
+  setTimeout(async()=>{
+    while(n){ const [w,force]=n, s0=w.stage, t1=performance.now(); try{ await lateStep(w,force); }catch(e){ console.error('late '+w.id,e); w.stage=4; w.cbs.splice(0).forEach(f=>f()); }
+      const t=performance.now(); if(LATE.log.length<400) LATE.log.push([w.id,s0,Math.round(t-t1),S.mode,force?1:0]); LATE.qm=t+400; LATE.after=t+(force||S.mode==='load'||t-t1<40?0:250);   // after a long step, a few frames' rest
+      if(!(force||S.mode==='load')) break; await wait(0); n=lateNext(performance.now()); if(n&&!n[1]&&S.mode!=='load') n=null; }
+    LATE.busy=false; },0); }
 
 /* ---------- three ways in, chosen at the front door: the whole story (Fly), straight down to Earth (#land), or into
    orbit at Aetos, where the rocket at the end of the walk goes (#aetos). Land opens in its own daylight, the colour the
@@ -89,11 +178,16 @@ function toHub(lead){
 function crossHorizon(){ if(S.mode!=='hub') return; S.mode='falling'; S.fallT=0; S.ap=null; S.been=true; S.push=false; guide('off'); show('#hub',false); cine(true); $('#warn').classList.remove('on'); A.tapeStop(2.2); A.hush(); callOff(); }
 /* past the horizon: Earth. The fall ends in white, and the white opens on the rocket coming down through the clouds */
 function enterEarth(){ const st=ST.cr; if(!st){ S.mode='story'; post.uniforms.uStretch.value=0; U.probe.visible=U.trail.visible=true; toHub(); return; }
+  /* Earth is made last, on the way round: if it is not made yet, the white at the end of the fall holds while it is */
+  if(!lateReady('cr')){ if(!LATE.holdE){ LATE.holdE=true; S.flashMin=1; lateNeed('cr').then(()=>{ LATE.holdE=false; S.flashMin=0; enterEarth(); }); } return; }
   S.mode='station'; S.stId='cr'; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.flash=1; post.uniforms.uStretch.value=0; post.uniforms.uIrisCol.value.set('#FFC392'); cine(false);
   st.enter(); if(st.cutscene) st.cutscene(); show('#station',true); st.showUI(); where('Earth'); }
 /* and back: a flash of white, and you are in orbit again */
 function leaveEarth(){ const st=ST.cr; if(S.stId!=='cr'||!st) return; st.abort(); st.hideUI(); A.hush(); A.whoosh(false,1.3); S.flash=1;
-  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; const lead=!S.docked.has('ae'); toHub(lead); if(!lead) toast('Back in orbit'); }
+  show('#station',false); st.el.classList.remove('on'); st.exit(); S.st=null; S.stId=null; S.iris=0; S.mode='story'; U.probe.visible=U.trail.visible=true; const lead=!S.docked.has('ae');
+  /* the orbit not made yet (you came in by Land): the white holds while it is */
+  if(!lateReady('U')){ S.mode='white'; S.flashMin=1; lateNeed('U').then(()=>{ S.flashMin=0; S.mode='story'; U.probe.visible=U.trail.visible=true; toHub(lead); if(!lead) toast('Back in orbit'); }); return; }
+  toHub(lead); if(!lead) toast('Back in orbit'); }
 
 function presenceTick(){ if(!room||S.t-lastPres<.25) return; lastPres=S.t; room.presence({x:+S.probe.p.x.toFixed(2),z:+S.probe.p.z.toFixed(2),mode:S.mode==='hub'?'hub':'away'}).catch(()=>{}); }
 function drawPeers(){
@@ -181,10 +275,11 @@ function frame(now){
   A.bed((S.mode==='station'||S.mode==='docking')&&S.stId&&!(S.stId==='cr'&&S.fin)?S.stId:null,t);   // Earth's breeze goes for the last flight
   // render: trace the hole, draw the system over it, then the station world, then composite
   { const tn=performance.now()/1000; rtLive(rtA,needA,tn,RTS); rtLive(rtB,needB,tn,S.st&&S.st.render?0:RTS); bhLive(needA,tn); }
-  if(needA&&S.mode!=='load'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
+  if(needA&&S.mode!=='load'&&S.mode!=='white'){ BH.render(hubCam); setPx(hubCam); renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(U.scene,hubCam); }
   if(needB){ setPx(stCam); if(S.st.render) S.st.render(rtB); else { renderer.setRenderTarget(rtB); renderer.clear(); renderer.render(S.st.scene,stCam); } } // a station may draw itself (Earth inks its own lines)
   post.uniforms.uIris.value=S.st?S.iris:0;
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  lateTick(now);
   requestAnimationFrame(frame);
 }
 hubCam.position.set(0,.4,90); hubCam.lookAt(0,0,0);
@@ -193,9 +288,10 @@ boot();
 /* test helper: straight into a station with no transitions */
 function jump(id){
   const s=STA.find(x=>x.id===id), st=ST[id]; if(!st||!S.ready) return false;
+  if(!lateReady(id)) return lateNeed(id).then(()=>jump(id));   // its world made first
   ['#load','#story','#hub'].forEach(q=>show(q,false)); show('#chrome',true); A.start();
   if(S.st&&S.st!==st){ S.st.abort(); S.st.exit(); S.st.el.classList.remove('on'); }
   S.mode='station'; S.stId=id; S.st=st; S.iris=3; S.arrive=0; S.stSnap=true; S.docked.add(id);
   post.uniforms.uIrisCol.value.set(s?s.color:'#FFC392'); st.enter(); show('#station',true); st.showUI(); where(s?s.name:'Earth'); return true;
 }
-window.__heloria={A,SB,finaleWhite,credits,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};
+window.__heloria={late:()=>({ready:LATE.q.every(lateReady),q:LATE.q.map(id=>id+':'+worldOf(id).stage).join(' '),busy:LATE.busy,log:LATE.log}),A,SB,finaleWhite,credits,jump,enterEarth,leaveEarth,crossHorizon,storyUnlock:()=>{ story.busy=0; },S,ST,U,STA,post,BH,renderer,stCam,hubCam,rtA,rtB,postScene,ortho,dock:id=>dock(STA.find(x=>x.id===id)),toHub,undock,goChapter,escape};

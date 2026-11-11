@@ -947,7 +947,7 @@ const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},
   tick(ms,now){ if(window.__TEST) return;
     if(!this.lv){ const L=[], bh0=BH.scale; let r=RTS, b=bh0, d=DPR; L.push([r,b,d]); if(r>0){ r=0; L.push([r,b,d]); }
       while(b>.321){ b=+(b-.1).toFixed(2); L.push([r,b,d]); } while(d>.751){ d=Math.max(.75,+(d-.25).toFixed(2)); L.push([r,b,d]); } this.lv=L; this.i=0; this.r0=RTS; }
-    if(ms>250||document.hidden){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }
+    if(ms>250||document.hidden||now<LATE.qm){ this.buf.length=0; this.cool=Math.max(this.cool,now+1500); return; }   // (a world being made after the loader is not the device being slow)
     const busy=A.busy;   // while the sound is being made only a really slow device steps down, and nothing steps up
     this.buf.push(ms); if(this.buf.length>60) this.buf.shift(); if(now<this.cool||this.buf.length<60) return;
     const s=this.buf.slice().sort((a,b)=>a-b), mid=s[30], p75=s[45];

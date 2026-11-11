@@ -264,6 +264,9 @@ let TR=null;
 function dock(s){
   if(S.mode!=='hub') return;
   const st=ST[s.id]; if(!st) return;
+  /* its world not made yet (the worlds you have not come to yet are made after the loader): it is made now, and you dock the
+     moment it is */
+  if(!lateReady(s.id)){ if(!LATE.dockW){ LATE.dockW=s; lateNeed(s.id).then(()=>{ LATE.dockW=null; if(S.mode==='hub') dock(s); }); } return; }
   S.mode='docking'; S.ap=null; U.apLine.visible=false; S.near=null; callOff(); A.hush(); A.update(S.t,{sub:0,pad:0}); A.swell(); cine(true); guide('off');
   if(S.lead){ S.lead=null; if(s.id==='ae'){ S.leadDock=true; st.el.classList.add('first','fguard'); document.documentElement.classList.add('firstdock');
     setTimeout(()=>st.el.classList.remove('fguard'),3400); } }   // the card comes up where the story's Skip was: a second click must not land on it
