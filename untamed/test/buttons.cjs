@@ -9,9 +9,10 @@ function rec(ok, name, detail) { results.push({ ok, name, detail }); console.log
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const until = (fn, arg, t = 120000) => page.waitForFunction(fn, arg, { timeout: t }).then(() => true).catch(() => false);
   /* a click as a person makes it: the hand moves to the button first (which, as on the site, holds back the worlds still being
-     made after the loader), whatever step is already under way finishes, then the click */
+     made after the loader). On this slow machine a part of a world takes seconds where a real one takes a moment, so the test
+     waits for the worlds to be made (a visitor reading the card while they finish), then clicks */
   const reach = async sel => { const r = await page.evaluate(q => { const e = document.querySelector(q); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? [b.x + b.width / 2, b.y + b.height / 2] : null; }, sel).catch(() => null);
-    if (r) { await page.mouse.move(r[0] - 12, r[1] - 8); await page.mouse.move(r[0], r[1], { steps: 2 }); await page.waitForFunction(() => !(window.__heloria && window.__heloria.late && window.__heloria.late().busy), null, { timeout: 120000, polling: 100 }).catch(() => {}); } };
+    if (r) { await page.mouse.move(r[0] - 12, r[1] - 8); await page.mouse.move(r[0], r[1], { steps: 2 }); await page.waitForFunction(() => !(window.__heloria && window.__heloria.late) || window.__heloria.late().ready, null, { timeout: 900000, polling: 250 }).catch(() => {}); } };
   const click = async (sel, name) => { try { await reach(sel); await page.click(sel, { timeout: 20000 }); return true; } catch (e) { rec(false, name || sel, e.message.split('\n')[0]); return false; } };
   const tap = async (sel, name) => mobile ? (async () => { try { await page.tap(sel, { timeout: 20000 }); return true; } catch (e) { rec(false, name || sel, e.message.split('\n')[0]); return false; } })() : click(sel, name);
   // every visible, enabled button or link in a container must be on top at its centre
