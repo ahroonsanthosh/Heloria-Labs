@@ -5,7 +5,16 @@ const WHITE=new T.Color(1,1,1);
 /* ---------- boot: what the way in shows first is built behind the loader, and every shader it needs compiled and drawn
    once; the other worlds are made after (LATE, below) ---------- */
 /* compile a scene's shaders without freezing the page, where the browser can do it in the background; never wait forever */
-async function compileQuiet(sc,cam){ try{ if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
+async function compileQuiet(sc,cam,sets){ try{
+    /* a world drawn more than one way (Earth: its ink and its sun's shadow) has those sent off with it (for what is shown
+       now: the drawing would make no others), and the wait is for every shader sent so far: a browser that makes them in
+       the background makes them side by side, and none is then made on its own, holding the page, the first time it is
+       drawn with */
+    if(sets) intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||hasLight(o)) return;
+      for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); }catch(e){} finally{ o.material=m0; } } } }));
+    if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)).then(programsReady),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
+/* every shader sent off so far is made (at once, where the browser makes them as they are first drawn with) */
+const programsReady=()=>new Promise(res=>{ const ck=()=>{ let ok=true; try{ ok=renderer.info.programs.every(p=>p.isReady()); }catch(e){} if(ok) res(); else setTimeout(ck,10); }; ck(); });
 /* what each way in shows first: Land, Earth; Fly, the orbit round the hole (U); the rocket from the walk, the orbit with Aetos
    ahead of you */
 const FIRST={land:['cr'],aetos:['U','ae'],fly:['U']};
@@ -39,7 +48,7 @@ async function boot(){
     universeVisible(1); U.belt.visible=true; U.probe.visible=U.trail.visible=U.dust.visible=U.streak.visible=true;
     await compileQuiet(U.scene,hubCam); warmWorld('U'); worldOf('U').stage=4; }
   setP(.7);
-  for(let i=0;i<sts.length;i++){ const id=sts[i]; if(!ST[id]) continue; txt.textContent='Warming '+worldName(id); await nextFrame(); await compileQuiet(ST[id].scene,stCam);
+  for(let i=0;i<sts.length;i++){ const id=sts[i]; if(!ST[id]) continue; txt.textContent='Warming '+worldName(id); await nextFrame(); await compileQuiet(ST[id].scene,stCam,ST[id].matSets);
     warmWorld(id,true); worldOf(id).stage=4; setP(.7+.3*(i+1)/sts.length); }
   sts.forEach(id=>{ worldOf(id).stage=4; });
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
