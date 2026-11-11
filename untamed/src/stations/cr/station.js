@@ -296,8 +296,8 @@ function buildTown(){
   H(-13.3,-3.2,{wall:'#f1e2c6',roof:'#c8664b',flowers:true});
   H(-13,3.8,{wall:'#cfe0e6',roof:'#4f6f8f',w:3.8,h:2.6});
   H(-5.8,13.6,{wall:'#f3d9c4',roof:'#9a5340',w:3.2,d:2.6});
-  H(13.3,-3.4,{wall:'#e8ecd9',roof:'#c8664b',up:true,h:3.6,rh:1.1});
-  H(12.9,7.2,{wall:'#f6eedf',roof:'#5d7f6a',w:3,d:2.6,flowers:true});
+  townHall(13.3,-3.4,yawTo(13.3,-3.4,0,0));   // the east side is civic: the town hall and the school (see them, before the workshop)
+  schoolHouse(12.9,7.2,yawTo(12.9,7.2,0,0));
   H(-10.6,10.4,{wall:'#e9d3b0',roof:'#7d5a8f',w:3,d:2.6});
   H(6.4,-12.6,{wall:'#dfe6ef',roof:'#c8664b',w:3.2,flowers:true});
   // the workshop: Heloria Labs
@@ -326,7 +326,9 @@ function buildTown(){
     const beam=new T.Mesh(new T.CylinderGeometry(.03,.36,6,12,1,true).rotateZ(Math.PI/2).translate(3,0,0),toonMat('#fff4c8',{op:.18,fresh:true})); beam.material.depthWrite=false; beam.layers.set(1);
     const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); mk.g.add(bg); PH={beam,M,x,z,a:0,over:false,dr:drone('#f5f3ea')}; mk.g.add(PH.dr); kitTo();
     INST.ph={x,z,h:6.7,r:7};
-    const yy=yawTo(x,z,0,0), rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; house(x+ix*.6+iz*2.7,z+iz*.6-ix*2.7,yy,{wall:'#f4efe6',roof:'#cf4a36',w:2.2,d:2,h:2,win:[-.6],doorX:.5,chim:false});
+    /* (the keeper's cottage stood here, inside what is now the school's ground: its ground is kept as it was, so the trees
+       and rocks round town grow where they always did; see the school) */
+    const yy=yawTo(x,z,0,0), rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; obsRect(x+ix*.6+iz*2.7,z+iz*.6-ix*2.7,yy,2.45,2.25,3.6); CIV.cot=OBS.slice(-2);
     sign(sub(M,-1.6,0,1.6,.3),'PHAROS',{sub:'finds its way without GPS',w:1.7,h:.62,y:.95}); obs(x,z,1.25,6); markObs('ph',.6); SEGS.push([10.6,1.7,x-1.2,z-.3,.55]); }
   /* Ogive: a rocket on its pad, with the tower beside it */
   { const [x,z]=coastR(8.8,13.4,3.2); const yaw=yawTo(x,z,5,8.6), M=frameAt(x,z,yaw); box(M,'#c3bdb2',0,0,0,3.2,.22,3.2); box(M,'#6f6a64',0,.22,0,1,.02,1);
@@ -3107,6 +3109,468 @@ st._dbg.launch={QS,QCUE,QLINES,QID,start:()=>startFinale(),skip:csSkip,plan:()=>
     id:QUI.id.classList.contains('on')?QUI.in.textContent:null,say:QUI.say.classList.contains('on')?QUI.s.textContent:null,greens:QS.greens,figs:!!(QS.figs.gideon&&QS.figs.gideon.visible),desk:!!(QS.desk&&QS.desk.visible),
     plan:QS.plan?{g:QS.plan.g.g.map(v=>+v.toFixed(2)),gcam:QS.plan.g.cam.map(v=>+v.toFixed(2)),gd:+QS.plan.g.d.toFixed(2),ocam:QS.plan.o.cam.map(v=>+v.toFixed(2)),od:+QS.plan.o.d.toFixed(2),side:QS.plan.side,dark:+QS.plan.dark.toFixed(2)}:null}; }};
 /* ===================== (the launch scene ends here) ===================== */
+
+/* ===================== the east side: a town hall with a clock, and a school =====================
+   The east side of town is civic. Where the tall house stood there is a town hall: pale stone, three steps up to a double
+   door between pilasters, a pediment over the front with a round window in it, and a clock tower with a flag on top that
+   reads from across town. The clock keeps the visitor's own time (the sky's: see the sky over Earth), its four faces are
+   lit from inside at night, and on the hour it strikes, once for each hour, softly; between eleven at night and seven in
+   the morning more softly still. By the door is the partners' wall: brass plaques. Click one and a small card says what it
+   is, as a landmark's does.
+   Next door, where the house with the window boxes stood, a small primary school: long and low, big windows with the
+   children's paintings in them, a bell on the roof, its name over the gateway, and a fenced yard with a hopscotch grid on
+   the tarmac and a climbing frame on the grass. On a weekday, by the visitor's clock, the children walk to school along the
+   pavements from a quarter past eight, play in the yard at the morning break and at lunch, are inside (not to be seen) in
+   lessons, and walk home from three; never at night or at the weekend. A handbell rings them in, out to play, back in and
+   home.
+   Both stand where the houses did, facing the road as they did. While the trees, bushes, rocks and grass round town are
+   laid out, each keeps exactly the ground its house had (and the keeper's cottage, which stood inside the school's ground,
+   keeps its own), so not one tree, bush or rock anywhere moves; what else is solid (the steps, the yard and its fence, the
+   climbing frame) comes after, marked on the walking grid by the grid's own rule. The children walk the pavements on
+   ways found on that grid, so they never walk through anything, step round you and the three of us, and keep out of the
+   way between you and whoever you are talking to or walking over to. Everything is the town's own kit and materials, made
+   with the town; nothing new is made when the children come out or the clock moves. The one shader of its own, the
+   clock's face lit at night, is made with the rest of Earth's. */
+const CIV={warm:0,hall:null,school:null,cot:null,ok:false,h0:null,d0:null,hh:-1,ph:'off',day:null,chime:null,struck:0,log:[],bells:[],bellT:0,kids:[],routes:[],routeBad:[],
+  faceM:null,face:null,hands:null,flag:null,glass:null,bell:null,door:null,doorK:0,doorT:0,ball:null,plq:[],card:-1,down:null,hov:false,corr:null,hopTurn:0,chase:null,kit:null,pob:null};
+/* the school day, in hours: the walk in from a quarter past eight and the bell at ten to nine; out to play at eleven till
+   twenty past, and at one till twenty to two; home at three, the last of them gone by half past */
+const CT={to:8.25,in:8+50/60,b1:11,b1e:11+20/60,b2:13,b2e:13+40/60,home:15,end:15.5};
+const CBELLS=[CT.in,CT.b1,CT.b1e,CT.b2,CT.b2e,CT.home];
+/* how loud each is at its loudest (beside it): the clock's stroke and the school's bell about as loud as your footsteps,
+   a child's step and the ball a little under them (measured: see untamed/test/civic.cjs) */
+const CGAIN={clock:.0095,night:.35,bell:.015,step:.05,ball:.03};
+/* the day of the week: the sky's date, this year (a test, or ?day=sat, can set one) */
+{ const q=QPS.get('day'); if(q){ const k=['sun','mon','tue','wed','thu','fri','sat'].indexOf(q.slice(0,3).toLowerCase()); CIV.day=k>=0?k:isNaN(+q)?null:clamp(Math.round(+q),0,6); } }
+function civDay(){ if(CIV.day!=null) return CIV.day; const [m,d]=SKY.md.split('-').map(Number); return new Date(new Date().getFullYear(),m-1,d).getDay(); }
+const civSchoolDay=()=>{ const d=civDay(); return d>=1&&d<=5; };
+function civPhase(h){ if(!civSchoolDay()) return 'off'; if(h>=CT.to&&h<CT.in) return 'to'; if(h>=CT.b1&&h<CT.b1e||h>=CT.b2&&h<CT.b2e) return 'yard';
+  if(h>=CT.in&&h<CT.home) return 'in'; if(h>=CT.home&&h<CT.end) return 'home'; return 'off'; }
+/* what the plaques say: one for who backs us, as the rest of the site says it; one for where we are; one still blank */
+const PLAQ=[{n:'Andrena Ventures',k:'Backs Heloria Labs',t:'Heloria Labs is backed by Andrena Ventures.',lines:[['BACKED BY',.13,.28],['ANDRENA',.25,.52],['VENTURES',.14,.76]]},
+  {n:'Heloria Labs',k:'A software lab in Ireland',t:'Three of us, in Ireland. We build for problems that make a real difference.',lines:[['HELORIA LABS',.2,.38],['A SOFTWARE LAB IN IRELAND',.12,.68]]},
+  {n:null,lines:[]}];
+const ciV=new T.Vector3(), ciV2=new T.Vector3(), ciV3=new T.Vector3(), ciM=new T.Matrix4(), ciM2=new T.Matrix4(), ciMi=new T.Matrix4(), ciQ=new T.Quaternion(), ciS=new T.Vector3();
+/* a point in a building's own frame, on the town's map */
+function ciXZ(M,lx,lz){ return loc(ciV.set(lx,0,lz).applyMatrix4(M).normalize()); }
+GEO.pyr4=(()=>{ const g=new T.ConeGeometry(1,1,4,1,true).toNonIndexed(); g.computeVertexNormals(); return g; })();   // a four-sided spire, flat on each side
+/* a picture drawn once on a canvas (again when the lettering's font arrives), lit as the signs are, with their shader */
+function ciCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+  const go=()=>{ draw(cv.getContext('2d'),w,h); tx.needsUpdate=true; }; go(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{}); return tx; }
+const ciTexMat=tx=>new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
+/* flat pictures (plaques, paintings) as quads in one mesh, each placed by a frame and given its part of the texture */
+function ciQuads(list){ const P=[],N=[],U=[]; for(const q of list){ const n=new T.Vector3().setFromMatrixColumn(q.M,2).normalize();
+    const c=[[q.x-q.w/2,q.y-q.h/2,q.u0,q.v0],[q.x+q.w/2,q.y-q.h/2,q.u1,q.v0],[q.x+q.w/2,q.y+q.h/2,q.u1,q.v1],[q.x-q.w/2,q.y+q.h/2,q.u0,q.v1]].map(([a,b,u,v])=>({p:new T.Vector3(a,b,q.z).applyMatrix4(q.M),u,v}));
+    for(const k of [0,1,2,0,2,3]){ P.push(c[k].p.x,c[k].p.y,c[k].p.z); N.push(n.x,n.y,n.z); U.push(c[k].u,c[k].v); } }
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(N,3)); g.setAttribute('uv',new T.Float32BufferAttribute(U,2)); return g; }
+/* the clock's four faces: one disc each, in one mesh */
+function ciDiscs(Ms,r){ const P=[],N=[],U=[], g0=new T.CircleGeometry(r,40).toNonIndexed(); for(const M of Ms){ const g=g0.clone().applyMatrix4(M); P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array); U.push(...g.attributes.uv.array); }
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(N,3)); g.setAttribute('uv',new T.Float32BufferAttribute(U,2)); return g; }
+/* the clock's face: lit as the signs are, and from inside at night */
+const CLK_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
+  void main(){ nearFade(vW); vec3 n=normalize(vN), t=texture2D(uMap,vUv).rgb; gl_FragColor=vec4(toon(t,n,vW)+t*vec3(1.,.86,.58)*uNight*.85,1.); }`;
+function clockFace(c,W){ const o=W/2; c.fillStyle='#3e4448'; c.fillRect(0,0,W,W); c.fillStyle='#f6efdc'; c.beginPath(); c.arc(o,o,o-4,0,TAU); c.fill();
+  c.strokeStyle='#2a2622'; c.lineWidth=7; c.beginPath(); c.arc(o,o,o-26,0,TAU); c.stroke(); c.lineCap='butt';
+  for(let i=0;i<60;i++){ const a=i/60*TAU, q=i%15===0, b=i%5===0, r0=q?o-92:b?o-74:o-50; c.lineWidth=q?16:b?10:3.5; c.beginPath(); c.moveTo(o+Math.sin(a)*r0,o-Math.cos(a)*r0); c.lineTo(o+Math.sin(a)*(o-30),o-Math.cos(a)*(o-30)); c.stroke(); }
+  c.fillStyle='#2a2622'; c.font='900 64px Doto, monospace'; c.textAlign='center'; c.textBaseline='middle';
+  [['12',0],['3',1],['6',2],['9',3]].forEach(([s,q])=>{ const a=q*Math.PI/2; c.fillText(s,o+Math.sin(a)*(o-140),o-Math.cos(a)*(o-140)+3); }); }
+/* the children's paintings: eight on one sheet, as a child would paint them (a sun, a house, a rainbow, a flower, a rocket,
+   the lighthouse, a family, a tree), a little crooked */
+function paintings(c){ const S=128, wob=(x,y)=>[x+(Math.sin(x*.7+y*.3)*1.6),y+(Math.cos(y*.6+x*.2)*1.6)];
+  for(let i=0;i<8;i++){ const ox=(i%4)*S, oy=Math.floor(i/4)*S; c.save(); c.translate(ox,oy); c.fillStyle='#fbf8f0'; c.fillRect(2,2,S-4,S-4); c.lineWidth=5; c.lineCap='round'; c.lineJoin='round';
+    const dot=(x,y,r,col)=>{ c.fillStyle=col; c.beginPath(); c.arc(...wob(x,y),r,0,TAU); c.fill(); }, ln=(pts,col,w=5)=>{ c.strokeStyle=col; c.lineWidth=w; c.beginPath(); pts.forEach(([x,y],k)=>c[k?'lineTo':'moveTo'](...wob(x,y))); c.stroke(); };
+    if(i===0){ c.fillStyle='#bfe0f2'; c.fillRect(2,2,S-4,S-4); for(let k=0;k<10;k++){ const a=k/10*TAU; ln([[64+Math.cos(a)*30,64+Math.sin(a)*30],[64+Math.cos(a)*48,64+Math.sin(a)*48]],'#f2a93b',6); } dot(64,64,24,'#f7d046'); }
+    if(i===1){ c.fillStyle='#8cc66d'; c.fillRect(2,92,S-4,34); c.fillStyle='#f2e3c4'; c.fillRect(30,56,64,40); c.fillStyle='#d9483b'; c.beginPath(); c.moveTo(24,58); c.lineTo(62,24); c.lineTo(100,58); c.fill(); c.fillStyle='#6e4a3a'; c.fillRect(54,72,16,24); ln([[86,30],[86,16]],'#5a5a5a',7); }
+    if(i===2){ ['#e9584a','#f2a93b','#f7d046','#5cae6e','#3f7fd0','#8a6cc8'].forEach((col,k)=>{ c.strokeStyle=col; c.lineWidth=8; c.beginPath(); c.arc(64,100,54-k*8,Math.PI,TAU); c.stroke(); }); }
+    if(i===3){ ln([[64,120],[64,62]],'#3f8a4a',6); ln([[64,96],[86,84]],'#3f8a4a',6); for(let k=0;k<6;k++){ const a=k/6*TAU; dot(64+Math.cos(a)*18,50+Math.sin(a)*18,13,'#f08cae'); } dot(64,50,11,'#f7d046'); }
+    if(i===4){ c.fillStyle='#22324a'; c.fillRect(2,2,S-4,S-4); for(const [x,y] of [[20,20],[100,30],[30,90],[108,104],[16,60]]) dot(x,y,3,'#fbf3cf'); c.fillStyle='#f4f0e8'; c.fillRect(54,40,20,52); c.fillStyle='#ef8a3c'; c.beginPath(); c.moveTo(54,40); c.lineTo(64,18); c.lineTo(74,40); c.fill(); c.fillRect(46,80,8,14); c.fillRect(74,80,8,14); dot(64,100,8,'#f2a93b'); dot(64,110,6,'#e9584a'); }
+    if(i===5){ c.fillStyle='#5aa8c8'; c.fillRect(2,96,S-4,30); for(let k=0;k<4;k++){ c.fillStyle=k%2?'#fbf8f0':'#d9483b'; c.fillRect(52+k*1.5,84-k*16,24-k*3,16); } c.fillStyle='#2a2622'; c.fillRect(56,14,16,8); ln([[76,22],[118,8]],'#f7d046',5); ln([[52,22],[10,8]],'#f7d046',5); }
+    if(i===6){ for(const [x,h,col] of [[34,60,'#3f7fd0'],[64,64,'#e9584a'],[94,40,'#5cae6e']]){ dot(x,112-h,9,'#e0ac85'); ln([[x,121-h],[x,104]],col,7); ln([[x,104],[x-8,120]],'#2a2622',4); ln([[x,104],[x+8,120]],'#2a2622',4); ln([[x-12,118-h+18],[x+12,118-h+18]],col,4); } }
+    if(i===7){ c.fillStyle='#8cc66d'; c.fillRect(2,104,S-4,22); c.fillStyle='#7a5a42'; c.fillRect(58,66,12,42); dot(64,52,30,'#5cae6e'); dot(46,64,18,'#4f9a5a'); dot(84,62,18,'#4f9a5a'); dot(54,44,4,'#e9584a'); dot(76,52,4,'#e9584a'); }
+    c.restore(); } }
+
+/* ---------- the town hall: built with the town, where the tall house was ---------- */
+function townHall(x,z,yaw){ const M=frameAt(x,z,yaw), w=3.5, d=2.8, f=d/2, PL=.42, HW=3.6, SW='#ddd5c3', DK='#bcb3a2', TR='#efe9dc', TX=0, TZ=-.3;
+  CIV.hall={M,x,z,yaw}; HOUSES.push({M,w,d,h:3.38,dx:.5,flat:false});   // (h: where the lights go at Christmas, along the architrave)
+  obsRect(x,z,yaw,3.65,3.05,5); CIV.hall.obs=OBS.slice(-2);   // (its ground, exactly as the house had it, while the trees and rocks are laid out)
+  box(M,DK,0,0,0,w+.2,PL,d+.2); box(M,SW,0,PL-.02,0,w,HW-PL+.02,d);
+  /* pilasters across the front, each with a base and a capital, the doors between the middle two; an architrave over them */
+  for(const px of [-1.6,-.66,.66,1.6]){ box(M,TR,px,PL,f+.035,.26,3.2-PL,.07); box(M,TR,px,PL,f+.045,.34,.12,.09); box(M,TR,px,3.12,f+.05,.36,.12,.1); }
+  box(M,TR,0,3.24,f+.03,w+.06,.08,.08); box(M,TR,0,HW,0,w+.32,.16,d+.32);
+  /* the roof, its gable to the street, and over the front the pediment: stone, its raked edges picked out, a round window */
+  const RH=.9, RW=w+.36, ra=Math.atan2(RH,RW/2), rl=Math.hypot(RW/2,RH);
+  put(M,'prism','#6b7682',0,HW+.16,0,RW,RH,d+.42); put(M,'prism',SW,0,HW+.16,f+.235,RW-.2,RH-.09,.03);
+  [-1,1].forEach(s=>put(M,'box',TR,-s*RW/4,HW+.16+RH/2,f+.245,rl+.06,.09,.09,0,0,s*ra));
+  put(M,'cyl',TR,0,HW+.52,f+.255,.19,.03,.19,0,Math.PI/2); put(M,'cyl','#7fa3b4',0,HW+.52,f+.27,.14,.03,.14,0,Math.PI/2);
+  /* the double door, panelled, with brass handles and a fanlight; three steps up to it */
+  box(M,TR,0,PL,f+.03,1.22,2.08,.06);
+  [-1,1].forEach(s=>{ box(M,'#2f5446',s*.25,PL,f+.065,.48,1.78,.05); box(M,'#3e6a58',s*.25,PL+1,f+.095,.32,.6,.02); box(M,'#3e6a58',s*.25,PL+.2,f+.095,.32,.6,.02); box(M,'#d9b45a',s*.06,PL+.9,f+.1,.04,.16,.04); });
+  box(M,'#7fa3b4',0,PL+1.83,f+.07,.96,.19,.04); box(M,TR,0,PL+1.79,f+.075,1,.04,.05);
+  for(let k=0;k<3;k++) box(M,DK,0,0,f+.21+k*.22,1.7+k*.12,PL-k*.14,.22);
+  /* tall windows, each with its sill and a cornice over it: the street side, both ends, the back */
+  const win=(x,y,z,ry,tw,th)=>{ const W=sub(M,x,y,z,ry); box(W,TR,0,-th/2-.06,.02,tw+.12,th+.12,.06); box(W,'#7fa3b4',0,-th/2,.045,tw,th,.04); box(W,TR,0,-th/2,.065,.035,th,.03); box(W,TR,0,th*.18,.065,tw,.035,.03);
+    box(W,TR,0,-th/2-.11,.08,tw+.2,.05,.12); box(W,TR,0,th/2+.06,.06,tw+.22,.06,.1); };
+  win(1.13,1.5,f,0,.5,.85); [-1.13,0,1.13].forEach(px=>win(px,2.88,f,0,.5,.6));
+  [-1,1].forEach(s=>[-.6,.6].forEach(pz=>{ win(s*w/2,1.5,pz,s*Math.PI/2,.5,.85); win(s*w/2,2.88,pz,s*Math.PI/2,.5,.6); }));
+  [-.85,.85].forEach(px=>{ win(px,1.5,-f,Math.PI,.5,.85); win(px,2.88,-f,Math.PI,.5,.6); });
+  sign(sub(M,0,0,f+.065),'TOWN HALL',{w:1.9,h:.23,y:3.46,post:false,bg:SW,fg:'#4b4339',board:SW});
+  /* a lantern either side of the doors, lit at night */
+  const lg=[]; [-1,1].forEach(s=>{ const lx=s*.66; box(M,'#2b2b2b',lx,2.08,f+.12,.05,.05,.18); box(M,'#2b2b2b',lx,1.88,f+.24,.17,.04,.17); box(M,'#2b2b2b',lx,2.14,f+.24,.19,.04,.19); put(M,'cone','#2b2b2b',lx,2.24,f+.24,.14,.12,.14);
+    for(const [ax,az] of [[-1,-1],[1,-1],[1,1],[-1,1]]) box(M,'#2b2b2b',lx+ax*.07,1.92,f+.24+az*.07,.02,.22,.02); lg.push(new T.BoxGeometry(.12,.22,.12).translate(lx,2.03,f+.24)); });
+  CIV.glass=new T.Mesh(mergeG(lg),flatMat('#e6dcc4')); CIV.glass.matrixAutoUpdate=false; CIV.glass.matrix.copy(M); sc.add(CIV.glass);
+  /* the partners' wall, left of the doors: a panel of pale stone with three brass plaques on it */
+  box(M,TR,-1.13,.98,f+.02,.62,1.2,.04); const PQ=[[1.9,.5,.3],[1.5,.5,.22],[1.18,.38,.18]], PV=[[0,307],[320,545],[560,802]];   // each: the height of its middle, its width and height; where it is on the sheet
+  PQ.forEach(([y,pw,ph])=>box(M,'#8e6d2b',-1.13,y-ph/2-.012,f+.046,pw+.024,ph+.024,.012));
+  const ptx=ciCanvas(512,1024,(c,W)=>{ PV.forEach(([y0,y1],i)=>{ const h=y1-y0, g=c.createLinearGradient(0,y0,W,y1); g.addColorStop(0,'#e6c878'); g.addColorStop(.5,'#c9a24a'); g.addColorStop(1,'#a8822f'); c.fillStyle=g; c.fillRect(0,y0,W,h);
+      c.globalAlpha=.1; c.strokeStyle='#fff3c8'; c.lineWidth=1.5; for(let k=4;k<h;k+=4){ c.beginPath(); c.moveTo(0,y0+k); c.lineTo(W,y0+k+((k*7)%5)-2); c.stroke(); } c.globalAlpha=1;   // brushed
+      c.strokeStyle='#6e5420'; c.lineWidth=6; c.strokeRect(16,y0+16,W-32,h-32); c.fillStyle='#6e5420'; [[34,y0+34],[W-34,y0+34],[34,y1-34],[W-34,y1-34]].forEach(([sx,sy])=>{ c.beginPath(); c.arc(sx,sy,7,0,TAU); c.fill(); });
+      c.textAlign='center'; c.textBaseline='middle'; for(const [t,sz,ty] of PLAQ[i].lines){ let fs=sz*h; c.font=`900 ${fs}px Doto, monospace`; const m=c.measureText(t).width; if(m>W*.8){ fs*=W*.8/m; c.font=`900 ${fs}px Doto, monospace`; }
+        c.fillStyle='#fff1c4'; c.fillText(t,W/2+1.5,y0+h*ty+2); c.fillStyle='#4a3a16'; c.fillText(t,W/2,y0+h*ty); } }); });
+  const PLM=sub(M,-1.13,0,f+.056); sc.add(Object.assign(new T.Mesh(ciQuads(PQ.map(([y,pw,ph],i)=>({M:PLM,x:0,y,z:0,w:pw,h:ph,u0:0,u1:1,v0:1-PV[i][1]/1024,v1:1-PV[i][0]/1024}))),ciTexMat(ptx)),{matrixAutoUpdate:false}));
+  /* what a click finds: a box round each plaque (never drawn) */
+  CIV.plq=PQ.map(([y,pw,ph],i)=>{ const m=new T.Mesh(new T.BoxGeometry(pw+.06,ph+.06,.12)); m.matrixAutoUpdate=false; m.matrix.copy(PLM).multiply(ciM.makeTranslation(0,y,0)); m.matrixWorld.copy(m.matrix);
+    return {i,hit:m,c:new T.Vector3(0,y,.01).applyMatrix4(PLM)}; });
+  /* the tower: a shaft up out of the roof, the clock stage, the belfry with its bell, a spire gone green, and the flag */
+  const Tw=1.2, Ts=5.2, Tc=Ts+.08, Tc1=Tc+1.2, F0=Tc+.6, By=Tc1+.12;
+  box(M,SW,TX,HW,TZ,Tw,Ts-HW,Tw); for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,TR,TX+sx*(Tw/2-.03),HW+.4,TZ+sz*(Tw/2-.03),.1,Ts-HW-.4,.1);
+  box(M,TR,TX,Ts,TZ,Tw+.12,.08,Tw+.12); box(M,SW,TX,Tc,TZ,Tw+.1,1.2,Tw+.1); box(M,TR,TX,Tc1,TZ,Tw+.32,.12,Tw+.32);
+  for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,TR,TX+sx*.49,By,TZ+sz*.49,.18,.6,.18);
+  put(M,'cone','#a8823a',TX,By+.24,TZ,.2,.28,.2); put(M,'sph','#a8823a',TX,By+.42,TZ,.09,.07,.09); cyl(M,'#8f6d2c',TX,By+.09,TZ,.21,.04); put(M,'sph','#6e5420',TX,By+.08,TZ,.045,.045,.045);
+  box(M,TR,TX,By+.6,TZ,Tw+.2,.1,Tw+.2); put(M,'pyr4','#79a597',TX,By+1.16,TZ,.99,.92,.99,Math.PI/4); put(M,'sph','#c9a24a',TX,By+1.66,TZ,.065,.065,.065); cyl(M,'#ece7dc',TX,By+1.68,TZ,.022,1.1,'cyl8');
+  /* the four faces (one mesh), their hands (one instanced mesh, two hands and a boss on each face) */
+  CIV.faceM=[0,1,2,3].map(k=>new T.Matrix4().multiplyMatrices(M,ciM.makeTranslation(TX,F0,TZ)).multiply(ciM2.makeRotationY(k*Math.PI/2)).multiply(ciM.makeTranslation(0,0,.65)));
+  CIV.faceM.forEach(F=>put(F,'cyl','#3e4448',0,0,.015,.53,.03,.53,0,Math.PI/2));
+  CIV.face=new T.Mesh(ciDiscs(CIV.faceM.map(F=>F.clone().multiply(ciM.makeTranslation(0,0,.034))),.47),new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:ciCanvas(512,512,clockFace)}},LU),vertexShader:TOON_V(true),fragmentShader:CLK_F}));
+  CIV.face.matrixAutoUpdate=false; sc.add(CIV.face);
+  CIV.hands=new T.InstancedMesh(new T.BoxGeometry(1,1,1).translate(0,.5,0),toonMat('#ffffff',{fresh:true}),12); for(let i=0;i<12;i++) CIV.hands.setColorAt(i,C3R('#2a2622'));
+  CIV.hands.userData.dyn=true; CIV.hands.frustumCulled=false; sc.add(CIV.hands); civHands(SKY.h);
+  /* the flag: three bands, orange and cream, on a cloth that ripples (its shape made again each frame, a few dozen points) */
+  const fg=new T.BufferGeometry(), NV=7*3*6, fc=[]; fg.setAttribute('position',new T.BufferAttribute(new Float32Array(NV*3),3).setUsage(T.DynamicDrawUsage)); fg.setAttribute('normal',new T.BufferAttribute(new Float32Array(NV*3),3).setUsage(T.DynamicDrawUsage));
+  for(let j=0;j<3;j++) for(let i=0;i<7;i++){ const c=C3R(j===1?'#fbf6ec':'#ef8a3c'); for(let k=0;k<6;k++) fc.push(c.r,c.g,c.b); } fg.setAttribute('color',new T.Float32BufferAttribute(fc,3));
+  CIV.flag={m:new T.Mesh(fg,toonMat('#ffffff',{vc:true,side:T.DoubleSide})),B:new T.Matrix4().multiplyMatrices(M,ciM.makeTranslation(TX,By+2.74,TZ))};
+  Object.assign(CIV.flag.m,{matrixAutoUpdate:false,frustumCulled:false}); CIV.flag.m.userData.dyn=true; sc.add(CIV.flag.m); civFlag(0);
+  return M; }
+/* the hands at an hour (h, in hours): the hour hand's turn from twelve, the minute hand's */
+function civHands(h){ const H=CIV.hands; if(!H) return; const th=(h%12)/12*TAU, tm=(h%1)*TAU;
+  CIV.faceM.forEach((F,k)=>{ H.setMatrixAt(k*3,ciM.copy(F).multiply(ciM2.makeTranslation(0,0,.046)).multiply(ciM2.makeRotationZ(-th)).multiply(ciM2.makeScale(.055,.27,.014)));
+    H.setMatrixAt(k*3+1,ciM.copy(F).multiply(ciM2.makeTranslation(0,0,.062)).multiply(ciM2.makeRotationZ(-tm)).multiply(ciM2.makeScale(.034,.41,.014)));
+    H.setMatrixAt(k*3+2,ciM.copy(F).multiply(ciM2.makeTranslation(0,-.035,.074)).multiply(ciM2.makeScale(.07,.07,.016))); });
+  H.instanceMatrix.needsUpdate=true; CIV.hh=h; }
+/* the flag in the wind: a ripple running out along it, more at its free end, and the whole of it swinging slowly round the pole */
+function civFlag(t){ const F=CIV.flag; if(!F) return; const p=F.m.geometry.attributes.position.array, n=F.m.geometry.attributes.normal.array, G=[];
+  for(let j=0;j<4;j++){ const row=[]; for(let i=0;i<8;i++){ const u=i/7, v=j/3, wv=Math.sin(t*4.4-u*5.2+v*.6)*.055*u+Math.sin(t*2.1-u*3)*.02*u; row.push([u*.62-Math.abs(wv)*.3,-v*.4-u*u*.03,wv]); } G.push(row); }
+  let o=0; const tri=(a,b,c)=>{ ciV.set(b[0]-a[0],b[1]-a[1],b[2]-a[2]).cross(ciV2.set(c[0]-a[0],c[1]-a[1],c[2]-a[2])).normalize(); for(const q of [a,b,c]){ p[o]=q[0]; p[o+1]=q[1]; p[o+2]=q[2]; n[o]=ciV.x; n[o+1]=ciV.y; n[o+2]=ciV.z; o+=3; } };
+  for(let j=0;j<3;j++) for(let i=0;i<7;i++){ const a=G[j][i], b=G[j][i+1], c=G[j+1][i+1], d=G[j+1][i]; tri(a,d,c); tri(a,c,b); }
+  F.m.geometry.attributes.position.needsUpdate=true; F.m.geometry.attributes.normal.needsUpdate=true;
+  F.m.matrix.copy(F.B).multiply(ciM.makeRotationY(.5+Math.sin(t*.21)*.45)); F.m.matrixWorldNeedsUpdate=true; }
+
+/* ---------- the school: built with the town, where the house with the window boxes was ---------- */
+function schoolHouse(x,z,yaw){ const M=frameAt(x,z,yaw), B=sub(M,-.35,0,-.2), w=4, d=2.4, h=2.5, WL='#f4e3c3', TR='#fbf6ec', RF='#b65a3e';
+  CIV.school={M,B,x,z,yaw}; HOUSES.push({M:B,w,d,h,dx:0,flat:false});
+  obsRect(x,z,yaw,3.25,2.85,4); CIV.school.obs=OBS.slice(-2);   // (its ground, exactly as the house had it, while the trees and rocks are laid out)
+  box(B,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(B,WL,0,.2,0,w,h-.2,d); box(B,'#d9806a',0,.2,0,w+.02,.3,d+.02);   // the walls, a painted band along their foot
+  put(B,'prism',RF,0,h,0,d+.62,.85,w+.5,Math.PI/2); box(B,TR,0,h-.12,d/2+.04,w+.1,.12,.05); box(B,TR,0,h-.12,-d/2-.04,w+.1,.12,.05);
+  /* big windows of four panes, the children's paintings up in them */
+  const PT=[], win=(x,z,ry,tw,th,pics)=>{ const W=sub(B,x,1.4,z,ry); box(W,TR,0,-th/2-.06,.02,tw+.12,th+.12,.06); box(W,'#7fa3b4',0,-th/2,.045,tw,th,.04); box(W,TR,0,-th/2,.065,.04,th,.03); box(W,TR,0,-.02,.065,tw,.04,.03);
+    box(W,TR,0,-th/2-.11,.08,tw+.2,.05,.12); for(const [px,py,s,i] of pics) PT.push({M:W,x:px,y:py,z:.072,w:s,h:s*.88,u0:(i%4)/4+.004,u1:(i%4+1)/4-.004,v0:1-(Math.floor(i/4)+1)/2+.008,v1:1-Math.floor(i/4)/2-.008}); };
+  win(-1.25,d/2,0,1,.9,[[-.25,.22,.22,0],[.24,-.2,.2,1],[.26,.24,.18,4]]); win(1.25,d/2,0,1,.9,[[-.24,.2,.2,2],[.25,.23,.19,3],[-.26,-.22,.2,5]]);
+  win(w/2,0,Math.PI/2,.9,.9,[[-.22,.2,.2,6],[.2,-.2,.19,7]]); win(-w/2,0,-Math.PI/2,.9,.9,[[.2,.21,.2,1],[-.22,-.2,.2,4]]); win(0,-d/2,Math.PI,1,.9,[]);
+  sc.add(Object.assign(new T.Mesh(ciQuads(PT),ciTexMat(ciCanvas(512,256,paintings))),{matrixAutoUpdate:false}));
+  /* the door's frame, its step and a canopy over it; the door itself swings (it opens as the children go in and out) */
+  box(B,TR,0,.2,d/2+.02,.92,1.72,.06); box(B,'#bdb6aa',0,0,d/2+.17,1,.16,.34); box(B,TR,0,1.98,d/2+.25,1.1,.06,.5); [-1,1].forEach(s=>box(B,TR,s*.48,1.76,d/2+.1,.05,.22,.18));
+  { const P_=part(); P_.put(FG.box,'#e9a23b',.37,.8,0,.74,1.6,.05); P_.put(FG.box,'#f2bd63',.37,1.18,.03,.5,.5,.012); P_.put(FG.box,'#f2bd63',.37,.45,.03,.5,.45,.012); P_.put(FG.sph,'#5a4a3a',.66,.82,.05,.025);
+    const m=P_.mesh(), g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(B).multiply(ciM.makeTranslation(-.37,.22,d/2+.02)); g.add(m); sc.add(g); CIV.door=m; }
+  /* the bell on the roof, in a little open cote on the ridge: it swings when the bell is rung */
+  [-1,1].forEach(s=>box(B,TR,1+s*.2,2.95,0,.07,.72,.09)); put(B,'prism',RF,1,3.67,0,.6,.24,.26); box(B,TR,1,3.6,0,.5,.07,.12);
+  { const P_=part(); P_.put(FG.cone,'#b8913e',0,-.12,0,.1,.16,.1); P_.put(FG.sph,'#b8913e',0,-.04,0,.05,.04,.05); P_.put(FG.can,'#8f6d2c',0,-.2,0,.105,.02,.105); P_.put(FG.sph,'#5a4a2a',0,-.22,0,.025);
+    const m=P_.mesh(), g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(B).multiply(ciM.makeTranslation(1,3.58,0)); g.add(m); sc.add(g); CIV.bell=m; }
+  /* the children's ball */
+  { const P_=part(); P_.put(FG.sph,'#d9483b',0,0,0,.055); P_.put(FG.can,'#fbf6ec',0,0,0,.057,.016,.057); CIV.ball=P_.mesh(); CIV.ball.visible=false; sc.add(CIV.ball); }
+  return M; }
+
+/* ---------- the school yard: made after the trees and bushes are, so its fence goes round whatever grows there ----------
+   In the school's frame: the tarmac in front (with the hopscotch grid), the grass to the side round the climbing frame, a
+   fence all round, and the gateway to the street under the school's name */
+const CY={door:[-.35,1.45],gate:[-.35,2.95],hop0:[.02,1.66],hopW:[.04,2.2],ball:[-.95,2.12],frS:[1.87,.5],fr:[2.45,.5],jn:[1.87,1.15],
+  loop:[[1.87,-.08],[3.03,-.08],[3.03,1.08],[1.87,1.08]],tar:[-1.25,2.3,1,2.5],yard:[-2.1,3.25,-1.35,2.55],hop:{x0:.33,s:.26,z:1.66,dbl:[3,5]}};
+function civYard(){ const S=CIV.school, M=S.M, FN='#4f8a8b', TR='#fbf6ec', grow=OBS.filter(o=>o.h<=.75||(o.h>3.4&&o.h<3.6));   // the bushes, rocks and trees round town
+  const inGrow=(lx,lz,m)=>{ const [px,pz]=ciXZ(M,lx,lz); return grow.some(o=>Math.hypot(px-o.x,pz-o.z)<o.r+m); };
+  kitTo('civ'); const solid=[];
+  const [tx0,tx1,tz0,tz1]=CY.tar; box(M,'#8f9395',(tx0+tx1)/2,0,(tz0+tz1)/2,tx1-tx0,.03,tz1-tz0);
+  const H=CY.hop, sq=(cx,cz)=>{ const s=H.s; box(M,'#f4f1e8',cx,.03,cz-s/2,s+.02,.006,.022); box(M,'#f4f1e8',cx,.03,cz+s/2,s+.02,.006,.022); box(M,'#f4f1e8',cx-s/2,.03,cz,.022,.006,s); box(M,'#f4f1e8',cx+s/2,.03,cz,.022,.006,s); };
+  for(let k=0;k<8;k++){ const cx=H.x0+H.s*k; if(H.dbl.includes(k)){ sq(cx,H.z-H.s/2); sq(cx,H.z+H.s/2); } else sq(cx,H.z); }
+  box(M,'#f4f1e8',H.x0+H.s*8-H.s/2+.13,.03,H.z,.26,.006,.022);   // and the chalk line where you turn round
+  /* the fence, a post every half metre or so (none where a bush or a tree stands), two rails */
+  const fence=pts=>{ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.46)), S_=sub(M,(x0+x1)/2,0,(z0+z1)/2,Math.atan2(x1-x0,z1-z0));
+      box(S_,FN,0,.28,0,.03,.035,L); box(S_,FN,0,.58,0,.03,.035,L);
+      for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const px=x0+(x1-x0)*k/n, pz=z0+(z1-z0)*k/n; if(inGrow(px,pz,.06)) continue; box(M,FN,px,0,pz,.05,.7,.05); put(M,'sph',FN,px,.72,pz,.035,.035,.035); solid.push([px,pz,.09,.8]); } } };
+  const [yx0,yx1,yz0,yz1]=CY.yard; fence([[-1.15,yz1],[yx0,yz1],[yx0,1.02]]); fence([[.45,yz1],[yx1,yz1],[yx1,yz0],[1.68,yz0]]);
+  /* the gateway: two brick piers, iron uprights and the school's name between them */
+  for(const gx of [-1.15,.45]){ box(M,'#c8664b',gx,0,yz1,.22,.95,.22); box(M,TR,gx,.95,yz1,.28,.06,.28); box(M,'#3a3d3f',gx,1.01,yz1,.04,.66,.04); solid.push([gx,yz1,.16,1.6]); }
+  /* the climbing frame: four red posts, yellow and blue bars at three heights, a grid across the top */
+  { const [cx,cz]=CY.fr, a=.35; for(const sx of [-1,1]) for(const sz of [-1,1]) cyl(M,'#d9483b',cx+sx*a,0,cz+sz*a,.028,.98,'cyl8');
+    for(const y of [.33,.65,.96]){ for(const s of [-1,1]){ box(M,'#f2c14e',cx,y,cz+s*a,a*2,.03,.03); box(M,'#3f7fd0',cx+s*a,y,cz,.03,.03,a*2); } }
+    for(const k of [-.12,.12]){ box(M,'#f2c14e',cx+k*1.4,.96,cz,.03,.03,a*2); box(M,'#3f7fd0',cx,.96,cz+k*1.4,a*2,.03,.03); } solid.push([cx,cz,.5,1]); }
+  sign(sub(M,-.35,0,yz1+.07),'SCHOOL',{w:1.5,h:.36,y:1.55,post:false,bg:'#fbf6ec',fg:'#2f5a8a',board:'#3a3d3f'});
+  kitTo(); const k=KITS.civ, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
+  const km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; CIV.kit=new T.Mesh(kg,km); CIV.kit.frustumCulled=false; CIV.kit.userData.cast=true; sc.add(CIV.kit); k.P.length=k.N.length=k.C.length=0; delete KITS.civ;
+  return solid; }
+/* what is solid, once the trees and rocks are laid out: the hall's ground stays as it was and its steps are added; the
+   school's ground (and the cottage's) gives way to its own walls, the yard's fence, piers and climbing frame. The walking
+   grid is made again round the school by the grid's own rule, and round the steps it is closed */
+function civSolids(){ const Hm=CIV.hall.M, S=CIV.school, people_=new Set(people.map(p=>p.ob)), mark=o=>{ const m=o.r+.3, N=NAV.N; if(!NAV.free) return;
+    for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2<m*m) NAV.free[j*N+i]=0; } };
+  CIV.hall.obs.forEach(o=>{ o.h=4.7; }); [[0,1.8,.42],[-.62,1.85,.3],[.62,1.85,.3]].forEach(([lx,lz,r])=>{ obsAt(Hm,lx,lz,r,.42); mark(OBS[OBS.length-1]); });
+  const gone=new Set([...S.obs,...(CIV.cot||[])]); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
+  const add=[]; /* the walls, as round pieces that keep close to them */ for(const lz of [-.65,.25]) for(const lx of [-1.7,-.8,.1,1.0]){ obsAt(S.M,lx,lz,.78,3.3); add.push(OBS[OBS.length-1]); }
+  for(const [lx,lz,r,h] of civYard()){ obsAt(S.M,lx,lz,r,h); add.push(OBS[OBS.length-1]); }
+  CIV.school.solid=add;
+  /* the grid round the school, made again as buildNav makes it */
+  if(NAV.free){ const N=NAV.N, fixed=OBS.filter(o=>!people_.has(o)), xs=[], zs=[]; for(const [lx,lz] of [[-3.4,-2.6],[4.2,-2.6],[4.2,3.4],[-3.4,3.4]]){ const [px,pz]=ciXZ(S.M,lx,lz); xs.push(px); zs.push(pz); }
+    for(let j=Math.floor((Math.min(...zs)-NAV.O)/NAV.S);j<=Math.ceil((Math.max(...zs)-NAV.O)/NAV.S);j++) for(let i=Math.floor((Math.min(...xs)-NAV.O)/NAV.S);i<=Math.ceil((Math.max(...xs)-NAV.O)/NAV.S);i++){
+      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let ok=walkable(x,z); if(ok) for(const o of fixed){ const m=o.r+.3; if((x-o.x)**2+(z-o.z)**2<m*m){ ok=false; break; } } NAV.free[j*N+i]=ok?1:0; } }
+  /* no grass through the tarmac */
+  const gr=sc.children.find(o=>o.isInstancedMesh&&o.material&&o.material.uniforms&&o.material.uniforms.uHoleOn&&o.material.uniforms.uTime&&o.count>100);
+  if(gr){ const [x0,x1,z0,z1]=CY.tar, Mi=ciMi.copy(S.M).invert(), Z=new T.Matrix4().makeScale(0,0,0); let n=0;
+    for(let i=0;i<gr.count;i++){ gr.getMatrixAt(i,ciM); ciV.setFromMatrixPosition(ciM).applyMatrix4(Mi); if(ciV.x>x0-.08&&ciV.x<x1+.08&&ciV.z>z0-.08&&ciV.z<z1+.08){ gr.setMatrixAt(i,Z); n++; } }
+    if(n) gr.instanceMatrix.needsUpdate=true; CIV.tufts=n; } }
+
+/* ---------- the children: six of them, small, each dressed their own way, four with school bags ---------- */
+const KIDS=[{shirt:'#e9584a',pants:'#2f3a56',shoes:'#f2efe8',skin:'#f1c9a5',hair:'tousled',hairC:'#c98f4a',pack:'#3f7fd0',cheeks:true,mouth:'grin'},
+  {shirt:'#f2c14e',pants:'#4a6a8f',shoes:'#c2412f',skin:'#8d5a3b',hair:'curly',hairC:'#1b1411',mouth:'smile'},
+  {shirt:'#5cae6e',pants:'#6b6f78',shoes:'#2b2b2e',skin:'#e0ac85',hair:'short',hairC:'#5a3a24',pack:'#e9873a',cheeks:true,mouth:'grin'},
+  {shirt:'#8a6cc8',pants:'#2f3137',shoes:'#f08cae',skin:'#c68e62',hair:'wavy',hairC:'#2a1d16',pack:'#5cae6e',mouth:'smile'},
+  {shirt:'#3f8fd0',pants:'#d6b88c',shoes:'#3b2d25',skin:'#f5d3b8',hair:'textured',hairC:'#d9b26a',cheeks:true,mouth:'grin'},
+  {shirt:'#f08cae',pants:'#3d4350',shoes:'#ece7dc',skin:'#5e3b2a',hair:'curly',hairC:'#16100d',pack:'#f2c14e',mouth:'smile'}];
+const KACT=['hop','hop','chase','chase','climb','ball'], KSC=.6;
+function civKid(i){ const g=figure(Object.assign({build:.92,arm:.95,depth:.68},KIDS[i])), d=g.userData;
+  /* the head and its eyes in one mesh (they do not blink), and a bigger head for a child */
+  const hm=d.head.children.find(o=>o.isMesh&&o!==d.eyes[0]), em=d.eyes[0], ey=em.position.y, a=hm.geometry.attributes, b=em.geometry.attributes, P=[...a.position.array], N=[...a.normal.array], C=[...a.color.array];
+  for(let k=0;k<b.position.count;k++){ P.push(b.position.getX(k),b.position.getY(k)+ey,b.position.getZ(k)); N.push(b.normal.getX(k),b.normal.getY(k),b.normal.getZ(k)); C.push(b.color.getX(k),b.color.getY(k),b.color.getZ(k)); }
+  const ng=new T.BufferGeometry(); ng.setAttribute('position',new T.Float32BufferAttribute(P,3)); ng.setAttribute('normal',new T.Float32BufferAttribute(N,3)); ng.setAttribute('color',new T.Float32BufferAttribute(C,3)); hm.geometry.dispose(); hm.geometry=ng;
+  d.head.remove(em); em.geometry.dispose(); d.eyes=[]; d.head.scale.setScalar(1.2); g.scale.setScalar(KSC); g.visible=false; g.traverse(o=>{ if(o.isMesh) o.userData.dyn=true; }); sc.add(g);
+  return {g,d,i,vis:false,x:0,z:0,lx:0,lz:0,u:new T.Vector3(0,1,0),f:new T.Vector3(0,0,1),fx:0,fz:1,y:0,mode:'gone',tm:1e9,r:null,s:0,lat:0,v:0,sp:1.02+(i%3)*.09,run:false,ph:i*1.7,stepD:0,home:i%3,act:KACT[i],a:{},wp:[],wave:0,wt:0,pose:null}; }
+/* the ways between the houses and the school: from a door out to the pavement, round the pavement the shorter way, to the
+   gate and in at the door; found on the walking grid wherever a straight line is not clear */
+const CR1={x:0,z:0,dx:0,dz:0}, CR2={x:0,z:0,dx:0,dz:0};
+function ciRoute(pts){ const p=[pts[0]]; for(const q of pts) if(Math.hypot(q[0]-p[p.length-1][0],q[1]-p[p.length-1][1])>.05) p.push(q);
+  const c=[0]; for(let i=1;i<p.length;i++) c.push(c[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1])); return {p,c,L:c[c.length-1]}; }
+function ciAt(r,s,o){ s=clamp(s,0,r.L); let k=1; while(k<r.c.length-1&&r.c[k]<s) k++; const a=r.p[k-1], b=r.p[k], L=(r.c[k]-r.c[k-1])||1, t=clamp((s-r.c[k-1])/L,0,1);
+  o.x=a[0]+(b[0]-a[0])*t; o.z=a[1]+(b[1]-a[1])*t; o.dx=(b[0]-a[0])/L; o.dz=(b[1]-a[1])/L; return o; }
+const CHOMES=[[6.4,-12.6],[-5.8,13.6],[-10.6,10.4]];   // the houses the children come from: south by the café, north by the workshop, north-west
+function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
+  for(let i=0;i<n;i++){ const a=lp[(i-1+n)%n], b=lp[(i+1)%n], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz)||1; let nx=-tz/L, nz=tx/L; if(nx*lp[i][0]+nz*lp[i][1]<0){ nx=-nx; nz=-nz; } ring.push([lp[i][0]+nx*(RW+SW/2),lp[i][1]+nz*(RW+SW/2)]); }
+  const near=(x,z)=>{ let bi=0,bd=1e9; ring.forEach((p,i)=>{ const d=Math.hypot(p[0]-x,p[1]-z); if(d<bd){ bd=d; bi=i; } }); return bi; };
+  const S=CIV.school.M, gate=ciXZ(S,...CY.gate), door=ciXZ(S,...CY.door), gi=near(...gate);
+  CIV.routes=[]; CIV.routeBad=[];
+  for(const [hx,hz] of CHOMES){ const Hh=HOUSES.find(H=>{ const [px,pz]=loc(ciV.setFromMatrixPosition(H.M).normalize()); return Math.hypot(px-hx,pz-hz)<.2; }); if(!Hh) continue;
+    let hd=ciXZ(Hh.M,Hh.dx,Hh.d/2+1.05); { const c=navNear(...navIJ(...hd)); if(c) hd=[NAV.O+c[0]*NAV.S,NAV.O+c[1]*NAV.S]; }   // (out from the door, on the grid's own ground: every way from there is one it can see)
+    const hi=near(...hd), fw=(gi-hi+n)%n, bw=(hi-gi+n)%n, dir=fw<=bw?1:-1, steps=Math.min(fw,bw), pts=[hd]; let prev=hd;
+    /* (round anything on the pavement, a lamp or a signpost: the grid's way there, and on from wherever it stops) */
+    const go=q=>{ if(navClear(prev[0],prev[1],q[0],q[1])){ pts.push(q); prev=q; return; } const p=navPath(prev[0],prev[1],q[0],q[1],1.4); if(!p) return; const e=p[p.length-1];
+      if(navClear(e[0],e[1],q[0],q[1])){ pts.push(...p,q); prev=q; } else { pts.push(...p); prev=e; } };
+    for(let k=0;k<steps;k+=3) go(ring[((hi+dir*k)%n+n)%n]); go(ring[gi]); go(gate); pts.push(door);
+    for(let i=0;i<pts.length-2;i++) if(!navClear(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1])) CIV.routeBad.push([+pts[i][0].toFixed(2),+pts[i][1].toFixed(2)]);
+    const r=ciRoute(pts); CIV.routes.push({fw:r,bw:ciRoute(pts.slice().reverse()),home:[hx,hz]}); } }
+/* built after the town, the trees and the people: the yard and what is solid, the children, their ways; a part at a time */
+async function buildCivic(){ const gap=()=>st.pace?st.pace():nextFrame();
+  if(!CIV.hall||!CIV.school) return; civSolids(); await gap();
+  for(let i=0;i<KIDS.length;i++){ CIV.kids.push(civKid(i)); if(i%2) await gap(); }
+  civRoutes();
+  /* into the ink pass and the sun's shadow, as registerInk puts the rest of the town (they were made after it ran) */
+  for(const root of [...CIV.kids.map(k=>k.g),CIV.kit,...sc.children.filter(o=>o.isMesh&&!INK.includes(o)&&o.material&&o.material.isShaderMaterial&&o.userData.noInk!==true&&o.layers.isEnabled(0))])
+    root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
+      o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide); if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); });
+  /* drawn once as Earth is made ready (wherever they are, out of sight), so nothing about them is new the first time they come out */
+  CIV.warm=2; CIV.kids.forEach(k=>{ k.g.visible=true; k.g.traverse(o=>{ if(o.isMesh) o.frustumCulled=false; }); });
+  CIV.pob=new Set(people.map(p=>p.ob)); CIV.school.Mi=new T.Matrix4().copy(CIV.school.M).invert(); CIV.plqN=new T.Vector3().setFromMatrixColumn(CIV.hall.M,2).normalize();
+  CIV.ok=true; baked=false; }
+
+/* ---------- the clock striking, and the school's bell ---------- */
+/* how loud a thing is from where you stand (a little everywhere in town), and which side it is on */
+function civEar(x,z){ const P=player, d=Math.hypot(P.x-x,P.z-z); return .3+.7*clamp(1-d/26,0,1)*clamp(1-d/26,0,1); }
+function civPan(x,z){ stCam.updateMatrixWorld(); ciV.setFromMatrixColumn(stCam.matrixWorld,0).normalize(); const p=at(x,z,ciV2).multiplyScalar(R+2).sub(stCam.position).normalize(); return clamp(p.dot(ciV)*.7,-.7,.7); }
+const civIndoors=()=>CAFE.on||GAR.on;
+function civChime(H){ const n=H%12||12, night=H>=23||H<7, g=CGAIN.clock*(night?CGAIN.night:1); CIV.chime={h:H,n,k:0,t:.2,night,g}; CIV.log.push({h:H,n,night,g:+g.toFixed(4)}); if(CIV.log.length>20) CIV.log.shift(); }
+function civBell(b){ const S=CIV.school, g=CGAIN.bell*civEar(S.x,S.z)*(civIndoors()?.4:1); if(!FIN.on&&!CUT.on) A.schoolBell(g,civPan(S.x,S.z)); CIV.bells.push({h:+b.toFixed(3),g:+g.toFixed(4)}); if(CIV.bells.length>20) CIV.bells.shift(); CIV.bellT=1.9; }
+
+/* ---------- the children, each frame ---------- */
+const ciDay=new Set(['to','home']);
+function civShow(k,on){ if(k.vis!==on){ k.vis=on; k.g.visible=on||CIV.warm>0; } }
+function civRouteStart(k,r,s){ Object.assign(k,{r,s,lat:0,v:0,run:false,mode:'route',pose:null,y:0}); ciAt(r,s,CR1); k.x=CR1.x; k.z=CR1.z; k.fx=CR1.dx; k.fz=CR1.dz; civShow(k,true); if(s<.1&&r===CIV.routes[k.home].bw) CIV.doorT=1.2; }
+/* the way between you and whoever you are talking to, or walking over to, or standing near: the children keep out of it */
+function civCorr(){ const P=player; let q=TALK.p||TALK.goal||null;
+  if(!q){ let bd=4; for(const p of people){ const d=Math.hypot(P.x-p.x,P.z-p.z); if(d<bd){ bd=d; q=p; } } if(DM.g&&Math.hypot(P.x-DM.x,P.z-DM.z)<bd) q=DM; }
+  if(!q) return null; const dx=q.x-P.x, dz=q.z-P.z, L=Math.hypot(dx,dz)||1; return [P.x,P.z,q.x+dx/L*.5,q.z+dz/L*.5]; }
+function civSeg(x,z,c){ const ex=c[2]-c[0], ez=c[3]-c[1], t=clamp(((x-c[0])*ex+(z-c[1])*ez)/(ex*ex+ez*ez||1),0,1); return Math.hypot(x-c[0]-ex*t,z-c[1]-ez*t); }
+/* who is in the way at a spot: you, one of us, Diarmuid, another child */
+function civBlock(x,z,self){ const P=player; if(Math.hypot(x-P.x,z-P.z)<.55) return P;
+  for(const p of people) if(Math.hypot(x-p.x,z-p.z)<.6) return p; if(DM.g&&Math.hypot(x-DM.x,z-DM.z)<.7) return DM;
+  for(const q of CIV.kids) if(q!==self&&q.vis&&Math.hypot(x-q.x,z-q.z)<.3) return q; return null; }
+function civSolid(x,z){ if(!walkable(x,z)) return true; for(const o of OBS){ if(CIV.pob.has(o)) continue; if(Math.hypot(x-o.x,z-o.z)<o.r+.1) return true; } return false; }
+/* along a way: a step aside round anyone in it if there is room, or a wait; never into the way to someone you are talking to */
+function civWalk(k,dt){ const r=k.r; let sp=k.run?2:k.sp, lt=0;
+  ciAt(r,k.s+.7,CR1); const nx=-CR1.dz, nz=CR1.dx, ax=CR1.x+nx*k.lat, az=CR1.z+nz*k.lat, b=civBlock(ax,az,k);
+  if(b&&k.s+.7<r.L){ const side=Math.sign((b.x-CR1.x)*nx+(b.z-CR1.z)*nz)||1; lt=-side*.5; const qx=CR1.x+nx*lt, qz=CR1.z+nz*lt;
+    if(civBlock(qx,qz,k)||civSolid(qx,qz)){ lt=k.lat; sp=b.vis!==undefined&&b!==player?sp*.35:0; } }
+  const c=CIV.corr; if(c){ const now=civSeg(k.x,k.z,c)<.85, next=civSeg(ax,az,c)<.85; if(next&&!now) sp=0; else if(now) sp=Math.max(sp,1.7); }
+  k.lat=damp(k.lat,lt,3,dt); k.v=damp(k.v,sp,6,dt); k.s=Math.min(r.L,k.s+k.v*dt);
+  ciAt(r,k.s,CR2); let x=CR2.x-CR2.dz*k.lat, z=CR2.z+CR2.dx*k.lat; if(Math.abs(k.lat)>.02&&civSolid(x,z)){ k.lat*=.6; x=CR2.x-CR2.dz*k.lat; z=CR2.z+CR2.dx*k.lat; }
+  k.x=x; k.z=z; if(CR2.dx||CR2.dz){ k.fx=damp(k.fx,CR2.dx,9,dt); k.fz=damp(k.fz,CR2.dz,9,dt); } }
+/* in the yard, in the school's frame: towards the next point, waiting for you if you are in the way */
+function civToward(k,dt,sp){ const w=k.wp[0]; if(!w) return true; const dx=w[0]-k.lx, dz=w[1]-k.lz, L=Math.hypot(dx,dz);
+  if(L<.05){ k.wp.shift(); return !k.wp.length; } const st_=Math.min(L,sp*dt), nx=k.lx+dx/L*st_, nz=k.lz+dz/L*st_, [px,pz]=ciXZ(CIV.school.M,nx,nz);
+  if(Math.hypot(px-player.x,pz-player.z)<.5){ k.v=damp(k.v,0,8,dt); return false; }
+  k.lx=nx; k.lz=nz; k.v=damp(k.v,sp,8,dt); k.mv=k.v; k.dlx=dx/L; k.dlz=dz/L; return false; }
+const LOOPL=4.64;
+function civLoop(s){ s=((s%LOOPL)+LOOPL)%LOOPL; const k=Math.floor(s/1.16), t=s/1.16-k, a=CY.loop[k], b=CY.loop[(k+1)%4]; return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,b[0]-a[0],b[1]-a[1]]; }
+function civOut(k){ const D=CY.door; Object.assign(k,{mode:'out',lx:D[0],lz:D[1],y:0,v:0,dlx:0,dlz:1,a:{}}); CIV.doorT=1.2; civShow(k,true);
+  k.wp=k.act==='hop'?[k.i===0?CY.hop0:CY.hopW]:k.act==='ball'?[CY.ball]:k.act==='chase'?[CY.jn]:[CY.jn,CY.frS]; }
+/* each game from where it starts: now (the time was set to the middle of a break) or on arriving */
+function civPlay(k,now){ k.mode='play'; k.y=0; const a=k.a={st:'',t:0};
+  if(k.act==='hop'){ const first=k.i===CIV.kids.find(q=>q.act==='hop').i; a.st=now&&first?'hop':'wait'; a.k=-1; a.dir=1; a.t=0; if(now) [k.lx,k.lz]=a.st==='hop'?CY.hop0:CY.hopW; if(a.st==='hop') CIV.hopTurn=k.i; }
+  if(k.act==='chase'){ const lead=k.i===CIV.kids.find(q=>q.act==='chase').i; if(!CIV.chase) CIV.chase={dir:1,t:8,lead:k.i}; a.s=now?(lead?.5:4.14):3.48; [k.lx,k.lz]=civLoop(a.s); }
+  if(k.act==='climb'){ a.st=now?'top':'base'; a.t=now?Math.random()*3:0; a.stay=4+Math.random()*4; if(now){ k.lx=CY.fr[0]; k.lz=CY.fr[1]; k.y=.62; } }
+  if(k.act==='ball'){ a.t=0; if(now) [k.lx,k.lz]=CY.ball; } }
+function civBack(k){ if(k.mode==='out'){ k.mode='back'; k.wp=[CY.door]; return; } k.mode='back'; k.a.leave=true;
+  if(k.act==='hop'||k.act==='ball') k.wp=[CY.door]; else k.wp=null; }   // (the chasers run on round to the corner nearest the door; the climber climbs down first)
+function civPlace(ph){ CIV.ph=ph; CIV.chase=null; CIV.hopTurn=-1; CIV.ball.visible=false;
+  CIV.kids.forEach((k,i)=>{ civShow(k,false); k.mode='gone'; k.tm=1e9; k.y=0; k.pose=null;
+    if(ciDay.has(ph)&&CIV.routes.length){ k.home=i%CIV.routes.length; if(i<4){ const R=CIV.routes[k.home], r=ph==='to'?R.fw:R.bw; civRouteStart(k,r,r.L*(.12+.19*i)); } else k.tm=5+i*6; }
+    else if(ph==='yard'){ civShow(k,true); civPlay(k,true); } }); }
+function civTurn(a,b){ CIV.ph=b; CIV.kids.forEach((k,i)=>{
+  if(b==='yard'){ if(k.mode==='gone') k.tm=.5+i*.75; }
+  else if(a==='yard'){ if(k.mode==='play'||k.mode==='out') civBack(k); }
+  else if(b==='home'){ if(k.mode==='gone') k.tm=.6+i*2.4; }
+  else if(b==='to'){ if(k.mode==='gone') k.tm=2+i*5+Math.random()*4; }
+  else if(a==='to'&&k.mode==='route') k.run=true; }); }   // (the bell at ten to nine: anyone still on the way hurries)
+function civGone(k,dt){ k.tm-=dt; if(k.tm>0) return; const h=SKY.h, R=CIV.routes;
+  if(CIV.ph==='to'&&h<CT.in-.03&&R.length){ k.home=(k.home+1)%R.length; civRouteStart(k,R[k.home].fw,0); }
+  else if(CIV.ph==='home'&&h<CT.end-.03&&R.length){ k.home=(k.home+1+(k.i%2))%R.length; civRouteStart(k,R[k.home].bw,0); }
+  else if(CIV.ph==='yard'&&h<(h<12?CT.b1e:CT.b2e)-.01) civOut(k); else k.tm=6; }
+function civGames(k,dt,t){ const a=k.a, kids=CIV.kids;
+  if(k.act==='hop'){ const H=CY.hop, rowX=j=>j<0?CY.hop0[0]:H.x0+H.s*j;
+    if(a.st==='wait'){ k.dlx=.2; k.dlz=-1; if(CIV.hopTurn<0||CIV.hopTurn===k.i||!kids[CIV.hopTurn].vis||kids[CIV.hopTurn].mode!=='play'){ if(!a.leave){ CIV.hopTurn=k.i; a.st='go'; k.wp=[CY.hop0]; } } return; }
+    if(a.st==='go'){ if(civToward(k,dt,1)){ a.st='hop'; a.k=-1; a.dir=1; a.t=0; } return; }
+    if(a.st==='off'){ if(civToward(k,dt,1)){ a.st='wait'; a.t=0; CIV.hopTurn=kids.find(q=>q.act==='hop'&&q!==k).i; } return; }
+    if(a.st==='hop'){ const nk=a.k+a.dir, [px,pz]=ciXZ(CIV.school.M,rowX(clamp(nk,-1,7)),H.z); if(a.t===0&&Math.hypot(px-player.x,pz-player.z)<.45) return;   // you are standing on the next square
+      a.t+=dt/.42; const u=Math.min(1,a.t); k.lx=lerp(rowX(a.k),rowX(nk),u); k.lz=H.z; k.y=.09*Math.sin(Math.PI*u); k.dlx=a.dir; k.dlz=0; k.pose=H.dbl.includes(nk)?'two':nk<0||nk>7?'stand':'one';
+      if(u>=1){ a.k=nk; a.t=0; civTap(k,.9); if(a.k===8) a.dir=-1; else if(a.k<0&&a.dir<0){ a.st='off'; k.pose=null; k.wp=[CY.hopW]; } } } return; }   // (past the last square, a hop round to come back)
+  if(k.act==='chase'){ const C=CIV.chase||(CIV.chase={dir:1,t:8,lead:k.i}), lead=C.lead===k.i, other=kids.find(q=>q.act==='chase'&&q!==k);
+    if(lead){ C.t-=dt; if(C.t<=0){ C.dir*=-1; C.t=6+Math.random()*5; C.lead=other.i; } }
+    const ahead=civLoop(a.s+C.dir*.6), [px,pz]=ciXZ(CIV.school.M,ahead[0],ahead[1]); let sp=1.75;
+    if(Math.hypot(px-player.x,pz-player.z)<.55) sp=0;
+    if(!lead&&other&&other.a&&other.a.s!=null){ const gap=((other.a.s-a.s)*C.dir%LOOPL+LOOPL)%LOOPL; if(gap<.55) sp=Math.min(sp,gap<.4?0:1.2); }
+    if(a.leave){ const d3=((3.48-a.s)*C.dir%LOOPL+LOOPL)%LOOPL; if(d3<.12){ k.wp=[CY.jn,CY.door]; a.leave=false; a.done=true; } }
+    if(a.done){ if(civToward(k,dt,1.4)) civGoneIn(k); return; }
+    k.v=damp(k.v,sp,6,dt); k.mv=k.v; a.s+=C.dir*k.v*dt; const q=civLoop(a.s); k.lx=q[0]; k.lz=q[1]; k.dlx=q[2]*C.dir; k.dlz=q[3]*C.dir; return; }
+  if(k.act==='climb'){ const [bx,bz]=CY.frS, [fx,fz]=CY.fr; a.t+=dt; k.dlx=1; k.dlz=0;
+    if(a.st==='base'){ k.pose='stand'; k.y=0; if(a.leave){ k.wp=[CY.jn,CY.door]; a.st='in'; } else if(a.t>1.4){ a.st='up'; a.t=0; } }
+    else if(a.st==='up'){ const u=Math.min(1,a.t/2.4); k.lx=lerp(bx,fx-.33,u); k.lz=bz; k.y=.62*u; k.pose='climb'; if(u>=1){ a.st='over'; a.t=0; } }
+    else if(a.st==='over'){ const u=Math.min(1,a.t/.8); k.lx=lerp(fx-.33,fx,u); k.y=.62; k.pose='sit'; k.dlx=lerp(1,0,u); k.dlz=lerp(0,1,u); if(u>=1){ a.st='top'; a.t=0; a.stay=4+Math.random()*4; } }
+    else if(a.st==='top'){ k.lx=fx; k.lz=fz; k.y=.62; k.pose='sit'; k.dlx=0; k.dlz=1; if(a.t>a.stay||a.leave){ a.st='down'; a.t=0; } }
+    else if(a.st==='down'){ const u=Math.min(1,a.t/2.2); k.lx=lerp(fx,bx,u); k.lz=bz; k.y=.62*(1-u); k.pose='climb'; if(u>=1){ a.st='base'; a.t=0; } }
+    else if(a.st==='in'){ k.pose=null; if(civToward(k,dt,1.2)) civGoneIn(k); } return; }
+  if(k.act==='ball'){ a.t+=dt; k.dlx=0; k.dlz=1; k.pose='ball'; const T_=.5, ph=(a.t%T_)/T_; k.bh=.3*Math.sin(Math.PI*ph); if(a.lastB!==undefined&&ph<a.lastB){ civTap(k,1,'ball'); } a.lastB=ph;
+    if(a.leave){ k.pose=null; k.bh=-1; if(civToward(k,dt,1.1)) civGoneIn(k); } } }
+function civGoneIn(k){ civShow(k,false); k.mode='gone'; k.tm=1e9; k.pose=null; CIV.doorT=1.2; if(k.act==='ball') CIV.ball.visible=false; }
+/* a child's footstep or hop, or the ball, if you are near enough to hear it */
+function civTap(k,g=1,what){ if(TALK.p||CUT.on||FIN.on||civIndoors()) return; const d=Math.hypot(player.x-k.x,player.z-k.z); if(d>10) return; const q=(1-d/10)*(1-d/10);
+  if(what==='ball') A.ballBounce(CGAIN.ball*q,civPan(k.x,k.z)); else A.kidStep(CGAIN.step*q*Math.min(1,g),civPan(k.x,k.z)); }
+function civKids(dt,t){ const M=CIV.school.M, kids=CIV.kids;
+  for(const k of kids){ k.pose=k.act==='ball'||k.act==='climb'||k.act==='hop'?k.pose:null; k.mv=0;
+    if(k.mode==='gone'){ civGone(k,dt); if(k.mode==='gone') continue; }
+    if(k.mode==='route'){ civWalk(k,dt); if(k.s>=k.r.L-.02){ const toSchool=CIV.routes.some(R=>R.fw===k.r); civShow(k,false); k.mode='gone'; k.tm=12+Math.random()*26; if(toSchool) CIV.doorT=1.2; continue; } }
+    else { if(k.mode==='out'){ k.pose=null; if(civToward(k,dt,1.5)) civPlay(k,false); }
+      else if(k.mode==='play'||k.mode==='back'){ if(k.mode==='back'&&k.wp&&k.wp.length&&!k.a.done&&k.a.st!=='in'){ k.pose=null; if(civToward(k,dt,1.3)){ civGoneIn(k); continue; } } else civGames(k,dt,t); }
+      if(k.mode==='gone') continue; [k.x,k.z]=ciXZ(M,k.lx,k.lz); const d0=ciXZ(M,k.lx+(k.dlx||0)*.2,k.lz+(k.dlz||0)*.2); k.fx=damp(k.fx,d0[0]-k.x,10,dt); k.fz=damp(k.fz,d0[1]-k.z,10,dt); }
+    /* where they stand: on the town's ground (the tarmac a little up), turned the way they go */
+    at(k.x,k.z,k.u); tang(k.u,at(k.x+k.fx,k.z+k.fz,ciV3),ciV2); if(ciV2.lengthSq()>.5) k.f.copy(ciV2);
+    ciV.copy(k.u).multiplyScalar(R).applyMatrix4(CIV.school.Mi); const tar=ciV.x>CY.tar[0]&&ciV.x<CY.tar[1]&&ciV.z>CY.tar[2]&&ciV.z<CY.tar[3];
+    standOn(k.g,k.u,k.f,standH(k.x,k.z)+(tar?.03:0)+k.y);
+    const v=k.mode==='route'?k.v:k.mv, run=v>1.4;
+    if(v>.05){ k.ph+=dt*v*(run?9:7.6); k.stepD+=v*dt; if(k.stepD>(run?.5:.36)){ k.stepD=0; civTap(k,run?1.2:1); } }
+    /* you come by: a wave */
+    const dP=Math.hypot(player.x-k.x,player.z-k.z); if(dP<2.6&&!k.wt){ k.wave=1.3; k.wt=1; } if(dP>4) k.wt=0; k.wave=Math.max(0,k.wave-dt);
+    const D=k.d, sw=k.pose==='sit'&&Math.sin(t*.7+k.i)>.8?1:0; animate(k.g,k.ph,clamp(v/(run?1.4:1.1),0,1),k.pose&&k.pose!=='sit'?0:Math.max(k.wave,sw),t,k.i+3); D.legs.forEach(l=>{ l.rotation.z=0; }); D.arms[0].rotation.z=0;
+    if(k.pose==='one'||k.pose==='two'){ const s=Math.sin(Math.PI*clamp(k.a.t,0,1)); D.legs[1].rotation.x=k.pose==='one'?.9:0; D.legs[0].rotation.x=k.pose==='one'?-.15*s:0; if(k.pose==='two'){ D.legs[0].rotation.z=-.22; D.legs[1].rotation.z=.22; }
+      D.arms[0].rotation.z=-.7; D.arms[1].rotation.z=.7; D.arms[0].rotation.x=D.arms[1].rotation.x=0; }
+    else if(k.pose==='climb'){ const s=Math.sin(t*6+k.i); D.arms[0].rotation.x=-2.7+s*.35; D.arms[1].rotation.x=-2.7-s*.35; D.legs[0].rotation.x=-.5-s*.4; D.legs[1].rotation.x=-.5+s*.4; }
+    else if(k.pose==='sit'){ D.legs[0].rotation.x=D.legs[1].rotation.x=-1.45; D.arms[0].rotation.x=-.25; if(!sw&&k.wave<=0) D.arms[1].rotation.x=-.25; D.body.position.y=-.02; }
+    else if(k.pose==='ball'&&k.bh>=0){ D.arms[0].rotation.x=-.55-1.2*(k.bh/.3); D.fore[0].rotation.x=-.5; } }
+  /* the ball: in front of whoever is bouncing it */
+  const bk=kids.find(k=>k.act==='ball'&&k.vis&&k.pose==='ball'&&k.bh>=0); CIV.ball.visible=!!bk;
+  if(bk){ const fl=Math.hypot(bk.fx,bk.fz)||1, bx=bk.x+bk.fx/fl*.17, bz=bk.z+bk.fz/fl*.17; CIV.ball.position.copy(at(bx,bz,ciV)).multiplyScalar(R+standH(bx,bz)+.03+.055+bk.bh); }
+  /* the school door: open while anyone goes in or out */
+  CIV.doorT=Math.max(0,CIV.doorT-dt); CIV.doorK=damp(CIV.doorK,CIV.doorT>0?1:0,5,dt); CIV.door.rotation.y=-1.25*CIV.doorK; }
+
+/* ---------- each frame ---------- */
+function civStep(dt,t){ if(!CIV.ok) return; const h=SKY.h, day=civDay();
+  if(CIV.warm>0&&--CIV.warm===0) CIV.kids.forEach(k=>{ k.g.visible=k.vis; k.g.traverse(o=>{ if(o.isMesh) o.frustumCulled=true; }); });   // (drawn once when Earth was made ready: see buildCivic)
+  if(Math.abs(h-CIV.hh)>1e-5) civHands(h);
+  civFlag(t);
+  /* the hour, and the school's bells: on the hour or the bell's minute as the clock passes it (a clock set by hand to a new time strikes nothing) */
+  if(CIV.h0===null){ CIV.h0=h; CIV.d0=day; civPlace(civPhase(h)); }
+  const dh=(h-CIV.h0+24)%24, jump=day!==CIV.d0||dh>.05;
+  if(dh>0&&!jump){ if(Math.floor(h)!==Math.floor(CIV.h0)) civChime(Math.floor(h)); if(civSchoolDay()) for(const b of CBELLS) if(CIV.h0<b&&h>=b) civBell(b); }
+  CIV.h0=h; CIV.d0=day;
+  const ph=civPhase(h); if(ph!==CIV.ph){ if(jump) civPlace(ph); else civTurn(CIV.ph,ph); }
+  const C=CIV.chime; if(C&&C.k<C.n){ C.t-=dt; if(C.t<=0){ C.k++; C.t=1.25; CIV.struck++; const H_=CIV.hall; if(!FIN.on&&!CUT.on) A.townBell(C.g*civEar(H_.x,H_.z)*(civIndoors()?.4:1)*(TALK.p?.7:1),civPan(H_.x,H_.z)); } }
+  /* the school's bell swinging on the roof as it rings; the lanterns by the hall's door lit at night */
+  CIV.bellT=Math.max(0,CIV.bellT-dt); CIV.bell.rotation.z=Math.sin(t*13)*.55*Math.min(1,CIV.bellT);
+  const nk=SKY.night; CIV.glass.material.uniforms.uC.value.setRGB(lerp(.9,1.45,nk),lerp(.86,1.08,nk),lerp(.77,.55,nk));
+  CIV.corr=civCorr(); civKids(dt,t); civCardStep(); civTags(); }
+/* the bench and the kite on the cliff stand just behind the hall: their tags are not shown through it (from the street in
+   front, Sit and Kite would hang over the hall's door as if they were about it) */
+function ciSegBox(a,b,x0,x1,y0,y1,z0,z1){ let t0=0, t1=1; for(const [o,d,lo,hi] of [[a.x,b.x-a.x,x0,x1],[a.y,b.y-a.y,y0,y1],[a.z,b.z-a.z,z0,z1]]){
+    if(Math.abs(d)<1e-9){ if(o<lo||o>hi) return false; continue; } let u=(lo-o)/d, v=(hi-o)/d; if(u>v){ const q=u; u=v; v=q; } t0=Math.max(t0,u); t1=Math.min(t1,v); if(t0>t1) return false; } return true; }
+function civTags(){ if(!CLM||!CIV.hall) return; const Mi=CIV.hall.Mi||(CIV.hall.Mi=new T.Matrix4().copy(CIV.hall.M).invert()), c=ciV3.copy(stCam.position).applyMatrix4(Mi);
+  clTags.forEach((g,i)=>{ const hide=g.on&&ciSegBox(c,ciV2.copy(i?CLM.tagK:CLM.tagB).applyMatrix4(Mi),-1.75,1.75,0,4.7,-1.4,1.4); if(g.e.classList.contains('on')!==(g.on&&!hide)) g.e.classList.toggle('on',g.on&&!hide); }); }
+
+/* ---------- the plaques: point at one and it says Read; click it and its card comes up (walk away, or Escape, and it goes) ---------- */
+const PQC=(()=>{ const c=document.createElement('div'); c.className='crpj crplq'; c.setAttribute('role','note'); c.setAttribute('aria-hidden','true'); c.dataset.cur='Close';
+  c.innerHTML='<span class="crpj-n disp"></span><span class="crpj-k ui"></span><span class="crpj-t"></span>'; el.appendChild(c); c.addEventListener('click',e=>{ e.stopPropagation(); civCard(-1); }); return c; })();
+function civCard(i){ const q=PLAQ[i]; if(i>=0&&!(q&&q.n)) i=-1; if(i===CIV.card) return; CIV.card=i; const on=i>=0;
+  if(on){ PQC.querySelector('.crpj-n').textContent=q.n; PQC.querySelector('.crpj-k').textContent=q.k; PQC.querySelector('.crpj-t').textContent=q.t; A.tick(); }
+  PQC.classList.toggle('on',on); PQC.setAttribute('aria-hidden',on?'false':'true'); }
+function civCardStep(){ if(CIV.card<0) return; const H_=CIV.hall, P=player, c=CIV.plq[CIV.card].c, [px,pz]=loc(ciV.copy(c).normalize());
+  if(Math.hypot(P.x-px,P.z-pz)>7||TALK.p||TALK.goal||CUT.on||FIN.on||CAFE.on||GAR.on||PJ.id||S.st!==st) civCard(-1); }
+const ciRay=new T.Raycaster(), ciNdc=new T.Vector2();
+function civPick(e){ if(!CIV.ok||!CIV.plq.length) return -1; ciNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ciRay.setFromCamera(ciNdc,stCam);
+  const c=CIV.plq[0].c; if(c.distanceTo(stCam.position)>14||ciV.copy(stCam.position).sub(c).dot(CIV.plqN)<.05) return -1; let best=-1, bd=1e9; for(const q of CIV.plq){ const h=ciRay.intersectObject(q.hit,false)[0]; if(h&&h.distance<bd){ bd=h.distance; best=q.i; } }
+  if(best>=0){ hits.length=0; ray.setFromCamera(ciNdc,stCam); ray.layers.set(0); ray.intersectObjects(people.map(p=>p.g),true,hits); if(hits.length&&hits[0].distance<bd) return -1; }   // (one of us in front of it: that is who you mean)
+  return best; }
+const civFree=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!TALK.p&&!CAFE.on&&!GAR.on&&!PHS.on&&!PC.on&&GLN.t<0;
+canvas.addEventListener('pointerdown',e=>{ CIV.down=civFree()?{x:e.clientX,y:e.clientY,id:e.pointerId}:null; });
+addEventListener('pointerup',e=>{ const d=CIV.down; CIV.down=null; if(!d||d.id!==e.pointerId||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||!civFree()||TALK.goal) return; const i=civPick(e); if(i>=0) civCard(PLAQ[i].n?i:-1); else if(CIV.card>=0) civCard(-1); });
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||e.pointerType!=='mouse'||down||!CIV.ok) return; const on=!hov&&!DM.hov&&civFree()&&civPick(e)>=0;
+  if(on!==CIV.hov){ CIV.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Read'; ce.classList.add('big'); } else if(!hov&&!DM.hov) ce.classList.remove('big'); } } },{passive:true});
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||CIV.card<0||e.code!=='Escape') return; civCard(-1); e.preventDefault(); e.stopImmediatePropagation(); },true);
+
+/* built after the town; stepped after the town has moved you and placed its camera; put back with it */
+{ const b=st.build, up=st.update, en=st.enter, ex=st.exit;
+  st.build=async function(){ await b.apply(this,arguments); try{ await buildCivic(); }catch(err){ CIV.err=String(err&&err.stack||err); console.warn('civic',err); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&CIV.ok) civStep(dt,t); return r; };
+  st.enter=function(){ CIV.h0=null; CIV.chime=null; civCard(-1); return en.apply(this,arguments); };
+  st.exit=function(){ civCard(-1); CIV.chime=null; return ex.apply(this,arguments); }; }
+st._dbg.civic={CIV,CT,CY,PLAQ,CGAIN,get err(){ return CIV.err||null; },day(n){ CIV.day=n; },phase:h=>civPhase(h),card:i=>civCard(i),place:()=>civPlace(civPhase(SKY.h)),
+  /* the hands as the clock shows them on its front face: degrees from twelve, clockwise as you look at it */
+  hands(){ const H=CIV.hands, F=CIV.faceM[0], Fi=new T.Matrix4().copy(F).invert(), m=new T.Matrix4(), out={}; [['h',0],['m',1]].forEach(([k,i])=>{ H.getMatrixAt(i,m); m.premultiply(Fi); const y=new T.Vector3().setFromMatrixColumn(m,1);
+    out[k]=+(((Math.atan2(y.x,y.y)*180/Math.PI)+360)%360).toFixed(2); }); return out; },
+  kids(){ return CIV.kids.map(k=>({i:k.i,vis:k.vis,mode:k.mode,act:k.act,x:+k.x.toFixed(2),z:+k.z.toFixed(2),lx:+k.lx.toFixed(2),lz:+k.lz.toFixed(2),v:+(k.v||0).toFixed(2),pose:k.pose,
+    st:k.a&&k.a.st,s:+k.s.toFixed(2),to:k.mode==='route'?CIV.routes.findIndex(R=>R.fw===k.r)>=0?'school':'home':null})); },
+  /* a child set on a way (ri: which house; to school or home; s metres along it), and where a way passes nearest a point */
+  put(i,ri,toSchool,s){ const k=CIV.kids[i], R=CIV.routes[ri], r=toSchool?R.fw:R.bw; k.home=ri; civRouteStart(k,r,s); return r.L; },
+  near(ri,toSchool,x,z){ const R=CIV.routes[ri], r=toSchool?R.fw:R.bw; let bs=0, bd=1e9; for(let s=0;s<=r.L;s+=.1){ ciAt(r,s,CR1); const d=Math.hypot(CR1.x-x,CR1.z-z); if(d<bd){ bd=d; bs=s; } } ciAt(r,bs,CR1); return {s:+bs.toFixed(2),d:+bd.toFixed(2),x:CR1.x,z:CR1.z}; },
+  get routes(){ return CIV.routes.map(R=>({home:R.home,L:+R.fw.L.toFixed(1),n:R.fw.p.length})); },get routeBad(){ return CIV.routeBad; },
+  /* a point in the hall's or the school's frame, in the world (for a test to look at or click) */
+  world(which,lx,y,lz){ const M=which==='hall'?CIV.hall.M:CIV.school.M; return new T.Vector3(lx,y,lz).applyMatrix4(M).toArray(); },
+  xz(which,lx,lz){ return ciXZ(which==='hall'?CIV.hall.M:CIV.school.M,lx,lz); },
+  plaque(i){ return CIV.plq[i].c.toArray(); },face:k=>new T.Vector3().setFromMatrixPosition(CIV.faceM[k]).toArray(),
+  get state(){ return {ph:CIV.ph,day:civDay(),h:+SKY.h.toFixed(3),chime:CIV.chime&&{h:CIV.chime.h,n:CIV.chime.n,k:CIV.chime.k,night:CIV.chime.night,g:+CIV.chime.g.toFixed(4)},struck:CIV.struck,
+    log:CIV.log.slice(-4),bells:CIV.bells.slice(-4),card:CIV.card,door:+CIV.doorK.toFixed(2),ball:CIV.ball.visible,tufts:CIV.tufts,warm:CIV.warm}; }};
+/* ===================== (the east side ends here) ===================== */
 
 /* ===================== the workshop: the shutter opens on the garage =====================
    The workshop's roller shutter opens. Walk up to it and the tag over it says Open (or press E by it, or click or tap the

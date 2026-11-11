@@ -696,6 +696,36 @@ const A=(()=>{
     /* the kite taking the wind: a soft breath rising under three notes climbing in the town's key */
     lift(){ if(!on||muted||!ctx) return; noise(1,.06,240,760,'bandpass',.9,0,.25);
       [392,523.25,659.25].forEach((f,i)=>{ tone(f,1.1,.018,'sine',0,.08+i*.15,.5,.02); tone(f*2,.4,.005,'sine',0,.08+i*.15,.3,.01); }); },
+    /* ---------- the town hall's clock and the school on Earth. Each is one short, soft sound made live: a bell's stroke, a
+       handbell, a child's footstep, a ball on the tarmac. Never a voice, never a bed of noise. g how loud (the station
+       makes each softer with distance, and the clock softer at night), p left or right ---------- */
+    /* one stroke of the town clock's bell: its hum an octave down, the strike note and its minor third, the fifth, the
+       nominal an octave up and two bright partials over it, each dying away at its own rate; and the clapper's soft knock */
+    townBell(g=.03,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, f=196*vr(.003); let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.5; pn.connect(sg); sg.connect(revIn); dst=pn; }
+      [[.5,.45,2.6],[1,.62,2.1],[1.19,.36,1.6],[1.5,.2,1.2],[2,1,1.4],[2.52,.26,.8],[3.01,.14,.5]].forEach(([m,a,d])=>{ const o=ctx.createOscillator(), e=ctx.createGain(); o.type='sine'; o.frequency.value=f*m;
+        e.gain.setValueAtTime(0,t0); e.gain.linearRampToValueAtTime(g*a,t0+.005); e.gain.exponentialRampToValueAtTime(.0001,t0+d); o.connect(e); e.connect(dst); o.start(t0); o.stop(t0+d+.05); });
+      const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=1400; b.Q.value=1.6;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.5,t0+.002); a.gain.exponentialRampToValueAtTime(.0001,t0+.035); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(t0+.06); },
+    /* the school's handbell, rung at the door: a dozen quick strokes of a small bright bell over a second and a half, each
+       a touch apart in pitch as it swings, swelling a little and then let fall */
+    schoolBell(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, f=1318.5*vr(.006); let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.3; pn.connect(sg); sg.connect(revIn); dst=pn; }
+      for(let k=0;k<12;k++){ const tk=t0+k*.125+(Math.random()-.5)*.02, sw=Math.sin(Math.PI*(k+1)/13), fk=f*(k%2?1.004:1);
+        [[1,1,.42],[2.4,.32,.2],[4.1,.12,.1]].forEach(([m,a,d])=>{ const o=ctx.createOscillator(), e=ctx.createGain(); o.type='sine'; o.frequency.value=fk*m;
+          e.gain.setValueAtTime(0,tk); e.gain.linearRampToValueAtTime(g*a*(.45+.55*sw),tk+.003); e.gain.exponentialRampToValueAtTime(.0001,tk+d); o.connect(e); e.connect(dst); o.start(tk); o.stop(tk+d+.05); }); } },
+    /* a child's footstep: lighter and quicker than yours, a soft tap high in the noise */
+    kidStep(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=1900+Math.random()*900; b.Q.value=1.4;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*vr(.2),t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05);
+      let dst=comp; if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(t0+.08); },
+    /* a rubber ball on the tarmac: a low, quick thump and the slap of it */
+    ballBounce(g=.03,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, v=vr(.06); let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      const o=ctx.createOscillator(), e=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(190*v,t0); o.frequency.exponentialRampToValueAtTime(105*v,t0+.07);
+      e.gain.setValueAtTime(0,t0); e.gain.linearRampToValueAtTime(g,t0+.003); e.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(e); e.connect(dst); o.start(t0); o.stop(t0+.12);
+      const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=900*v; b.Q.value=1.2;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.6,t0+.002); a.gain.exponentialRampToValueAtTime(.0001,t0+.03); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(t0+.05); },
     /* ---------- the workshop on Earth: its roller shutter and its strip lights. Every sound here is a ringing click, a knock
        or a low hum, never a band of noise (on a phone that is static) ---------- */
     /* the shutter's motor: two low saws a fifth apart and an octave, under a soft low pass, coming up to speed; the handle's
