@@ -1,8 +1,6 @@
 /* earth: a bright little town. While you are here the interface turns dark so it reads against the sky */
 html.earth{--ink:#2a241d;--ink2:#4a4037;--mute:#6f6355;--dim:#8b7f70;--hair:rgba(42,36,29,.16);--hair2:rgba(42,36,29,.3)}
 html.earth .grain{opacity:.03}
-html.earth #back{display:none!important}   /* on Earth there is no way back up to orbit but the last flight: the way out is Home, by the name */
-html.crcut #back{opacity:0;pointer-events:none}   /* the landing is nothing but the picture and Skip; the way back up comes once you are down */
 .st-cr::before{display:none}
 .st-cr .card{bottom:auto;top:calc(var(--gt) + 96px);transition:opacity 1.2s var(--ease),transform .8s var(--ease)}
 .st-cr .card h2{font-size:clamp(36px,4vw,68px);color:var(--ink)}
@@ -129,7 +127,7 @@ html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}
 .st-cr .crcard-a .btn.pri{background:#ef8a3c}
 @keyframes crcard{from{opacity:0;transform:translateY(24px) rotate(2deg)}to{opacity:1;transform:none}}
 .st-cr.post .card,.st-cr.post #crLabels,.st-cr.post .crhint,.st-cr.post .crpj,.st-cr.post .crgo,.st-cr.post .crsteer{opacity:0!important;pointer-events:none!important}
-html.crpost #back,html.crpost #chrome{opacity:0;pointer-events:none}
+html.crpost #chrome{opacity:0;pointer-events:none}
 @media (max-aspect-ratio:1/1){ .st-cr .crframe-w{width:min(86vw,calc(64vh*.8));aspect-ratio:4/5} }
 /* the café: a button to go in when you are by it; inside, the menu at the counter and a way out; and the card in the foam */
 .st-cr .crcafein{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d}
@@ -206,7 +204,7 @@ html.crpost #back,html.crpost #chrome{opacity:0;pointer-events:none}
 /* ===== the launch scene before the last flight (see the launch scene at the end of station.js) =====
    Nothing on the screen but the picture, Skip (the landing's own button), the two lines in the conversation's own printed
    box, and a card with the name of whoever the camera is on, printed like a landmark's */
-html.crq #back,html.crq #chrome,html.crq #guide{opacity:0!important;pointer-events:none!important;transition:none!important}
+html.crq #chrome{opacity:0!important;pointer-events:none!important;transition:none!important}
 .st-cr.fin.crq .crskip{opacity:1!important;pointer-events:auto!important;transition:opacity .6s!important}
 .st-cr .crtalk.crqsay{pointer-events:none!important}
 .st-cr.fin.crq .crtalk.crqsay{transition:opacity .35s var(--ease),transform .5s var(--ease)!important}

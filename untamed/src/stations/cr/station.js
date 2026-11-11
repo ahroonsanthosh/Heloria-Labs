@@ -1,15 +1,13 @@
 /* ================= EARTH =================
-   What is on the other side of the hole: a small town on a small planet, where the three of us live. You come down
-   through the sky in the rocket you flew in orbit, land on the pad and step out. You walk the way you fly: WASD or the
+   A small town on a small planet, where the three of us live. You come down through the sky in the rocket, land on
+   the pad and step out. You walk with WASD or the
    arrows, or the stick on a touch screen; drag to look around. Ahroon is waiting by Aetos, Abraham is in the square by
    Kríos, Michael is up by Ogive. Walk up to one of us and we talk; click one of us for the photograph and LinkedIn.
    It is drawn rather than rendered: three tones of sunlight with real cast shadows, then a second pass finds the edges
    of things from depth and normals and inks them with a line that wanders a little, like a pen. */
 (()=>{
-const st=mkStation('cr',{arrive:new T.Vector3(0,12,-10)});
-st.land=false;   // Land: straight down to Earth without the flight, so we say hello without mentioning it
+const st=mkStation('cr');
 const sc=st.scene, el=st.el, hint=$('#crHint',el), labels=$$('#crLabels .crl',el);
-sc.children.filter(o=>o.isPoints).forEach(o=>sc.remove(o)); // no night stars by day
 const R=24, LO=Q<1, UPY=new T.Vector3(0,1,0), V=new T.Vector3(), V2=new T.Vector3(), V3=new T.Vector3(), V4=new T.Vector3();
 const C3=c=>c&&c.isColor?c:new T.Color().setStyle(c,T.LinearSRGBColorSpace); // display colours: this world skips the film curve
 const SUN=new T.Vector3(.38,.8,.46).normalize();
@@ -427,10 +425,10 @@ function buildGround(){
         c=mix(c,vec3(.97,.99,.97),max(fo,fo2*.8));
         gl_FragColor=vec4(toon(c,normalize(vN),vW),1.); }`}));
   sea.userData.cast=false; sc.add(sea);
-  // the sky: blue overhead, pale at the horizon, flat painted clouds, the hole as a pale ring by day
-  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:Object.assign({uUp:UPU,uBH:SKYBH,uTime:G.uTime,uSpace:SPACEU,uNight:LU.uNight},SKYU),side:T.BackSide,depthWrite:false,
+  // the sky: blue overhead, pale at the horizon, flat painted clouds
+  const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:Object.assign({uUp:UPU,uTime:G.uTime,uSpace:SPACEU,uNight:LU.uNight},SKYU),side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uUp,uBH,uSunD,uMoonD; uniform float uTime,uSpace,uNight,uDusk,uOver,uBow; varying vec3 vD; ${EARTH_GLSL}
+    fragmentShader:`uniform vec3 uUp,uSunD,uMoonD; uniform float uTime,uSpace,uNight,uDusk,uOver,uBow; varying vec3 vD; ${EARTH_GLSL}
       void main(){ vec3 d=normalize(vD); float h=dot(d,uUp), sa=dot(d,uSunD);
         /* by day blue overhead and pale at the horizon; at sunrise and sunset warm low down, deepest by the sun; at night dark blue */
         vec3 c=mix(vec3(.85,.92,.9),vec3(.6,.82,.9),smoothstep(-.06,.22,h)); c=mix(c,vec3(.36,.64,.84),smoothstep(.22,.9,h));
@@ -452,7 +450,6 @@ function buildGround(){
         /* after the rain, with the sun behind you: a rainbow, red outside */
         if(uBow>.01){ float ra=acos(clamp(dot(d,-uSunD),-1.,1.)), t=(.735-ra)/.036; float m=smoothstep(.7,.25,abs(t-.5))*smoothstep(-.02,.12,h);
           vec3 rb=clamp(vec3(1.5-abs(t*4.-.4),1.5-abs(t*4.-1.8),1.5-abs(t*4.-3.2)),0.,1.); c=mix(c,rb,m*uBow*.32); }
-        float a=acos(clamp(dot(d,uBH),-1.,1.)); c=mix(c,c*.86,smoothstep(.034,.028,a)); c+=vec3(1.,.86,.66)*exp(-(((a-.036)*120.)*((a-.036)*120.)))*(.22+.4*uNight);
         if(uSpace>0.){ vec3 cell=floor(d*380.); float sh=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
           float star=step(.9965,sh)*(.5+.5*fract(sh*91.7))*smoothstep(.5,1.,uSpace);
           c=mix(c,vec3(.012,.014,.022)+star*vec3(.95,.92,.88),smoothstep(0.,1.,uSpace)); }
@@ -667,23 +664,22 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   if(o.prop==='drone'){ prop=drone('#7fd3ff'); prop.matrixAutoUpdate=true; prop.scale.setScalar(.62); prop.position.set(-.46,1.48,.06); g.add(prop); }   // Aetos: a little drone at his shoulder, clear of the hand he waves with
   const shd=new T.Mesh(SHG,SHM); shd.scale.set(.62,1,.62); shd.position.y=.025; shd.renderOrder=1; shd.layers.set(1); g.add(shd);
   g.userData={legs,knees,arms,fore,head,body,eyes:[em],drone:o.prop==='drone'?prop:null}; return g; }
-/* what each of us says: every landmark stands, so we talk about them as they are, and mention it if you came by way of
-   the flight and stopped at one of them up there */
-const NAME={kr:'Kríos',ae:'Aetos',ph:'Pharos',og:'Ogive',be:'Beacon'}, MET=new Set(); let FRESH=[];
-function linesFor(i){ const land=!!st.land, been=id=>!land&&S.docked.has(id), back=MET.has(i);
+/* what each of us says: every landmark stands, so we talk about them as they are */
+const MET=new Set();
+function linesFor(i){ const back=MET.has(i);
   if(i===0){ const last='And this is me. Come and say hello properly.';
     if(back) return ['Good to see you again.','Michael is up by his rocket and Abraham is in the square, if you haven\'t caught them yet.',last];
-    return [...(land?['Oh, hello! Welcome to Earth.']:['Oh, hello! That contact inside the horizon? It was us.','Welcome to Earth.']),
+    return ['Oh, hello! Welcome to Earth.',
       'I\'m Ahroon. Michael, Abraham and I build Heloria Labs together, and everything round here is something we\'ve made.',
-      `That radar on the rocks is Aetos, mine.${land?'':' It\'s what picked you up.'} When the sky fills with drones, it works out which one actually matters.`,
-      `The lighthouse out on the cliff is mine too: Pharos.${been('ph')?' You\'ve flown it already.':''} When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.`,
+      `That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.`,
+      `The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.`,
       'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last]; }
   if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
-    `This rocket is Ogive, my project: AI tools for OpenRocket.${been('og')?' You\'ve launched it up there already.':''} Name the height, and it reworks the design until the rocket gets there.`,
+    `This rocket is Ogive, my project: AI tools for OpenRocket. Name the height, and it reworks the design until the rocket gets there.`,
     'I built Kríos too, down in the square. That one belongs to all three of us: it\'s our group project.',
     'That\'s me. Come and find me.'];
   return [back?'Hi again!':'Hi, I\'m Abraham.',
-    `The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.${been('kr')?' You\'ve made a call on it up there already.':''}`,
+    `The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.`,
     'Reps rehearse the calls that matter against a buyer who answers back, before a real one ever hears them.',
     'That\'s me. Say hi any time.']; }
 const CREW=[
@@ -1398,7 +1394,7 @@ function regPose(dt,t){ const talking=REGS.includes(TALK.p)?TALK.p:null, near=Ma
     d.body.position.y=RG_LIFT+.003*Math.sin(t*1.6+k*2);
     r.blink-=dt; if(r.blink<0) r.blink=2+Math.random()*3.2; d.eyes[0].scale.y=r.blink<.12?.15:1; }); }
 
-/* ---------- the rocket you flew in orbit, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
+/* ---------- the rocket, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
 const RKR=1.2, RKH=4.4, RKB=.35, FLOOR=.42, BAND=2.05, GAP=.42, rAt=y=>RKR*(1-(y-RKB)/RKH);
 const HINGE_Z=rAt(FLOOR)-.035, DOOR_L=BAND-FLOOR, DOOR_SHUT=-Math.atan((rAt(FLOOR)-rAt(BAND))/DOOR_L), DROP=Math.asin(FLOOR/DOOR_L), DOOR_OPEN=Math.PI/2+DROP, RAMP_END=HINGE_Z+DOOR_L*Math.cos(DROP), OUT_Z=Math.hypot(START[0]-PAD[0],START[1]-PAD[1]);
 const RK={g:null,door:null,flame:null,shadow:null,puffs:[]}, PADU=at(PAD[0],PAD[1]), RKN=new T.Vector3(), padTop=PADU.clone().multiplyScalar(R+.1);
@@ -1450,9 +1446,9 @@ function buildRocket(){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(
   const sh=new T.Mesh(SHG,SHM); sh.matrixAutoUpdate=false; sh.renderOrder=1; sh.layers.set(1); sc.add(sh); RK.shadow=sh;
   const pm=toonMat('#f3efe7'); for(let i=0;i<120;i++){ const m=new T.Mesh(GEO.blob,pm); m.visible=false; sc.add(m); RK.puffs.push({m,t:9,life:1,v:new T.Vector3(),s:1}); }
   tang(PADU,at(PAD[0]+DOOR[0]*.2,PAD[1]+DOOR[1]*.2),RKN);
-  // the hole hangs in the sky behind the pad, 42 degrees up, so the rocket comes down out of it toward you
+  // the rocket comes down out of the sky behind the pad, from 42 degrees up, toward you
   SKYBH.value.copy(PADU).multiplyScalar(Math.cos(.73)).addScaledVector(RKN,-Math.sin(.73)).normalize();
-  // the way down: one smooth curve straight out of the hole, bending to come in vertically over the pad
+  // the way down: one smooth curve straight down out of the sky, bending to come in vertically over the pad
   B0.copy(padTop).addScaledVector(SKYBH.value,36); B1.copy(padTop).addScaledVector(SKYBH.value,17); B2.copy(padTop).addScaledVector(PADU,9); B3.copy(padTop).addScaledVector(PADU,1.7); }
 function rocketPose(pos,axis,wob=0){ rkY.copy(axis); rkZ.copy(RKN).addScaledVector(rkY,-rkY.dot(RKN)).normalize(); rkX.crossVectors(rkY,rkZ); rkM.makeBasis(rkX,rkY,rkZ);
   if(wob) rkM.multiply(rkW.makeRotationZ(wob)); rkM.setPosition(pos); RK.g.matrix.copy(rkM); RK.g.matrixWorldNeedsUpdate=true;
@@ -1469,7 +1465,7 @@ function rocketFly(c,t){ flight(c,fPos,fVel); const sp=fVel.length(); fAx.copy(P
 function puff(pos,vel,s,life){ const p=RK.puffs.find(q=>q.t>=q.life)||RK.puffs[0]; p.t=0; p.life=life; p.s=s; p.m.position.copy(pos); p.v.copy(vel); p.m.visible=true; }
 function puffsUpdate(dt){ for(const p of RK.puffs){ if(p.t>=p.life){ p.m.visible=false; continue; } p.t+=dt; p.m.position.addScaledVector(p.v,dt); p.v.multiplyScalar(Math.exp(-2.4*dt));
   const k=p.t/p.life, sz=Math.max(.001,p.s*Math.sin(Math.PI*Math.min(1,k*1.15))); p.m.scale.set(sz,sz*.62,sz); } }
-/* the landing: out of the hole, a long braking curve, a hover, a soft touchdown, the hatch drops, and out you walk */
+/* the landing: down out of the sky, a long braking curve, a hover, a soft touchdown, the hatch drops, and out you walk */
 const CUT={on:false,t:0,look:new T.Vector3()}, CAMC=[PAD[0]+2.6,PAD[1]+6.6];
 function rocketLanded(){ rocketPose(padTop,PADU); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
 function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.zoom=1; C.dragT=9; C.tk=0; P.tgt=null; P.speed=0;
@@ -2023,7 +2019,7 @@ function cafeRest(){ const B=CAFE.bar; [B.x,B.z]=BP.home; B.fx=B.x; B.fz=B.z; B.
 
 /* ---------- the way in and the way out ---------- */
 /* Escape a moment after you come back out of the café or the workshop (or Escape held down) is still the one that took you out:
-   it does not also send you up to orbit */
+   it does nothing more */
 let ESCQ=0;
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||e.code!=='Escape') return; if(e.repeat||performance.now()-ESCQ<2500){ e.preventDefault(); e.stopImmediatePropagation(); } },true);
 function cset(s){ if(s==='out'&&CAFE.st==='exit') ESCQ=performance.now(); CAFE.st=s; CAFE.on=s==='enter'||s==='in'||s==='exit'; CAFE.t=0; el.classList.toggle('incafe',CAFE.on); if(CAFE.cur){ CAFE.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } cafeUI(); }
@@ -2355,7 +2351,7 @@ function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]
     kquad(Pq(-.9,-.12),Pq(.9,-.12),Pq(.9,.12),Pq(-.9,.12),up,'#f1ecdf'); } }
 
 /* ---------- build, in steps so the loader keeps breathing ---------- */
-st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the next frame, or (made after the loader) the next quiet one
+st.build=async function(){ const gap=nextFrame;   // between the parts: the next frame
   buildGround(); await gap();
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   ROADS.push(lp.concat([lp[0]]),[SPUR[0],SPUR[1]]); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,.95,.75); zebra(lp);
@@ -2561,23 +2557,10 @@ function glanceApply(dt){ if(GLN.t<0) return false; GLN.t+=dt; if(TALK.ask&&GLN.
   return true; }
 
 /* ---------- landmarks: all of them stand, however you came ---------- */
-const MKR={kr:1.3,ph:1.25,og:1.7,ae:1.3,be:.45};
-function marksEnter(){ FRESH=[];
+function marksEnter(){
   for(const id in MK){ const m=MK[id]; m.st='on';
     m.g.visible=m.st==='on'; markScale(m,1); m.obs.forEach(q=>q.o.h=m.st==='on'?q.h:q.h0); }
   people.forEach(p=>{ p.lines=linesFor(p.i); }); baked=false; }
-const mkU=new T.Vector3(), mkE=new T.Vector3(), mkF=new T.Vector3(), mkP=new T.Vector3(), mkV=new T.Vector3();
-const backOut=u=>{ const c=1.9; return 1+(c+1)*Math.pow(u-1,3)+c*Math.pow(u-1,2); };
-function marksUpdate(dt){ for(const id in MK){ const m=MK[id];
-  if(m.st==='wait'&&!CUT.on){ mkU.copy(m.base).normalize(); V.copy(m.base).addScaledVector(mkU,1.4).project(stCam); const [mx,mz]=loc(mkU);
-    if(Math.hypot(player.x-mx,player.z-mz)<17&&V.z<1&&Math.abs(V.x)<.8&&Math.abs(V.y)<.8){ m.st='grow'; m.t=0; m.g.visible=true; markScale(m,.001); m.obs.forEach(q=>q.o.h=q.h);
-      // the same bell that called you up there, and a ring of dust where it comes up
-      const s0=STA.find(x=>x.id===id); A.call(s0?BEACON_NOTES[s0.idx]:12,0,.06); A.pop(); S.shake=Math.max(S.shake,.12);
-      mkE.crossVectors(mkU,Math.abs(mkU.y)<.9?UPY:V2.set(1,0,0)).normalize(); mkF.crossVectors(mkU,mkE);
-      for(let k=0;k<12;k++){ const a=k/12*TAU+Math.random()*.3, c=Math.cos(a), sn=Math.sin(a); mkV.copy(mkE).multiplyScalar(c).addScaledVector(mkF,sn);
-        mkP.copy(m.base).addScaledVector(mkV,MKR[id]).addScaledVector(mkU,.15); puff(mkP,mkV.multiplyScalar(1.6+Math.random()).addScaledVector(mkU,.35),.2+Math.random()*.14,1.3); } } }
-  if(m.st==='grow'){ m.t+=dt; const u=clamp(m.t/1.25,0,1); markScale(m,Math.max(.001,backOut(u)));
-    if(u>=1){ m.st='on'; seen.add(id); markScale(m,1); baked=false; } } } }   // the sun's shadows are drawn again with it in
 
 /* ---------- the last flight, on the ground. Everyone is at the pad when you get there; you walk up the ramp and the hatch shuts.
    Then a short wait: the music has gone, a clock ticks three times, a heartbeat quickens, steam hisses out of the base, the engines
@@ -2671,9 +2654,9 @@ function finUpdate(dt,t){ const up=PADU, P=player;
     S.shake=Math.max(S.shake,(.55+.4*(1-sstep(0,1.5,tau)))*(1-sstep(4,26,alt)));
     FIN.ck-=dt; if(air>.04&&FIN.ck<=0){ FIN.ck=.035+Math.random()*.08; A.crackle(.06*air*air*(.4+Math.random()*.8)*(1-.5*sstep(6,30,alt))); } }
   if(c>=F_LIFT&&!FIN.lift){ FIN.lift=true; A.liftoff(); A.swell(); }
-  if(alt>44&&!FIN.top){ FIN.top=true; A.chord(); }   // the black, and the orbit's music
+  if(alt>44&&!FIN.top){ FIN.top=true; A.chord(); }   // the black, and the music up high
   FIN.mus=.55*(1-sstep(0,F_DOOR1-.4,c));
-  A.update(t,{sub:.18*sstep(45,70,alt),pad:.42*sstep(34,66,alt),bright:.2});   // as the air goes, the orbit's own music comes in to meet you
+  A.update(t,{sub:.18*sstep(45,70,alt),pad:.42*sstep(34,66,alt),bright:.2});   // as the air goes, the music up high comes in to meet you
   if(FIN.ign) BIRDS.forEach(b=>{ b.h=Math.min(b.h+dt*2.4,45); b.r+=dt*1.1; });
   // the sky goes to black and the haze lifts; through the cloud layer the picture whites out for a moment, with a rush of air
   SPACEU.value=sstep(20,66,alt); LU.uFogK.value=1-sstep(5,26,alt);
@@ -2712,7 +2695,7 @@ const stUp=new T.Vector3(0,1,0);
 st.enter=function(){ post.uniforms.uFlat.value=1;   /* Earth's daylight from the first frame: no dark edges left over from space, fading as you watch */
   const P=player; CUT.on=false; CUT.landed=false; CUT.door=false; el.classList.remove('cut'); if(me) me.visible=true; rocketLanded(); placeAtStart(); stickOff(); down=null;
   started=false; cardT=0; el.classList.remove('walked'); closeTalk(); hint.classList.remove('gone');
-  $('#crLede',el).textContent=st.land?'You\'ve landed. Walk over and say hello.':'You came through the hole. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
+  $('#crLede',el).textContent='You\'ve landed. Walk over and say hello.'; people.forEach(p=>{ p.greeted=false; p.near=false; }); ahroonHome(); TALK.goal=null; C.guide=null;
   hint.textContent=FINE?'WASD or the arrows to walk · drag to look around · scroll to zoom · walk up to someone to talk':'Drag anywhere to walk · a second finger looks round · walk up to someone to talk';
   marksEnter(); cafeReset(); MKT.snap=true; stUp.copy(P.u); st.setState('menu'); document.documentElement.classList.add('earth'); bloom0=post.uniforms.uBloom.value; post.uniforms.uBloom.value=.05; };
 st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.dispose(); shRT.depthTexture.dispose(); baked=false; }   /* Earth's own drawing buffers and its sun's shadow are given back while you are not on Earth: the next frame here makes them again */
@@ -2721,8 +2704,6 @@ st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.disp
 st.abort=function(){ closeTalk(); };
 /* Earth is drawn three ways: in colour, in ink and from the sun for its shadow; its shaders are made ahead in all three */
 st.matSets=[o=>o.userData.inkM,o=>o.layers.isEnabled(2)?o.userData.shdM:null];   // (the sun's shadow is drawn only of what casts one)
-/* a quiet moment on Earth, for the worlds still being made after the loader: you standing still, with no scene playing */
-st.calm=()=>!CUT.on&&!FIN.on&&!QS.on&&!PHS.on&&!CAFE.on&&!GAR.on&&!down&&!player.tgt&&player.speed<.05;
 
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
 const sT=new T.Vector3();
@@ -2808,7 +2789,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   }
   cliffUpdate(dt,t);   // the bench and the kite on the cliff (see the cliff, below)
   launchUpdate(dt,t);   // the launch scene's things: Gideon and Owen at the desk in the last flight (see the launch scene, at the end)
-  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt); marksUpdate(dt);
+  post.uniforms.uFlat.value=damp(post.uniforms.uFlat.value,1,3,dt); puffsUpdate(CUT.on?0:dt);
   // the three of us: turn to you when you are near, wave hello, and start talking when you walk right up
   ahroonUpdate(dt);
   people.forEach((p,i)=>{ const d=Math.hypot(P.x-p.x,P.z-p.z), near=d<6&&!(CUT.on&&CUT.t<T_OUT)&&!FIN.on;
@@ -2885,7 +2866,6 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   // sound: the music and birds now and then
   A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
   cafeStep(dt,t);   // the café: its room, its barista, and its camera while you are inside
-  A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
 st._dbg={post:PC,steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) steerUpdate(.1,G.uTime.value+i*.1); }},sky:{set(o){ if(o.time) SKYSET.time=o.time; if(o.date) SKYSET.date=o.date; skyClock(); if(o.weather){ SKYSET.weather=o.weather; skyWeather(); } if(o.wxT!=null) WX.t=o.wxT; skyApply(); },
     step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
@@ -3811,7 +3791,7 @@ function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
     for(let i=0;i<pts.length-2;i++) if(!navClear(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1])) CIV.routeBad.push([+pts[i][0].toFixed(2),+pts[i][1].toFixed(2)]);
     const r=ciRoute(pts); CIV.routes.push({fw:r,bw:ciRoute(pts.slice().reverse()),home:[hx,hz]}); } }
 /* built after the town, the trees and the people: the yard and what is solid, the children, their ways; a part at a time */
-async function buildCivic(){ const gap=()=>st.pace?st.pace():nextFrame();
+async function buildCivic(){ const gap=nextFrame;
   if(!CIV.hall||!CIV.school) return; civSolids(); await gap();
   for(let i=0;i<KIDS.length;i++){ CIV.kids.push(civKid(i)); if(i%2) await gap(); }
   civRoutes();
