@@ -236,7 +236,9 @@ let PARC=null; const LINKED=new WeakSet();   // (PARC: whether this browser comp
 function linkSome(ms){ if(PARC===null){ try{ PARC=!!renderer.getContext().getExtension('KHR_parallel_shader_compile'); }catch(e){ PARC=false; } }
   const t0=performance.now(); let left=false;
   for(const p of renderer.info.programs){ if(LINKED.has(p)) continue; if(PARC&&!p.isReady()){ left=true; continue; }
-    try{ p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
+    /* linked, and taken up only if it linked: a shader three made that can never link (none is drawn with) is left alone,
+       as it always was, rather than reported */
+    try{ const gl=renderer.getContext(); if(gl.getProgramParameter(p.program,gl.LINK_STATUS)) p.getUniforms(); }catch(e){} LINKED.add(p); if(performance.now()-t0>ms){ left=true; break; } }
   return left; }
 /* the gallery set as it is at one place on the walk (the light, the hour, the camera), as the loader used to set it */
 function galSet(s,first){ const s0=S.s; S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);

@@ -35,8 +35,10 @@ const SKYU={uSunD:{value:new T.Vector3(.38,.8,.46).normalize()},uMoonD:{value:ne
 const fr=x=>x-Math.floor(x);
 function eh(x,y,z){ x=fr(x*.3183099+.1)*17; y=fr(y*.3183099+.1)*17; z=fr(z*.3183099+.1)*17; return fr(x*y*z*(x+y+z)); }
 function en(x,y,z){ const ix=Math.floor(x),iy=Math.floor(y),iz=Math.floor(z); let fx=x-ix,fy=y-iy,fz=z-iz; fx=fx*fx*(3-2*fx); fy=fy*fy*(3-2*fy); fz=fz*fz*(3-2*fz);
-  const L=(a,b,t)=>a+(b-a)*t, h=(a,b,c)=>eh(ix+a,iy+b,iz+c);
-  return L(L(L(h(0,0,0),h(1,0,0),fx),L(h(0,1,0),h(1,1,0),fx),fy),L(L(h(0,0,1),h(1,0,1),fx),L(h(0,1,1),h(1,1,1),fx),fy),fz); }
+  /* the eight corners, and the blend between them, written out (the same numbers, bit for bit, without a helper made for every call) */
+  const jx=ix+1, jy=iy+1, jz=iz+1, a=eh(ix,iy,iz), b=eh(jx,iy,iz), c=eh(ix,jy,iz), d=eh(jx,jy,iz), e=eh(ix,iy,jz), f=eh(jx,iy,jz), g=eh(ix,jy,jz), h=eh(jx,jy,jz);
+  const ab=a+(b-a)*fx, cd=c+(d-c)*fx, ef=e+(f-e)*fx, gh=g+(h-g)*fx, l0=ab+(cd-ab)*fy, l1=ef+(gh-ef)*fy;
+  return l0+(l1-l0)*fz; }
 function efbm(x,y,z){ let a=.5,s=0; for(let i=0;i<5;i++){ s+=a*en(x,y,z); x*=2.1; y*=2.1; z*=2.1; a*=.5; } return s; }
 const ISLETS=[[23,-7.5,.07],[-8.5,22.5,.06],[17.5,17,.045]].map(([x,z,r])=>({d:at(x,z),r}));
 const JETTY=[[10.5,-14.3],[12.9,-18.1]], JB=at(11.4,-15.6);
@@ -2282,7 +2284,7 @@ st.exit=function(){ inkRT.setSize(1,1); colRT.setSize(1,1); if(baked){ shRT.disp
   post.uniforms.uBloom.value=bloom0||1; post.uniforms.uFlat.value=0; closeTalk(); cafeReset(true); A.music(0); A.hush(); };
 st.abort=function(){ closeTalk(); };
 /* Earth is drawn three ways: in colour, in ink and from the sun for its shadow; its shaders are made ahead in all three */
-st.matSets=[o=>o.userData.inkM,o=>o.userData.shdM];
+st.matSets=[o=>o.userData.inkM,o=>o.layers.isEnabled(2)?o.userData.shdM:null];   // (the sun's shadow is drawn only of what casts one)
 /* a quiet moment on Earth, for the worlds still being made after the loader: you standing still, with no scene playing */
 st.calm=()=>!CUT.on&&!FIN.on&&!QS.on&&!PHS.on&&!CAFE.on&&!GAR.on&&!down&&!player.tgt&&player.speed<.05;
 
