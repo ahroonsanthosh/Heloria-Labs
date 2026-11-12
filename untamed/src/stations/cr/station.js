@@ -1688,7 +1688,7 @@ function steerUpdate(dt,t){ const nt=SKY.night;
     L.g.userData.light.material.uniforms.uC.value.setStyle(PHS.state==='lost'?((t*2)%1<.5?'#ff5a4a':'#5a1a16'):'#7dff9a',T.LinearSRGBColorSpace);
     L.ring.visible=PHS.state==='lock'; if(L.ring.visible){ const s=1+.25*Math.sin(PHS.st*20); L.ring.matrix.copy(M).multiply(Mf.makeScale(s/1.7,s/1.7,s/1.7)); L.ring.matrixAutoUpdate=false; L.ring.matrixWorldNeedsUpdate=true; } }
   /* by the lighthouse the button stays put: a step at the edge of its ground does not take it away under your hand for a moment */
-  const sb=!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!CAFE.on, near=PJ.id==='ph';
+  const sb=!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!CAFE.on&&!HSI.on, near=PJ.id==='ph';   // (not from inside the school, next door)
   PHS.btnT=sb&&near?.7:Math.max(0,(PHS.btnT||0)-dt); steerBtn.hidden=!(sb&&PHS.btnT>0); }
 /* the camera up behind the lamp, looking out along the beam; handing back to the walking camera smoothly */
 function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002) return;
@@ -1769,7 +1769,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on)) pcOpen(false); }   // (none inside the café or the workshop: the room has its own things to do)
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&!HSI.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on||HSI.on)) pcOpen(false); }   // (none inside the café, the workshop, the town hall or the school: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.
@@ -2508,7 +2508,7 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(!pcCard.hidden&&e.code==='Escape'){ pcCard.hidden=true; e.stopImmediatePropagation(); return; }
   if(PC.on&&(e.code==='Space'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){ pcTake(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(e.code==='KeyP'&&!TALK.p&&!PHS.on&&!pcBtn.hidden){ pcOpen(!PC.on); e.stopImmediatePropagation(); return; }
-  if(!TALK.p&&GLN.t<0&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){
+  if(!TALK.p&&GLN.t<0&&!HSI.on&&(e.code==='KeyE'||e.code==='Enter')&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button'))){   // (inside the town hall or the school, E is the room's)
     const P=player; let best=null, bd=3.4; for(const q of people){ const dq=Math.hypot(P.x-q.x,P.z-q.z); if(dq<bd){ bd=dq; best=q; } }
     if(best){ talkTo(best); e.preventDefault(); e.stopImmediatePropagation(); return; }
     if(!steerBtn.hidden&&!e.repeat&&Math.hypot(P.x-CLF.x,P.z-CLF.z)>3){ steerSet(true); e.preventDefault(); e.stopImmediatePropagation(); return; } }   // by the lighthouse, with no one to talk to, the keys take the light too
@@ -2525,7 +2525,7 @@ const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
 function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on){ a.walk=0; return; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on||HSI.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
     if(d<7){ AH.st='here'; a.wave=2; openInvite(); return; }   // close enough: he just asks
@@ -2722,7 +2722,7 @@ st.abort=function(){ closeTalk(); };
 /* Earth is drawn three ways: in colour, in ink and from the sun for its shadow; its shaders are made ahead in all three */
 st.matSets=[o=>o.userData.inkM,o=>o.layers.isEnabled(2)?o.userData.shdM:null];   // (the sun's shadow is drawn only of what casts one)
 /* a quiet moment on Earth, for the worlds still being made after the loader: you standing still, with no scene playing */
-st.calm=()=>!CUT.on&&!FIN.on&&!QS.on&&!PHS.on&&!CAFE.on&&!GAR.on&&!down&&!player.tgt&&player.speed<.05;
+st.calm=()=>!CUT.on&&!FIN.on&&!QS.on&&!PHS.on&&!CAFE.on&&!GAR.on&&!HSI.on&&!down&&!player.tgt&&player.speed<.05;
 
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
 const sT=new T.Vector3();
@@ -2744,7 +2744,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
-  if(PHS.on||CAFE.on||GAR.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, or the workshop), you stay put
+  if(PHS.on||CAFE.on||GAR.on||HSI.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, the workshop, the town hall or the school), you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -3575,7 +3575,19 @@ const CT={to:8.25,in:8+50/60,b1:11,b1e:11+20/60,b2:13,b2e:13+40/60,home:15,end:1
 const CBELLS=[CT.in,CT.b1,CT.b1e,CT.b2,CT.b2e,CT.home];
 /* how loud each is at its loudest (beside it): the clock's stroke and the school's bell about as loud as your footsteps,
    a child's step and the ball a little under them (measured: see untamed/test/civic.cjs) */
-const CGAIN={clock:.0095,night:.35,bell:.015,step:.05,ball:.03};
+const CGAIN={clock:.0095,night:.35,bell:.015,step:.05,ball:.03,tower:1.4};   // (tower: the clock heard from inside its own room, up in the tower: see the clock room)
+/* inside each (see inside the town hall and the school, below), in its own frame (x across, y up, z out to the street): its
+   walls' thickness and the doorway (width, head); the floor, eye height, where you stand inside and which way you look then
+   (on a phone held upright, at the model or the board), where you come back out, the way in from the pavement; the walls'
+   inside faces and the ceiling. The hall's: the stair (where it stands, how wide), the model's table, the counter, where
+   Séamus stands, the noticeboard; and the clock room up in the tower (its middle, floor, ceiling, half its width, the eye) */
+const HH={t:.12,dw:.96,dh:2.22,FL:.425,EY:1.17,S:[.05,.5],yaw0:.36,yawP:.72,p0:-.13,OUT:[0,2.75],WAY:[[0,2.32],[0,1.62],[0,.95]],IX:1.61,IZ:1.26,CH:3.56,
+  ST:[1.1,-.8,.42],TB:[-.72,-.08,.6],TBH:.72,DK:[.92,1.2,-.3,.72],CLK:[1.42,.22],NB:[-1.61,0],
+  K:{x:0,z:-.3,fl:4.72,top:6.42,w:.5,eye:[.32,5.58,.03],yaw0:.79,p0:.16}};
+/* the school's, in the frame of the building itself (see schoolHouse: B): the classroom's desks (across, and the two rows),
+   where the teacher stands, the blackboard (across and up), the science table, the hamster's cupboard, the xylophone */
+const SCH={t:.1,dw:.74,dh:1.82,FL:.225,EY:1.17,S:[0,.82],yaw0:0,yawP:0,p0:-.15,OUT:[0,2.05],WAY:[[0,2.05],[0,1.42],[0,.95]],IX:1.88,IZ:1.08,CH:2.45,
+  DX:[-.85,0,.85],DZ:[-.42,.06],TCH:[-1.05,-.72],BD:[-.8,.8,.83,1.61],SCI:[1.42,1.86,-.62,.42],HAM:[1.6,.8],XY:[-1.7,-.52,.075]};
 /* the day of the week: the sky's date, this year (a test, or ?day=sat, can set one) */
 { const q=QPS.get('day'); if(q){ const k=['sun','mon','tue','wed','thu','fri','sat'].indexOf(q.slice(0,3).toLowerCase()); CIV.day=k>=0?k:isNaN(+q)?null:clamp(Math.round(+q),0,6); } }
 function civDay(){ if(CIV.day!=null) return CIV.day; const [m,d]=SKY.md.split('-').map(Number); return new Date(new Date().getFullYear(),m-1,d).getDay(); }
@@ -3586,6 +3598,14 @@ function civPhase(h){ if(!civSchoolDay()) return 'off'; if(h>=CT.to&&h<CT.in) re
 const PLAQ=[{n:'Andrena Ventures',k:'Backs Heloria Labs',t:'Heloria Labs is backed by Andrena Ventures.',lines:[['BACKED BY',.13,.28],['ANDRENA',.25,.52],['VENTURES',.14,.76]]},
   {n:'Heloria Labs',k:'A software lab in Ireland',t:'Three of us, in Ireland. We build for problems that make a real difference.',lines:[['HELORIA LABS',.2,.38],['A SOFTWARE LAB IN IRELAND',.12,.68]]},
   {n:null,lines:[]}];
+/* the plaques, on one sheet: brushed brass, a rim and four screws, the lettering raised. Each: the height of its middle, its
+   width and height (as it hangs by the hall's door); where it is on the sheet */
+const CPQ=[[1.9,.5,.3],[1.5,.5,.22],[1.18,.38,.18]], CPV=[[0,307],[320,545],[560,802]];
+function ciPlaques(c,W){ CPV.forEach(([y0,y1],i)=>{ const h=y1-y0, g=c.createLinearGradient(0,y0,W,y1); g.addColorStop(0,'#e6c878'); g.addColorStop(.5,'#c9a24a'); g.addColorStop(1,'#a8822f'); c.fillStyle=g; c.fillRect(0,y0,W,h);
+    c.globalAlpha=.1; c.strokeStyle='#fff3c8'; c.lineWidth=1.5; for(let k=4;k<h;k+=4){ c.beginPath(); c.moveTo(0,y0+k); c.lineTo(W,y0+k+((k*7)%5)-2); c.stroke(); } c.globalAlpha=1;   // brushed
+    c.strokeStyle='#6e5420'; c.lineWidth=6; c.strokeRect(16,y0+16,W-32,h-32); c.fillStyle='#6e5420'; [[34,y0+34],[W-34,y0+34],[34,y1-34],[W-34,y1-34]].forEach(([sx,sy])=>{ c.beginPath(); c.arc(sx,sy,7,0,TAU); c.fill(); });
+    c.textAlign='center'; c.textBaseline='middle'; for(const [t,sz,ty] of PLAQ[i].lines){ let fs=sz*h; c.font=`900 ${fs}px Doto, monospace`; const m=c.measureText(t).width; if(m>W*.8){ fs*=W*.8/m; c.font=`900 ${fs}px Doto, monospace`; }
+      c.fillStyle='#fff1c4'; c.fillText(t,W/2+1.5,y0+h*ty+2); c.fillStyle='#4a3a16'; c.fillText(t,W/2,y0+h*ty); } }); }
 const ciV=new T.Vector3(), ciV2=new T.Vector3(), ciV3=new T.Vector3(), ciM=new T.Matrix4(), ciM2=new T.Matrix4(), ciMi=new T.Matrix4(), ciQ=new T.Quaternion(), ciS=new T.Vector3();
 /* a point in a building's own frame, on the town's map */
 function ciXZ(M,lx,lz){ return loc(ciV.set(lx,0,lz).applyMatrix4(M).normalize()); }
@@ -3629,7 +3649,8 @@ function paintings(c){ const S=128, wob=(x,y)=>[x+(Math.sin(x*.7+y*.3)*1.6),y+(M
 function townHall(x,z,yaw){ const M=frameAt(x,z,yaw), w=3.5, d=2.8, f=d/2, PL=.42, HW=3.6, SW='#ddd5c3', DK='#bcb3a2', TR='#efe9dc', TX=0, TZ=-.3;
   CIV.hall={M,x,z,yaw}; HOUSES.push({M,w,d,h:3.38,dx:.5,flat:false});   // (h: where the lights go at Christmas, along the architrave)
   obsRect(x,z,yaw,3.65,3.05,5); CIV.hall.obs=OBS.slice(-2);   // (its ground, exactly as the house had it, while the trees and rocks are laid out)
-  box(M,DK,0,0,0,w+.2,PL,d+.2); box(M,SW,0,PL-.02,0,w,HW-PL+.02,d);
+  /* the walls are walls, with the doorway open between the pilasters (the doors are their own: see inside the town hall) */
+  box(M,DK,0,0,0,w+.2,PL,d+.2); const t=HH.t; slab(M,SW,'x',f-t/2,w,t,PL-.02,HW,[[0,HH.dw,PL-.02,HH.dh]]); slab(M,SW,'x',-f+t/2,w,t,PL-.02,HW,[]); slab(M,SW,'z',w/2-t/2,d-2*t,t,PL-.02,HW,[]); slab(M,SW,'z',-w/2+t/2,d-2*t,t,PL-.02,HW,[]);
   /* pilasters across the front, each with a base and a capital, the doors between the middle two; an architrave over them */
   for(const px of [-1.6,-.66,.66,1.6]){ box(M,TR,px,PL,f+.035,.26,3.2-PL,.07); box(M,TR,px,PL,f+.045,.34,.12,.09); box(M,TR,px,3.12,f+.05,.36,.12,.1); }
   box(M,TR,0,3.24,f+.03,w+.06,.08,.08); box(M,TR,0,HW,0,w+.32,.16,d+.32);
@@ -3638,9 +3659,9 @@ function townHall(x,z,yaw){ const M=frameAt(x,z,yaw), w=3.5, d=2.8, f=d/2, PL=.4
   put(M,'prism','#6b7682',0,HW+.16,0,RW,RH,d+.42); put(M,'prism',SW,0,HW+.16,f+.235,RW-.2,RH-.09,.03);
   [-1,1].forEach(s=>put(M,'box',TR,-s*RW/4,HW+.16+RH/2,f+.245,rl+.06,.09,.09,0,0,s*ra));
   put(M,'cyl',TR,0,HW+.52,f+.255,.19,.03,.19,0,Math.PI/2); put(M,'cyl','#7fa3b4',0,HW+.52,f+.27,.14,.03,.14,0,Math.PI/2);
-  /* the double door, panelled, with brass handles and a fanlight; three steps up to it */
-  box(M,TR,0,PL,f+.03,1.22,2.08,.06);
-  [-1,1].forEach(s=>{ box(M,'#2f5446',s*.25,PL,f+.065,.48,1.78,.05); box(M,'#3e6a58',s*.25,PL+1,f+.095,.32,.6,.02); box(M,'#3e6a58',s*.25,PL+.2,f+.095,.32,.6,.02); box(M,'#d9b45a',s*.06,PL+.9,f+.1,.04,.16,.04); });
+  /* the doorway's surround and a fanlight over it; three steps up to it (the double door, panelled, with brass handles, swings
+     in on its hinges: see inside the town hall) */
+  [-1,1].forEach(s=>box(M,TR,s*(HH.dw/2+.065),PL,f+.03,.13,2.08,.06)); box(M,TR,0,HH.dh,f+.03,1.22,PL+2.08-HH.dh,.06);
   box(M,'#7fa3b4',0,PL+1.83,f+.07,.96,.19,.04); box(M,TR,0,PL+1.79,f+.075,1,.04,.05);
   for(let k=0;k<3;k++) box(M,DK,0,0,f+.21+k*.22,1.7+k*.12,PL-k*.14,.22);
   /* tall windows, each with its sill and a cornice over it: the street side, both ends, the back */
@@ -3655,21 +3676,20 @@ function townHall(x,z,yaw){ const M=frameAt(x,z,yaw), w=3.5, d=2.8, f=d/2, PL=.4
     for(const [ax,az] of [[-1,-1],[1,-1],[1,1],[-1,1]]) box(M,'#2b2b2b',lx+ax*.07,1.92,f+.24+az*.07,.02,.22,.02); lg.push(new T.BoxGeometry(.12,.22,.12).translate(lx,2.03,f+.24)); });
   CIV.glass=new T.Mesh(mergeG(lg),flatMat('#e6dcc4')); CIV.glass.matrixAutoUpdate=false; CIV.glass.matrix.copy(M); sc.add(CIV.glass);
   /* the partners' wall, left of the doors: a panel of pale stone with three brass plaques on it */
-  box(M,TR,-1.13,.98,f+.02,.62,1.2,.04); const PQ=[[1.9,.5,.3],[1.5,.5,.22],[1.18,.38,.18]], PV=[[0,307],[320,545],[560,802]];   // each: the height of its middle, its width and height; where it is on the sheet
+  box(M,TR,-1.13,.98,f+.02,.62,1.2,.04); const PQ=CPQ, PV=CPV;
   PQ.forEach(([y,pw,ph])=>box(M,'#8e6d2b',-1.13,y-ph/2-.012,f+.046,pw+.024,ph+.024,.012));
-  const ptx=ciCanvas(512,1024,(c,W)=>{ PV.forEach(([y0,y1],i)=>{ const h=y1-y0, g=c.createLinearGradient(0,y0,W,y1); g.addColorStop(0,'#e6c878'); g.addColorStop(.5,'#c9a24a'); g.addColorStop(1,'#a8822f'); c.fillStyle=g; c.fillRect(0,y0,W,h);
-      c.globalAlpha=.1; c.strokeStyle='#fff3c8'; c.lineWidth=1.5; for(let k=4;k<h;k+=4){ c.beginPath(); c.moveTo(0,y0+k); c.lineTo(W,y0+k+((k*7)%5)-2); c.stroke(); } c.globalAlpha=1;   // brushed
-      c.strokeStyle='#6e5420'; c.lineWidth=6; c.strokeRect(16,y0+16,W-32,h-32); c.fillStyle='#6e5420'; [[34,y0+34],[W-34,y0+34],[34,y1-34],[W-34,y1-34]].forEach(([sx,sy])=>{ c.beginPath(); c.arc(sx,sy,7,0,TAU); c.fill(); });
-      c.textAlign='center'; c.textBaseline='middle'; for(const [t,sz,ty] of PLAQ[i].lines){ let fs=sz*h; c.font=`900 ${fs}px Doto, monospace`; const m=c.measureText(t).width; if(m>W*.8){ fs*=W*.8/m; c.font=`900 ${fs}px Doto, monospace`; }
-        c.fillStyle='#fff1c4'; c.fillText(t,W/2+1.5,y0+h*ty+2); c.fillStyle='#4a3a16'; c.fillText(t,W/2,y0+h*ty); } }); });
+  const ptx=ciCanvas(512,1024,ciPlaques);
   const PLM=sub(M,-1.13,0,f+.056); sc.add(Object.assign(new T.Mesh(ciQuads(PQ.map(([y,pw,ph],i)=>({M:PLM,x:0,y,z:0,w:pw,h:ph,u0:0,u1:1,v0:1-PV[i][1]/1024,v1:1-PV[i][0]/1024}))),ciTexMat(ptx)),{matrixAutoUpdate:false}));
   /* what a click finds: a box round each plaque (never drawn) */
   CIV.plq=PQ.map(([y,pw,ph],i)=>{ const m=new T.Mesh(new T.BoxGeometry(pw+.06,ph+.06,.12)); m.matrixAutoUpdate=false; m.matrix.copy(PLM).multiply(ciM.makeTranslation(0,y,0)); m.matrixWorld.copy(m.matrix);
     return {i,hit:m,c:new T.Vector3(0,y,.01).applyMatrix4(PLM)}; });
   /* the tower: a shaft up out of the roof, the clock stage, the belfry with its bell, a spire gone green, and the flag */
   const Tw=1.2, Ts=5.2, Tc=Ts+.08, Tc1=Tc+1.2, F0=Tc+.6, By=Tc1+.12;
-  box(M,SW,TX,HW,TZ,Tw,Ts-HW,Tw); for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,TR,TX+sx*(Tw/2-.03),HW+.4,TZ+sz*(Tw/2-.03),.1,Ts-HW-.4,.1);
-  box(M,TR,TX,Ts,TZ,Tw+.12,.08,Tw+.12); box(M,SW,TX,Tc,TZ,Tw+.1,1.2,Tw+.1); box(M,TR,TX,Tc1,TZ,Tw+.32,.12,Tw+.32);
+  /* (hollow, a ring of walls rather than a solid block, so there is room inside for the clock's works, and the floor of the
+     belfry is open over them for the bell: see the clock room) */
+  const ring=(c,W,y,h,th)=>{ box(M,c,TX,y,TZ+W/2-th/2,W,h,th); box(M,c,TX,y,TZ-W/2+th/2,W,h,th); box(M,c,TX+W/2-th/2,y,TZ,th,h,W-2*th); box(M,c,TX-W/2+th/2,y,TZ,th,h,W-2*th); };
+  ring(SW,Tw,HW,Ts-HW,.06); for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,TR,TX+sx*(Tw/2-.03),HW+.4,TZ+sz*(Tw/2-.03),.1,Ts-HW-.4,.1);
+  ring(TR,Tw+.12,Ts,.08,.12); ring(SW,Tw+.1,Tc,1.2,.11); ring(TR,Tw+.32,Tc1,.12,.36);
   for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,TR,TX+sx*.49,By,TZ+sz*.49,.18,.6,.18);
   put(M,'cone','#a8823a',TX,By+.24,TZ,.2,.28,.2); put(M,'sph','#a8823a',TX,By+.42,TZ,.09,.07,.09); cyl(M,'#8f6d2c',TX,By+.09,TZ,.21,.04); put(M,'sph','#6e5420',TX,By+.08,TZ,.045,.045,.045);
   box(M,TR,TX,By+.6,TZ,Tw+.2,.1,Tw+.2); put(M,'pyr4','#79a597',TX,By+1.16,TZ,.99,.92,.99,Math.PI/4); put(M,'sph','#c9a24a',TX,By+1.66,TZ,.065,.065,.065); cyl(M,'#ece7dc',TX,By+1.68,TZ,.022,1.1,'cyl8');
@@ -3705,7 +3725,10 @@ function civFlag(t){ const F=CIV.flag; if(!F) return; const p=F.m.geometry.attri
 function schoolHouse(x,z,yaw){ const M=frameAt(x,z,yaw), B=sub(M,-.35,0,-.2), w=4, d=2.4, h=2.5, WL='#f4e3c3', TR='#fbf6ec', RF='#b65a3e';
   CIV.school={M,B,x,z,yaw}; HOUSES.push({M:B,w,d,h,dx:0,flat:false});
   obsRect(x,z,yaw,3.25,2.85,4); CIV.school.obs=OBS.slice(-2);   // (its ground, exactly as the house had it, while the trees and rocks are laid out)
-  box(B,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(B,WL,0,.2,0,w,h-.2,d); box(B,'#d9806a',0,.2,0,w+.02,.3,d+.02);   // the walls, a painted band along their foot
+  /* the walls, open where the door is (the classroom is inside: see inside the school), and a painted band along their foot */
+  box(B,'#a49b8f',0,0,0,w+.18,.22,d+.18); const t=SCH.t, hole=[[0,SCH.dw,.2,SCH.dh]];
+  slab(B,WL,'x',d/2-t/2,w,t,.2,h,hole); slab(B,WL,'x',-d/2+t/2,w,t,.2,h,[]); slab(B,WL,'z',w/2-t/2,d-2*t,t,.2,h,[]); slab(B,WL,'z',-w/2+t/2,d-2*t,t,.2,h,[]);
+  slab(B,'#d9806a','x',d/2-.02,w+.02,.06,.2,.5,hole); slab(B,'#d9806a','x',-d/2+.02,w+.02,.06,.2,.5,[]); slab(B,'#d9806a','z',w/2-.02,d-.1,.06,.2,.5,[]); slab(B,'#d9806a','z',-w/2+.02,d-.1,.06,.2,.5,[]);
   put(B,'prism',RF,0,h,0,d+.62,.85,w+.5,Math.PI/2); box(B,TR,0,h-.12,d/2+.04,w+.1,.12,.05); box(B,TR,0,h-.12,-d/2-.04,w+.1,.12,.05);
   /* big windows of four panes, the children's paintings up in them */
   const PT=[], win=(x,z,ry,tw,th,pics)=>{ const W=sub(B,x,1.4,z,ry); box(W,TR,0,-th/2-.06,.02,tw+.12,th+.12,.06); box(W,'#7fa3b4',0,-th/2,.045,tw,th,.04); box(W,TR,0,-th/2,.065,.04,th,.03); box(W,TR,0,-.02,.065,tw,.04,.03);
@@ -3714,7 +3737,7 @@ function schoolHouse(x,z,yaw){ const M=frameAt(x,z,yaw), B=sub(M,-.35,0,-.2), w=
   win(w/2,0,Math.PI/2,.9,.9,[[-.22,.2,.2,6],[.2,-.2,.19,7]]); win(-w/2,0,-Math.PI/2,.9,.9,[[.2,.21,.2,1],[-.22,-.2,.2,4]]); win(0,-d/2,Math.PI,1,.9,[]);
   sc.add(Object.assign(new T.Mesh(ciQuads(PT),ciTexMat(ciCanvas(512,256,paintings))),{matrixAutoUpdate:false}));
   /* the door's frame, its step and a canopy over it; the door itself swings (it opens as the children go in and out) */
-  box(B,TR,0,.2,d/2+.02,.92,1.72,.06); box(B,'#bdb6aa',0,0,d/2+.17,1,.16,.34); box(B,TR,0,1.98,d/2+.25,1.1,.06,.5); [-1,1].forEach(s=>box(B,TR,s*.48,1.76,d/2+.1,.05,.22,.18));
+  [-1,1].forEach(s=>box(B,TR,s*(SCH.dw/2+.05),.2,d/2+.02,.1,1.72,.06)); box(B,TR,0,SCH.dh,d/2+.02,.92,1.92-SCH.dh,.06); box(B,'#bdb6aa',0,0,d/2+.17,1,.16,.34); box(B,TR,0,1.98,d/2+.25,1.1,.06,.5); [-1,1].forEach(s=>box(B,TR,s*.48,1.76,d/2+.1,.05,.22,.18));
   { const P_=part(); P_.put(FG.box,'#e9a23b',.37,.8,0,.74,1.6,.05); P_.put(FG.box,'#f2bd63',.37,1.18,.03,.5,.5,.012); P_.put(FG.box,'#f2bd63',.37,.45,.03,.5,.45,.012); P_.put(FG.sph,'#5a4a3a',.66,.82,.05,.025);
     const m=P_.mesh(), g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(B).multiply(ciM.makeTranslation(-.37,.22,d/2+.02)); g.add(m); sc.add(g); CIV.door=m; }
   /* the bell on the roof, in a little open cote on the ridge: it swings when the bell is rung */
@@ -3825,12 +3848,17 @@ async function buildCivic(){ const gap=()=>st.pace?st.pace():nextFrame();
   CIV.ok=true; baked=false; }
 
 /* ---------- the clock striking, and the school's bell ---------- */
+/* the clock's stroke as you hear it: in the clock room right under the bell (louder, from overhead), down in the hall through
+   the ceiling, indoors anywhere else muffled, and in the street as loud as it is from where you stand, on its side */
+function civStrikeAt(){ const H_=CIV.hall, s=HSI.st, up=HSI.b==='hall'&&(s==='clock'||s==='up'||s==='down');
+  return up?[CGAIN.tower,0]:HSI.on&&HSI.b==='hall'?[.85,civPan(H_.x,H_.z)*.3]:[civEar(H_.x,H_.z)*(civIndoors()?.4:1),civPan(H_.x,H_.z)]; }
 /* how loud a thing is from where you stand (a little everywhere in town), and which side it is on */
 function civEar(x,z){ const P=player, d=Math.hypot(P.x-x,P.z-z); return .3+.7*clamp(1-d/26,0,1)*clamp(1-d/26,0,1); }
 function civPan(x,z){ stCam.updateMatrixWorld(); ciV.setFromMatrixColumn(stCam.matrixWorld,0).normalize(); const p=at(x,z,ciV2).multiplyScalar(R+2).sub(stCam.position).normalize(); return clamp(p.dot(ciV)*.7,-.7,.7); }
-const civIndoors=()=>CAFE.on||GAR.on;
+const civIndoors=()=>CAFE.on||GAR.on||HSI.on;
 function civChime(H){ const n=H%12||12, night=H>=23||H<7, g=CGAIN.clock*(night?CGAIN.night:1); CIV.chime={h:H,n,k:0,t:.2,night,g}; CIV.log.push({h:H,n,night,g:+g.toFixed(4)}); if(CIV.log.length>20) CIV.log.shift(); }
-function civBell(b){ const S=CIV.school, g=CGAIN.bell*civEar(S.x,S.z)*(civIndoors()?.4:1); if(!FIN.on&&!CUT.on) A.schoolBell(g,civPan(S.x,S.z)); CIV.bells.push({h:+b.toFixed(3),g:+g.toFixed(4)}); if(CIV.bells.length>20) CIV.bells.shift(); CIV.bellT=1.9; }
+function civBell(b){ const S=CIV.school, inS=HSI.on&&HSI.b==='school', g=CGAIN.bell*(inS?1:civEar(S.x,S.z)*(civIndoors()?.4:1)); if(!FIN.on&&!CUT.on) A.schoolBell(g,inS?0:civPan(S.x,S.z)); if(inS) HSI.school.rope.t=0;   // (inside, its rope goes as it rings)
+  CIV.bells.push({h:+b.toFixed(3),g:+g.toFixed(4)}); if(CIV.bells.length>20) CIV.bells.shift(); CIV.bellT=1.9; }
 
 /* ---------- the children, each frame ---------- */
 const ciDay=new Set(['to','home']);
@@ -3953,7 +3981,7 @@ function civStep(dt,t){ if(!CIV.ok) return; const h=SKY.h, day=civDay();
   if(dh>0&&!jump){ if(Math.floor(h)!==Math.floor(CIV.h0)) civChime(Math.floor(h)); if(civSchoolDay()) for(const b of CBELLS) if(CIV.h0<b&&h>=b) civBell(b); }
   CIV.h0=h; CIV.d0=day;
   const ph=civPhase(h); if(ph!==CIV.ph){ if(jump) civPlace(ph); else civTurn(CIV.ph,ph); }
-  const C=CIV.chime; if(C&&C.k<C.n){ C.t-=dt; if(C.t<=0){ C.k++; C.t=1.25; CIV.struck++; const H_=CIV.hall; if(!FIN.on&&!CUT.on) A.townBell(C.g*civEar(H_.x,H_.z)*(civIndoors()?.4:1)*(TALK.p?.7:1),civPan(H_.x,H_.z)); } }
+  const C=CIV.chime; if(C&&C.k<C.n){ C.t-=dt; if(C.t<=0){ C.k++; C.t=1.25; CIV.struck++; const [sk,sp]=civStrikeAt(), sg=C.g*sk*(TALK.p?.7:1); if(!FIN.on&&!CUT.on) A.townBell(sg,sp); HSI.chimes.push({h:C.h,k:C.k,g:+sg.toFixed(4),at:HSI.st}); if(HSI.chimes.length>30) HSI.chimes.shift(); } }
   /* the school's bell swinging on the roof as it rings; the lanterns by the hall's door lit at night */
   CIV.bellT=Math.max(0,CIV.bellT-dt); CIV.bell.rotation.z=Math.sin(t*13)*.55*Math.min(1,CIV.bellT);
   const nk=SKY.night; CIV.glass.material.uniforms.uC.value.setRGB(lerp(.9,1.45,nk),lerp(.86,1.08,nk),lerp(.77,.55,nk));
@@ -3971,14 +3999,14 @@ const PQC=(()=>{ const c=document.createElement('div'); c.className='crpj crplq'
 function civCard(i){ const q=PLAQ[i]; if(i>=0&&!(q&&q.n)) i=-1; if(i===CIV.card) return; CIV.card=i; const on=i>=0;
   if(on){ PQC.querySelector('.crpj-n').textContent=q.n; PQC.querySelector('.crpj-k').textContent=q.k; PQC.querySelector('.crpj-t').textContent=q.t; A.tick(); }
   PQC.classList.toggle('on',on); PQC.setAttribute('aria-hidden',on?'false':'true'); }
-function civCardStep(){ if(CIV.card<0) return; const H_=CIV.hall, P=player, c=CIV.plq[CIV.card].c, [px,pz]=loc(ciV.copy(c).normalize());
-  if(Math.hypot(P.x-px,P.z-pz)>7||TALK.p||TALK.goal||CUT.on||FIN.on||CAFE.on||GAR.on||PJ.id||S.st!==st) civCard(-1); }
+function civCardStep(){ if(CIV.card<0) return; const H_=CIV.hall, P=player, c=CIV.plq[CIV.card].c, [px,pz]=loc(ciV.copy(c).normalize()), inH=HSI.on&&HSI.b==='hall'&&HSI.st==='in';
+  if(inH?(TALK.p||HSI.panel):(Math.hypot(P.x-px,P.z-pz)>7||TALK.p||TALK.goal||CUT.on||FIN.on||CAFE.on||GAR.on||HSI.on||PJ.id||S.st!==st)) civCard(-1); }
 const ciRay=new T.Raycaster(), ciNdc=new T.Vector2();
 function civPick(e){ if(!CIV.ok||!CIV.plq.length) return -1; ciNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ciRay.setFromCamera(ciNdc,stCam);
   const c=CIV.plq[0].c; if(c.distanceTo(stCam.position)>14||ciV.copy(stCam.position).sub(c).dot(CIV.plqN)<.05) return -1; let best=-1, bd=1e9; for(const q of CIV.plq){ const h=ciRay.intersectObject(q.hit,false)[0]; if(h&&h.distance<bd){ bd=h.distance; best=q.i; } }
   if(best>=0){ hits.length=0; ray.setFromCamera(ciNdc,stCam); ray.layers.set(0); ray.intersectObjects(people.map(p=>p.g),true,hits); if(hits.length&&hits[0].distance<bd) return -1; }   // (one of us in front of it: that is who you mean)
   return best; }
-const civFree=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!TALK.p&&!CAFE.on&&!GAR.on&&!PHS.on&&!PC.on&&GLN.t<0;
+const civFree=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!TALK.p&&!CAFE.on&&!GAR.on&&!HSI.on&&!PHS.on&&!PC.on&&GLN.t<0;
 canvas.addEventListener('pointerdown',e=>{ CIV.down=civFree()?{x:e.clientX,y:e.clientY,id:e.pointerId}:null; });
 addEventListener('pointerup',e=>{ const d=CIV.down; CIV.down=null; if(!d||d.id!==e.pointerId||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||!civFree()||TALK.goal) return; const i=civPick(e); if(i>=0) civCard(PLAQ[i].n?i:-1); else if(CIV.card>=0) civCard(-1); });
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||e.pointerType!=='mouse'||down||!CIV.ok) return; const on=!hov&&!DM.hov&&civFree()&&civPick(e)>=0;
@@ -3987,10 +4015,11 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||CIV.card<0||e.
 
 /* built after the town; stepped after the town has moved you and placed its camera; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit;
-  st.build=async function(){ await b.apply(this,arguments); try{ await buildCivic(); }catch(err){ CIV.err=String(err&&err.stack||err); console.warn('civic',err); } };
-  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&CIV.ok) civStep(dt,t); return r; };
-  st.enter=function(){ CIV.h0=null; CIV.chime=null; civCard(-1); return en.apply(this,arguments); };
-  st.exit=function(){ civCard(-1); CIV.chime=null; return ex.apply(this,arguments); }; }
+  st.build=async function(){ await b.apply(this,arguments); try{ await buildCivic(); }catch(err){ CIV.err=String(err&&err.stack||err); console.warn('civic',err); }
+    try{ if(CIV.ok) await buildCivIn(()=>st.pace?st.pace():nextFrame()); }catch(err){ HSI.err=String(err&&err.stack||err); console.warn('civic inside',err); kitTo(); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&CIV.ok) civStep(dt,t); if(st.built&&HSI.ok) hiStep(dt,t); return r; };
+  st.enter=function(){ CIV.h0=null; CIV.chime=null; civCard(-1); hiReset(); return en.apply(this,arguments); };
+  st.exit=function(){ civCard(-1); CIV.chime=null; hiReset(true); return ex.apply(this,arguments); }; }
 st._dbg.civic={CIV,CT,CY,PLAQ,CGAIN,get err(){ return CIV.err||null; },day(n){ CIV.day=n; },phase:h=>civPhase(h),card:i=>civCard(i),place:()=>civPlace(civPhase(SKY.h)),
   /* the hands as the clock shows them on its front face: degrees from twelve, clockwise as you look at it */
   hands(){ const H=CIV.hands, F=CIV.faceM[0], Fi=new T.Matrix4().copy(F).invert(), m=new T.Matrix4(), out={}; [['h',0],['m',1]].forEach(([k,i])=>{ H.getMatrixAt(i,m); m.premultiply(Fi); const y=new T.Vector3().setFromMatrixColumn(m,1);
@@ -4007,6 +4036,892 @@ st._dbg.civic={CIV,CT,CY,PLAQ,CGAIN,get err(){ return CIV.err||null; },day(n){ C
   plaque(i){ return CIV.plq[i].c.toArray(); },face:k=>new T.Vector3().setFromMatrixPosition(CIV.faceM[k]).toArray(),
   get state(){ return {ph:CIV.ph,day:civDay(),h:+SKY.h.toFixed(3),chime:CIV.chime&&{h:CIV.chime.h,n:CIV.chime.n,k:CIV.chime.k,night:CIV.chime.night,g:+CIV.chime.g.toFixed(4)},struck:CIV.struck,
     log:CIV.log.slice(-4),bells:CIV.bells.slice(-4),card:CIV.card,door:+CIV.doorK.toFixed(2),ball:CIV.ball.visible,tufts:CIV.tufts,warm:CIV.warm}; }};
+/* ===================== inside the town hall and the school =====================
+   Both are rooms you can go into, as the café and the workshop are. Walk up to either door and the tag over it says Go in
+   (press E by it, or tap its tag; or click or tap the building from across the street and you walk over first; or just walk
+   into the doorway): the door swings open and the camera comes down behind you, up the step and through the doorway into
+   your own eyes, standing just inside. Drag (or the arrows, or A and D) to look round; Leave, Escape, S, or a tap on the door
+   takes you back out onto the step, the walking camera taking over just where this one ends.
+   The town hall: Séamus the clerk at the front desk (tap him and he talks, in the same box as everyone in town), the
+   partners' plaques on the wall behind him, a model of the whole town on a round table (made from the town's own map: its
+   coast and roads, its houses, trees and landmarks, turned the way the town lies from here; tap a building on it and its card
+   comes up, with Walk there), a noticeboard of what is on (tap a note to read it), the visitor book on the counter (sign it:
+   what you write is kept only in your own browser, and is there next time you come), and a spiral stair in the corner up to
+   the clock room in the tower: the works turning in step with the faces outside, the pendulum, the bell over your head, and
+   the hour struck close by.
+   The school: one classroom. In lessons (on a weekday by your clock, from ten to nine to three, but for the breaks) the six
+   children are at their desks; at break they are out in the yard and after school they have gone home, the room tidy. Ms
+   Kavanagh the teacher by the blackboard (tap her and she talks); draw on the board with a finger or the mouse (the duster on
+   its ledge wipes it); the xylophone plays its notes; the globe spins when you drag it; the model rocket on the science table
+   goes up to the ceiling and floats down on its parachute; Nibbles the hamster runs on his wheel and stops to look at you when
+   you look at him; the bell rope by the door rings the bell on the roof.
+   Inside, nothing of the street is drawn over the room (as in the café and the workshop), the postcard neither, and the
+   town's music is a little quieter. Each room is lit by its own lamps (warm, warmer by night) and the day at its windows, in
+   the workshop's own light (its two shaders, with lamps and a day of their own), so the rooms add no shader to Earth; they
+   are built with the town, hidden until you go in, and drawn the once as Earth is made ready, so nothing is new when you do */
+const HI_IN=3.1, HI_OUT=2.9, HI_UP=2.7;   // seconds to walk in, to walk out, and to climb to the clock room (or come down)
+const HSI={st:'out',b:null,on:false,ok:false,k:0,t:0,go:0,then:null,yaw:0,pitch:0,lean:0,look:0,dragT:9,drag:null,tap:null,out:0,cur:false,kb:false,mk:0,fk:0,nr:false,warm:true,
+  cp:new T.Vector3(),cl:new T.Vector3(),cu:new T.Vector3(0,1,0),u0:new T.Vector3(),curve:null,lcurve:null,wIn:null,fig:[0,0],fh:0,fph:0,fstep:0,endP:null,endL:null,endD:0,y0:0,p0x:0,
+  tagOn:false,tagCan:false,tagB:null,tagP:[0,0,9],panel:null,turn:null,hint:0,walk:null,err:null,hall:null,school:null,log:[],bells:[],chimes:[],xy:[],first:{}};
+const hiV1=new T.Vector3(), hiV2=new T.Vector3(), hiV3=new T.Vector3(), hiV4=new T.Vector3(), hiV5=new T.Vector3(), hiS=new T.Vector3(), hiQ=new T.Quaternion(), hiQ2=new T.Quaternion(), hiE=new T.Euler(),
+  hiM=new T.Matrix4(), hiM2=new T.Matrix4(), hiRay=new T.Raycaster(), hiNdc=new T.Vector2();
+const hiP=(M,x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(M);   // a point in a room's frame, in the world
+const hiD=(M,x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(M);
+const hiXZ=(M,x,z)=>loc(hiP(M,x,0,z,hiV4).normalize());   // on the town's map
+const hiTf=(Mx,x,y,z,ry=0,rx=0,rz=0)=>new T.Matrix4().multiplyMatrices(Mx,new T.Matrix4().compose(hiV5.set(x,y,z),hiQ.setFromEuler(hiE.set(rx,ry,rz,'YXZ')),hiS.set(1,1,1)));
+/* the workshop's light with lamps of a room's own: the same uniforms by name, so its two shaders draw these rooms as they are */
+const hiU=()=>({uGL:{value:[0,1,2,3,4].map(()=>new T.Vector4(0,-99,0,0))},uGT:{value:new T.Vector4(1,1,1,1)},uGU:{value:new T.Vector3(0,1,0)},uGPane:{value:new T.Vector3(.86,.91,.93)},uGDay:{value:1},
+  uGNr:{value:.1},uGLed:{value:0},uGF0:{value:new T.Vector4(0,-99,0,0)},uGF1:{value:new T.Vector3(0,-99,0)},uGAux:{value:new T.Vector2()}});
+const HU=hiU(), KU=hiU(), SU=hiU();   // the hall, the clock room, the school
+const hiMat=U=>new T.ShaderMaterial({uniforms:Object.assign({uC:{value:new T.Color(1,1,1)}},LU,U),vertexShader:TOON_V(),fragmentShader:GAR_F,vertexColors:true});
+const hiBoard=(U,tx,self)=>new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uSelf:{value:self}},LU,U),vertexShader:TOON_V(true),fragmentShader:GBRD_F});
+/* the colours the workshop's shader lights by themselves: a bulb (as bright as the room's lamps), the strip lights (the
+   school's), window glass (the day outside, or the clock's dials lit from behind), and a small warm light (a window lit at
+   night on the town's model) */
+const HBULB=new T.Color(.14,.97,.95), HTUBE=[new T.Color(.11,.97,.95),new T.Color(.12,.97,.95)], HPANE=new T.Color(.16,.97,.95), HLIT=new T.Color(.19,.97,.95);
+/* what each says, in the same box as everyone in town: by day, and when it is late */
+const HCLERK={guest:true,civ:'hall',i:3,first:'Séamus',name:'Séamus',pitch:330,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,onClose(){ HSI.turn=null; }};
+const HTEACH={guest:true,civ:'school',i:2,first:'Ms Kavanagh',name:'Ms Kavanagh',pitch:560,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,onClose(){ HSI.turn=null; }};
+function hiLines(who){ const h=SKY.h, late=h>=20||h<7;
+  if(who===HCLERK) return [late?'We\'re shut, officially. Come in anyway, I\'m only filing.':'Hello there, welcome to the town hall. I\'m Séamus, the clerk.',
+    'The clock up top keeps your time, not mine. It strikes the hour, and softly at night.',
+    'That\'s the whole town on the table. Tap anything on it and I\'ll send you there.',
+    'Market\'s on Fridays in the square, six till two. Sign the book on your way out?'];
+  const ph=civPhase(h);
+  return [late?'Working late, as ever. Come in.':ph==='yard'?'Hello! They\'re all out at break. A bit of quiet.':ph==='home'||ph==='off'?'Hello! They\'ve all gone home. Just me and the marking.':'Oh, hello! Come in, come in. I\'m Ms Kavanagh.',
+    'We\'re doing rockets this week. The one on the science table really goes up.',
+    'Draw on the board if you like. The duster\'s on the ledge.',
+    'And say hello to Nibbles. He\'s been on that wheel since breakfast.']; }
+/* the town on the hall's table: what a tap on it can be, where each is, and the cards for those that are not landmarks (the
+   landmarks have their own: see CARD). Walk there takes you out and over to each: where, and how near is near enough */
+const HCARD={hall:['Town hall','You are here','The clock keeps your time. Sign the book on your way out.'],
+  school:['School','The primary school','Lessons from ten to nine till three. Out to play at eleven and at one.'],
+  pad:['The landing pad','Where you came down','The rocket stands ready for one more flight.'],
+  cliff:['The cliff','A bench and a kite','Sit and watch the sea, or take the kite up on the wind.']};
+function hiPlaces(){ const out=[]; for(const id in INST){ const q=INST[id]; let x=q.x, z=q.z, r=Math.min(4,Math.max(1.4,q.r*.6));
+    if(id==='be'&&GAR.M){ [x,z]=GAR.apW; r=1.3; } else if(id==='cafe'&&CAFE.M){ [x,z]=cxz(0,CAFE.d/2+1.25); r=1.4; }
+    out.push({id,mx:q.x,mz:q.z,x,z,r}); }
+  const S_=CIV.school, g=ciXZ(S_.M,...CY.gate); out.push({id:'school',mx:S_.x,mz:S_.z,x:g[0],z:g[1],r:1.2},{id:'hall',mx:CIV.hall.x,mz:CIV.hall.z,x:0,z:0,r:0},{id:'pad',mx:PAD[0],mz:PAD[1],x:START[0],z:START[1],r:1.6});
+  if(CLM) out.push({id:'cliff',mx:CLF.x,mz:CLF.z,x:CLM.sitA[0],z:CLM.sitA[1],r:1.3});
+  return out; }
+function hiCardOf(id){ const c=CARD[id]; return c?{n:c[0],k:c[1],t:c[2],href:c[3],l:c[4]}:HCARD[id]?{n:HCARD[id][0],k:HCARD[id][1],t:HCARD[id][2]}:null; }
+/* the noticeboard's notes: where each is pinned (on its sheet, 0 to 1 across and down), its paper, and what it says */
+const HNOTES=[{x:.05,y:.06,w:.5,h:.4,r:-.04,c:'#f6e27a',h1:'FRIDAY MARKET',t:'Fridays, 18:00 to 02:00, in the square. Food, music and lights; Diarmuid plays.'},
+  {x:.57,y:.08,w:.38,h:.36,r:.05,c:'#fbf8f0',h1:'TEST FIRES',t:'At the workshop, whenever the shutter is up: press the big red button. Mind the smoke alarm.'},
+  {x:.08,y:.52,w:.46,h:.4,r:.03,c:'#bfe0f2',h1:'SCHOOL HOURS',t:'Weekdays, 08:50 to 15:00. Out to play at 11:00 and at 13:00. Go slowly past the gate.'},
+  {x:.58,y:.55,w:.36,h:.34,r:-.06,c:'#f6c6d0',h1:'KITE TO BORROW',t:'On the cliff, by the bench. Bring it back when the wind drops.'}];
+/* the visitor book: a few who have signed before you, and yours, kept in your own browser (and in the page, if it cannot be) */
+const HBOOK=['Ahroon, Michael, Abraham','Diarmuid (played a song)','Gideon and Owen','Ms Kavanagh and class','A lost drone, found'];
+const HBK={mine:null,mem:null,ok:true};
+function hiClean(s){ s=String(s==null?'':s); if(s.normalize) s=s.normalize('NFC');
+  s=s.replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff<>]/g,'').replace(/\s+/g,' ').trim(); return Array.from(s).slice(0,40).join('').trim(); }
+function hiBookLoad(){ let v=null; try{ const r=localStorage.getItem('heloria.visitor-book'); if(r){ const o=JSON.parse(r); if(o&&typeof o.n==='string') v={n:hiClean(o.n),d:typeof o.d==='string'?o.d.slice(0,10):''}; } HBK.ok=true; }catch(e){ HBK.ok=false; v=HBK.mem; }
+  HBK.mine=v&&v.n?v:HBK.mem; return HBK.mine; }
+function hiBookSave(n){ n=hiClean(n); if(!n) return null; const d=new Date(), v={n,d:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+  HBK.mem=v; HBK.mine=v; try{ localStorage.setItem('heloria.visitor-book',JSON.stringify(v)); HBK.ok=true; }catch(e){ HBK.ok=false; } return v; }
+
+/* ---------- building them: as the workshop is built, all the town's own kit (boxes, cans, turned and swept shapes) merged
+   into a mesh or two, in the room's own light, inked like everything else ---------- */
+function hiRoom(id,M,U,o){ const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g);
+  return Object.assign({id,M,Mi:M.clone().invert(),U,g,up:hiD(M,0,1,0),F:o.FL,picks:[],meshes:[],door:{a:0,want:0,v:0},lit:1},o); }
+/* a mesh of the room's (ink: drawn into the ink as the workshop's are); and what a tap finds there (a box, never drawn) */
+function hiAdd(B,m,ink=true,g=B.g){ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); B.meshes.push(m);
+  if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=GINK; m.userData.shdM=m.material; INK.push(m); } return m; }
+function hiHit(B,id,w,h,d,Mx,data){ const m=new T.Mesh(new T.BoxGeometry(w,h,d)); m.matrixAutoUpdate=false; m.matrixWorld.copy(Mx); B.picks.push(Object.assign({id,m},data)); return m; }
+const hiRod=(Mx,c,a,b,r,geo='cyl8')=>{ const d=hiV1.subVectors(b,a), L=d.length(); hiQ.setFromUnitVectors(UPY,d.divideScalar(L||1)); hiM.compose(hiV2.addVectors(a,b).multiplyScalar(.5),hiQ,hiS.set(r,L,r)); kadd(GEO[geo],c,hiM2.multiplyMatrices(Mx,hiM)); };
+const hiTorus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
+const hiLathe=(Mx,c,prof,seg=18)=>kadd(new T.LatheGeometry(prof.map(([r,y])=>new T.Vector2(r,y)),seg).toNonIndexed(),c,Mx);
+const hiTube=(Mx,c,pts,r,seg=20)=>kadd(new T.TubeGeometry(new T.CatmullRomCurve3(pts.map(p=>new T.Vector3(...p))),seg,r,6,false).toNonIndexed(),c,Mx);
+/* a window from inside, at the middle of its glass (W: its own frame, facing into the room): glass that is the day outside,
+   painted frames, a bar across, a sill */
+function hiWin(W,tw,th,fr='#f3efe6',sill='#8a6448'){ box(W,HPANE,0,-th/2,.004,tw,th,.008);
+  [-1,1].forEach(s=>box(W,fr,s*(tw/2+.03),-th/2-.04,.01,.06,th+.08,.02)); box(W,fr,0,th/2,.01,tw+.12,.05,.02); box(W,fr,0,-th/2-.05,.01,tw+.12,.05,.02);
+  box(W,fr,0,-th/2,.016,.03,th,.012); box(W,fr,0,th*.18,.016,tw,.03,.012); box(W,sill,0,-th/2-.08,.05,tw+.2,.035,.1); }
+/* a shape turned inside out: its faces wound the other way and its normals in, so it is seen from inside (a parachute's canopy) */
+function hiInv(g){ const p=g.attributes.position.array, n=g.attributes.normal.array; for(let i=0;i<p.length;i+=9) for(let k=0;k<3;k++){ let a=p[i+3+k]; p[i+3+k]=p[i+6+k]; p[i+6+k]=a; a=n[i+3+k]; n[i+3+k]=n[i+6+k]; n[i+6+k]=a; } for(let i=0;i<n.length;i++) n[i]=-n[i]; return g; }
+/* a canvas texture, drawn now (again when the lettering's font arrives), sent to the graphics chip at once */
+function hiCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+  const go=()=>{ draw(cv.getContext('2d'),w,h,cv); tx.needsUpdate=true; }; go(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{});
+  try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} return {cv,tx,go}; }
+const hiFont=(px,w=900)=>`${w} ${px}px Doto, ui-monospace, Menlo, monospace`;
+/* a figure in a room's light: every piece of it (but its soft shadow) in the room's material, drawn into the ink as the
+   room is; the barista is made the same way */
+function hiFigure(B,g,mat){ g.traverse(o=>{ if(!o.isMesh) return; if(o.material===SHM){ o.frustumCulled=false; return; } o.material=mat; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=mat; o.userData.inkM=GINK; o.userData.shdM=mat; INK.push(o); B.meshes.push(o); }); B.g.add(g); return g; }
+/* a twin of a figure that shares its shapes (the children at their desks are the same children as in the yard), in other materials */
+function hiTwin(src,mat){ const map=new Map(), cp=o=>{ const n=o.isMesh?new T.Mesh(o.geometry,mat):new T.Group(); map.set(o,n); n.position.copy(o.position); n.quaternion.copy(o.quaternion); n.scale.copy(o.scale);
+    for(const c of o.children){ if(c.isMesh&&c.material===SHM) continue; n.add(cp(c)); } return n; }, g=cp(src), d=src.userData, m=x=>map.get(x);
+  g.userData={legs:d.legs.map(m),knees:[],arms:d.arms.map(m),fore:d.fore.map(m),head:m(d.head),body:m(d.body),eyes:[],drone:null}; return g; }
+/* where a person stands in a room (x, z), facing a (0 is out to the street, turning toward x as it grows); y lifts them */
+function hiStand(B,f,x,z,a,y=0){ f.position.copy(hiP(B.M,x,B.F+y,z)); hiQ2.setFromRotationMatrix(B.M); f.quaternion.copy(hiQ2).multiply(hiQ.setFromAxisAngle(UPY,a)); f.updateMatrix(); }
+
+/* ---------- the town hall's hall ---------- */
+function hiBuildHall(){ const H=CIV.hall, M=H.M, F=HH.FL, ix=HH.IX, iz=HH.IZ, top=HH.CH, rr=seeded(41);
+  const B=HSI.hall=hiRoom('hall',M,HU,HH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c);
+  kitTo('hhall');
+  /* ---- oak boards running in from the door, a red runner up the middle; dark panelling to the dado rail and warm plaster
+     over it, a picture rail, a moulded cornice; a ceiling with roses where the lamps hang, and the hatch the stair goes up to ---- */
+  for(let i=0;i<16;i++){ const x0=-ix+i*2*ix/16, x1=x0+2*ix/16; let z=-iz+(i%3)*.17; if(z>-iz) fq(x0+.003,-iz,x1-.003,z-.004,F,'#9c6b45');
+    while(z<iz){ const z1=Math.min(iz,z+.55+rr()*.8); fq(x0+.003,z,x1-.003,z1-.004,F,['#9c6b45','#a87650','#93633f','#a3714b'][Math.floor(rr()*4)]); z=z1; } }
+  fq(-.25,-1.05,.25,1.22,F+.004,'#a8372e'); [-1,1].forEach(s=>fq(s*.25-.025,-1.05,s*.25+.025,1.22,F+.005,'#d9b45a'));
+  const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,HH.dw+.004,y0-1,HH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
+  lin('#3f5648',F,F+.56,.03); lin('#6b4c34',F+.54,F+.6,.045); lin('#efe2c4',F+.58,top,.02); lin('#2f4038',F,F+.08,.045); lin('#6b4c34',2.62,2.66,.035); lin('#f6efdf',top-.12,top,.06);
+  /* raised panels along the panelling, but where the door is */
+  for(const [ax,s] of [['x',1],['x',-1],['z',1],['z',-1]]){ const L=ax==='x'?ix:iz; for(let u=-L+.3;u<L-.2;u+=.42){ if(ax==='x'&&s>0&&Math.abs(u)<HH.dw/2+.2) continue;
+      if(ax==='x') box(M,'#4a6353',u,F+.13,s*(iz-.035),.3,.33,.012); else box(M,'#4a6353',s*(ix-.035),F+.13,u,.012,.33,.3); } }
+  box(M,'#f4ecd9',0,top,0,2*ix+.04,.04,2*iz+.04);
+  { const [sx,sz]=HH.ST; box(M,'#241e1a',sx,top-.006,sz,.84,.008,.84); [-1,1].forEach(s=>{ box(M,'#6b4c34',sx+s*.43,top-.03,sz,.04,.03,.9); box(M,'#6b4c34',sx,top-.03,sz+s*.43,.9,.03,.04); }); }
+  /* ---- the windows, from inside, where they are outside: tall below, short above; curtains at the lower ones on the ends ---- */
+  const W=(x,y,z,ry,tw,th,cur)=>{ const Wm=sub(M,x,y,z,ry); hiWin(Wm,tw,th,'#f3efe6','#8a6448'); if(cur) for(let k=0;k<3;k++) box(Wm,k%2?'#7a2a26':'#8c302b',cur*(tw/2+.1+k*.035),-th/2-.12,.04+k*.012,.04,th+.32,.03); };   // (cur: the side the curtain is drawn back to, away from the noticeboard or the plaques between the windows)
+  W(1.13,1.5,iz-.02,Math.PI,.5,.85); [-1.13,0,1.13].forEach(x=>W(x,2.88,iz-.02,Math.PI,.5,.6));
+  [-.85,.85].forEach(x=>{ W(x,1.5,-iz+.02,0,.5,.85); W(x,2.88,-iz+.02,0,.5,.6); });
+  [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ W(s*(ix-.02),1.5,z,-s*Math.PI/2,.5,.85,Math.sign(z)*s); W(s*(ix-.02),2.88,z,-s*Math.PI/2,.5,.6); }));
+  /* radiators under the end windows, cream, with their pipes */
+  [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ if(s>0&&z<0) return; const Rm=sub(M,s*(ix-.08),F+.1,z,-s*Math.PI/2); box(Rm,'#ece4d2',0,0,0,.5,.36,.05); for(let k=0;k<8;k++) box(Rm,'#f6efe0',-.21+k*.06,.02,.03,.025,.32,.02); cyl(Rm,'#b8b0a0',-.27,-.1,0,.012,.1,'cyl8'); }));
+  /* ---- the spiral stair up into the tower: a newel floor to ceiling, oak treads on iron brackets, balusters and a rail ---- */
+  { const [sx,sz,sr]=HH.ST, n=16, rise=(top-.16-F)/n, K='#2f3a36', a0=-1.25, da=TAU*1.02/n, rail=[];
+    cyl(M,K,sx,F,sz,.045,top-F-.02,'cyl8'); cyl(M,K,sx,F,sz,.08,.05,'cyl8');
+    for(let k=0;k<n;k++){ const a=a0+k*da, y=F+rise*(k+1), Tt=hiTf(M,sx,y,sz,a); box(Tt,'#9a6a44',sr*.5+.03,-.035,0,sr+.02,.035,.19); box(Tt,K,sr*.5+.03,-.06,0,sr,.025,.05);
+      const bx=sx+Math.cos(a)*(sr+.02), bz=sz-Math.sin(a)*(sr+.02); hiRod(M,K,new T.Vector3(bx,y,bz),new T.Vector3(bx,y+.72,bz),.009); rail.push([bx,y+.74,bz]); }
+    hiTube(M,'#5a3d2c',rail,.018,64); hiRod(M,K,new T.Vector3(...rail[0]),new T.Vector3(rail[0][0],F,rail[0][2]),.014);
+    cyl(M,'#b8913e',rail[0][0],rail[0][1]-.01,rail[0][2],.026,.04,'cyl8');
+    hiHit(B,'stair',sr*2+.1,2.1,sr*2+.1,hiTf(M,sx,F+1.05,sz)); B.stair={x:sx,z:sz,r:sr,a0,da,n,rise}; }
+  /* ---- the counter: panelled, a polished top; on it the visitor book on its stand, the bell to ring for service, a stamp
+     and its pad, forms, a pot of pens, and the reading lamp; a filing cabinet behind, a fern on it ---- */
+  { const [x0,x1,z0,z1]=HH.DK, h=.82, cx=(x0+x1)/2, cz=(z0+z1)/2, T_=F+h;
+    box(M,'#6b4a36',cx,F,cz,x1-x0,h-.04,z1-z0); box(M,'#8a5f40',cx-.01,T_-.045,cz,x1-x0+.07,.045,z1-z0+.06); box(M,'#3a2e27',x0-.002,F,cz,.01,.08,z1-z0);
+    for(let k=0;k<4;k++) box(M,'#7b5440',x0-.008,F+.16,z0+.13+k*(z1-z0-.26)/3,.012,.5,.2);
+    { const L=hiTf(M,1.03,T_,.56,0,0,.42); box(L,'#5a3d2c',0,0,0,.2,.03,.32); B.bookAt=[1.03,T_+.04,.56]; }
+    cyl(M,'#5a3d2c',1.03,T_,-.18,.05,.012); put(M,'sph','#d9b45a',1.03,T_+.012,-.18,.04,.035,.04); cyl(M,'#2a2624',1.03,T_+.045,-.18,.006,.012,'cyl8');
+    box(M,'#3a2e27',1.08,T_,.12,.07,.016,.05); box(M,'#5a3d2c',1.08,T_+.016,.05,.02,.05,.02); cyl(M,'#2a2624',1.08,T_+.06,.05,.018,.012,'cyl8');
+    for(let k=0;k<5;k++) box(M,k%2?'#f6f1e6':'#efe8d8',1.1+(rr()-.5)*.01,T_+k*.006,-.02,.16,.006,.21,rr()*.2-.1);
+    cyl(M,'#2f5a4a',1.13,T_,.28,.03,.08); [[-.01,.02],[.012,-.01],[0,0]].forEach(([a,b],k)=>hiRod(M,['#2a2624','#c8473a','#2c4f9e'][k],new T.Vector3(1.13+a,T_+.05,.28+b),new T.Vector3(1.13+a*2.5,T_+.15,.28+b*2.5),.004));
+    /* the reading lamp: brass, a green glass shade */
+    cyl(M,'#b8913e',1.12,T_,.42,.05,.014); hiRod(M,'#b8913e',new T.Vector3(1.12,T_,.42),new T.Vector3(1.12,T_+.26,.42),.008);
+    { const Ls=hiTf(M,1.07,T_+.26,.42,0,0,0); put(Ls,'cyl','#2f6b4a',0,0,0,.045,.17,.045,0,Math.PI/2); box(Ls,'#2f6b4a',0,-.045,0,.09,.012,.17); put(Ls,'sph',HBULB,0,-.03,0,.022,.012,.06); B.lampD=hiP(M,1.06,T_+.2,.42); }
+    box(M,'#77808a',1.47,F,-.18,.26,.72,.28); for(let k=0;k<3;k++){ box(M,'#8a939c',1.33,F+.05+k*.23,-.18,.012,.2,.24); box(M,'#d9d4c8',1.326,F+.17+k*.23,-.18,.008,.03,.08); }
+    cyl(M,'#b65a3e',1.47,F+.72,-.18,.07,.12); for(let k=0;k<7;k++) put(M,'blob',LEAF[1+(k%3)],1.47+Math.cos(k*.9)*.08,F+.88+(k%3)*.04,-.18+Math.sin(k*.9)*.08,.07,.05,.07,k);
+    /* a leaflet rack on the front of the counter */
+    { const Rk=sub(M,x0-.03,F+.62,.42,-Math.PI/2); box(Rk,'#5a3d2c',0,0,0,.26,.04,.04); [['#ef8a3c',-.08],['#5cae6e',0],['#3f7fd0',.08]].forEach(([c,x])=>box(Rk,c,x,.02,.01,.07,.11,.008)); } }
+  /* ---- the partners' plaques again, on the wall behind the counter ---- */
+  { const PM=sub(M,ix-.022,0,0,-Math.PI/2); box(PM,'#efe9dc',0,1.75,-.005,.62,1.25,.02); CPQ.forEach(([y,pw,ph])=>box(PM,'#8e6d2b',0,y+.92-ph/2-.012,.004,pw+.024,ph+.024,.012));
+    B.plq=CPQ.map(([y,pw,ph],i)=>{ hiHit(B,'plaque',pw+.06,ph+.06,.1,hiTf(PM,0,y+.92,0),{i}); return y+.92; });
+    hiAdd(B,new T.Mesh(ciQuads(CPQ.map(([y,pw,ph],i)=>({M:PM,x:0,y:y+.92,z:.012,w:pw,h:ph,u0:0,u1:1,v0:1-CPV[i][1]/1024,v1:1-CPV[i][0]/1024}))),hiBoard(HU,ciCanvas(512,1024,ciPlaques),.25))); }
+  /* ---- the noticeboard: cork in an oak frame, the notes pinned on it (a texture, so a tap can say which note) ---- */
+  { const NM=sub(M,-ix+.022,1.66,0,Math.PI/2); box(NM,'#6b4a36',0,-.37,0,.74,.76,.03); B.nbC=hiCanvas(512,512,hiNotes);
+    B.nb=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.66,.68),hiBoard(HU,B.nbC.tx,.3))); B.nb.matrix.copy(NM).multiply(hiM.makeTranslation(0,0,.032)); B.nb.matrixWorld.copy(B.nb.matrix); }
+  /* ---- the round table and the model of the town on it ---- */
+  { const [tx,tz,tr]=HH.TB, ty=F+HH.TBH;
+    cyl(M,'#5a3d2c',tx,F,tz,.26,.04); cyl(M,'#6b4a36',tx,F+.04,tz,.075,HH.TBH-.09); cyl(M,'#5a3d2c',tx,ty-.09,tz,.32,.05); cyl(M,'#7a5238',tx,ty-.04,tz,tr+.03,.04); cyl(M,'#3a2e27',tx,ty,tz,tr-.005,.012);
+    for(let k=0;k<4;k++){ const a=k*Math.PI/2+.4; hiRod(M,'#5a3d2c',new T.Vector3(tx+Math.cos(a)*.24,F+.03,tz+Math.sin(a)*.24),new T.Vector3(tx+Math.cos(a)*.07,F+.32,tz+Math.sin(a)*.07),.022); }
+    const s=(tr-.06)/23.5; B.mdl={x:tx,y:ty+.012,z:tz,s,r:tr-.04,yaw:H.yaw}; hiModel(M,B.mdl);
+    hiHit(B,'model',2*tr,.03,2*tr,hiTf(M,tx,ty+.012,tz)); B.mdlHit=B.picks[B.picks.length-1].m; }   // (its top where the island's ground is, so a tap finds what it is on)
+  /* ---- the back wall: a bench to wait on, the town's crest over it; the flag in its stand in the corner; a big fern ---- */
+  box(M,'#7a5238',-.02,F+.36,-iz+.2,.95,.05,.3); [-1,1].forEach(s=>{ box(M,'#5a3d2c',-.02+s*.42,F,-iz+.1,.05,.38,.05); box(M,'#5a3d2c',-.02+s*.42,F,-iz+.3,.05,.38,.05); });
+  box(M,'#7a5238',-.02,F+.62,-iz+.06,.95,.28,.04);
+  { const CM=sub(M,-.02,2.0,-iz+.025,0); box(CM,'#b8913e',0,-.3,0,.5,.6,.025); B.crest=hiCanvas(256,320,hiCrest);
+    const m=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.44,.54),hiBoard(HU,B.crest.tx,.2))); m.matrix.copy(CM).multiply(hiM.makeTranslation(0,0,.016)); }
+  { const fx=-1.36, fz=-1.02; cyl(M,'#3a2e27',fx,F,fz,.12,.05); cyl(M,'#5a3d2c',fx,F+.05,fz,.03,.12,'cyl8'); cyl(M,'#5a3d2c',fx,F,fz,.014,2.05,'cyl8'); put(M,'cone','#d9b45a',fx,F+2.1,fz,.03,.09,.03); put(M,'sph','#d9b45a',fx,F+2.05,fz,.025,.025,.025);
+    /* the tricolour hanging from the pole in folds: green at the pole, then white and orange */
+    const C_=['#1f9a63','#f5f2ea','#f08a3a'].map(C3), NX=12, NY=8, out=new T.Vector3(.62,0,.78).normalize(), Pt=(u,v)=>new T.Vector3(fx+out.x*u*.62,F+1.98-v*.52-u*u*.42,fz+out.z*u*.62).add(hiV3.set(-out.z,0,out.x).multiplyScalar(.035*Math.sin(u*9+v*1.4)*(.3+u)));
+    const G_=[]; for(let j=0;j<=NY;j++){ G_[j]=[]; for(let i=0;i<=NX;i++) G_[j][i]=Pt(i/NX,j/NY); }
+    for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){ const a=hiP(M,...G_[j][i].toArray()), b=hiP(M,...G_[j][i+1].toArray()), c=hiP(M,...G_[j+1][i+1].toArray()), d=hiP(M,...G_[j+1][i].toArray());
+      const n=hiV1.subVectors(b,a).cross(hiV2.subVectors(d,a)).normalize(); kquad(a,b,c,d,n.clone(),C_[Math.floor(i/(NX/3))]); kquad(a,b,c,d,n.clone().negate(),C_[Math.floor(i/(NX/3))]); } }
+  cyl(M,'#b65a3e',.62,F,-1.08,.13,.22); for(let k=0;k<9;k++) put(M,'blob',LEAF[k%4],.62+Math.cos(k*1.7)*.12,F+.32+(k%4)*.09,-1.08+Math.sin(k*1.7)*.1,.11,.09,.11,k);
+  /* ---- by the door: a coat stand with a hat and a scarf, an umbrella stand; the wall clock over the door ---- */
+  { const cx=-1.36, cz=1.0; cyl(M,'#3a2e27',cx,F,cz,.13,.03); cyl(M,'#5a3d2c',cx,F,cz,.018,1.55,'cyl8'); for(let k=0;k<4;k++){ const a=k*Math.PI/2+.3; hiRod(M,'#5a3d2c',new T.Vector3(cx,F+1.45,cz),new T.Vector3(cx+Math.cos(a)*.12,F+1.55,cz+Math.sin(a)*.12),.01); }
+    cyl(M,'#3a3d4a',cx+.08,F+1.5,cz,.07,.07); cyl(M,'#3a3d4a',cx+.08,F+1.5,cz,.1,.01); box(M,'#c8473a',cx-.06,F+1.0,cz+.02,.05,.5,.12); box(M,'#d9b45a',cx-.06,F+1.02,cz+.02,.052,.04,.122);
+    cyl(M,'#7a8a6a',-1.02,F,1.1,.08,.36); hiRod(M,'#2c4f9e',new T.Vector3(-1.02,F+.05,1.1),new T.Vector3(-1.0,F+.62,1.08),.012); hiRod(M,'#2a2624',new T.Vector3(-1.03,F+.05,1.11),new T.Vector3(-1.07,F+.66,1.14),.012);
+    put(M,'cone','#2c4f9e',-1.0,F+.5,1.08,.04,.16,.04); }
+  { const CW=sub(M,0,2.58,iz-.025,Math.PI); put(CW,'cyl','#3a2e27',0,0,.01,.19,.02,.19,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
+    const m=hiAdd(B,new T.Mesh(new T.CircleGeometry(.17,32),hiBoard(HU,B.clockC.tx,.3))); m.matrix.copy(CW).multiply(hiM.makeTranslation(0,0,.022)); B.clockFr=CW; }
+  /* ---- the lamps: two glass globes hanging from roses, the reading lamp; where each is, for the light ---- */
+  B.lamps=[[-.72,-.08],[.45,.3]].map(([x,z])=>{ const y=top-.72; cyl(M,'#f6efdf',x,top-.03,z,.11,.03); hiRod(M,'#2a2624',new T.Vector3(x,top-.03,z),new T.Vector3(x,y+.1,z),.005); cyl(M,'#b8913e',x,y+.08,z,.035,.04,'cyl8'); put(M,'sph',HBULB,x,y,z,.1,.1,.1); return hiP(M,x,y-.02,z); });
+  kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hhall'),hiMat(HU))); delete KITS.hhall;
+  /* the clock's hands over the door, the visitor book's pages: their own meshes, as they change */
+  B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.01,0,.012,i?.145:.1,.005); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),hiMat(HU))); }); delete KITS.hhand;
+  { const [bx,by,bz]=B.bookAt, BM=hiTf(M,bx,by,bz,0,0,.42); B.bookC=hiCanvas(512,320,hiBookDraw);
+    kitTo('hbook'); box(hiTf(BM,0,0,0,Math.PI/2),'#7a2a26',0,-.012,0,.3,.012,.2); kitTo(); hiAdd(B,new T.Mesh(kgeo('hbook'),hiMat(HU))); delete KITS.hbook;
+    const pg=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.29,.19),hiBoard(HU,B.bookC.tx,.35))); pg.matrix.copy(BM).multiply(hiM.makeTranslation(0,.002,0)).multiply(hiM2.makeBasis(hiV1.set(0,0,1),hiV2.set(1,0,0),hiV3.set(0,1,0))); pg.matrixWorld.copy(pg.matrix);
+    hiHit(B,'book',.24,.12,.34,hiTf(M,bx,by+.02,bz)); }
+  /* ---- Séamus, the clerk: a cardigan over a shirt and tie, grey hair and glasses, behind the counter ---- */
+  { const f=figure({shirt:'#3e5a76',crew:true,under:'#f2efe6',pants:'#2f3137',shoes:'#2b2b2e',skin:'#e0ac85',hair:'wavy',hairC:'#c9c3b8',glasses:'#2a241d',mous:true,mouth:'smile',cheeks:true,build:1.02,head:[.152,.174,.16,.15,.026]});
+    hiFigure(B,f,hiMat(HU)); B.clerk={f,d:f.userData,x:HH.CLK[0],z:HH.CLK[1],a:-Math.PI/2,ph:0,wave:0,wt:0,write:0,stamp:9,look:0};
+    hiHit(B,'clerk',.5,1.4,.5,hiTf(M,HH.CLK[0],F+.7,HH.CLK[1])); }
+  /* where the lamps are, how bright: the two globes, the reading lamp, the hatch, and by day the street at the open door */
+  B.L=[B.lamps[0],B.lamps[1],B.lampD,hiP(M,HH.ST[0],top-.3,HH.ST[1]),hiP(M,0,1.6,iz+.9)];
+  /* the doors: each leaf the town's colours outside and the room's inside, swinging in on its hinge */
+  B.leaves=[-1,1].map(s=>{ const lf=hiLeaf(M,s); return lf; });
+  hiHit(B,'door',HH.dw,HH.dh-F,.3,hiTf(M,0,(HH.dh+F)/2,iz+.05));
+  B.front=hiHit(B,'front',3.6,4.8,1.4,hiTf(M,0,2.4,1.55)); B.picks.pop();   // (the hall from the street: a click there walks you over and in)
+  hiBuildClock(B);
+  return B; }
+/* a leaf of the hall's double door: s -1 the left, 1 the right (as you face it from the street); panelled both sides, brass handles */
+function hiLeaf(M,s){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); const w=HH.dw/2-.01, h=HH.dh-HH.FL-.02, I=new T.Matrix4();
+  kitTo('hleaf'); box(I,'#2f5446',-s*w/2,0,0,w,h,.025); box(I,'#3e6a58',-s*w/2,.2,.016,w*.66,.6,.01); box(I,'#3e6a58',-s*w/2,1.0,.016,w*.66,.62,.01); box(I,'#d9b45a',-s*(w-.07),.88,.024,.035,.15,.03);
+  kitTo(); const mo=new T.Mesh(kgeo('hleaf'),toonMat('#ffffff',{vc:true})); mo.matrixAutoUpdate=false;
+  kitTo('hleaf'); box(I,'#2f5446',-s*w/2,0,-.025,w,h,.025); box(I,'#3e6a58',-s*w/2,.2,-.034,w*.66,.6,.01); box(I,'#3e6a58',-s*w/2,1.0,-.034,w*.66,.62,.01); box(I,'#d9b45a',-s*(w-.07),.88,-.042,.035,.15,.03);
+  kitTo(); const mi=new T.Mesh(kgeo('hleaf'),hiMat(HU)); mi.matrixAutoUpdate=false; delete KITS.hleaf;
+  g.add(mo,mi); mo.userData.dyn=true; mo.userData.col=mo.material; mo.userData.inkM=variant(inkC,mo.material,INK_F); mo.userData.shdM=variant(shdC,mo.material,SHD_F,T.DoubleSide); INK.push(mo);
+  mi.userData.noInk=true; mi.userData.col=mi.material; mi.userData.inkM=GINK; mi.userData.shdM=mi.material; INK.push(mi);
+  const H0=new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeTranslation(s*(HH.dw/2-.005),HH.FL+.005,HH.IZ+.095)); g.matrix.copy(H0);
+  return {g,s,H0,mi}; }
+
+/* ---------- the town on the hall's table, made from the town itself: its ground and coast from the town's own map (a cell
+   every 60 cm, the heights a little more than to scale so the island stands up off its sea), the roads and paths on it, every
+   house where it stands, the trees, and each landmark in small; all turned the way the town lies from here. o: where its
+   middle is on the table (in the hall's frame), how big a metre is, how far it reaches, which way the hall faces ---------- */
+function hiModel(M,o){ const s=o.s, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw), VS=1.6, up=hiD(M,0,1,0), R2=(o.r/s)**2;
+  const lx=(x,z)=>o.x+s*(x*cy-z*sy), lz=(x,z)=>o.z+s*(x*sy+z*cy), P=(x,z,y)=>hiP(M,lx(x,z),o.y+y,lz(x,z));
+  const yh=h=>(Math.max(h,WATER-.04)-WATER)*s*VS, SEA=.004, LAND=SEA+yh(0);
+  const at_=(x,z,ry=0)=>hiTf(M,lx(x,z),o.y+LAND,lz(x,z),ry);
+  cyl(M,'#4f9fbb',o.x,o.y,o.z,o.r,SEA);   // the sea, out to the table's edge
+  const st=.6, n=Math.ceil(23.6/st);
+  for(let j=-n;j<n;j++) for(let i=-n;i<n;i++){ const x0=i*st, z0=j*st, x1=x0+st, z1=z0+st, cx=x0+st/2, cz=z0+st/2; if(cx*cx+cz*cz>R2*.96) continue;
+    const h=[grid(GH,x0,z0),grid(GH,x1,z0),grid(GH,x1,z1),grid(GH,x0,z1)]; if(Math.max(...h)<WATER+.02) continue;
+    const a=P(x0,z0,SEA+yh(h[0])), b=P(x1,z0,SEA+yh(h[1])), c=P(x1,z1,SEA+yh(h[2])), d=P(x0,z1,SEA+yh(h[3]));
+    const nn=new T.Vector3().subVectors(d,a).cross(hiV2.subVectors(b,a)).normalize(); if(nn.dot(up)<0) nn.negate();
+    const hm=Math.min(...h), rd=roadDist(cx,cz), pd=pathDist(cx,cz); let col=(i+j)&1?'#8fc06f':'#88ba69';
+    if(hm<-.12) col=(i+j)&1?'#b9ad98':'#aea28d'; else if(grid(GB,cx,cz)>.4&&hm<-.01||grid(GL,cx,cz)<.02) col='#e8d9aa';
+    if(pd<.05) col='#d9c79c'; if(rd<RW+SW) col='#e6e0d3'; if(rd<RW) col='#8e969a'; if(Math.hypot(cx-PAD[0],cz-PAD[1])<2.4) col='#c9c3b8';
+    kquad(a,b,c,d,nn,col); }
+  /* the trees, a little larger than they are, so they read */
+  for(const [x,z,ts] of TREES){ if(x*x+z*z>R2) continue; const Tm=at_(x,z), k=s*ts*1.15; cyl(Tm,'#7a5a42',0,0,0,.12*k,1.2*k,'cyl8'); put(Tm,'blob',LEAF[Math.abs(Math.round(x*7+z*3))%4],0,1.75*k,0,.8*k,.7*k,.8*k,x); }
+  /* every house where it stands, turned as it is: its door and two windows (lit at night) toward its road */
+  const HC=[[-13.3,-3.2,'#f1e2c6','#c8664b'],[-13,3.8,'#cfe0e6','#4f6f8f'],[-5.8,13.6,'#f3d9c4','#9a5340'],[-10.6,10.4,'#e9d3b0','#7d5a8f'],[6.4,-12.6,'#dfe6ef','#c8664b']];
+  for(const Hh of HOUSES){ hiV1.setFromMatrixPosition(Hh.M); const [hx,hz]=loc(hiV2.copy(hiV1).normalize()), [fx,fz]=loc(hiV3.set(0,0,1).applyMatrix4(Hh.M).normalize());
+    const dmx=fx-hx, dmz=fz-hz, HM=at_(hx,hz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)), w=Hh.w*s, d=Hh.d*s, h=Hh.h*s;
+    let wall='#f3e6cc', roof='#c8664b'; const q=HC.find(q=>Math.hypot(q[0]-hx,q[1]-hz)<.6); if(q){ wall=q[2]; roof=q[3]; }
+    if(Hh.M===CIV.hall.M){ const SWc='#ddd5c3';   /* the hall: its tower and green spire, and a red pin in it: you are here */
+      box(HM,SWc,0,0,0,w,3.6*s,d); put(HM,'prism','#6b7682',0,3.76*s,0,3.86*s,.9*s,3.22*s); box(HM,SWc,0,3.6*s,-.3*s,1.3*s,3.0*s,1.3*s); put(HM,'pyr4','#79a597',0,7.76*s,-.3*s,.99*s,.92*s,.99*s,Math.PI/4);
+      box(HM,'#2f5446',0,0,d/2,.96*s,1.8*s,.006); hiRod(HM,'#d9d4c8',new T.Vector3(0,8.2*s,-.3*s),new T.Vector3(0,8.2*s+.07,-.3*s),.002); put(HM,'sph','#d8443a',0,8.2*s+.075,-.3*s,.012,.012,.012); continue; }
+    if(Hh.M===CIV.school.B){ wall='#f4e3c3'; roof='#b65a3e'; box(HM,'#8f9395',.875*s,0,1.95*s,3.55*s,.004,1.5*s); }
+    if(CAFE.M&&Hh.M===CAFE.M){ wall='#f2dcb8'; roof='#b65a3e'; for(let k=0;k<5;k++) box(HM,k%2?'#fbf6ec':'#e9744f',(-1.8+k*.9)*s,1.95*s,d/2+.4*s,.9*s,.05*s,.8*s); }
+    if(GAR.M&&Hh.M===GAR.M){ wall='#c9d5d1'; roof='#59646a'; cyl(HM,'#8c9599',1.4*s,h+.26*s,-.7*s,.08*s,3*s,'cyl8'); put(HM,'sph','#ff8a2a',1.4*s,h+3.3*s,-.7*s,.2*s,.2*s,.2*s); }
+    box(HM,wall,0,0,0,w,h,d); if(Hh.flat) box(HM,roof,0,h,0,w+.3*s,.22*s,d+.3*s); else put(HM,'prism',roof,0,h,0,d+.62*s,1.2*s,w+.5*s,Math.PI/2);
+    box(HM,'#6e4a3a',Hh.dx*s,0,d/2,.62*s,1.2*s,.006); [-.3,.3].forEach(k=>box(HM,HLIT,k*w,1.15*s,d/2,.5*s,.5*s,.008)); }
+  /* the landmarks in small: Kríos's glass in the square, Aetos's dish on its rocks, Pharos striped on the cliff, Ogive and its
+     tower; the rocket on the pad; the jetty; the bench and the kite on the cliff */
+  if(INST.kr){ const K_=at_(INST.kr.x,INST.kr.z); cyl(K_,'#c9c1b3',0,0,0,1.55*s,.16*s); cyl(K_,'#ddd6c8',0,.16*s,0,1.28*s,.14*s); cyl(K_,'#e9e3d7',0,.3*s,0,.34*s,1.1*s); put(K_,'sph','#bcd8e6',0,2.05*s,0,.75*s,.75*s,.75*s); }
+  if(INST.ae){ const A_=at_(INST.ae.x,INST.ae.z); put(A_,'rock','#a49e94',0,.5*s,0,1.5*s,1.1*s,1.4*s); cyl(A_,'#9aa3ab',0,.9*s,0,.12*s,1.9*s,'cyl8'); put(A_,'sph','#f2f4f2',0,2.9*s,.1*s,.85*s,.35*s,.85*s,0,-.5); }
+  if(INST.ph){ const P_=at_(INST.ph.x,INST.ph.z); cyl(P_,'#bdb5a8',0,0,0,1.15*s,.5*s); for(let k=0;k<6;k++) put(P_,'tcyl',k%2?'#cf4a36':'#f4efe6',0,(.5+k*.72+.36)*s,0,(.84-k*.06)*s,.72*s,(.84-k*.06)*s);
+    cyl(P_,'#3e4448',0,4.82*s,0,.92*s,.1*s); cyl(P_,'#e7f1ef',0,4.92*s,0,.5*s,.62*s); put(P_,'cone','#cf4a36',0,5.84*s,0,.66*s,.6*s,.66*s); }
+  if(INST.og){ const O_=at_(INST.og.x,INST.og.z); box(O_,'#c3bdb2',0,0,0,3.2*s,.22*s,3.2*s); cyl(O_,'#f4f0e8',0,.5*s,0,.3*s,2.5*s); put(O_,'cone','#ef8a3c',0,3.4*s,0,.3*s,.84*s,.3*s); box(O_,'#c8664b',1.15*s,.22*s,0,.64*s,4*s,.64*s); }
+  { const D_=at_(PAD[0],PAD[1]); cyl(D_,'#c9c3b8',0,0,0,2.35*s,.1*s); cyl(D_,'#f4ede0',0,.1*s,0,.8*s,3*s); put(D_,'cone','#f4ede0',0,3.9*s,0,.8*s,1.8*s,.8*s); [0,1,2,3].forEach(k=>box(hiTf(D_,0,0,0,k*Math.PI/2+.4),'#f2b28a',.9*s,.1*s,0,.9*s,1.2*s,.08*s)); }
+  { const [a,b]=JETTY, [mx,mz]=[(a[0]+b[0])/2,(a[1]+b[1])/2], dmx=b[0]-a[0], dmz=b[1]-a[1]; box(at_(mx,mz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)),'#b48a5c',0,-.3*s,0,1.2*s,.35*s,Math.hypot(dmx,dmz)*s); }
+  { const C_=at_(CLF.x,CLF.z,CLF.yaw-o.yaw); box(C_,'#b8834f',0,0,0,1.5*s,.5*s,.5*s); box(hiTf(C_,.8*s,.4*s,-.6*s,0,0,.3),'#ef8a3c',0,0,0,.5*s,.8*s,.05*s); } }
+/* ---------- what is drawn on canvas: the noticeboard, the crest over the bench, the visitor book's pages ---------- */
+function hiWrap(c,t,x,y,w,lh){ const ws=t.split(' '); let line='', yy=y; for(const wd of ws){ const tt=line?line+' '+wd:wd; if(c.measureText(tt).width>w&&line){ c.fillText(line,x,yy); line=wd; yy+=lh; } else line=tt; } if(line) c.fillText(line,x,yy); return yy; }
+function hiNotes(c,W,H){ const r=seeded(17); c.fillStyle='#b98a5a'; c.fillRect(0,0,W,H); for(let i=0;i<2600;i++){ c.fillStyle=`rgba(${r()<.5?'90,60,30':'230,200,160'},${.12+r()*.2})`; c.fillRect(r()*W,r()*H,1.5+r()*2,1.5+r()*2); }   // cork
+  for(const q of HNOTES){ const x=q.x*W, y=q.y*H, w=q.w*W, h=q.h*H; c.save(); c.translate(x+w/2,y+h/2); c.rotate(q.r); c.fillStyle='rgba(40,25,10,.25)'; c.fillRect(-w/2+4,-h/2+5,w,h); c.fillStyle=q.c; c.fillRect(-w/2,-h/2,w,h);
+    c.fillStyle='#2a241d'; c.textAlign='left'; c.textBaseline='top'; c.font=hiFont(Math.round(w*.12)); hiWrap(c,q.h1,-w/2+12,-h/2+18,w-24,w*.13); c.font=hiFont(Math.round(w*.072),800);
+    hiWrap(c,q.t,-w/2+12,-h/2+18+w*.3,w-24,w*.085); c.fillStyle='#c8473a'; c.beginPath(); c.arc(0,-h/2+8,7,0,TAU); c.fill(); c.fillStyle='#f6d0c8'; c.beginPath(); c.arc(-2,-h/2+6,2.5,0,TAU); c.fill(); c.restore(); } }
+function hiCrest(c,W,H){ c.fillStyle='#f3ead6'; c.fillRect(0,0,W,H); c.strokeStyle='#2a241d'; c.lineWidth=5; c.fillStyle='#2f5446';
+  c.beginPath(); c.moveTo(W*.15,H*.12); c.lineTo(W*.85,H*.12); c.lineTo(W*.85,H*.52); c.quadraticCurveTo(W*.85,H*.8,W*.5,H*.9); c.quadraticCurveTo(W*.15,H*.8,W*.15,H*.52); c.closePath(); c.fill(); c.stroke();
+  c.fillStyle='#4f9fbb'; c.fillRect(W*.17,H*.6,W*.66,H*.08); c.fillStyle='#f6efdf'; c.fillRect(W*.4,H*.24,W*.2,H*.36); c.beginPath(); c.moveTo(W*.38,H*.24); c.lineTo(W*.5,H*.14); c.lineTo(W*.62,H*.24); c.fill();
+  c.fillStyle='#2a241d'; c.beginPath(); c.arc(W*.5,H*.33,W*.06,0,TAU); c.fill(); c.strokeStyle='#f6efdf'; c.lineWidth=3; c.beginPath(); c.moveTo(W*.5,H*.33); c.lineTo(W*.5,H*.295); c.moveTo(W*.5,H*.33); c.lineTo(W*.525,H*.335); c.stroke();
+  c.fillStyle='#ef8a3c'; c.beginPath(); c.moveTo(W*.28,H*.5); c.lineTo(W*.3,H*.3); c.lineTo(W*.32,H*.5); c.fill(); c.fillStyle='#d9b45a'; c.fillRect(W*.08,H*.04,W*.84,H*.05);
+  c.fillStyle='#2a241d'; c.font=hiFont(26); c.textAlign='center'; c.textBaseline='middle'; c.fillText('TIME AND TIDE',W*.5,H*.95); }
+function hiBookDraw(c,W,H){ c.fillStyle='#f6efdc'; c.fillRect(0,0,W,H); c.fillStyle='rgba(90,60,30,.18)'; c.fillRect(W/2-10,0,20,H); c.strokeStyle='rgba(60,90,140,.25)'; c.lineWidth=1.5;
+  for(let y=58;y<H-10;y+=30){ c.beginPath(); c.moveTo(16,y); c.lineTo(W/2-18,y); c.moveTo(W/2+18,y); c.lineTo(W-16,y); c.stroke(); }
+  c.fillStyle='#7a2a26'; c.font=hiFont(22); c.textAlign='left'; c.textBaseline='alphabetic'; c.fillText('VISITORS',20,38); const me=HBK.mine;
+  c.fillStyle='#2c3f6e'; c.font=hiFont(17,800); HBOOK.forEach((n,i)=>c.fillText(n,20,82+i*30));
+  c.fillStyle='#7a2a26'; c.font=hiFont(22); c.fillText(me?'AND YOU':'SIGN HERE',W/2+22,38); c.font=hiFont(me?22:17,me?900:800); c.fillStyle=me?'#1f3f2c':'rgba(42,36,29,.4)';
+  if(me){ hiWrap(c,me.n,W/2+22,90,W/2-44,30); c.font=hiFont(14,800); c.fillStyle='rgba(42,36,29,.55)'; c.fillText(me.d,W/2+22,H-24); } else c.fillText('. . . . . . . . . . . .',W/2+22,90); }
+/* ---------- the clock room, up in the tower: the works on their bed, the going train (the great wheel on its barrel, the
+   centre wheel that turns once an hour, the third, the escape wheel and the anchor over it, ticking off the seconds with
+   the pendulum), the striking train with its fly, the rods out to the four dials and the motion work behind each, the two
+   weights on their cables, a bulb; the dials' glass glowing with the day, or lit at night; the bell over the hole in the
+   ceiling, and its hammer. The moving parts are meshes of their own, turned each frame from the clock's time ---------- */
+function hiGearGeo(r,n,th,c,sp=4){ kitTo('hgear'); const I=new T.Matrix4(); hiTorus(I,c,r*.86,r*.07,Math.max(18,n),TAU);
+  for(let k=0;k<n;k++){ const a=k/n*TAU; box(hiTf(I,Math.cos(a)*r*.95,Math.sin(a)*r*.95,0,0,0,a),c,0,-.0045,0,r*.15,.009,th); }
+  for(let k=0;k<sp;k++) box(hiTf(I,0,0,0,0,0,k/sp*TAU),c,r*.43,-.006,0,r*.84,.012,th*.7); put(I,'cyl',c,0,0,0,r*.18,th*1.6,r*.18,0,Math.PI/2); kitTo(); const g=kgeo('hgear'); delete KITS.hgear; return g; }
+function hiBuildClock(B){ const M=B.M, K=HH.K, cx=K.x, cz=K.z, hw=K.w, fl=K.fl, top=K.top, g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g); B.kg=g;
+  const up=B.up, dn=hiD(M,0,-1,0), fq=(xa,za,xb,zb,y,c,n=up)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),n,c), V=(x,y,z)=>new T.Vector3(x,y,z), mat=hiMat(KU);
+  kitTo('hclock');
+  /* boards underfoot (the trap you came up by standing open), plaster between timber posts, boards overhead open to the belfry */
+  for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(x0>cx+.1&&z0>cz+.1) continue; fq(x0+.003,z0,x1-.003,z1,fl,i%2?'#8a6448':'#93694a'); } }
+  fq(cx+.167,cz+.167,cx+hw,cz+hw,fl-.003,'#1c1714'); box(hiTf(M,cx+.333,fl,cz+.167,0,-1.79,0),'#7a5238',0,-.0125,.165,.32,.025,.33); [-1,1].forEach(s=>box(M,'#6b4c34',cx+.333+s*.13,fl-.3,cz+.45,.03,.62,.03));
+  slab(M,'#d8cfbc','x',cz+hw+.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','x',cz-hw-.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx+hw+.01,2*hw,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx-hw-.01,2*hw,.02,fl,top,[]);
+  for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#6b4c34',cx+sx*(hw-.03),fl,cz+sz*(hw-.03),.06,top-fl,.06);
+  [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>box(M,'#6b4c34',cx+a*(hw-.03),top-.12,cz+b*(hw-.03),a?.06:2*hw,.1,b?.06:2*hw));
+  for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(Math.abs(x0+hw/6-cx)<.3&&Math.abs(z0+hw/6-cz)<.3) continue; fq(x0,z0,x1,z1,top,i%2?'#7a5a40':'#86644a',dn); } }
+  /* the dials from behind: frosted glass, an iron bezel and cross, and the motion work at the middle of each */
+  B.dials=[0,1,2,3].map(k=>{ const D=hiTf(M,cx,5.88,cz,k*Math.PI/2).multiply(hiM.makeTranslation(0,0,hw-.006)).multiply(hiM2.makeRotationY(Math.PI));
+    put(D,'cyl',HPANE,0,0,0,.37,.008,.37,0,Math.PI/2); hiTorus(D,'#3e4448',.37,.02,32); box(D,'#3e4448',0,-.37,-.012,.024,.74,.014); box(D,'#3e4448',-.37,-.012,-.012,.74,.024,.014);
+    put(D,'cyl','#2f3336',0,0,-.03,.05,.05,.05,0,Math.PI/2); put(D,'cyl','#c9a24a',.07,-.05,-.04,.045,.012,.045,0,Math.PI/2); return D; });
+  /* the bed on its trestles, the frame's two iron plates, the barrels and the arbors across them */
+  box(M,'#5a3d2c',cx,fl,cz,.06,.3,.5); [-1,1].forEach(s=>{ box(M,'#5a3d2c',cx+s*.24,fl,cz,.05,.33,.42); box(M,'#5a3d2c',cx+s*.24,fl+.15,cz,.05,.04,.5); });
+  box(M,'#2f3336',cx,fl+.33,cz,.56,.04,.32);
+  [-1,1].forEach(s=>{ const z=cz+s*.12; box(M,'#2f3336',cx,fl+.37,z,.52,.025,.018); [-1,0,1].forEach(k=>box(M,'#2f3336',cx+k*.22,fl+.37,z,.025,.6,.018)); box(M,'#2f3336',cx,fl+.95,z,.5,.025,.018); });
+  put(M,'cyl','#7a5a40',cx-.08,5.3,cz,.065,.2,.065,0,Math.PI/2); for(let k=0;k<5;k++) put(M,'cyl','#9aa0a3',cx-.08,5.3,cz-.08+k*.04,.068,.008,.068,0,Math.PI/2);
+  put(M,'cyl','#7a5a40',cx+.15,5.24,cz,.05,.2,.05,0,Math.PI/2);
+  for(const [x,y] of [[-.08,5.3],[.1,5.42],[.02,5.56],[-.1,5.6],[.15,5.24],[.18,5.62]]) hiRod(M,'#9aa0a3',V(cx+x,y,cz-.14),V(cx+x,y,cz+.14),.008);
+  /* the weights: one for the going, one for the striking, on cables up to their pulleys and back to the barrels */
+  for(const [wx,wz,wy,bx,by] of [[-.33,-.33,5.02,-.08,5.36],[.33,-.33,4.92,.15,5.29]]){ cyl(M,'#3a3d40',cx+wx,wy,cz+wz,.055,.24); put(M,'sph','#3a3d40',cx+wx,wy+.25,cz+wz,.02,.02,.02);
+    hiRod(M,'#2a2624',V(cx+wx,wy+.26,cz+wz),V(cx+wx,top-.07,cz+wz),.003); put(M,'cyl','#6b6f72',cx+wx,top-.06,cz+wz,.035,.02,.035,0,0,Math.PI/2); hiRod(M,'#2a2624',V(cx+wx,top-.04,cz+wz),V(cx+bx,by,cz),.003); }
+  /* the rods out to the dials meet in a gearbox in the middle, at the height of the faces */
+  box(M,'#b8913e',cx,5.83,cz,.1,.1,.1); box(M,'#2f3336',cx,5.67,cz,.04,.16,.04);
+  /* the bulb on its flex, an oil can and a rag on the floor, a stool */
+  hiRod(M,'#2a2624',V(cx-.25,top,cz+.25),V(cx-.25,top-.28,cz+.25),.004); put(M,'sph',HBULB,cx-.25,top-.31,cz+.25,.035,.04,.035); cyl(M,'#2a2624',cx-.25,top-.29,cz+.25,.014,.03,'cyl8');
+  cyl(M,'#c8473a',cx+.37,fl,cz-.38,.04,.08); hiRod(M,'#c8473a',V(cx+.37,fl+.08,cz-.38),V(cx+.33,fl+.16,cz-.32),.008); box(M,'#d9cdb4',cx+.3,fl,cz-.25,.12,.006,.09,.6);
+  cyl(M,'#7a5238',cx-.34,fl+.28,cz+.32,.09,.03); for(let k=0;k<3;k++){ const a=k/3*TAU; hiRod(M,'#5a3d2c',V(cx-.34+Math.cos(a)*.05,fl+.28,cz+.32+Math.sin(a)*.05),V(cx-.34+Math.cos(a)*.1,fl,cz+.32+Math.sin(a)*.1),.01); }
+  kitTo(); hiAdd(B,new T.Mesh(kgeo('hclock'),mat),true,g); delete KITS.hclock;
+  /* what turns: each built where its axle is, along the frame's z (the dials' rods along their own) */
+  const part_=(geo,Mx)=>{ const m=hiAdd(B,new T.Mesh(geo,mat),true,g); m.userData.M0=Mx; m.matrix.copy(Mx); return m; };
+  const AX=(x,y,z,ry=0)=>hiTf(M,cx+x,y,cz+z,ry);
+  B.gear={great:part_(hiGearGeo(.13,40,.02,'#c9a24a',5),AX(-.08,5.3,0)),centre:part_(hiGearGeo(.085,32,.018,'#c9a24a'),AX(.1,5.42,.03)),third:part_(hiGearGeo(.06,24,.015,'#c9a24a'),AX(.02,5.56,-.03)),
+    escape:part_(hiGearGeo(.05,30,.012,'#b9bfc2',3),AX(-.1,5.6,.05)),strike:part_(hiGearGeo(.07,28,.016,'#c9a24a'),AX(.15,5.24,.05))};
+  kitTo('hpart'); box(new T.Matrix4(),'#2f3336',-.004,-.01,0,.008,.025,.014); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.045,-.05,0),.004); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(.045,-.05,0),.004); kitTo();
+  B.gear.anchor=part_(kgeo('hpart'),AX(-.1,5.665,.06));
+  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,0),V(0,-.78,0),.005); put(new T.Matrix4(),'cyl','#c9a24a',0,-.8,0,.06,.016,.06,0,Math.PI/2); kitTo(); B.gear.pend=part_(kgeo('hpart'),AX(-.1,5.72,.075));
+  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,-.03),V(0,0,.03),.004); [-1,1].forEach(s=>box(new T.Matrix4(),'#b9bfc2',0,-.002,s*.0,.1,.004,.03,0,0,s>0?0:Math.PI/2)); kitTo(); B.gear.fly=part_(kgeo('hpart'),AX(.18,5.62,0,0));
+  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,-.12,0),V(0,.12,0),.007); kitTo(); B.gear.up=part_(kgeo('hpart'),AX(0,5.71,0));
+  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,.05),V(0,0,hw-.04),.007); box(new T.Matrix4(),'#c9a24a',-.015,-.015,.06,.03,.03,.01); kitTo(); const rg=kgeo('hpart');
+  B.gear.rods=[0,1,2,3].map(k=>part_(rg,AX(0,5.88,0,k*Math.PI/2))); delete KITS.hpart;
+  /* the hammer, up in the belfry over the hole: it lifts away from the bell and falls on it, once for each hour */
+  kitTo('hpart'); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.13,.11,0),.008); put(new T.Matrix4(),'cyl','#3a3d40',-.14,.12,0,.03,.07,.03,0,Math.PI/2); put(new T.Matrix4(),'cyl','#2f3336',0,0,0,.02,.06,.02,0,Math.PI/2); kitTo();
+  B.gear.hammer=part_(kgeo('hpart'),AX(.36,6.63,0)); delete KITS.hpart; hiRod(M,'#2a2624',V(cx+.3,6.66,cz),V(cx+.18,5.3,cz+.08),.0025);
+  B.KL=[hiP(M,cx-.25,top-.33,cz+.25),hiP(M,cx,top+.3,cz)];
+  hiHit(B,'trap',.4,.3,.36,hiTf(M,cx+.27,fl+.05,cz+.3)); B.picks[B.picks.length-1].clock=true; }
+
+/* ---------- the classroom ---------- */
+const HXY=['#e9584a','#f2a93b','#f7d046','#5cae6e','#3fa7c0','#3f7fd0','#8a6cc8','#f08cae'];   // the xylophone's bars, low to high
+function hiSlate(c,W,H){ c.fillStyle='#2c3a33'; c.fillRect(0,0,W,H); const r=seeded(29); for(let i=0;i<40;i++){ c.fillStyle=`rgba(230,235,225,${.025+r()*.035})`; c.beginPath(); c.ellipse(r()*W,r()*H,30+r()*120,8+r()*26,r()*3,0,TAU); c.fill(); } }   // old chalk, rubbed out
+function hiBoardDraw(c,W,H){ hiSlate(c,W,H); const ch='rgba(246,243,232,.9)'; c.fillStyle=c.strokeStyle=ch; c.lineCap=c.lineJoin='round'; c.lineWidth=4;
+  c.font=hiFont(46); c.textBaseline='alphabetic'; c.textAlign='left'; c.fillText('ROCKETS!',34,64); c.font=hiFont(26,800); c.fillText('3, 2, 1... lift off',36,108);
+  c.beginPath(); c.moveTo(W-150,H-60); c.lineTo(W-150,H-190); c.lineTo(W-125,H-240); c.lineTo(W-100,H-190); c.lineTo(W-100,H-60); c.closePath(); c.stroke();
+  c.beginPath(); c.moveTo(W-150,H-100); c.lineTo(W-180,H-55); c.lineTo(W-150,H-70); c.moveTo(W-100,H-100); c.lineTo(W-70,H-55); c.lineTo(W-100,H-70); c.stroke();
+  c.strokeStyle='rgba(242,200,90,.85)'; [[-12,0],[0,18],[12,0]].forEach(([dx,dy])=>{ c.beginPath(); c.moveTo(W-125+dx*.6,H-52); c.lineTo(W-125+dx,H-20+dy*.3); c.stroke(); });
+  c.strokeStyle='rgba(246,243,232,.55)'; c.setLineDash([10,9]); c.beginPath(); c.moveTo(60,H-40); c.quadraticCurveTo(W*.4,-40,W-220,H-120); c.stroke(); c.setLineDash([]);
+  c.font=hiFont(22,800); c.fillStyle='rgba(240,180,190,.85)'; c.fillText('nose cone, body, fins, parachute',36,H-26); }
+function hiFrieze(c,W,H){ c.fillStyle='#fbf6ec'; c.fillRect(0,0,W,H); const n=26, w=W/n; for(let i=0;i<n;i++){ c.fillStyle=HXY[i%8]; c.fillRect(i*w+3,4,w-6,H-8);
+    c.fillStyle='#fbf6ec'; c.font=hiFont(Math.round(H*.56)); c.textAlign='center'; c.textBaseline='middle'; const L=String.fromCharCode(65+i); c.fillText(L+L.toLowerCase(),i*w+w/2,H/2+2); } }
+function hiPosters(c,W,H){ c.fillStyle='#fbf6ec'; c.fillRect(0,0,W,H); c.fillStyle='#2a241d'; c.textAlign='left'; c.textBaseline='alphabetic';
+  /* our class rules (on the left), a rocket's parts (on the right) */
+  c.fillStyle='#f7d046'; c.fillRect(0,0,W/2-6,H); c.fillStyle='#2a241d'; c.font=hiFont(36); c.fillText('OUR CLASS',22,56); c.font=hiFont(28,800);
+  ['Be kind','Listen','Try your best','Tidy up','Have fun'].forEach((t,i)=>{ c.fillStyle=HXY[(i*2)%8]; c.beginPath(); c.arc(30,108+i*58,10,0,TAU); c.fill(); c.fillStyle='#2a241d'; c.fillText(t,52,118+i*58); });
+  const x0=W/2+6; c.fillStyle='#22324a'; c.fillRect(x0,0,W/2-6,H); c.fillStyle='#fbf3cf'; for(let i=0;i<30;i++) c.fillRect(x0+((i*97)%(W/2-20)),(i*61)%H,3,3);
+  c.fillStyle='#f4f0e8'; c.fillRect(x0+110,120,44,200); c.fillStyle='#ef8a3c'; c.beginPath(); c.moveTo(x0+110,120); c.lineTo(x0+132,60); c.lineTo(x0+154,120); c.fill(); c.fillRect(x0+90,270,20,50); c.fillRect(x0+154,270,20,50);
+  c.fillStyle='#fbf6ec'; c.font=hiFont(22,800); [['NOSE',84],['BODY',210],['FINS',300]].forEach(([t,y])=>c.fillText(t,x0+190,y)); c.font=hiFont(30); c.fillText('ROCKETS',x0+20,H-24); }
+function hiGlobeTex(c,W,H){ c.fillStyle='#3f8fc0'; c.fillRect(0,0,W,H); const r=seeded(37), land=(x,y,rx,ry,k)=>{ c.fillStyle=k?'#d9c27a':'#6fae5a'; c.beginPath(); for(let i=0;i<=24;i++){ const a=i/24*TAU, q=1+.25*Math.sin(a*3+x)+.15*Math.cos(a*5+y); c.lineTo(x+Math.cos(a)*rx*q,y+Math.sin(a)*ry*q); } c.fill(); };
+  [[90,80,50,40],[120,170,28,52],[260,70,70,36],[280,160,40,46],[400,90,56,34],[430,190,30,20],[200,240,90,12]].forEach(([x,y,a,b],i)=>{ land(x,y,a,b,0); if(i%3===1) land(x+5,y+8,a*.4,b*.35,1); });
+  c.strokeStyle='rgba(255,255,255,.35)'; c.lineWidth=1.5; for(let k=1;k<6;k++){ c.beginPath(); c.moveTo(0,k*H/6); c.lineTo(W,k*H/6); c.stroke(); } for(let k=0;k<12;k++){ c.beginPath(); c.moveTo(k*W/12,0); c.lineTo(k*W/12,H); c.stroke(); } }
+function hiBuildSchool(){ const S_=CIV.school, M=S_.B, F=SCH.FL, ix=SCH.IX, iz=SCH.IZ, top=SCH.CH, rr=seeded(43), V=(x,y,z)=>new T.Vector3(x,y,z), I=new T.Matrix4();
+  const B=HSI.school=hiRoom('school',M,SU,SCH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c), mat=hiMat(SU);
+  kitTo('hschool');
+  /* ---- honey boards across the room; a teal dado, pale yellow walls, the alphabet along the top; a white ceiling with two strip lights ---- */
+  for(let j=0;j<10;j++){ const z0=-iz+j*2*iz/10, z1=z0+2*iz/10; let x=-ix+(j%3)*.3; if(x>-ix) fq(-ix,z0+.003,x-.004,z1-.003,F,'#c99a62');
+    while(x<ix){ const x1=Math.min(ix,x+.7+rr()*.9); fq(x,z0+.003,x1-.004,z1-.003,F,['#c99a62','#d1a46c','#bf9058','#cda068'][Math.floor(rr()*4)]); x=x1; } }
+  const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,SCH.dw+.004,y0-1,SCH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
+  lin('#7fb5a8',F,F+.6,.03); lin('#f2f0e6',F+.58,F+.64,.04); lin('#f6ebcf',F+.62,top,.02); lin('#4f8a8b',F,F+.07,.04);
+  box(M,'#f7f4ec',0,top,0,2*ix+.04,.04,2*iz+.04);
+  [-.85,.85].forEach((x,i)=>{ box(M,'#e6e7e2',x,top-.05,0,.1,.05,1.3); box(M,'#c9cbc6',x,top-.054,0,.08,.006,1.24); put(M,'cyl',HTUBE[i],x,top-.075,0,.022,1.2,.022,0,Math.PI/2); });
+  /* ---- the windows, the paintings round them, cress on the sills ---- */
+  const W=(x,z,ry,tw)=>{ const Wm=sub(M,x,1.4,z,ry); hiWin(Wm,tw,.9,'#fbf6ec','#d1a46c'); return Wm; };
+  [-1.25,1.25].forEach(x=>{ const Wm=W(x,iz-.02,Math.PI,1); for(let k=0;k<3;k++){ cyl(Wm,'#c8664b',-.3+k*.3,-.495,.08,.04,.06); put(Wm,'blob','#7fbf5a',-.3+k*.3,-.42,.08,.04,.03,.04,k); } });
+  [-1,1].forEach(s=>W(s*(ix-.02),0,-s*Math.PI/2,.9));
+  /* ---- the blackboard, its ledge, chalk on it; the clock over it ---- */
+  { const [x0,x1,y0,y1]=SCH.BD, bw=x1-x0, bh=y1-y0; box(M,'#8a6448',0,y0-.03,-iz+.015,bw+.08,bh+.06,.03); box(M,'#8a6448',0,y0-.04,-iz+.06,bw+.08,.025,.08);
+    [[.2,'#fbf8f0'],[.26,'#f7d046'],[.31,'#f08cae'],[-.5,'#fbf8f0']].forEach(([x,c])=>put(M,'cyl',c,x,y0-.006,-iz+.07,.008,.06,.008,.3,0,Math.PI/2));
+    B.bdC=hiCanvas(768,376,hiBoardDraw); B.board=hiAdd(B,new T.Mesh(new T.PlaneGeometry(bw,bh),hiBoard(SU,B.bdC.tx,.32))); B.board.matrix.copy(sub(M,0,(y0+y1)/2,-iz+.032,0)); B.board.matrixWorld.copy(B.board.matrix);
+    B.bd={x0,x1,y0,y1,z:-iz+.036,chalk:0,dirty:false,last:null,wipe:null}; }
+  { const CW=sub(M,0,1.86,-iz+.02,0); put(CW,'cyl','#2f5a8a',0,0,.01,.125,.02,.125,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
+    const m=hiAdd(B,new T.Mesh(new T.CircleGeometry(.11,32),hiBoard(SU,B.clockC.tx,.3))); m.matrix.copy(CW).multiply(hiM.makeTranslation(0,0,.022)); B.clockFr=CW; }
+  { const fr=hiCanvas(2048,64,hiFrieze), m=hiAdd(B,new T.Mesh(new T.PlaneGeometry(3.6,.2),hiBoard(SU,fr.tx,.3))); m.matrix.copy(sub(M,0,2.2,-iz+.025,0)); }
+  /* ---- the teacher's desk: a pedestal of drawers, the register, a pile of exercise books, a mug of pencils, an apple; the globe ---- */
+  { const tx=-1.5, tz=-.78, ty=F+.62; box(M,'#b07a52',tx,ty-.03,tz,.58,.035,.4); box(M,'#9a6844',tx+.18,F,tz,.2,ty-F-.03,.36); for(let k=0;k<3;k++) box(M,'#d9b45a',tx+.18,F+.12+k*.17,tz+.185,.06,.015,.01);
+    [[-1,-1],[-1,1]].forEach(([a,b])=>box(M,'#9a6844',tx+a*.26,F,tz+b*.17,.03,ty-F-.03,.03)); box(M,'#3f6a9a',tx-.05,ty,tz+.06,.2,.02,.14,.1);
+    for(let k=0;k<6;k++) box(M,HXY[k],tx+.12+(rr()-.5)*.01,ty+k*.011,tz-.06,.15,.011,.2,rr()*.3-.15); cyl(M,'#f4efe6',tx-.2,ty,tz-.1,.03,.08); [0,1,2].forEach(k=>hiRod(M,HXY[k*2],V(tx-.2+(k-1)*.01,ty+.04,tz-.1),V(tx-.2+(k-1)*.02,ty+.14,tz-.1+(k-1)*.01),.004));
+    put(M,'sph','#d8443a',tx+.2,ty+.03,tz+.12,.03,.028,.03); hiRod(M,'#5a3d2c',V(tx+.2,ty+.055,tz+.12),V(tx+.205,ty+.075,tz+.12),.003);
+    cyl(M,'#5a3d2c',-1.62,ty,-.82,.05,.015); hiTorus(hiTf(M,-1.62,ty+.13,-.82,Math.PI/2,0,.41),'#c9a24a',.105,.006,20,Math.PI); hiRod(M,'#c9a24a',V(-1.62,ty,-.82),V(-1.62,ty+.03,-.82),.008);
+    B.globeAt=hiTf(M,-1.62,ty+.13,-.82); B.globe={a:0,v:.35,M0:hiTf(M,-1.62,ty+.13,-.82,0,0,.41)}; hiHit(B,'globe',.24,.24,.24,B.globeAt); }
+  /* ---- the six desks, two rows of three, each with its book and pencil (the chairs are their own: they are tucked in, pulled
+     out or up on the desks) ---- */
+  B.seats=[]; SCH.DZ.forEach((z,r)=>SCH.DX.forEach((x,c)=>{ const k=r*3+c, h=.4; box(M,'#e8d6b4',x,F+h,z,.46,.025,.3); box(M,'#3f6f9f',x,F+h-.09,z,.44,.012,.26); box(M,'#3f6f9f',x,F+h-.09,z-.13,.44,.09,.012);
+    for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#3f6f9f',x+sx*.2,F,z+sz*.12,.02,h,.02);
+    box(M,HXY[(k*3)%8],x-.08,F+h+.025,z+.02,.16,.008,.12,.12*(k%2?1:-1)); box(M,'#fbf8f0',x-.08,F+h+.033,z+.02,.14,.002,.1,.12*(k%2?1:-1)); hiRod(M,'#f2c14e',V(x+.06,F+h+.03,z),V(x+.16,F+h+.03,z+.03),.004);
+    B.seats.push({x,z,k}); }));
+  /* ---- the reading corner: a round rug, a low bookcase, two beanbags, a bear ---- */
+  cyl(M,'#e9744f',-1.45,F,.74,.4,.006); cyl(M,'#f2c14e',-1.45,F,.74,.3,.008); cyl(M,'#5cae6e',-1.45,F,.74,.18,.01);
+  { box(M,'#c99a62',-ix+.12,F,.72,.22,.52,.62); for(let s=0;s<2;s++){ box(M,'#b5885a',-ix+.13,F+.04+s*.25,.72,.2,.02,.58); let z=.44; while(z<.98){ const w=.025+rr()*.03, h=.14+rr()*.07; box(M,HXY[Math.floor(rr()*8)],-ix+.12,F+.06+s*.25,z+w/2,.15,h,w,0,0,(rr()-.5)*.1); z+=w+.004; } } }
+  put(M,'blob','#f2c14e',-1.3,F+.11,.5,.17,.12,.17); put(M,'blob','#5cae6e',-1.12,F+.11,.9,.17,.12,.17,1);
+  { const bx=-1.14, bz=.9, by=F+.22; put(M,'sph','#b07a52',bx,by+.07,bz,.07,.08,.06); put(M,'sph','#b07a52',bx,by+.18,bz,.055,.05,.05); [-1,1].forEach(s=>{ put(M,'sph','#b07a52',bx+s*.04,by+.23,bz,.02,.02,.015); put(M,'sph','#b07a52',bx+s*.065,by+.06,bz+.03,.025,.02,.025); });
+    put(M,'sph','#2a241d',bx,by+.18,bz+.05,.01,.01,.008); box(M,'#d9483b',bx,by+.12,bz+.01,.07,.02,.06); }
+  /* ---- the xylophone on its low table, the bars bright, two beaters ---- */
+  { const [xx,z0,dz]=SCH.XY, ty=F+.32; box(M,'#b07a52',xx,ty-.025,-.25,.32,.025,.78); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#9a6844',xx+a*.14,F,-.25+b*.36,.03,ty-F-.025,.03));
+    [-.07,.07].forEach(o=>box(M,'#5a3d2c',xx+o,ty,-.25,.025,.03,.64)); B.xylo=[]; for(let i=0;i<8;i++){ const z=.03-i*dz, L=.27-i*.016; kitTo('hbar'); box(I,HXY[i],0,0,0,L,.014,.055); put(I,'cyl','#fbf6ec',-L/2+.025,.0145,0,.006,.002,.006); put(I,'cyl','#fbf6ec',L/2-.025,.0145,0,.006,.002,.006); kitTo('hschool');
+      const M0=hiTf(M,xx,ty+.03,z), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); m.userData.M0=M0; B.xylo.push({m,M0,z,t:9}); hiHit(B,'xylo',L,.02,dz*.95,hiTf(M,xx,ty+.04,z),{i}); }   // (each bar's tap no taller than the bar, or the one before it, seen from the side, takes taps meant for it)
+    delete KITS.hbar; B.mallet=[0,1].map(s=>{ kitTo('hbar'); hiRod(I,'#d9b45a',V(0,0,0),V(0,0,.2),.005); put(I,'sph',s?'#e9584a':'#3f7fd0',0,0,.21,.016,.016,.016); kitTo('hschool');
+      const M0=hiTf(M,xx+.11-s*.02,ty+.05,z0-.08-s*.04,-.2+s*.1,-.2), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); return {m,M0,t:9,i:0}; }); delete KITS.hbar; }
+  /* ---- the science table: the model rocket on its pad, a microscope, cress growing, a bean in a jar, a magnifier, a magnet ---- */
+  { const [x0,x1,z0,z1]=SCH.SCI, cx=(x0+x1)/2, cz=(z0+z1)/2, ty=F+.5; box(M,'#d9cfb8',cx,ty-.03,cz,x1-x0,.03,z1-z0); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#5c8fb0',cx+a*(x1-x0-.06)/2,F,cz+b*(z1-z0-.06)/2,.03,ty-F-.03,.03));
+    box(M,'#5c8fb0',cx,F+.12,cz,x1-x0-.06,.02,z1-z0-.06); box(M,'#3a3d40',1.62,ty,-.42,.14,.02,.14); hiRod(M,'#9aa0a3',V(1.62,ty+.02,-.38),V(1.62,ty+.34,-.38),.003);
+    { const mx=1.66, mz=.0; box(M,'#2f3336',mx,ty,mz,.1,.02,.08); hiRod(M,'#2f3336',V(mx+.03,ty+.02,mz),V(mx+.03,ty+.17,mz),.012); hiRod(M,'#e9e6dc',V(mx,ty+.2,mz),V(mx-.03,ty+.1,mz),.02); box(M,'#9aa0a3',mx-.02,ty+.07,mz,.06,.008,.06); }
+    [[1.52,.24],[1.62,.3],[1.74,.22]].forEach(([x,z],k)=>{ cyl(M,'#c8664b',x,ty,z,.035,.05); put(M,'blob','#86c25a',x,ty+.06,z,.03,.02,.03,k); });
+    cyl(M,'#dfe9ea',1.5,ty,.0,.03,.1); put(M,'sph','#c9a77a',1.5,ty+.04,.0,.015,.012,.012); hiRod(M,'#5cae6e',V(1.5,ty+.04,.0),V(1.505,ty+.1,.0),.003);
+    hiTorus(hiTf(M,1.56,ty+.008,-.15,0,Math.PI/2,0),'#2a2624',.035,.006,16); hiRod(M,'#2a2624',V(1.6,ty+.008,-.13),V(1.66,ty+.008,-.1),.008);
+    box(M,'#d9483b',1.75,ty,-.18,.08,.015,.03); box(M,'#f4f0e8',1.79,ty+.0001,-.18,.02,.0152,.03);
+    B.rkAt=[1.62,ty+.02,-.42]; B.rk={st:'pad',t:0,y:0,x:0,sw:0}; }
+  /* ---- Nibbles' cupboard and cage: a tray, bars, a little house, his bowl and bottle; the wheel and Nibbles himself are their own ---- */
+  { const [hx,hz]=SCH.HAM, ty=F+.46; box(M,'#c99a62',hx,F,hz,.48,ty-F,.46); [-1,1].forEach(s=>{ box(M,'#d1a46c',hx-.244,F+.04,hz+s*.11,.008,ty-F-.08,.2); box(M,'#d9b45a',hx-.25,F+.26,hz+s*.03,.01,.04,.01); });
+    box(M,'#3f7fd0',hx,ty,hz,.28,.045,.46); box(M,'#f3e3b8',hx,ty+.045,hz,.26,.008,.44);
+    for(let k=0;k<=12;k++){ const z=hz-.22+k*.44/12; [-1,1].forEach(s=>box(M,'#c9ccca',hx+s*.135,ty+.045,z,.004,.24,.004)); } for(let k=0;k<=6;k++){ const x=hx-.13+k*.26/6; [-1,1].forEach(s=>box(M,'#c9ccca',x,ty+.045,hz+s*.225,.004,.24,.004)); }
+    box(M,'#c9ccca',hx,ty+.285,hz,.28,.006,.46); [-1,1].forEach(s=>box(M,'#c9ccca',hx,ty+.285,hz+s*.1,.28,.012,.006));
+    box(M,'#b07a52',hx+.06,ty+.053,hz+.13,.1,.07,.1); put(M,'prism','#d9483b',hx+.06,ty+.123,hz+.13,.12,.05,.12); cyl(M,'#f08cae',hx-.07,ty+.053,hz+.16,.03,.015);
+    cyl(M,'#dfe9ea',hx+.12,ty+.1,hz-.02,.018,.12); hiRod(M,'#9aa0a3',V(hx+.12,ty+.1,hz-.02),V(hx+.1,ty+.07,hz-.02),.003);
+    hiRod(M,'#9aa0a3',V(hx-.04,ty+.05,hz-.13),V(hx-.04,ty+.14,hz-.13),.006); B.hamAt={x:hx,y:ty+.05,z:hz}; B.ham={st:'run',t:0,a:0,v:9,look:0,seen:0,px:hx,pz:hz-.13,rev:0};
+    hiHit(B,'hamster',.3,.3,.48,hiTf(M,hx,ty+.15,hz)); }
+  /* ---- the bell rope by the door, up through the ceiling to the bell on the roof ---- */
+  { const rx=1.22, rz=-.12; box(M,'#5a3d2c',rx,top-.04,rz,.1,.04,.1); put(M,'cyl','#3a3d40',rx,top-.07,rz,.035,.02,.035,0,0,Math.PI/2); B.ropeAt=[rx,rz]; B.rope={t:9,n:0}; hiHit(B,'rope',.12,1.3,.12,hiTf(M,rx,1.75,rz)); }
+  /* ---- coat pegs by the door, the children's bags on them; the paintings and posters on the walls ---- */
+  [[-.62,'#3f7fd0'],[-.48,'#e9873a'],[.5,'#5cae6e'],[.64,'#f2c14e']].forEach(([x,c])=>{ const P_=sub(M,x,1.18,iz-.02,Math.PI); box(P_,'#b5885a',0,0,.02,.04,.04,.06); box(P_,c,0,-.26,.05,.12,.2,.06); box(P_,tint(c,-.3),0,-.08,.05,.02,.1,.01); });
+  box(M,'#b5885a',0,1.16,iz-.03,1.6,.06,.03);
+  { const pt=ciCanvas(512,256,paintings), ps=hiCanvas(768,512,hiPosters), Q=[], Qp=[], q=(Mw,x,y,i,s=.24)=>{ Q.push({M:Mw,x,y,z:.005,w:s,h:s*.88,u0:(i%4)/4+.004,u1:(i%4+1)/4-.004,v0:1-(Math.floor(i/4)+1)/2+.008,v1:1-Math.floor(i/4)/2-.008}); };
+    const L_=sub(M,-ix+.02,0,0,Math.PI/2), R_=sub(M,ix-.02,0,0,-Math.PI/2), F_=sub(M,0,0,iz-.02,Math.PI);
+    q(L_,-.72,1.55,0); q(L_,-.72,1.18,3,.2); q(L_,.62,1.62,7); q(L_,.92,1.3,2,.2); q(R_,-.75,1.55,4); q(R_,-.74,1.16,1,.2); q(R_,.66,1.55,6); q(F_,-.25,2.05,5,.2); q(F_,.25,2.05,0,.2);
+    hiAdd(B,new T.Mesh(ciQuads(Q),hiBoard(SU,pt,.3))); Qp.push({M:R_,x:-.85,y:2.0,z:.005,w:.42,h:.28,u0:.5,u1:1,v0:0,v1:1},{M:L_,x:.0,y:2.08,z:.005,w:.36,h:.24,u0:0,u1:.5,v0:0,v1:1});
+    hiAdd(B,new T.Mesh(ciQuads(Qp),hiBoard(SU,ps.tx,.3))); try{ renderer.initTexture&&renderer.initTexture(pt); }catch(e){} }
+  kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hschool'),mat)); delete KITS.hschool;
+  /* ---- what moves: the chairs, the duster, the globe, the rocket and its parachute, the wheel and Nibbles, the bell rope, the clock's hands ---- */
+  B.chairs=B.seats.map((q,k)=>{ kitTo('hchair'); const c=HXY[(k*5+1)%8]; box(I,c,0,.24,0,.27,.025,.24); box(I,c,0,.27,.11,.27,.18,.02); for(const sx of [-1,1]) for(const sz of [-1,1]) box(I,'#9aa0a3',sx*.115,0,sz*.1,.016,.245,.016); kitTo();
+    const m=hiAdd(B,new T.Mesh(kgeo('hchair'),mat)); return {m,q,z:.17,up:0}; }); delete KITS.hchair;
+  kitTo('hpart'); box(I,'#b07a52',0,0,-.02,.13,.035,.045); box(I,'#d9d4c8',0,-.008,-.02,.13,.01,.045); kitTo(); B.duster=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.dusterM0=hiTf(M,.55,SCH.BD[2]-.007,-iz+.06); B.duster.matrix.copy(B.dusterM0); delete KITS.hpart;
+  hiHit(B,'duster',.2,.08,.1,hiTf(M,.55,SCH.BD[2]-.01,-iz+.07));
+  B.globeM=hiAdd(B,new T.Mesh(new T.SphereGeometry(.09,28,18),hiBoard(SU,hiCanvas(512,256,hiGlobeTex).tx,.25)));
+  kitTo('hpart'); cyl(I,'#f4f0e8',0,0,0,.02,.2); put(I,'cone','#ef8a3c',0,.24,0,.02,.07,.02); cyl(I,'#ef8a3c',0,.13,0,.0205,.02); for(let k=0;k<3;k++){ const a=k/3*TAU; box(hiTf(I,0,0,0,a),'#ef8a3c',.03,0,0,.04,.06,.004); } kitTo();
+  B.rocket=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart;
+  kitTo('hpart'); kadd(new T.SphereGeometry(.16,16,6,0,TAU,0,Math.PI/2).toNonIndexed(),'#ef8a3c',I); kadd(hiInv(new T.SphereGeometry(.157,16,6,0,TAU,0,Math.PI/2).toNonIndexed()),'#fbf6ec',I);   // (its inside, seen from below)
+  for(let k=0;k<6;k++){ const a=k/6*TAU; hiRod(I,'#f4f0e8',V(Math.cos(a)*.15,.02,Math.sin(a)*.15),V(0,-.24,0),.0015); } kitTo(); B.chute=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.chute.visible=false; delete KITS.hpart;
+  hiHit(B,'rocket',.12,.36,.12,hiTf(M,B.rkAt[0],B.rkAt[1]+.15,B.rkAt[2]));
+  kitTo('hpart'); hiTorus(I,'#9aa0a3',.075,.005,22); for(let k=0;k<12;k++){ const a=k/12*TAU; box(I,'#9aa0a3',Math.cos(a)*.075,Math.sin(a)*.075-.0015,0,.004,.003,.05); } for(let k=0;k<4;k++) box(hiTf(I,0,0,0,0,0,k*Math.PI/4),'#9aa0a3',0,-.002,-.024,.15,.004,.004); kitTo();
+  B.wheel=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.wheelM0=hiTf(M,B.hamAt.x-.04,B.hamAt.y+.09,B.hamAt.z-.13,Math.PI/2); delete KITS.hpart;
+  { const P_=part(), C1='#d9a066', C2='#fbf2e2'; P_.put(FG.sph,C1,0,.035,0,.045,.035,.055); P_.put(FG.sph,C2,0,.025,.008,.036,.024,.044); P_.put(FG.sph,'#f2b8a0',-.02,.008,.035,.01,.008,.012); P_.put(FG.sph,'#f2b8a0',.02,.008,.035,.01,.008,.012);
+    const hb=P_.mesh(); const H_=part(); H_.put(FG.sph,C1,0,0,0,.032,.03,.034); H_.put(FG.sph,C2,0,-.008,.018,.022,.016,.018); [-1,1].forEach(s=>{ H_.put(FG.sph,'#e8a08a',s*.022,.025,-.004,.012,.013,.006); H_.put(FG.sph,'#1c1714',s*.014,.008,.028,.006,.007,.005); });
+    H_.put(FG.sph,'#f08cae',0,-.002,.036,.006,.005,.005); const hh=H_.mesh(0,0,0); hh.position.set(0,.045,.05); hb.add(hh); const hg=new T.Group(); hg.add(hb); hiFigure(B,hg,mat); B.hamG=hg; B.hamHead=hh; B.hamBody=hb; }
+  B.ropeM=(()=>{ kitTo('hpart'); hiRod(I,'#d9c49a',V(0,0,0),V(0,top-1.25,0),.006); for(let k=0;k<6;k++) cyl(I,['#d9483b','#fbf6ec','#3f7fd0'][k%3],0,-.2+k*.035,0,.024,.035); kitTo(); const m=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart; return m; })();
+  B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.008,0,.01,i?.095:.065,.004); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),mat)); }); delete KITS.hhand;
+  /* ---- the inside of the door, which swings out with it (the door itself is the street's: see schoolHouse) ---- */
+  { kitTo('hpart'); box(I,'#e9a23b',.37,0,-.03,.74,1.6,.008); box(I,'#f2bd63',.37,.93,-.037,.5,.5,.004); box(I,'#f2bd63',.37,.225,-.037,.5,.45,.004); put(I,'sph','#5a4a3a',.66,.82,-.045,.025,.025,.025); kitTo();
+    const m=new T.Mesh(kgeo('hpart'),mat); delete KITS.hpart; m.frustumCulled=false; CIV.door.add(m); m.userData.noInk=true; m.userData.col=mat; m.userData.inkM=GINK; m.userData.shdM=mat; INK.push(m); B.inLeaf=m; }
+  /* ---- Ms Kavanagh: a rust cardigan, auburn curls, glasses on ---- */
+  { const f=figure({shirt:'#c8643f',crew:true,under:'#f3efe6',pants:'#3d4a5c',shoes:'#6b4a36',skin:'#f1c9a5',hair:'curly',hairC:'#8a4a2a',glasses:'#5a3d2c',mouth:'smile',cheeks:true,build:.9,arm:.92,head:[.146,.176,.158,.17,.026]});
+    hiFigure(B,f,mat); B.teach={f,d:f.userData,x:SCH.TCH[0],z:SCH.TCH[1],a:.35,ph:0,wave:0,wt:0,point:0}; hiHit(B,'teacher',.45,1.4,.45,hiTf(M,SCH.TCH[0],F+.7,SCH.TCH[1])); }
+  /* ---- the six of them at their desks, in lessons: the same children as in the yard ---- */
+  B.kids=CIV.kids.map((k,i)=>{ const f=hiTwin(k.g,mat); hiFigure(B,f,mat); f.visible=false; const q=B.seats[i]; hiHit(B,'kid',.3,.5,.3,hiTf(M,q.x,F+.4,q.z+.27),{i}); return {f,d:f.userData,q,i,ph:i*1.3,hand:0,ht:6+i*3.7,look:0,wave:0}; });
+  B.L=[hiP(M,-.85,top-.12,0),hiP(M,.85,top-.12,0),hiP(M,-1.5,1.4,-.7),hiP(M,1.5,1.6,.1),hiP(M,0,1.4,iz+1.0)];
+  hiHit(B,'door',SCH.dw,SCH.dh-F,.3,hiTf(M,0,(SCH.dh+F)/2,iz+.05));
+  B.front=hiHit(B,'front',4.2,3.4,1.6,hiTf(M,0,1.7,1.2)); B.picks.pop();
+  return B; }
+
+/* built after the town and the children (the classroom's children are the yard's), a room at a time; then drawn the once, out
+   of sight, as Earth is made ready, so nothing about them is new when you go in */
+async function buildCivIn(gap){ hiBookLoad(); hiBuildHall(); await gap(); hiBuildSchool(); await gap();
+  for(const B of [HSI.hall,HSI.school]){ B.ap=hiXZ(B.M,...B.WAY[0]); B.D=B.id==='hall'?1.4:1.2; B.U.uGU.value.copy(B.up); for(let i=0;i<5;i++) B.U.uGL.value[i].set(B.L[i].x,B.L[i].y,B.L[i].z,0); }
+  KU.uGU.value.copy(HSI.hall.up); $('#crLabels',el).appendChild(hiTag); HSI.ok=true; hiWarmShow(true); hiHallStep(.016,0); hiSchoolStep(.016,0); baked=false; }
+function hiWarmShow(on){ const H=HSI.hall, Sc=HSI.school; H.g.visible=H.kg.visible=Sc.g.visible=on; hiInLeaves(H,on); hiInLeaves(Sc,on); Sc.kids.forEach(k=>{ k.f.visible=on; }); }
+
+/* ---------- where you are, and the way over ---------- */
+const hiBusy=()=>!HSI.ok||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||CL.st!=='idle'||CL.k!=='home'||PC.on;
+function hiYou(B){ const P=player; hiV1.copy(P.u).multiplyScalar(R+P.h).applyMatrix4(B.Mi); hiV2.copy(P.f).transformDirection(B.Mi); return {x:hiV1.x,z:hiV1.z,fx:hiV2.x,fz:hiV2.z}; }
+function hiSet(s){ if(s==='out'&&HSI.st==='exit') ESCQ=performance.now(); HSI.st=s; HSI.on=s!=='out'&&s!=='go'; HSI.t=0; el.classList.toggle('inciv',HSI.on); el.classList.toggle('incivk',s==='clock');
+  const B=HSI[HSI.b]; hiOut.hidden=s!=='in'; hiDownB.hidden=s!=='clock'; if(B) hiOut.textContent=B.id==='hall'?'Leave the town hall':'Leave the school';
+  if(HSI.cur||HSI.on){ HSI.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); if(HSI.on) hov=null; } hiHintSet(); }   // (what the cursor said out in the street, Say hello and the like, goes as you go in)
+/* the tag, a click, E: in, from right by the door; from further off you walk over first (round whatever is in the way) */
+function hiGo(id){ const B=HSI[id]; if(!B||HSI.st!=='out'||hiBusy()) return false; const P=player;
+  if(Math.hypot(P.x-B.ap[0],P.z-B.ap[1])<1.3){ began(); return hiEnter(id); }
+  const path=navPath(P.x,P.z,B.ap[0],B.ap[1],1.4); if(!path) return false;
+  closeTalk(); TALK.goal=null; C.guide=null; P.path=path.concat([B.ap.slice()]); P.tgt=null; P.stuck=0; HSI.b=id; HSI.go=0; hiSet('go'); began(); A.tick(); return true; }
+function hiGoing(dt){ const P=player, B=HSI[HSI.b]; HSI.go+=dt; const d=Math.hypot(P.x-B.ap[0],P.z-B.ap[1]);
+  if(hiBusy()||TALK.goal||HSI.go>25){ hiSet('out'); return; }
+  if(d<.4||(!P.path&&!P.tgt&&d<1.7)){ P.path=null; P.tgt=null; hiSet('out'); hiEnter(B.id); return; }
+  if(!P.path&&!P.tgt) hiSet('out'); }
+/* out in the street: walking into a doorway takes you in */
+function hiOutside(){ const P=player; if(hiBusy()||TALK.goal||P.path||P.speed<.35) return;
+  for(const B of [HSI.hall,HSI.school]){ const y=hiYou(B), D=B.D; if(Math.abs(y.x)<(B.id==='hall'?.6:.45)&&y.z>D+.3&&y.z<D+1.4&&y.fz<-.55){ hiEnter(B.id); return; } } }
+
+/* ---------- the way in and the way out ---------- */
+function hiEye(B,o,lean=0){ if(B.id==='hall'&&(HSI.st==='clock')) return hiP(B.M,...HH.K.eye,o); const p=cport();
+  return hiP(B.M,B.S[0]-Math.sin(HSI.yaw)*lean*.5,B.F+B.EY+(p?.04:0)-lean*.03,B.S[1]-Math.cos(HSI.yaw)*lean*.5,o); }
+function hiDir(B,yaw,pitch,o){ return hiD(B.M,-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch),o); }
+/* the floor under your feet as you go: inside, up the step, or on the pavement */
+function hiFloorY(B,x,z){ if(B.id==='hall'){ const f=1.4; if(z<=f+.1) return HH.FL; if(z<=f+.32) return .42; if(z<=f+.54) return .28; if(z<=f+.76) return .14; }
+  else { if(z<=1.29) return SCH.FL; if(z<=1.54) return .16; }
+  const [mx,mz]=hiXZ(B.M,x,z); return at(mx,mz,hiV2).multiplyScalar(R+standH(mx,mz)).applyMatrix4(B.Mi).y; }
+/* you (the figure) walking in or out, in the room's frame */
+function hiFig(B,dt,t,x,z,sp,face){ const [ox,oz]=HSI.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); HSI.fig=[x,z];
+  const want=face!=null?face:dd>1e-4?Math.atan2(dx,dz):null; if(want!=null) HSI.fh+=angWrap(want-HSI.fh)*Math.min(1,dt*9);
+  const y=hiFloorY(B,x,z); HSI.fy=HSI.fy==null?y:damp(HSI.fy,y,16,dt); hiP(B.M,x,HSI.fy,z,hiV1); hiD(B.M,Math.sin(HSI.fh),0,Math.cos(HSI.fh),hiV3);
+  sT.crossVectors(B.up,hiV3).normalize(); Mf.makeBasis(sT,B.up,hiV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(hiV1);
+  HSI.fph+=dt*sp*4.6; animate(me,HSI.fph,clamp(sp/2.7,0,1),0,t,9); HSI.fstep+=sp*dt; if(HSI.fstep>.62){ HSI.fstep=0; if(z<B.D-.05) A.floorStep(.04); else A.step(1); } }
+function hiDoor(B,open){ if(B.door.want===(open?1:0)) return; B.door.want=open?1:0; A.civDoor(open,B.id==='hall'); }
+function hiEnter(id){ const B=HSI[id]; if(!B||HSI.on||hiBusy()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  HSI.b=id; const y=hiYou(B); HSI.fig=[y.x,y.z]; HSI.fh=Math.atan2(y.fx,y.fz); HSI.fy=null; HSI.fph=P.ph; HSI.fstep=0; HSI.yaw=cport()?B.yawP:B.yaw0; HSI.pitch=B.p0; HSI.lean=0; HSI.dragT=9; HSI.out=0; HSI.turn=null; HSI.used=false;
+  const E_=hiEye(B,new T.Vector3()), D=B.D; HSI.wIn=[HSI.fig.slice(),...B.WAY,B.S.slice()];
+  HSI.curve=new T.CatmullRomCurve3([st.camP.clone(),hiP(B.M,0,B.F+1.75,D+2.6),hiP(B.M,0,B.F+B.EY+.15,D+.85),hiP(B.M,0,B.F+B.EY+.06,D-.2),E_],false,'centripetal');
+  HSI.lcurve=new T.CatmullRomCurve3([st.camL.clone(),hiP(B.M,0,B.F+1.3,D-.5),hiP(B.M,0,B.F+1.25,D-1.4),E_.clone().add(hiDir(B,HSI.yaw,HSI.pitch,hiV3))],false,'centripetal');
+  HSI.u0.copy(stUp); HSI.k=1; me.visible=true; hiShow(B,true); B.opened=B.shut=false; hiSet('enter'); HSI.log.push({in:id,t:+S.t.toFixed(2)}); return true; }
+function hiWayIn(dt,t){ const B=HSI[HSI.b], c=HSI.t+=dt;
+  /* you walk up the step and in to where you will stand, the camera behind you down to eye height, through the doorway and on
+     into your own eyes (you fade as it comes up behind you); the door opens as you reach it and shuts behind you */
+  const W=HSI.wIn, wk=sstep(0,2.5,c), [x,z,L]=cpoly(W,wk), sp=L*6*wk*(1-wk)/2.5;
+  const s=E.io(clamp(c/(HI_IN-.1),0,1)); HSI.curve.getPointAt(s,HSI.cp); HSI.lcurve.getPointAt(Math.min(1,s*1.04),HSI.cl); HSI.cu.copy(HSI.u0).lerp(B.up,sstep(.2,.8,s)).normalize();
+  hiFig(B,dt,t,x,z,sp); if(me.visible&&(c>1.2&&me.position.distanceTo(HSI.cp)<.85||c>2.6)) me.visible=false;   // (on in your own eyes: your steps go on)
+  if(c>.3&&!B.opened){ B.opened=true; hiDoor(B,true); } if(c>2.75&&!B.shut){ B.shut=true; hiDoor(B,false); }
+  if(c>=HI_IN){ HSI.wIn=null; HSI.curve=HSI.lcurve=null; hiSet('in'); hiArrive(B); } }
+/* inside: whoever is there looks up, the children turn round, the lights come on if it is dark */
+function hiArrive(B){ if(B.clerk){ B.clerk.wave=1.8; B.clerk.look=4; } if(B.teach){ B.teach.wave=1.8; B.teach.look=4; } if(B.kids) B.kids.forEach((k,i)=>{ k.look=2.6+i*.15; if(i>2) k.wave=1.4; });
+  if(B.id==='school'&&SKY.night>.5){ B.tubes=0; B.flick=0; } }
+function hiLeave(then){ if(HSI.st!=='in') return false; const B=HSI[HSI.b], P=player, [ax,az]=hiXZ(B.M,...B.OUT); hiPanels(null); if(TALK.p) closeTalk();
+  /* you come out onto the step, facing the street, and the walking camera takes over just where this one ends */
+  P.x=ax; P.z=az; P.u.copy(at(ax,az)); tang(P.u,hiP(B.M,B.OUT[0],0,B.OUT[1]+9,hiV1),P.f); P.h=standH(ax,az); P.speed=0; P.path=null; P.tgt=null;
+  const D=rigLimit(ax,az,P.u,P.f,C.PITCH,C.D0()), head=hiV1.copy(P.u).multiplyScalar(R+P.h+C.HEAD); HSI.endP=new T.Vector3(); HSI.endL=new T.Vector3(); rigPose(head,P.u,P.f,C.PITCH,D,HSI.endP,HSI.endL); HSI.endD=D;
+  HSI.y0=HSI.yaw; HSI.p0x=HSI.pitch; HSI.curve=null; HSI.fig=[B.S[0],B.S[1]+.1]; HSI.fh=0; HSI.fy=null; HSI.then=then||null; B.opened=B.shut=false; hiSet('exit'); return true; }
+function hiWayOut(dt,t){ const B=HSI[HSI.b], c=HSI.t+=dt, P=player;
+  /* you turn to the door; it opens; you are seen walking out ahead of the camera, which comes after you as far as the step */
+  if(c<.6){ const k=E.io(c/.6), to=HSI.y0+angWrap(Math.PI-HSI.y0); HSI.yaw=lerp(HSI.y0,to,k); HSI.pitch=lerp(HSI.p0x,-.06,k); hiEye(B,HSI.cp); hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); }
+  else { if(!HSI.curve){ HSI.curve=new T.CatmullRomCurve3([HSI.cp.clone(),hiP(B.M,0,B.F+B.EY+.12,B.D-.15),HSI.endP.clone()],false,'centripetal'); HSI.lc0=HSI.cl.clone(); }
+    const s=E.io(clamp((c-.6)/(HI_OUT-.65),0,1)); HSI.curve.getPointAt(s,HSI.cp); hiV4.copy(me.position).addScaledVector(B.up,1.25);
+    HSI.cl.copy(HSI.lc0).lerp(hiV4,sstep(0,.25,s)).lerp(HSI.endL,sstep(.45,1,s)); HSI.cu.copy(B.up).lerp(P.u,s).normalize(); }
+  if(c>.3&&!B.opened){ B.opened=true; hiDoor(B,true); } if(c>HI_OUT-.35&&!B.shut){ B.shut=true; hiDoor(B,false); }
+  const Wp=[[B.S[0],B.S[1]+.1],[0,B.D-.45],[0,B.D+.4],B.OUT], u=clamp((c-.25)/2.2,0,1), wk=u*u*(3-2*u), [x,z,L]=cpoly(Wp,wk), sp=L*6*u*(1-u)/2.2;
+  if(c>.25){ me.visible=true; hiFig(B,dt,t,x,z,sp); }
+  if(c>=HI_OUT){ const [mx,mz]=hiXZ(B.M,...B.OUT); P.x=mx; P.z=mz; P.u.copy(at(mx,mz)); tang(P.u,hiP(B.M,B.OUT[0],0,B.OUT[1]+9,hiV1),P.f); P.h=standH(mx,mz); P.ph=HSI.fph;
+    C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.dist=HSI.endD; C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dragT=9; C.tk=0; stUp.copy(P.u);
+    HSI.curve=null; const then=HSI.then; hiSet('out'); HSI.cp.copy(HSI.endP); HSI.cl.copy(HSI.endL); HSI.cu.copy(P.u); me.visible=true; hiShow(B,false); HSI.then=null;
+    HSI.log.push({out:B.id,t:+S.t.toFixed(2)}); if(then) hiWalkTo(then); } }
+function hiShow(B,on){ B.g.visible=on; if(B.kg) B.kg.visible=false; hiInLeaves(B,on); }
+/* the doors' inside faces go with their rooms: out in the street they are not drawn, or a camera that has backed into the doorway
+   (the town's own walls there fade from it) would look into a door that does not */
+function hiInLeaves(B,on){ if(B.leaves) for(const L of B.leaves) L.mi.visible=on; if(B.inLeaf) B.inLeaf.visible=on; }
+/* Walk there, from the town on the table: once you are out, the way over to it, found on the town's walking grid */
+function hiWalkTo(q){ const P=player, path=navPath(P.x,P.z,q.x,q.z,q.r); HSI.walk={id:q.id,x:q.x,z:q.z,r:q.r,path:!!path};
+  if(!path) return false; P.path=path; P.tgt=null; P.stuck=0; TALK.goal=null; C.guide=null; began(); A.tick(); return true; }
+
+/* ---------- the clock room: up the stair and through the hatch, and down again. At the hatch the picture dips dark a moment
+   (the stair goes on up through the roof, where there is nothing to see) and you come up through the trap in its floor ---------- */
+function hiUp(){ if(HSI.st!=='in'||HSI.b!=='hall'||TALK.p) return false; hiPanels(null); HSI.y0=HSI.yaw; HSI.p0x=HSI.pitch; hiSet('up'); A.tick(); HSI.used=true; return true; }
+function hiDown(){ if(HSI.st!=='clock') return false; hiPanels(null); HSI.y0=HSI.yaw; HSI.p0x=HSI.pitch; hiSet('down'); A.tick(); return true; }
+function hiSpiral(B,u,o){ const S_=B.stair, a=S_.a0+u*S_.da*S_.n*.9, r=S_.r*.5; return o.set(S_.x+Math.cos(a)*r,B.F+B.EY+u*(HH.CH-B.F-B.EY+.2),S_.z-Math.sin(a)*r); }
+function hiClimb(B,c,dir){ const S_=B.stair, e=hiV5.set(B.S[0],B.F+B.EY,B.S[1]), toStair=Math.atan2(-(S_.x-B.S[0]),-(S_.z-B.S[1]));
+  /* c from 0 (standing in the hall) to 1.65 (at the hatch): a turn to the stair, over to it, and round and up */
+  if(c<.45){ const k=E.io(c/.45); HSI.yaw=HSI.y0+angWrap(toStair-HSI.y0)*k; HSI.pitch=lerp(HSI.p0x,.12,k); hiP(B.M,e.x,e.y,e.z,HSI.cp); }
+  else { const u=clamp((c-.45)/1.2,0,1), p=hiSpiral(B,u,hiV4), k=sstep(0,.3,u), a=S_.a0+u*S_.da*S_.n*.9;
+    hiP(B.M,lerp(e.x,p.x,k),lerp(e.y,p.y,k),lerp(e.z,p.z,k),HSI.cp); HSI.yaw=toStair+angWrap(a-toStair)*sstep(.1,.45,u); HSI.pitch=lerp(.12,.55,sstep(.4,1,u));
+    HSI.fstep+=.016; if(Math.floor(u*14)!==HSI.stp){ HSI.stp=Math.floor(u*14); A.floorStep(.04); } }
+  hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); }
+function hiWayUp(dt){ const B=HSI.hall, c=HSI.t+=dt, K=HH.K; hiDip(sstep(1.2,1.6,c)*(1-sstep(1.75,2.15,c)));
+  if(c<1.68) hiClimb(B,c);
+  else { if(B.g.visible){ B.g.visible=false; B.kg.visible=true; } const u=sstep(1.68,HI_UP,c); hiP(B.M,K.eye[0],K.eye[1]-.4*(1-u),K.eye[2],HSI.cp); HSI.yaw=K.yaw0; HSI.pitch=lerp(.6,K.p0,u);
+    hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); }
+  if(c>=HI_UP){ hiDip(0); hiSet('clock'); HSI.yaw=K.yaw0; HSI.pitch=K.p0; } }
+function hiWayDown(dt){ const B=HSI.hall, c=HSI.t+=dt, K=HH.K; hiDip(sstep(0,.35,c)*(1-sstep(.55,.9,c)));
+  if(c<.45){ hiP(B.M,K.eye[0],K.eye[1]-.4*sstep(0,.45,c),K.eye[2],HSI.cp); HSI.pitch=lerp(HSI.p0x,-.4,sstep(0,.45,c)); hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); }
+  else { if(B.kg.visible){ B.kg.visible=false; B.g.visible=true; HSI.y0=B.yaw0; HSI.p0x=B.p0; } const u=1-clamp((c-.45)/1.3,0,1), S_=B.stair, a=S_.a0+u*S_.da*S_.n*.9;
+    if(u>0){ const p=hiSpiral(B,u,hiV4), e=hiV5.set(B.S[0],B.F+B.EY,B.S[1]), k=sstep(0,.3,u); hiP(B.M,lerp(e.x,p.x,k),lerp(e.y,p.y,k),lerp(e.z,p.z,k),HSI.cp); HSI.yaw=a+Math.PI; HSI.pitch=-.35*sstep(.2,1,u);
+      if(Math.floor(u*14)!==HSI.stp){ HSI.stp=Math.floor(u*14); A.floorStep(.04); } }
+    else { const k=E.io(clamp((c-1.75)/(HI_UP-1.75),0,1)), a1=S_.a0+Math.PI; HSI.yaw=a1+angWrap(B.yaw0-a1)*k; HSI.pitch=lerp(-.0,B.p0,k); hiEye(B,HSI.cp); }
+    hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); }
+  if(c>=HI_UP){ hiDip(0); hiSet('in'); } }
+function hiDip(k){ const v=k.toFixed(3); if(hiDipEl.style.opacity!==v) hiDipEl.style.opacity=v; }
+
+/* ---------- inside: drag, or the arrows (A, D), to look round, all the way round; W leans in, or takes you out if you face the
+   door; S takes you out (in the clock room, back down). Talking, the view turns to whoever is talking ---------- */
+function hiInside(dt){ const B=HSI[HSI.b], clk=HSI.st==='clock', kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0);
+  if(kx){ HSI.yaw+=kx*1.6*dt; HSI.dragT=0; HSI.look++; }
+  const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown'), toDoor=!clk&&Math.abs(angWrap(HSI.yaw-Math.PI))<.7;
+  if(!HSI.panel&&!TALK.p&&(bk||fw&&toDoor)){ HSI.out+=dt; if(HSI.out>.3){ HSI.out=0; if(clk) hiDown(); else hiLeave(); return; } } else HSI.out=0;
+  if(HSI.turn){ const q=HSI.turn; q.t+=dt; if(HSI.look!==q.look) HSI.turn=null; else { const k=E.io(clamp(q.t/.9,0,1)); HSI.yaw=q.y0+angWrap(q.y1-q.y0)*k; HSI.pitch=lerp(q.p0,q.p1,k); } }
+  HSI.lean=damp(HSI.lean,fw&&!toDoor&&!clk?1:0,1.6,dt); HSI.dragT+=dt;
+  hiEye(B,HSI.cp,HSI.lean); hiDir(B,HSI.yaw,HSI.pitch,hiV1).add(HSI.cp); HSI.cl.copy(hiV1); HSI.cu.copy(B.up); me.visible=false; }
+
+/* ---------- each room's light: its own lamps, the day at its windows (and at the door while it is open), warmer by night ---------- */
+function hiLights(B){ const U=B.U, nt=SKY.night, day=1-nt, ov=SKY.over||0, L=U.uGL.value, pane=U.uGPane.value, dk=E.io(B.door.a);
+  pane.set(lerp(.86,.14,nt),lerp(.91,.17,nt),lerp(.93,.26,nt)); U.uGAux.value.set(0,nt); U.uGDay.value=day*(1-.35*ov)*(B.id==='hall'?.75:.85);
+  if(B.id==='hall'){ L[0].w=L[1].w=1.15*(1+.3*nt); L[2].w=.45*(1+.4*nt); L[3].w=.22; L[4].w=day*(1-.5*ov)*.9*dk; U.uGT.value.set(1,1,1,1);
+    const KL=KU.uGL.value; KL[0].set(B.KL[0].x,B.KL[0].y,B.KL[0].z,.85*(1+.3*nt)); KL[1].set(B.KL[1].x,B.KL[1].y,B.KL[1].z,day*.7); KU.uGT.value.set(1,1,1,1); KU.uGDay.value=day*(1-.35*ov)*.5;
+    KU.uGPane.value.set(lerp(1.02,1.32,nt),lerp(.99,1.04,nt),lerp(.9,.58,nt)); KU.uGAux.value.set(0,nt); }
+  else { const tb=B.tubes??1; L[0].w=L[1].w=1.25*tb*(1+.2*nt); L[2].w=L[3].w=.28*tb; L[4].w=day*(1-.5*ov)*dk; U.uGT.value.set(tb,tb,tb,1); } }
+/* the doors: the hall's leaves swing in; the school's door is the one the children use (see the school), held open for you */
+function hiDoors(dt){ for(const B of [HSI.hall,HSI.school]){ const d=B.door, a0=d.a;
+    if(B.id==='hall'){ d.a=damp(d.a,d.want,d.want>d.a?2.6:2.2,dt); if(Math.abs(d.a-a0)>1e-5) for(const L of B.leaves){ L.g.matrix.copy(L.H0).multiply(hiM.makeRotationY(-L.s*1.5*E.io(d.a))); } }
+    else { if(d.want) CIV.doorT=Math.max(CIV.doorT,.25); d.a=CIV.doorK; } } }
+function hiHands(B){ const h=SKY.h, th=(h%12)/12*TAU, tm=(h%1)*TAU; B.handM[0].matrix.copy(B.clockFr).multiply(hiM.makeTranslation(0,0,.03)).multiply(hiM2.makeRotationZ(-th));
+  B.handM[1].matrix.copy(B.clockFr).multiply(hiM.makeTranslation(0,0,.035)).multiply(hiM2.makeRotationZ(-tm)); }
+/* a person standing still: breathing, a wave, looking at you (look: seconds left of it) and otherwise at their work */
+function hiPerson(B,p,dt,t,i,work){ const d=p.d, e=hiV5.set(B.S[0],0,B.S[1]), talk=TALK.p&&(TALK.p.civ===B.id);
+  p.wave=Math.max(0,p.wave-dt); p.look=Math.max(0,p.look-dt); const face=talk?Math.atan2(e.x-p.x,e.z-p.z):p.a; p.af=p.af==null?face:p.af+angWrap(face-p.af)*Math.min(1,dt*4);
+  hiStand(B,p.f,p.x,p.z,p.af); animate(p.f,0,0,p.wave,t,i); d.legs.forEach(l=>{ l.rotation.z=0; });
+  const toYou=angWrap(Math.atan2(e.x-p.x,e.z-p.z)-p.af), lk=talk||p.look>0||HSI.st==='enter'; d.head.rotation.y=damp(d.head.rotation.y,lk?clamp(toYou,-.9,.9):0,5,dt); d.head.rotation.x=damp(d.head.rotation.x,lk?-.05:.22,4,dt);
+  if(p.wave<=0&&!talk&&work) work(d,t); }
+
+/* ---------- the hall, each frame: Séamus at his work, the clock over the door; up in the clock room, the works ---------- */
+function hiHallStep(dt,t){ const B=HSI.hall; if(B.g.visible){ hiHands(B);
+    hiPerson(B,B.clerk,dt,t,4,(d,t)=>{ const c=B.clerk; c.stamp-=dt; if(c.stamp<0) c.stamp=6+Math.random()*5;
+      /* writing in his ledger, now and then a stamp coming down on a form */
+      if(c.stamp<.6){ const k=Math.sin(Math.PI*c.stamp/.6); d.arms[0].rotation.x=-.4-1.1*k; d.fore[0].rotation.x=-.9; } else { d.arms[0].rotation.x=-.55; d.fore[0].rotation.x=-.95+.07*Math.sin(t*9); }
+      d.arms[1].rotation.x=-.5; d.fore[1].rotation.x=-.8; }); }
+  if(B.kg.visible) hiClockStep(B,dt); }
+function hiRot(m,a,ax='z'){ m.matrix.copy(m.userData.M0).multiply(ax==='z'?hiM.makeRotationZ(a):ax==='y'?hiM.makeRotationY(a):hiM.makeRotationX(a)); }
+function hiClockStep(B,dt){ const h=SKY.h, m=(h%1)*TAU, hr=(h%12)/12*TAU, sec=h*3600, G=B.gear;
+  /* the centre wheel turns once an hour, as the minute hand does, the great wheel once in twelve, as the hour hand; the third
+     faster; the escape wheel a tooth for each second; the pendulum swings a second each way; the rods to the dials with the minutes */
+  hiRot(G.centre,-m); hiRot(G.great,-hr); hiRot(G.third,-(h*8%1)*TAU); hiRot(G.escape,-(Math.floor(sec)%60)/60*TAU); const sw=.07*Math.sin(Math.PI*sec); hiRot(G.pend,sw); hiRot(G.anchor,sw*1.5);
+  hiRot(G.up,m,'y'); G.rods.forEach(r=>hiRot(r,-m));
+  const beat=Math.floor(sec); if(beat!==B.beat){ B.beat=beat; if(HSI.st==='clock'||HSI.st==='up'||HSI.st==='down') A.gearTick(beat%2===1,.016); }
+  /* striking: the fly whirls, the striking wheel turns, the hammer lifts and falls on the bell for each stroke */
+  const Cq=CIV.chime, on=!!Cq&&Cq.k<Cq.n; B.flyV=damp(B.flyV||0,on?36:0,3,dt); B.flyA=(B.flyA||0)+B.flyV*dt; hiRot(G.fly,B.flyA); hiRot(G.strike,-B.flyA/24);
+  hiRot(G.hammer,on?-.55*sstep(.55,.08,Cq.t):0); }
+
+/* ---------- the classroom, each frame ---------- */
+function hiSchoolStep(dt,t){ const B=HSI.school, h=SKY.h, day=civSchoolDay(), open=day&&h>=CT.to&&h<CT.end;
+  hiHands(B);
+  /* the lights flicker on if you come in in the dark */
+  if(B.tubes!=null&&B.tubes<1){ B.flick=(B.flick||0)+dt; const f=B.flick; B.tubes=f<.15?0:f<.22?.8:f<.3?0:f<.42?.9:f<.5?.2:1; if(f>.15&&!B.tk1){ B.tk1=true; A.tube(.7); } if(f>.42&&!B.tk2){ B.tk2=true; A.tube(.9); } if(B.tubes>=1){ B.tk1=B.tk2=false; } }
+  /* the children: at their desks while they are in, in lessons; their chairs pulled out for them, tucked in at break, up on the
+     desks once the day is over */
+  B.kids.forEach((k,i)=>{ const q=k.q, ch=B.chairs[i], kid=CIV.kids[i], inn=CIV.ok&&CIV.ph==='in'&&kid&&kid.mode==='gone'&&(B.g.visible||HSI.warm);
+    if(k.f.visible!==inn) k.f.visible=inn; const z=inn?.27:open?.17:-1; ch.z=damp(ch.z,z<0?.17:z,6,dt); ch.up=damp(ch.up,z<0?1:0,8,dt);
+    ch.m.matrix.copy(ch.up>.5?hiTf(B.M,q.x,B.F+.425+.265,q.z,0,0,Math.PI):hiTf(B.M,q.x,B.F,q.z+ch.z));
+    if(!inn) return; hiStand(B,k.f,q.x,q.z+.27,Math.PI,-.035); const d=k.d; k.look=Math.max(0,k.look-dt); k.wave=Math.max(0,k.wave-dt); k.ht-=dt; if(k.ht<-3) k.ht=8+Math.random()*10;
+    d.legs.forEach(l=>{ l.rotation.set(-1.45,0,0); }); d.body.position.y=Math.sin(t*1.7+i)*.004; d.body.rotation.y=k.look>0?.35*(q.x>0?-1:1):0;
+    d.arms[0].rotation.set(-1.0,0,0); d.fore[0].rotation.set(-.55+.07*Math.sin(t*(7+i)+i),0,0);
+    if(k.wave>0){ d.arms[1].rotation.set(0,0,1.95); d.fore[1].rotation.set(0,0,.95+Math.sin(t*11)*.38); }
+    else if(k.ht<0){ d.arms[1].rotation.set(-2.95,0,0); d.fore[1].rotation.set(-.15,0,0); } else { d.arms[1].rotation.set(-.9,0,0); d.fore[1].rotation.set(-.6,0,0); }
+    d.head.rotation.y=damp(d.head.rotation.y,k.look>0?(q.x>0?-1.1:q.x<0?1.1:.9):.15*Math.sin(t*.4+i*2),5,dt); d.head.rotation.x=damp(d.head.rotation.x,k.look>0?0:.18,4,dt); });
+  /* Ms Kavanagh: in a lesson turning now and then to the board as if to write, otherwise marking at her desk */
+  { const p=B.teach, lesson=CIV.ph==='in'; p.cyc=((p.cyc||0)+dt)%14; const board=lesson&&p.cyc>9&&p.cyc<12.5&&!(TALK.p&&TALK.p.civ==='school')&&p.look<=0;
+    p.a=board?Math.PI+.5:lesson?.35:-1.75;
+    hiPerson(B,p,dt,t,7,(d,t)=>{ if(board){ d.arms[0].rotation.set(-2.3+.1*Math.sin(t*5),0,.2); d.fore[0].rotation.set(-.3,0,0); } else if(lesson){ d.arms[0].rotation.set(-.6,0,.15); d.fore[0].rotation.set(-.9,0,0); }
+      else { d.arms[0].rotation.set(-.7,0,0); d.fore[0].rotation.set(-.95+.07*Math.sin(t*9),0,0); } }); }
+  /* the board: drawn on, wiped */
+  const bd=B.bd; if(bd.wipe){ const w=bd.wipe; w.t+=dt; const T_=1.5, row=Math.min(2,Math.floor(w.t/T_*3)), f=(w.t/T_*3)%1, u=row%2?1-f:f, v=.8-.3*row, c=B.bdC.cv.getContext('2d'), W=B.bdC.cv.width, H=B.bdC.cv.height;
+    c.fillStyle='#2c3a33'; c.fillRect(u*W-70,(1-v)*H-60,140,120); c.fillStyle='rgba(230,235,225,.05)'; c.beginPath(); c.ellipse(u*W,(1-v)*H,70,30,0,0,TAU); c.fill(); bd.dirty=true;
+    B.duster.matrix.copy(hiTf(B.M,lerp(bd.x0+.08,bd.x1-.08,u),lerp(bd.y0+.1,bd.y1-.1,v),bd.z+.035,0,Math.PI/2)); if(w.t-(w.s||0)>.32){ w.s=w.t; A.chalk(.032,true); }
+    if(w.t>=T_){ hiSlate(c,W,H); bd.dirty=true; bd.wipe=null; bd.chalk=0; B.duster.matrix.copy(B.dusterM0); } }
+  if(bd.dirty){ B.bdC.tx.needsUpdate=true; bd.dirty=false; }
+  /* the globe spinning down; the xylophone's bars and beaters; the rocket; the bell rope; Nibbles */
+  const gl=B.globe; gl.a+=gl.v*dt; gl.v*=Math.exp(-.6*dt); if(Math.abs(gl.v)<.35&&!HSI.drag) gl.v=damp(gl.v,.35,.5,dt); B.globeM.matrix.copy(gl.M0).multiply(hiM.makeRotationY(gl.a));
+  for(const q of B.xylo){ q.t+=dt; q.m.matrix.copy(q.M0); if(q.t<1) q.m.matrix.multiply(hiM.makeTranslation(0,-.004*Math.sin(q.t*44)*Math.exp(-q.t*7),0)); }
+  for(const ml of B.mallet){ ml.t+=dt; if(ml.t<.5){ const q=B.xylo[ml.i], lift=ml.t<.06?.5*(1-ml.t/.06):.22*Math.sin(Math.min(1,(ml.t-.06)/.4)*Math.PI); ml.m.matrix.copy(hiTf(B.M,SCH.XY[0]+.2,B.F+.37,q.z,-Math.PI/2,-lift)); } else ml.m.matrix.copy(ml.M0); }
+  hiRocketStep(B,dt); B.rope.t+=dt; { const [rx,rz]=B.ropeAt, pull=B.rope.t<.9?.15*Math.sin(Math.PI*B.rope.t/.9):0; B.ropeM.matrix.copy(hiTf(B.M,rx,1.25-pull,rz)); }
+  hiHamStep(B,dt,t); }
+function hiRocketStep(B,dt){ const r=B.rk, [px,py,pz]=B.rkAt, top=SCH.CH-.3-py; r.t+=dt;
+  if(r.st==='up'){ const u=r.t/.6; r.y=top*Math.min(1,u*u); r.puff-=dt; if(r.puff<0&&u<.8){ r.puff=.05; puff(hiP(B.M,px,py+r.y,pz),hiD(B.M,(Math.random()-.5)*.3,-.4,(Math.random()-.5)*.3),.03+Math.random()*.02,.8); }
+    if(u>=1){ r.st='chute'; r.t=0; A.chutePop(.017,hiPan(B.rocket)); } }
+  else if(r.st==='chute'){ r.y=Math.max(0,top-.24*r.t); r.x=.05*Math.sin(r.t*1.6); r.sw=.3*Math.sin(r.t*2.2); if(r.y<=0){ r.st='landed'; r.t=0; A.tick(); } }
+  else if(r.st==='landed'&&r.t>3.5){ r.st='pad'; r.t=0; r.x=0; r.sw=0; r.y=0; }
+  B.rocket.matrix.copy(hiTf(B.M,px+r.x,py+r.y,pz,0,r.st==='landed'?1.45*Math.min(1,r.t/.3):0,r.st==='chute'?r.sw*.4:0));
+  const cv=r.st==='chute'||(r.st==='landed'&&r.t<1.2); if(B.chute.visible!==cv) B.chute.visible=cv;
+  if(cv){ const k=r.st==='chute'?Math.min(1,.2+r.t/.3):1-r.t/1.2; B.chute.matrix.copy(hiTf(B.M,px+r.x,py+r.y+.52,pz,0,0,r.sw*.5)).multiply(hiM.makeScale(k,k*(r.st==='landed'?.4:1),k)); } }
+function hiHamStep(B,dt,t){ const H=B.ham, a0=B.hamAt, e=hiV5.set(B.S[0],0,B.S[1]); H.t+=dt;
+  /* does he see you: you looking his way (the cage near the middle of the view) */
+  hiP(B.M,a0.x,a0.y+.08,a0.z,hiV1); hiV2.subVectors(HSI.cl,HSI.cp); const looked=HSI.st==='in'&&HSI.b==='school'&&hiV2.angleTo(hiV1.sub(HSI.cp))<.3;   // (the room's own camera, as just placed: the town's is still out in the street until the end of the frame)
+  H.seen=looked?H.seen+dt:0; if(H.poke){ H.poke=0; H.seen=Math.max(H.seen,.6); }
+  if(H.st==='run'&&H.seen>.45){ H.st='out'; H.t=0; } else if(H.st==='out'&&H.t>.6){ H.st='look'; H.t=0; H.lt=0; }
+  else if(H.st==='look'){ H.lt=looked?0:H.lt+dt; if(H.lt>2.2||H.t>10){ H.st='back'; H.t=0; } } else if(H.st==='back'&&H.t>.6){ H.st='run'; H.t=0; H.seen=0; }
+  const a1=H.a; H.v=damp(H.v,H.st==='run'?9:0,H.st==='run'?2:5,dt); H.a+=H.v*dt; B.wheel.matrix.copy(B.wheelM0).multiply(hiM.makeRotationZ(H.a));
+  if(Math.floor(H.a/TAU)!==Math.floor(a1/TAU)){ H.rev++; if(H.v>3&&HSI.on&&HSI.b==='school') A.wheelSqueak(.006,hiPan(B.wheel)); }
+  const wx=a0.x-.04, wz=a0.z-.13, fx=a0.x-.06, fz=a0.z+.06, u=H.st==='run'?0:H.st==='out'?E.io(clamp(H.t/.6,0,1)):H.st==='back'?1-E.io(clamp(H.t/.6,0,1)):1;
+  const x=lerp(wx,fx,u), z=lerp(wz,fz,u), you=Math.atan2(e.x-x,e.z-z), face=H.st==='run'?Math.PI:H.st==='look'?you:Math.atan2(fx-wx,fz-wz)*(H.st==='back'?-1:1);
+  H.af=H.af==null?face:H.af+angWrap(face-H.af)*Math.min(1,dt*8);
+  hiStand(B,B.hamG,x,z,H.af,a0.y-B.F+(H.st==='run'?.004+.008*Math.abs(Math.sin(t*20)):0));
+  const sit=H.st==='look'?Math.min(1,H.t/.3):0; B.hamBody.rotation.x=-.7*sit; B.hamHead.rotation.x=-.5*sit+.06*Math.sin(t*14)*sit; B.hamHead.rotation.y=.15*Math.sin(t*1.3)*sit; }
+/* left or right, as you see it: for the sounds of things in a room */
+function hiPan(m){ hiV1.setFromMatrixPosition(m.matrix).project(stCam); return clamp(hiV1.x*.6,-.6,.6); }
+
+/* ---------- each frame: after the town has moved you and placed its camera ---------- */
+function hiStep(dt,t){ if(!HSI.ok) return; dt=Math.min(dt,.05);
+  /* (the first time, as Earth is made ready behind the loader or out of sight: both rooms drawn the once, so nothing of theirs is
+     new when you go in; from the first frame you are on Earth, put away) */
+  if(HSI.warm){ if(S.ready&&S.st===st&&S.mode==='station'){ HSI.warm=false; hiWarmShow(false); } else { hiWarmShow(true); return; } }
+  if(FIN.on||CUT.on){ if(HSI.st!=='out'||HSI.k>0||HSI.hall.g.visible) hiReset(); hiTagUpdate(false); return; }
+  const s=HSI.st; if(s==='go') hiGoing(dt); else if(s==='enter') hiWayIn(dt,t); else if(s==='exit') hiWayOut(dt,t); else if(s==='in'||s==='clock') hiInside(dt); else if(s==='up') hiWayUp(dt); else if(s==='down') hiWayDown(dt); else hiOutside();
+  hiDoors(dt); hiLights(HSI.hall); hiLights(HSI.school);
+  if(HSI.hall.g.visible||HSI.hall.kg.visible) hiHallStep(dt,t); if(HSI.school.g.visible) hiSchoolStep(dt,t);
+  /* the camera: this one while you are inside (and on the way in and out), handed back smoothly after */
+  if(!HSI.on) HSI.k=damp(HSI.k,0,7,dt);
+  if(HSI.k>.001){ const k=HSI.on?1:HSI.k; st.camP.lerp(HSI.cp,k); st.camL.lerp(HSI.cl,k); stUp.lerp(HSI.cu,k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(HSI.on) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+  /* a wider lens in here, eased in and out with you; and a nearer one, for the things right by you */
+  HSI.fk=s==='enter'?sstep(.15,.95,HSI.t/HI_IN):s==='exit'?1-sstep(.25,.9,HSI.t/HI_OUT):HSI.on?1:0;
+  if(HSI.fk>.001){ const kk=s==='clock'||s==='up'&&HSI.t>1.7?1:0, fv=lerp(stCam.fov,(cport()?70:52)+kk*8,HSI.fk); if(Math.abs(stCam.fov-fv)>.01){ stCam.fov=fv; stCam.updateProjectionMatrix(); } }
+  const nr=HSI.on?.02:.1; if(HSI.on||HSI.nr){ HSI.nr=HSI.on; if(stCam.near!==nr){ stCam.near=nr; stCam.updateProjectionMatrix(); } }
+  /* the town's music a little quieter in here */
+  HSI.mk=damp(HSI.mk,s==='in'||s==='clock'?1:HSI.on?.6:0,2.5,dt); if(HSI.mk>.002) A.music(.55*(1-.42*HSI.mk));
+  hiTagUpdate(true); if(HSI.panel==='card'&&TALK.p) hiPanels(null); hiHint.classList.toggle('on',!!HSI.hintOn&&!TALK.p&&!HSI.panel&&(s==='in'||s==='clock')); }
+/* back to how it was: entering or leaving Earth, the last flight */
+function hiReset(leaving){ HSI.drag=HSI.tap=null; HSI.curve=HSI.lcurve=null; HSI.wIn=null; HSI.k=0; HSI.mk=0; HSI.out=0; HSI.turn=null; HSI.then=null; hiPanels(null); hiDip(0);
+  const was=HSI.on; if(HSI.ok){ for(const B of [HSI.hall,HSI.school]){ hiShow(B,false); B.door.want=0; if(B.id==='hall'){ B.door.a=0; B.leaves.forEach(L=>L.g.matrix.copy(L.H0)); } } if(leaving&&HSI.warm){ HSI.warm=false; hiWarmShow(false); } }
+  hiSet('out'); if((was||HSI.nr)&&stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } HSI.nr=false; HSI.fk=0; if(me&&!FIN.on&&!CUT.on) me.visible=true; hiTagUpdate(false); }
+
+/* ---------- the doings in a room: a tap (or E, Space or Enter, on whatever is in the middle of the view) ---------- */
+const HLAB={clerk:'Talk',teacher:'Talk',notes:'Read',book:'Sign',stair:'Climb',trap:'Down',door:'Leave',plaque:'Read',board:'Draw',duster:'Wipe',xylo:'Play',globe:'Spin',rocket:'Launch',hamster:'Nibbles',rope:'Ring',kid:'Wave'};
+function hiPickAt(cx,cy){ const B=HSI[HSI.b]; if(!B) return null; hiNdc.set(cx/innerWidth*2-1,-(cy/innerHeight*2-1)); hiRay.setFromCamera(hiNdc,stCam);
+  const clk=HSI.st==='clock'; let best=null, bd=1e9;
+  for(const q of B.picks){ if(!!q.clock!==clk||(q.id==='kid'&&!B.kids[q.i].f.visible)) continue; const h=hiRay.intersectObject(q.m,false)[0]; if(h&&h.distance<bd){ bd=h.distance; best=Object.assign({},q,{p:h.point,d:h.distance}); } }
+  const bm=clk?null:B.id==='school'?B.board:B.nb; if(bm){ const h=hiRay.intersectObject(bm,false)[0]; if(h&&h.distance<bd+.02){ bd=h.distance; best={id:B.id==='school'?'board':'notes',uv:h.uv,p:h.point,d:h.distance}; } }
+  if(best&&best.id==='notes'){ const u=best.uv.x, v=1-best.uv.y; best.i=HNOTES.findIndex(q=>u>q.x&&u<q.x+q.w&&v>q.y&&v<q.y+q.h); if(best.i<0) return null; }
+  if(best&&best.id==='model'){ best.place=hiModelAt(B); if(!best.place) return null; }
+  return best; }
+/* which place on the model a tap means: the one whose spot passes nearest the line of the tap, its ground or a little above it
+   where its walls and roof are (a tap on a roof is on that building, not on the ground behind it); none, on bare island */
+function hiModelAt(B){ const o=B.mdl, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw); let best=null, bd=3;
+  for(const q of hiPlaces()){ const lx=o.x+o.s*(q.mx*cy-q.mz*sy), lz=o.z+o.s*(q.mx*sy+q.mz*cy);
+    const d=Math.sqrt(Math.max(0,hiRay.ray.distanceSqToSegment(hiP(B.M,lx,o.y,lz,hiV2),hiP(B.M,lx,o.y+o.s*3.5,lz,hiV4))))/o.s; if(d<bd){ bd=d; best=q; } }   // (a line right through it can come out a hair below nothing)
+  return best; }
+function hiLabel(h){ if(h.id==='model') return (hiCardOf(h.place.id)||{n:'Look'}).n; if(h.id==='plaque'&&!PLAQ[h.i].n) return null; return HLAB[h.id]||null; }
+function hiTapIn(e){ if(TALK.p){ nextTalk(); return; } const h=hiPickAt(e.clientX,e.clientY); if(HSI.panel&&!(h&&h.id==='model')){ hiPanels(null); return; }
+  if(CIV.card>=0&&!(h&&h.id==='plaque')){ civCard(-1); return; } if(h) hiAct(h); }
+function hiAct(h){ const B=HSI[HSI.b]; if(!h||!B) return; if(!HSI.used){ HSI.used=true; hiHintSet(); }
+  switch(h.id){
+    case 'clerk': return hiTalk(HCLERK,B.clerk); case 'teacher': return hiTalk(HTEACH,B.teach);
+    case 'model': return hiCardOpen(h.place); case 'notes': return hiNoteOpen(h.i); case 'book': return hiBookOpen();
+    case 'stair': return hiUp(); case 'trap': return hiDown(); case 'door': return hiLeave(); case 'plaque': return PLAQ[h.i].n?civCard(h.i):null;
+    case 'board': if(h.uv){ hiChalk(B,[h.uv.x,h.uv.y],[h.uv.x+.002,h.uv.y+.002]); A.chalk(.032); } return;
+    case 'duster': return hiWipe(B); case 'xylo': return hiXylo(B,h.i); case 'globe': B.globe.v+=3.4*(Math.random()<.5?1:-1); return A.tick();
+    case 'rocket': return hiLaunch(B); case 'hamster': B.ham.poke=1; return; case 'rope': return hiRing(B);
+    case 'kid': B.kids[h.i].wave=1.6; B.kids[h.i].look=2; return; } }
+function hiTalk(p,who){ if(TALK.p) return; const B=HSI[HSI.b]; p.lines=hiLines(p); const [mx,mz]=hiXZ(B.M,who.x,who.z); p.x=mx; p.z=mz; p.dir.copy(at(mx,mz)); p.greeted=false; openTalk(p,0); who.wave=1.6; who.look=3;
+  HSI.turn={t:0,y0:HSI.yaw,p0:HSI.pitch,y1:Math.atan2(-(who.x-B.S[0]),-(who.z-B.S[1])),p1:B.id==='hall'?.04:-.04,look:HSI.look}; }
+/* the blackboard: a stroke of chalk, a few rough lines and its dust, from one spot on the board to the next */
+function hiChalk(B,a,b){ const cv=B.bdC.cv, c=cv.getContext('2d'), W=cv.width, H=cv.height, x0=a[0]*W, y0=(1-a[1])*H, x1=b[0]*W, y1=(1-b[1])*H, L=Math.hypot(x1-x0,y1-y0), j=()=>(Math.random()-.5)*2.4;
+  c.lineCap='round'; for(let k=0;k<3;k++){ c.strokeStyle=`rgba(246,243,232,${(.38+Math.random()*.32).toFixed(2)})`; c.lineWidth=2.6+Math.random()*2.4; c.beginPath(); c.moveTo(x0+j(),y0+j()); c.lineTo(x1+j(),y1+j()); c.stroke(); }
+  c.fillStyle='rgba(250,248,240,.45)'; for(let k=0;k<L/3;k++){ const t=Math.random(); c.fillRect(x0+(x1-x0)*t+(Math.random()-.5)*6,y0+(y1-y0)*t+(Math.random()-.5)*6,1.3,1.3); }
+  B.bd.dirty=true; B.bd.chalk+=L+1; }
+function hiChalkTo(B,uv){ const b=B.bd, p=[uv.x,uv.y]; if(b.last){ hiChalk(B,b.last,p); b.run=(b.run||0)+Math.hypot(p[0]-b.last[0],p[1]-b.last[1]); if(b.run>.035){ b.run=0; A.chalk(.032,false,hiPan(B.board)); } } b.last=p; }
+function hiPickBoard(cx,cy){ const B=HSI.school; hiNdc.set(cx/innerWidth*2-1,-(cy/innerHeight*2-1)); hiRay.setFromCamera(hiNdc,stCam); const h=hiRay.intersectObject(B.board,false)[0]; return h?h.uv:null; }
+function hiWipe(B){ if(B.bd.wipe) return; B.bd.wipe={t:0,s:-1}; A.chalk(.032,true); }
+const HXF=[0,1,2,3,4,5,6,7];
+function hiXylo(B,i){ const q=B.xylo[i]; q.t=0; const ml=B.mallet[i<4?0:1]; ml.t=0; ml.i=i; A.xylo(HXF[i],.0075,hiPan(q.m)); HSI.xy.push(i); if(HSI.xy.length>40) HSI.xy.shift(); }
+function hiLaunch(B){ const r=B.rk; if(r.st==='up'||r.st==='chute') return; Object.assign(r,{st:'up',t:0,y:0,x:0,sw:0,puff:0,n:(r.n||0)+1}); A.rocketWhoosh(.03,hiPan(B.rocket)); }
+function hiRing(B){ if(B.rope.t<.8) return; B.rope.t=0; B.rope.n++; CIV.bellT=1.9; A.schoolBell(CGAIN.bell*.95,0); HSI.bells.push({g:+(CGAIN.bell*.95).toFixed(4),pulled:true}); }
+
+/* ---------- what comes up over the room: a building's card from the model, a note to read, the visitor book ---------- */
+const hiTag=document.createElement('span'); hiTag.className='crwt ui'; hiTag.textContent='Go in';   // (put up with the rooms, in buildCivIn: after the workshop's tag, so the street's first such tag is still the workshop's)
+hiTag.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'&&HSI.tagB){ HSI.kb=e.detail===0; hiGo(HSI.tagB.id); } });
+const hiBtn=(id,txt,cur)=>{ const b=document.createElement('button'); b.className='btn hit crleave crwout'; b.type='button'; b.id=id; b.dataset.cur=cur; b.textContent=txt; b.hidden=true; el.insertBefore(b,$('#crSkip',el));
+  b.addEventListener('pointerdown',e=>e.stopPropagation()); return b; };
+const hiOut=hiBtn('crCivLeave','Leave the town hall','Leave'), hiDownB=hiBtn('crCivDown','Back down','Down');
+hiOut.addEventListener('click',e=>{ e.stopPropagation(); HSI.kb=e.detail===0; hiLeave(); }); hiDownB.addEventListener('click',e=>{ e.stopPropagation(); hiDown(); });
+const hiDipEl=document.createElement('div'); hiDipEl.className='crdip'; hiDipEl.style.opacity='0'; el.insertBefore(hiDipEl,$('#crSkip',el));
+const hiHint=document.createElement('span'); hiHint.className='ui crcivhint'; el.insertBefore(hiHint,$('#crSkip',el));
+const hiCardEl=document.createElement('div'); hiCardEl.className='crpj crmdl'; hiCardEl.id='crCivCard'; hiCardEl.setAttribute('role','dialog'); hiCardEl.setAttribute('aria-hidden','true');
+hiCardEl.innerHTML='<span class="crpj-n disp"></span><span class="crpj-k ui"></span><span class="crpj-t"></span><span class="crmdl-a"><button class="btn pri hit" type="button" id="crCivWalk" data-cur="Walk">Walk there</button><a class="btn hit" id="crCivLink" href="#" data-cur="Open">View project</a></span><button class="crmdl-x hit" type="button" aria-label="Close" data-cur="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5" stroke="currentColor" stroke-width="1.8"/></svg></button>';
+el.insertBefore(hiCardEl,$('#crSkip',el));
+const hiNoteEl=document.createElement('div'); hiNoteEl.className='crnote'; hiNoteEl.id='crCivNote'; hiNoteEl.setAttribute('role','dialog'); hiNoteEl.setAttribute('aria-hidden','true');
+hiNoteEl.innerHTML='<span class="crnote-h disp"></span><p class="crnote-t"></p><button class="btn hit" type="button" data-cur="Back">Back</button>'; el.insertBefore(hiNoteEl,$('#crSkip',el));
+const hiBookEl=document.createElement('div'); hiBookEl.className='crvbk'; hiBookEl.id='crCivBook'; hiBookEl.setAttribute('role','dialog'); hiBookEl.setAttribute('aria-label','The visitor book'); hiBookEl.setAttribute('aria-hidden','true');
+hiBookEl.innerHTML='<span class="crvbk-n ui">Visitor book</span><p class="crvbk-w"></p><ul class="crvbk-l"></ul><div class="crvbk-f"><input id="crCivName" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Your name, or a word" aria-label="Your name, or a word"><button class="btn pri hit" type="button" id="crCivSign" data-cur="Sign">Sign</button></div><button class="btn hit crvbk-x" type="button" data-cur="Close">Close</button>';
+el.insertBefore(hiBookEl,$('#crSkip',el));
+const hiName=$('#crCivName',hiBookEl);
+[hiCardEl,hiNoteEl,hiBookEl].forEach(n=>['pointerdown','pointerup','click'].forEach(ev=>n.addEventListener(ev,e=>e.stopPropagation())));
+function hiPanels(which){ HSI.panel=which||null; for(const [n,k] of [[hiCardEl,'card'],[hiNoteEl,'note'],[hiBookEl,'book']]){ const on=which===k; n.classList.toggle('on',on); n.setAttribute('aria-hidden',on?'false':'true'); }
+  if(which!=='book'&&document.activeElement===hiName) hiName.blur(); if(which!=='card') HSI.card=null; }
+function hiCardOpen(q){ const c=hiCardOf(q.id); if(!c) return; HSI.card=q; $('.crpj-n',hiCardEl).textContent=c.n; $('.crpj-k',hiCardEl).textContent=c.k; $('.crpj-t',hiCardEl).textContent=c.t;
+  const ln=$('#crCivLink',hiCardEl); ln.hidden=!c.href; if(c.href){ ln.href=c.href; ln.textContent=c.l||'Open'; const ext=/^https?:/.test(c.href); ln.target=ext?'_blank':'_self'; if(ext) ln.rel='noopener'; else ln.removeAttribute('rel'); }
+  $('#crCivWalk',hiCardEl).hidden=q.id==='hall'; hiPanels('card'); A.tick(); if(HSI.kb) setTimeout(()=>{ const b=$('#crCivWalk',hiCardEl); if(!b.hidden){ kbNav=true; b.focus(); } },60); }
+$('#crCivWalk',hiCardEl).addEventListener('click',e=>{ e.stopPropagation(); const q=HSI.card; if(!q||q.id==='hall') return; HSI.kb=e.detail===0; hiPanels(null); hiLeave({id:q.id,x:q.x,z:q.z,r:q.r}); });
+$('.crmdl-x',hiCardEl).addEventListener('click',e=>{ e.stopPropagation(); hiPanels(null); });
+function hiNoteOpen(i){ const q=HNOTES[i]; if(!q) return; HSI.note=i; $('.crnote-h',hiNoteEl).textContent=q.h1.charAt(0)+q.h1.slice(1).toLowerCase(); $('.crnote-t',hiNoteEl).textContent=q.t; hiNoteEl.style.setProperty('--paper',q.c); hiNoteEl.style.setProperty('--tilt',(q.r*40).toFixed(1)+'deg'); hiPanels('note'); A.tick(); }
+$('button',hiNoteEl).addEventListener('click',e=>{ e.stopPropagation(); hiPanels(null); });
+/* the visitor book: who signed before, and you, if you have; what you write is cleaned (letters and spaces, nothing that is not
+   text) and kept to forty characters */
+function hiBookFill(){ const me=HBK.mine, w=$('.crvbk-w',hiBookEl), l=$('.crvbk-l',hiBookEl); w.textContent=me?'Welcome back, '+me.n+'. You signed on '+me.d+'.':'Sign the book: your name, or a word.';
+  l.textContent=''; for(const n of HBOOK.concat(me?[me.n]:[])){ const li=document.createElement('li'); li.textContent=n; l.appendChild(li); } if(me) l.lastChild.classList.add('me'); }
+function hiBookOpen(){ hiBookLoad(); hiBookFill(); hiName.value=''; hiPanels('book'); A.tick(); setTimeout(()=>{ if(HSI.panel==='book') try{ hiName.focus({preventScroll:true}); }catch(e){} },80); }
+function hiBookSign(){ const v=hiBookSave(hiName.value); if(!v){ hiName.value=''; hiName.focus(); return null; } hiName.value=''; hiBookFill(); $('.crvbk-w',hiBookEl).textContent='Thank you, '+v.n+'. It is in the book.';
+  if(HSI.hall&&HSI.hall.bookC) HSI.hall.bookC.go(); A.chime(7,0,.03); return v; }
+$('#crCivSign',hiBookEl).addEventListener('click',e=>{ e.stopPropagation(); hiBookSign(); });
+hiName.addEventListener('keydown',e=>{ if(e.code==='Enter'||e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); hiBookSign(); } else if(e.code==='Escape'){ e.preventDefault(); hiPanels(null); } e.stopPropagation(); });
+$('.crvbk-x',hiBookEl).addEventListener('click',e=>{ e.stopPropagation(); hiPanels(null); });
+/* a line at the foot of the room until you have done something there: what there is to do */
+function hiHintSet(){ const B=HSI[HSI.b], s=HSI.st, ph=cport(); HSI.hintOn=!HSI.used&&(s==='in'||s==='clock');
+  hiHint.textContent=s==='clock'?(ph?'Drag to look up at the bell':'Drag to look round · the bell is over you'):!B?'':B.id==='hall'?(ph?'Tap the model, the notes, the book or the stair':'Tap the model, the noticeboard, the book or the stair · drag to look round'):(ph?'Draw on the board, play, spin, launch':'Draw on the board, play the xylophone, spin the globe, launch the rocket · drag to look round'); }
+/* the tag over the door when you are near, as the workshop has: Go in, and how */
+function hiTagUpdate(live){ const P=player; let on=false, can=false, Bn=null;
+  if(live&&HSI.ok&&started&&HSI.st==='out'&&!hiBusy()){ let bd=7; for(const B of [HSI.hall,HSI.school]){ const d=Math.hypot(P.x-B.ap[0],P.z-B.ap[1]); if(d<bd&&hiV1.copy(stCam.position).applyMatrix4(B.Mi).z>B.D){ bd=d; Bn=B; } }
+    if(Bn){ hiP(Bn.M,0,Bn.id==='hall'?(cport()?1.9:2.55):(cport()?1.55:2.05),Bn.D+.25,hiV1).project(stCam); on=hiV1.z<1&&Math.abs(hiV1.x)<.95&&Math.abs(hiV1.y)<.95; can=bd<2.2; HSI.tagP=[+hiV1.x.toFixed(2),+hiV1.y.toFixed(2),+hiV1.z.toFixed(3)];
+      if(on) hiTag.style.transform=`translate(${((hiV1.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hiV1.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
+  HSI.tagB=on?Bn:null; if(on!==HSI.tagOn){ HSI.tagOn=on; hiTag.classList.toggle('on',on); } if(can!==HSI.tagCan){ HSI.tagCan=can; hiTag.classList.toggle('can',can); } }
+/* from the street: the front of the hall or the school, as far as the length of the square, never from round the back */
+function hiFront(e,far){ hiNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); hiRay.setFromCamera(hiNdc,stCam); let best=null, bd=1e9;
+  for(const B of [HSI.hall,HSI.school]){ hiV1.copy(stCam.position).applyMatrix4(B.Mi); if(hiV1.z<B.D-.2||hiV1.length()>26) continue; const h=hiRay.intersectObject(B.front,false)[0]; if(h&&h.distance<bd){ bd=h.distance; best=B.id; } }
+  return far?(best?bd:1e9):best; }
+/* the bench and the kite on the cliff stand behind the hall, and the workshop may stand behind one or the other as you see
+   them: a click on the hall (in front of them) is the hall's */
+function hiBefore(e,ms){ const d=hiFront(e,true); if(d>=1e9) return false; for(const m of ms){ const h=m&&hiRay.intersectObject(m,false)[0]; if(h&&h.distance>d) return true; } return false; }
+const hiBeforeCliff=e=>!!CLM&&hiBefore(e,[CLM.hitB,CLM.hitK]);
+
+/* ---------- clicks, drags and keys. Inside, a drag looks round, but one that starts on the blackboard draws on it and one that
+   starts on the globe spins it; a tap uses what it is on ---------- */
+{ const op=st.onPointer; st.onPointer=function(e){ if(HSI.ok&&!FIN.on&&!CUT.on){
+      if(HSI.on){ GAR.tap=null; const D=HSI.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false,kind:'look'};
+        if((HSI.st==='in'||HSI.st==='clock')&&!TALK.p&&!HSI.panel){ const h=hiPickAt(e.clientX,e.clientY);
+          if(h&&h.id==='board'){ D.kind='draw'; HSI.school.bd.last=[h.uv.x,h.uv.y]; hiChalk(HSI.school,[h.uv.x,h.uv.y],[h.uv.x+.002,h.uv.y+.002]); if(!HSI.used){ HSI.used=true; hiHintSet(); } }
+          else if(h&&h.id==='globe') D.kind='spin'; } return; }
+      HSI.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p};
+      const r=op.call(this,e); if(HSI.st==='out'){ if(CL.tap&&CL.tap.id===e.pointerId&&hiBeforeCliff(e)) CL.tap=null;
+        if(GAR.tap&&GAR.tap.id===e.pointerId&&GAR.pick&&hiBefore(e,[GAR.pick])) GAR.tap=null; } return r; }
+    return op.call(this,e); }; }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station'||!HSI.ok) return; const D=HSI.drag, tp=HSI.tap;
+  if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
+  if(D&&e.pointerId===D.id){ if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>(e.pointerType==='mouse'?6:9)) D.moved=true;
+    if(D.kind==='draw'){ const uv=hiPickBoard(e.clientX,e.clientY); if(uv) hiChalkTo(HSI.school,uv); else HSI.school.bd.last=null; }
+    else if(D.kind==='spin'){ const g=HSI.school.globe; g.v=clamp(g.v+(e.clientX-D.lx)*.08,-16,16); }
+    else if(D.moved&&(HSI.st==='in'||HSI.st==='clock')){ const ck=HSI.st==='clock'; HSI.yaw-=(e.clientX-D.lx)*.0042; HSI.pitch=clamp(HSI.pitch-(e.clientY-D.ly)*.0034,ck?-.8:-.75,ck?1.25:.7); HSI.dragT=0; HSI.look++; }
+    D.lx=e.clientX; D.ly=e.clientY; return; }
+  if(e.pointerType!=='mouse') return;
+  /* the cursor says what a click would do */
+  let lab=null; if(HSI.on){ if(hov) hov=null; if(HSI.st==='in'||HSI.st==='clock'){ const h=hiPickAt(e.clientX,e.clientY); lab=h?hiLabel(h):null; } }
+  else if(HSI.st==='out'&&!hiBusy()&&!down&&!hov&&!DM.hov&&!CL.hov&&!CIV.hov&&hiFront(e)) lab='Go in';
+  const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return; if(lab){ ct.textContent=lab; ce.classList.add('big'); HSI.cur=true; } else if(HSI.cur||HSI.on){ ce.classList.remove('big'); HSI.cur=false; } },{passive:true});
+addEventListener('pointerup',e=>{ const D=HSI.drag, tp=HSI.tap;
+  if(D&&e.pointerId===D.id){ HSI.drag=null; if(D.kind==='draw'){ HSI.school.bd.last=null; return; } if(D.kind==='spin'&&D.moved) return;
+    if(!D.moved&&S.st===st&&S.mode==='station'&&(HSI.st==='in'||HSI.st==='clock')){ HSI.kb=false; hiTapIn(e); } return; }
+  if(!tp||e.pointerId!==tp.id) return; HSI.tap=null; if(S.st!==st||S.mode!=='station'||tp.moved||tp.talk||FIN.on||CUT.on||HSI.st!=='out'||hiBusy()) return;
+  if(pickPerson(e)||pickBusk(e)||pickReg(e)||(clPick(e)&&!hiBeforeCliff(e))||(garPick(e)&&!hiBefore(e,[GAR.pick]))||civPick(e)>=0) return; const id=hiFront(e); if(id){ HSI.kb=false; hiGo(id); } });
+addEventListener('pointercancel',()=>{ HSI.drag=null; HSI.tap=null; });
+/* keys: E or Enter by a door takes you in; inside, Escape puts away what is open, or takes you back down, or out; E, Space or
+   Enter use whatever is in the middle of the view (and talking, go on); on the way over, Escape stops you */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!HSI.ok||FIN.on||CUT.on) return; const k=e.code, ae=document.activeElement, typing=ae&&ae.closest&&ae.closest('input,textarea'), ctl=ae&&ae.closest&&ae.closest('a,button,input');
+  if(HSI.on){ if(k==='Escape'){ if(typing) ae.blur(); if(HSI.panel) hiPanels(null); else if(HSI.st==='clock') hiDown(); else if(HSI.st==='in'){ HSI.kb=true; hiLeave(); } e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if(typing) return;
+    if((k==='Enter'||k==='Space'||k==='KeyE')&&!ctl){ if(!e.repeat&&(HSI.st==='in'||HSI.st==='clock')){ HSI.kb=true; if(HSI.panel) hiPanels(null); else { const h=hiPickAt(innerWidth/2,innerHeight/2); if(h) hiAct(h); } } e.preventDefault(); e.stopImmediatePropagation(); }
+    return; }
+  if(HSI.st==='go'&&k==='Escape'){ hiSet('out'); player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&HSI.st==='out'&&!hiBusy()&&HSI.tagCan&&HSI.tagB&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ HSI.kb=true; if(hiGo(HSI.tagB.id)){ e.preventDefault(); e.stopImmediatePropagation(); } } },true);
+addEventListener('pointerdown',()=>{ HSI.kb=false; },true);
+
+/* for a test: in and out, up and down, what is where on the screen, and how it all stands */
+st._dbg.civic.inside={HSI,HH,SCH,HNOTES,HBK,HCLERK,HTEACH,CARDS:HCARD,get err(){ return HSI.err||null; },enter:id=>hiEnter(id),go:id=>hiGo(id),leave:then=>hiLeave(then),up:()=>hiUp(),down:()=>hiDown(),reset:()=>hiReset(),
+  act(id,i){ if(id==='model'){ const q=hiPlaces().find(q=>q.id===i); if(q) hiCardOpen(q); return !!q; } hiAct(Object.assign({id},i!=null?{i}:{})); return true; },
+  sign(n){ hiName.value=n; return hiBookSign(); },bookLoad:()=>hiBookLoad(),bookForget(){ HBK.mine=HBK.mem=null; },get book(){ return {mine:HBK.mine,ok:HBK.ok,shown:$('.crvbk-w',hiBookEl).textContent,list:[...hiBookEl.querySelectorAll('.crvbk-l li')].map(l=>l.textContent)}; },
+  look(y,p){ HSI.yaw=y; if(p!=null) HSI.pitch=p; HSI.turn=null; },places:()=>hiPlaces().map(q=>({id:q.id,mx:+q.mx.toFixed(2),mz:+q.mz.toFixed(2),x:+q.x.toFixed(2),z:+q.z.toFixed(2),r:q.r})),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  get state(){ const H=HSI.hall, Sc=HSI.school; return {st:HSI.st,b:HSI.b,on:HSI.on,k:+HSI.k.toFixed(3),yaw:+HSI.yaw.toFixed(3),pitch:+HSI.pitch.toFixed(3),panel:HSI.panel,
+    hall:{vis:H.g.visible,clock:H.kg.visible,door:+H.door.a.toFixed(2)},school:{vis:Sc.g.visible,door:+Sc.door.a.toFixed(2)},me:me.visible,near:stCam.near,fov:+stCam.fov.toFixed(1),
+    tag:{on:HSI.tagOn,can:HSI.tagCan,b:HSI.tagB&&HSI.tagB.id,txt:hiTag.textContent,p:HSI.tagP},leave:!hiOut.hidden,downB:!hiDownB.hidden,mk:+HSI.mk.toFixed(2),warm:HSI.warm,
+    talk:TALK.p?TALK.p.first:null,card:HSI.card&&HSI.card.id,note:HSI.panel==='note'?HSI.note:null,walk:HSI.walk,log:HSI.log.slice(-6),plaque:CIV.card,
+    rocket:{st:Sc.rk.st,y:+Sc.rk.y.toFixed(3),n:Sc.rk.n||0},globe:{a:+Sc.globe.a.toFixed(3),v:+Sc.globe.v.toFixed(2)},ham:{st:Sc.ham.st,rev:Sc.ham.rev,a:+Sc.ham.a.toFixed(2)},
+    rope:Sc.rope.n,xylo:HSI.xy.slice(),bells:HSI.bells.slice(-4),chimes:HSI.chimes.slice(-4),wipe:!!Sc.bd.wipe,tubes:Sc.tubes??1,dip:+(hiDipEl.style.opacity||0),hint:hiHint.classList.contains('on')}; },
+  /* where on the screen a thing is: by what a tap finds there (and i, which), or a note, a place on the model, a spot on the blackboard */
+  screen(what,i,v){ stCam.updateMatrixWorld(); const H=HSI.hall, Sc=HSI.school, B=HSI[HSI.b]||H, p=new T.Vector3();
+    if(what==='note'){ const q=HNOTES[i]; p.set((q.x+q.w/2-.5)*.66,(.5-(q.y+q.h/2))*.68,0).applyMatrix4(H.nb.matrix); }
+    else if(what==='model'){ const q=hiPlaces().find(q=>q.id===i), o=H.mdl, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw); hiP(H.M,o.x+o.s*(q.mx*cy-q.mz*sy),o.y+.035,o.z+o.s*(q.mx*sy+q.mz*cy),p); }
+    else if(what==='board'){ const b=Sc.bd; p.set((i-.5)*(b.x1-b.x0),(v-.5)*(b.y1-b.y0),.002).applyMatrix4(Sc.board.matrix); }
+    else if(what==='front'){ const F_=i==='school'?Sc:H; hiP(F_.M,0,F_.F+1.1,F_.D+.1,p); }
+    else { const q=(what==='door'?B.picks:[...H.picks,...Sc.picks]).find(q=>q.id===what&&(i==null||q.i===i)); if(!q) return null; p.setFromMatrixPosition(q.m.matrixWorld); }
+    const s=p.project(stCam); return [(s.x*.5+.5)*innerWidth,(-s.y*.5+.5)*innerHeight,s.z]; },
+  /* the clock room's works, as turned: the centre wheel (as the minute hand, degrees from twelve), the great wheel (as the hour
+     hand), a rod to a dial, the escape wheel, the pendulum */
+  gears(){ const G=HSI.hall.gear, ang=m=>{ hiM.copy(m.userData.M0).invert().multiply(m.matrix); const e=hiM.elements; return ((-Math.atan2(e[1],e[0])*180/Math.PI)%360+360)%360; };
+    return {m:+ang(G.centre).toFixed(2),h:+ang(G.great).toFixed(2),rod:+ang(G.rods[0]).toFixed(2),esc:+ang(G.escape).toFixed(2),pend:+((ang(G.pend)+180)%360-180).toFixed(2)}; },
+  kids(){ const Sc=HSI.school; return Sc.kids.map(k=>({i:k.i,vis:k.f.visible,chair:+Sc.chairs[k.i].z.toFixed(2),up:+Sc.chairs[k.i].up.toFixed(2)})); },
+  chalk(){ const cv=HSI.school.bdC.cv, d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data; let n=0; for(let i=0;i<d.length;i+=4) if(d[i]+d[i+1]+d[i+2]>300) n++; return n; },
+  ham(){ const Sc=HSI.school; hiV1.setFromMatrixPosition(Sc.hamG.matrixWorld).applyMatrix4(Sc.Mi); return {st:Sc.ham.st,x:+hiV1.x.toFixed(3),y:+hiV1.y.toFixed(3),z:+hiV1.z.toFixed(3),head:+Sc.hamHead.rotation.x.toFixed(2)}; },
+  /* inside, what a tap at a point on the screen would find */
+  pickIn(x,y){ stCam.updateMatrixWorld(); const h=hiPickAt(x,y); return h?{id:h.id,i:h.i,place:h.place&&h.place.id}:null; },
+  /* out in the street, what a click at a point on the screen would land on: each thing there that takes clicks */
+  picksAt(x,y){ stCam.updateMatrixWorld(); const e={clientX:x,clientY:y}; return {front:hiFront(e),person:!!pickPerson(e),busk:!!pickBusk(e),reg:!!pickReg(e),cliff:!!clPick(e),before:hiBeforeCliff(e),civ:civPick(e),gar:garPick(e),cafe:!!(CAFE.g&&CAFE.st==='out'&&cafePick(e)),busy:hiBusy()}; }};
 /* ===================== (the east side ends here) ===================== */
 
 /* ===================== the workshop: the shutter opens on the garage =====================
@@ -4439,7 +5354,7 @@ function garUniforms(t){ const nt=SKY.night, day=1-nt, L=GU.uGL.value, lit=(GAR.
 
 /* ---------- where you are, and going over ---------- */
 function garYou(){ const P=player; wsL(gV.copy(P.u).multiplyScalar(R+P.h),GAR.pl); gV2.copy(P.f).transformDirection(GAR.Mi); return {x:GAR.pl.x,z:GAR.pl.z,fz:gV2.z,fx:gV2.x}; }
-const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||CL.st!=='idle'||CL.k!=='home';
+const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||HSI.on||CL.st!=='idle'||CL.k!=='home';
 const garNear=()=>GAR.da<2.6&&GAR.you.z>GW.d/2+.15;
 function garSet(s){ if(s==='out'&&GAR.st==='exit') ESCQ=performance.now(); GAR.st=s; GAR.on=s==='enter'||s==='in'||s==='exit'; GAR.t=0; el.classList.toggle('ingar',GAR.on); garOut.hidden=s!=='in'; if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } }
 /* the tag, a click, E: up if it is down, in if it is up; from further off you walk over first */
