@@ -111,7 +111,9 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await look(); await shot(pre + 'market-rain');
 
   /* ---------- dusk on a Friday in September ---------- */
-  const dusk = await M((e, d, h, a) => { let s = null; for (const t of ['19:00', '19:10', '19:20', '19:30', '19:40']) { s = e.at(a, t); const k = d.sky.state; s.sky = k; if (k.dusk > .3 && k.night < .7) break; } return s; }, '2026-09-18');
+  /* (the sun sets when it really does where the visitor is, Dublin for the tests: about 19:40 on that day, its gold light
+     coming on from about 18:20, so the first moment of dusk is looked for from six on) */
+  const dusk = await M((e, d, h, a) => { let s = null; for (const t of ['18:00', '18:10', '18:20', '18:30', '18:40', '18:50', '19:00', '19:10', '19:20', '19:30', '19:40']) { s = e.at(a, t); const k = d.sky.state; s.sky = k; if (k.dusk > .3 && k.night < .7) break; } return s; }, '2026-09-18');
   rec(dusk.open && dusk.vis && dusk.sky.dusk > .3 && dusk.glow > .3 && dusk.glow < 1, 'at dusk on a Friday the market is up and the bulbs are coming up with the dark', JSON.stringify({ h: dusk.h, dusk: dusk.sky.dusk, night: dusk.sky.night, glow: dusk.glow }));
   await look(); await shot(pre + 'market-friday-dusk');
 

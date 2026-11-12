@@ -104,6 +104,9 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(up1 === 'up' && back.st === 'idle' && back.ws < .05 && back.cam < 7.5 && back.creak > before, (mobile ? 'a tap' : 'a key') + ' stands you up and gives the camera back', JSON.stringify({ up1, ...back }));
   /* E (or the tag) sits you down again where you stand; then a click (a tap) stands you up, and does not sit you down again */
   if (mobile) { let t = null;   // (the tag follows the bench as the camera settles back: found again, if a tap lands just off it)
+    /* (and first the camera is let settle, the station stepped on and a few frames drawn, so the tag has stopped moving: a tap
+       where the tag was a moment ago can land on the kite instead and send you off to it, more so on a slow machine) */
+    await C(c => c.run(150)); await frames(4);
     for (let k = 0; k < 3 && !(await C((c, d) => d.cliff.CL.st !== 'idle')); k++) { t = await page.evaluate(() => { const e = [...document.querySelectorAll('#crLabels > span.crl')].find(x => x.textContent === 'Sit'), r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, top = document.elementFromPoint(x, y);
       return e.classList.contains('on') && (top === e || e.contains(top)) ? [x, y] : null; }); if (t) await page.touchscreen.tap(t[0], t[1]); await wait(150); }
     rec(!!t, 'the Sit tag is there to tap, on top'); }
@@ -120,6 +123,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* ---- walking into it from round its end sits you down; what you held to get there does not stand you up ---- */
   await C((c, d) => { const [x, z] = c.local(1.7, -.35), [bx, bz] = c.local(.3, 0); c.put(x, z, bx, bz); c.run(5); });
+  if (mobile) { await C(c => c.run(60)); await frames(4); }   // (the camera settled first, so the tags over the bench and the kite have stopped moving and no finger lands on one)
   let into;
   if (mobile) { const [sx, sy] = await open(vp.width * .5, vp.height * .75); await touch('touchStart', sx, sy); for (let i = 1; i <= 4; i++) await touch('touchMove', sx, sy - i * 12);
     into = await C(c => c.until(d => d.cliff.CL.st === 'sit' || d.cliff.CL.st === 'sat', 120)); await touch('touchMove', sx, sy - 60); }

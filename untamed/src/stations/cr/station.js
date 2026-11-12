@@ -72,6 +72,12 @@ const LU={uPly:{value:new T.Vector3()},uShDbg:{value:0},uSun:{value:SUN},uSky:{v
    The ground and the pad are cut where the shaft opens (uHoleOn 1); its doors show only inside it, the rest of them hidden
    under the rim (uHoleOn -1) */
 Object.assign(LU,{uHole:{value:new T.Vector4(0,1,0,0)},uLamp:{value:0},uQL:{value:Array.from({length:3},()=>new T.Vector4(0,-99,0,0))},uQR:{value:new T.Vector3(1,1,1)}});
+/* ----- the sky alive's (see there): the edge of a bank of sea fog rolling in (which way it comes from, where its edge is, and
+   whether there is one), how bare the trees are; in the sky, which way north is, the moon (how much of it is lit, waxing or
+   waning, how many more stars), the northern lights, a flash of lightning, two shooting stars, and the moon's path on the sea */
+Object.assign(LU,{uFogB:{value:new T.Vector4(1,0,99,0)},uBare:{value:0}});
+Object.assign(SKYU,{uNorth:{value:new T.Vector3(-.38,0,-.46).normalize()},uMoonK:{value:new T.Vector4(1,1,0,0)},uAur:{value:0},uFlash:{value:0},
+  uMetA:{value:[new T.Vector4(),new T.Vector4()]},uMetB:{value:[new T.Vector4(),new T.Vector4()]},uGlit:{value:new T.Vector4()}});
 const HOLE=`uniform vec4 uHole; uniform float uHoleOn;
   void holeCut(vec3 w){ if(uHole.w>0.){ float a=dot(w,uHole.xyz); if(a>0.&&length(w-uHole.xyz*a)<uHole.w) discard; } }
   void hole(vec3 w){ if(uHoleOn>.5) holeCut(w); else if(uHoleOn<-.5){ float a=dot(w,uHole.xyz); if(uHole.w<=0.||length(w-uHole.xyz*a)>uHole.w-.004) discard; } }`;
@@ -105,7 +111,11 @@ const QCUT=`
   hole(vW);
 #endif
 `;
-const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK,uNight,uFogA,uWet,uSnow,uSeason,uLamp; uniform vec2 uFogR; uniform vec4 uLmp[8],uBmO,uBmD,uQL[3]; uniform vec3 uQR; ${HOLE}
+const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uShM; uniform mat4 uShP; uniform float uShOn,uShDbg,uFogK,uNight,uFogA,uWet,uSnow,uSeason,uLamp; uniform vec2 uFogR; uniform vec4 uLmp[8],uBmO,uBmD,uQL[3],uFogB; uniform vec3 uQR; ${HOLE}
+  /* snow lying (see the sky alive): uSnow is how much of the ground it covers, in drifts and patches where it is thin */
+  float snH(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+  float snN(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(snH(i),snH(i+vec2(1.,0.)),f.x),mix(snH(i+vec2(0.,1.)),snH(i+vec2(1.,1.)),f.x),f.y); }
+  float snowAt(vec3 w){ if(uSnow<.005) return 0.; float n=snN(w.xz*1.1)*.62+snN(w.xz*3.7+7.)*.38; return .94*smoothstep(n-.05,n+.05,uSnow*.97); }
   float shadowAt(vec3 w,float b){ if(uShOn<.5) return 1.; vec3 q=(uShP*vec4(w,1.)).xyz*.5+.5; if(q.x<.001||q.x>.999||q.y<.001||q.y>.999||q.z>.999) return 1.;
     float t=.6/${SHN}.; return .25*(step(q.z-b,texture2D(uShM,q.xy+vec2(-t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,-t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(-t,t)).r)+step(q.z-b,texture2D(uShM,q.xy+vec2(t,t)).r)); }
   vec3 toon(vec3 base,vec3 n,vec3 w){ float d=dot(n,uSun); ${QSHAFT}
@@ -118,8 +128,21 @@ const LIGHT=`uniform vec3 uSun,uSky,uFog,uLitA,uLitB,uShdC; uniform sampler2D uS
     float bm=0.; if(uBmO.w>.01){ vec3 U=normalize(uBmO.xyz), v=w-uBmO.xyz, vh=v-U*dot(v,U); float L=length(vh);
       if(L>2.&&dot(v,U)<.5) bm=smoothstep(uBmD.w,uBmD.w+.012,dot(vh/L,uBmD.xyz))*smoothstep(26.,9.,L)*smoothstep(2.5,6.5,L)*uBmO.w; }
     c+=base*vec3(1.,.93,.74)*bm*(.12+.85*uNight);
-    return mix(c,uFog,smoothstep(uFogR.x,uFogR.y,distance(cameraPosition,w))*uFogA*uFogK*(1.-.7*bm)); }`;
-const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
+    float fd=distance(cameraPosition,w), fa=smoothstep(uFogR.x,uFogR.y,fd)*uFogA;
+    /* a bank of sea fog rolling in (see the sky alive): thick wherever it has got to, the further off the thicker */
+    if(uFogB.w>.001) fa=max(fa,smoothstep(1.,14.,fd)*.93*smoothstep(-3.5,3.5,dot(normalize(w).xz,uFogB.xy)*${R}.-uFogB.z));
+    return mix(c,uFog,fa*uFogK*(1.-.7*bm)); }`;
+/* bare trees in winter (see the sky alive): the broadleaf trees' leaves thin out in holes, the same in the colour, the ink and
+   the sun's shadow, so each hole is drawn round and the light comes through it. leafC: the kit's four greens of leaves.
+   (Fragment shaders only: it asks which side of a leaf is facing) */
+const BARE=`uniform float uBare;
+  float brH(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+  float brN(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.-2.*f); return mix(mix(mix(brH(i),brH(i+vec3(1.,0.,0.)),f.x),mix(brH(i+vec3(0.,1.,0.)),brH(i+vec3(1.,1.,0.)),f.x),f.y),
+    mix(mix(brH(i+vec3(0.,0.,1.)),brH(i+vec3(1.,0.,1.)),f.x),mix(brH(i+vec3(0.,1.,1.)),brH(i+vec3(1.,1.,1.)),f.x),f.y),f.z); }
+  bool leafC(vec3 c){ return (abs(c.r-.31)<.006&&abs(c.g-.498)<.006)||(abs(c.r-.373)<.006&&abs(c.g-.573)<.006)||(abs(c.r-.435)<.006&&abs(c.g-.635)<.006)||(abs(c.r-.498)<.006&&abs(c.g-.682)<.006); }
+  bool bareCut(vec3 c,vec3 w){ return uBare>.01&&leafC(c)&&length(w)>${(R+.9).toFixed(2)}&&(!gl_FrontFacing||brN(w*3.1)<uBare*.62); }`;   // (the trees' crowns only, up off the ground: the bushes keep theirs; and a hole goes right through)
+/* (uLeaf: the wind in the trees, given only to the town's static mesh: its leaves lean with it and rustle; see the sky alive) */
+const TOON_V=uv=>`uniform vec4 uLeaf; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
   void main(){ vec4 p=vec4(position,1.); vec3 nn=normal; vC=vec3(1.); ${uv?'vUv=uv;':''}
     #ifdef USE_INSTANCING
       p=instanceMatrix*p; nn=mat3(instanceMatrix)*nn;
@@ -130,16 +153,23 @@ const TOON_V=uv=>`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varyi
     #ifdef USE_COLOR
       vC*=color;
     #endif
-    vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(mat3(modelMatrix)*nn); gl_Position=projectionMatrix*viewMatrix*w; }`;
-const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR}
+    vec4 w=modelMatrix*p;
+    #ifdef USE_COLOR
+      if(dot(uLeaf.xyz,uLeaf.xyz)>1e-6){ vec3 q=color;
+        if((abs(q.r-.31)<.006&&abs(q.g-.498)<.006)||(abs(q.r-.373)<.006&&abs(q.g-.573)<.006)||(abs(q.r-.435)<.006&&abs(q.g-.635)<.006)||(abs(q.r-.498)<.006&&abs(q.g-.682)<.006)){ vec3 up=normalize(w.xyz), wt=uLeaf.xyz-up*dot(uLeaf.xyz,up); float ph=uLeaf.w*1.8+dot(w.xyz,vec3(.9,.5,.7));
+          w.xyz+=wt*(.035+.028*sin(ph)+.012*sin(ph*2.7+1.3)); } }
+    #endif
+    vW=w.xyz; vN=normalize(mat3(modelMatrix)*nn); gl_Position=projectionMatrix*viewMatrix*w; }`;
+const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR} ${BARE}
   void main(){ ${QCUT} nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC, E=vec3(0.);
-    if(uKit>.5){ float upn=dot(n,normalize(vW));
+    if(uKit>.5){ if(bareCut(vC,vW)) discard; float upn=dot(n,normalize(vW));
       /* leaves turn with the season, tree by tree: reds and golds in autumn (uSeason up to 1), blossom in spring (down to -1) */
       float lb=-1.; if(abs(vC.r-.31)<.006&&abs(vC.g-.498)<.006) lb=.29; else if(abs(vC.r-.373)<.006&&abs(vC.g-.573)<.006) lb=.337; else if(abs(vC.r-.435)<.006&&abs(vC.g-.635)<.006) lb=.373; else if(abs(vC.r-.498)<.006&&abs(vC.g-.682)<.006) lb=.4;
       if(abs(uSeason)>.01&&lb>0.){ float hs=clamp((vC.b-lb)/.012,0.,1.);
         vec3 au=mix(vec3(.86,.45,.2),mix(vec3(.9,.7,.3),vec3(.74,.3,.18),step(.7,hs)),step(.42,hs))*(.82+.4*vC.g);
         b=uSeason>0.?mix(b,au,uSeason*.85*step(.2,hs)):mix(b,mix(vec3(.97,.78,.85),vec3(.99,.93,.94),hs),-uSeason*step(.55,hs)*.85); }
-      b=mix(b,vec3(.93,.95,.97),uSnow*smoothstep(.55,.8,upn));   // snow on whatever faces the sky
+      if(lb>0.&&uBare>.01&&length(vW)>${(R+.9).toFixed(2)}) b=mix(b,vec3(.5,.46,.36)*(.8+.4*vC.g),uBare*.55);   // what is left on the bare trees in winter, dry and dull
+      b=mix(b,vec3(.93,.95,.97),snowAt(vW)*smoothstep(.55,.8,upn));   // snow lying on whatever faces the sky (see the sky alive)
       b*=1.-.2*uWet*smoothstep(.5,.9,upn);   // rain darkens it
       if(uNight>.01&&distance(vC,vec3(.498,.639,.706))<.02){ float hw=fract(sin(dot(floor(vW*1.7),vec3(7.13,157.1,113.7)))*43758.5453); E+=vec3(1.,.76,.44)*step(.3,hw)*(.7+.4*hw)*uNight; }   // windows lit inside, not every one
       if(distance(vC,vec3(1.,.949,.769))<.02){ float m=0.; for(int i=0;i<8;i++) m=max(m,uLmp[i].w*step(distance(vW,uLmp[i].xyz),.7)); E+=vec3(1.,.86,.55)*m*1.6*uNight; } }   // a lamp's glass, as bright as its lamp
@@ -151,6 +181,9 @@ function toonMat(color,o={}){ const op=o.op??1, key=op+'|'+(o.side||0)+'|'+(o.vc
 /* what the ink pass sees: the normal and the distance of every surface; what the sun sees: only depth */
 const INK_F=`varying vec3 vN; varying vec3 vW; ${HOLE} ${NEAR} void main(){ ${QCUT} nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
 const SHD_F=`void main(){ gl_FragColor=vec4(1.); }`;
+/* the town's static mesh's own ink and shadow: as the others, with the bare trees' holes (see the sky alive) */
+const KIT_IF=`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${HOLE} ${NEAR} ${BARE} void main(){ ${QCUT} if(bareCut(vC,vW)) discard; nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; gl_FragColor=vec4(n*.5+.5,1./(1.+distance(cameraPosition,vW))); }`;
+const KIT_SF=`varying vec3 vC; varying vec3 vW; ${BARE} void main(){ if(bareCut(vC,vW)) discard; gl_FragColor=vec4(1.); }`;
 const FLAT_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; ${NEAR} void main(){ nearFade(vW); gl_FragColor=vec4(uC,1.); }`;
 const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:TOON_V(),fragmentShader:FLAT_F});
 
@@ -212,16 +245,16 @@ function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post
   const m=new T.Mesh(new T.PlaneGeometry(w,h),mat); m.matrixAutoUpdate=false; m.matrix.copy(sub(M,ox,y,-.025)); m.userData.cast=true; sc.add(m); return m; }
 
 /* ---------- prefabs ---------- */
-function windowAt(M,x,y,z,ry,o={}){ const W=sub(M,x,y,z,ry), tr=o.trim||'#f6f1e7';
+function windowAt(M,x,y,z,ry,o={}){ const W=sub(M,x,y,z,ry), tr=o.trim||'#f6f1e7'; slWin(W);   // (its frost in winter: see the sky alive)
   box(W,tr,0,-.36,.02,.76,.72,.06); box(W,'#7fa3b4',0,-.29,.04,.58,.56,.05); box(W,tr,0,-.29,.05,.04,.56,.04); box(W,tr,0,-.03,.05,.58,.04,.04); box(W,tr,0,-.42,.06,.88,.06,.16);
-  if(o.flowers){ box(W,'#8a5a3c',0,-.56,.12,.72,.14,.18); for(let k=0;k<4;k++) put(W,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f'][k],-.24+k*.16,-.38,.14,.07,.07,.07); } }
+  if(o.flowers){ slBox(W); box(W,'#8a5a3c',0,-.56,.12,.72,.14,.18); for(let k=0;k<4;k++) put(W,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f'][k],-.24+k*.16,-.38,.14,.07,.07,.07); } }
 function door(M,x,z,ry,c,tr){ const D=sub(M,x,0,z,ry); box(D,tr,0,.2,.02,.78,1.26,.06); box(D,c,0,.2,.05,.6,1.12,.05); box(D,'#e7c36a',.2,.75,.09,.05,.05,.04); box(D,'#bdb6aa',0,0,.32,.96,.16,.56); }
 const HOUSES=[];
 function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat});
   box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(M,o.wall,0,.2,0,w,h-.2,d);
   if(o.flat){ box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3); }
   else { const rh=o.rh||1.3; put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,d/2+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-d/2-.04,w+.1,.12,.05);
-    if(o.chim!==false) box(M,'#b07a5e',w*.28,h+.25,-d*.16,.34,rh*.95,.34); }
+    if(o.chim!==false){ box(M,'#b07a5e',w*.28,h+.25,-d*.16,.34,rh*.95,.34); slChim(M,w*.28,h+.27+rh*.95,-d*.16); } }   // (its smoke: see the sky alive)
   door(M,o.doorX||0,d/2,0,o.door||'#6e4a3a',tr);
   (o.win||[-w*.3,w*.3]).forEach((wx,i)=>windowAt(M,wx,1.42,d/2,0,{flowers:o.flowers&&i===0,trim:tr}));
   if(o.up) (o.win||[-w*.3,w*.3]).concat([o.doorX||0]).forEach(wx=>windowAt(M,wx,h-.85,d/2,0,{trim:tr}));
@@ -369,9 +402,12 @@ function buildNature(){
   for(let i=0;i<500;i++){ const a=rnd()*TAU, r=14+rnd()*6, x=Math.cos(a)*r, z=Math.sin(a)*r, l=isle(at(x,z)); if(l<.0||l>.05||!clearAt(x,z,.4)) continue; rock(x,z,.6+rnd()*.9); }
   // grass tufts: small clumps that sway, not inked
   const NG=Math.floor(LO?380:900), blade=mergeG([new T.ConeGeometry(.03,.2,3).translate(0,.1,0),new T.ConeGeometry(.026,.15,3).rotateZ(.35).translate(.04,.07,.01),new T.ConeGeometry(.026,.16,3).rotateZ(-.3).rotateY(1.2).translate(-.035,.075,.02)]);
-  const gm=new T.ShaderMaterial({uniforms:Object.assign({uTime:G.uTime},LU),vertexShader:`uniform float uTime; varying vec3 vN; varying vec3 vW; varying vec3 vC;
+  const gm=new T.ShaderMaterial({uniforms:Object.assign({uTime:G.uTime,uWind:WIND.u},LU),vertexShader:`uniform float uTime; uniform vec4 uWind; varying vec3 vN; varying vec3 vW; varying vec3 vC;
     void main(){ vec4 p=instanceMatrix*vec4(position,1.); vC=instanceColor; vec3 base=(instanceMatrix*vec4(0.,0.,0.,1.)).xyz; float h=position.y/.2;
-      p.xyz+=normalize(cross(normalize(base),vec3(.3,.1,.9)))*sin(uTime*1.6+base.x*2.+base.z*1.7)*.03*h; vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(base); gl_Position=projectionMatrix*viewMatrix*w; }`,
+      p.xyz+=normalize(cross(normalize(base),vec3(.3,.1,.9)))*sin(uTime*1.6+base.x*2.+base.z*1.7)*.03*h*(1.-.5*min(uWind.w,1.));
+      /* and the wind (see the sky alive): the tufts lean with it, waves running through them the way it blows */
+      vec3 bn=normalize(base), wt=uWind.xyz-bn*dot(uWind.xyz,bn); p.xyz+=wt*uWind.w*h*(.03+.05*min(uWind.w,1.)*(.6+.4*sin(uTime*2.4-dot(base,uWind.xyz)*1.1)));
+      vec4 w=modelMatrix*p; vW=w.xyz; vN=normalize(base); gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} void main(){ ${QCUT} gl_FragColor=vec4(toon(vC,normalize(vN),vW),1.); }`}); gm.uniforms.uHoleOn={value:1};
   const gi=new T.InstancedMesh(blade,gm,NG), M=new T.Matrix4(), Qq=new T.Quaternion(), Y=new T.Quaternion(), Ss=new T.Vector3(), Pp=new T.Vector3(), C=new T.Color(); let k=0;
   for(let i=0;i<NG*4&&k<NG;i++){ const x=(rnd()-.5)*36, z=(rnd()-.5)*36, d=at(x,z); if(isle(d)<.04||!clearAt(x,z,.05)) continue; Qq.setFromUnitVectors(UPY,d); Y.setFromAxisAngle(UPY,rnd()*TAU); Qq.multiply(Y);
@@ -404,7 +440,7 @@ function buildGround(){
         vec3 rock=mix(vec3(.67,.61,.54),vec3(.56,.51,.47),step(.5,fract(vH*2.6+vn2(xz*.7)*.7)));
         c=mix(c,rock,smoothstep(.3,.5,steep)*(1.-vB*.85));
         /* snow on the grass and the paths, thinner on the sand; in the rain the ground darkens and the paths hold puddles of sky */
-        { float upn=dot(n,up); c=mix(c,vec3(.93,.95,.97)*(.97+.04*p3),uSnow*smoothstep(.75,.9,upn)*(1.-sand*.6));
+        { float upn=dot(n,up); c=mix(c,vec3(.93,.95,.97)*(.97+.04*p3),snowAt(vW)*smoothstep(.75,.9,upn)*(1.-sand*.6));
           if(uWet>.01){ c*=1.-.16*uWet; float pud=smoothstep(.62,.7,vn2(xz*.8+7.3))*(1.-smoothstep(-fw,fw,pd)); c=mix(c,uSky*.9+vec3(.05),pud*uWet*.55); } }
         float ct=1.-smoothstep(0.,fwidth(vH)*1.3+.003,abs(vH+.05)); c=mix(c,vec3(.24,.22,.21),ct*(1.-vB)*step(.15,steep)*.9);
         gl_FragColor=vec4(toon(c,n,vW),1.); }`}));
@@ -412,9 +448,9 @@ function buildGround(){
   // the sea: shallow and bright by the land, foam where it meets the shore, painted ripples
   const ld=new Uint16Array(CN*CN*4); for(let k=0;k<CN*CN;k++){ ld[k*4]=T.DataUtils.toHalfFloat(GL[k]); ld[k*4+1]=T.DataUtils.toHalfFloat(GH[k]); ld[k*4+2]=T.DataUtils.toHalfFloat(GB[k]); ld[k*4+3]=T.DataUtils.toHalfFloat(1); }
   const landTex=new T.DataTexture(ld,CN,CN,T.RGBAFormat,T.HalfFloatType); landTex.minFilter=landTex.magFilter=T.LinearFilter; landTex.needsUpdate=true;
-  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime,uHoleOn:{value:1}},LU),
+  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime,uHoleOn:{value:1},uMoonD:SKYU.uMoonD,uGlit:SKYU.uGlit},LU),
     vertexShader:TOON_V(),
-    fragmentShader:`uniform sampler2D uLand; uniform float uTime; varying vec3 vN; varying vec3 vW; ${N2} ${LIGHT}
+    fragmentShader:`uniform sampler2D uLand; uniform float uTime; uniform vec3 uMoonD; uniform vec4 uGlit; varying vec3 vN; varying vec3 vW; ${N2} ${LIGHT}
       void main(){ ${QCUT} vec3 d=normalize(vW); float a=acos(clamp(d.y,-1.,1.)); vec2 xz=d.xz*(a*${R}./max(sin(a),1e-4));
         vec2 g=((xz+${CAPR}.)/${CS}+.5)/${CN}.; float hg=-1.6; if(d.y>0.&&g.x>0.&&g.x<1.&&g.y>0.&&g.y<1.) hg=texture2D(uLand,g).g;
         float dep=${WATER}-hg;
@@ -423,30 +459,49 @@ function buildGround(){
         float fo=1.-smoothstep(.0,.045+.025*sin(uTime*1.3+xz.x*.6+xz.y*.5),dep);
         float fo2=smoothstep(.12,.135,dep)*(1.-smoothstep(.15,.17,dep))*step(.45,vn2(xz*2.2+uTime*.25));
         c=mix(c,vec3(.97,.99,.97),max(fo,fo2*.8));
-        gl_FragColor=vec4(toon(c,normalize(vN),vW),1.); }`}));
+        vec3 col=toon(c,normalize(vN),vW);
+        /* under a bright moon (see the sky alive), its path on the water: glints along the line toward it, wider the higher it is */
+        if(uGlit.x>.01){ vec3 up=d, V=normalize(vW-cameraPosition), mh=uMoonD-up*dot(uMoonD,up), vh=V-up*dot(V,up); float lm=length(mh), lv=length(vh);
+          if(lm>.02&&lv>.02){ float al=dot(vh/lv,mh/lm), sd=sqrt(max(0.,1.-al*al)), wd=.035+.2*clamp(dot(uMoonD,up),0.,1.);
+            float g=smoothstep(wd,wd*.2,sd)*step(0.,al)*smoothstep(.62,.7,vn2(xz*vec2(2.6,7.)+vec2(uTime*.35,-uTime*.9)))*smoothstep(.03,.12,dep);
+            col+=vec3(.93,.91,.82)*g*uGlit.x*.85; } }
+        gl_FragColor=vec4(col,1.); }`}));
   sea.userData.cast=false; sc.add(sea);
   // the sky: blue overhead, pale at the horizon, flat painted clouds, the hole as a pale ring by day
   const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:Object.assign({uUp:UPU,uBH:SKYBH,uTime:G.uTime,uSpace:SPACEU,uNight:LU.uNight},SKYU),side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader:`uniform vec3 uUp,uBH,uSunD,uMoonD; uniform float uTime,uSpace,uNight,uDusk,uOver,uBow; varying vec3 vD; ${EARTH_GLSL}
+    fragmentShader:`uniform vec3 uUp,uBH,uSunD,uMoonD,uNorth; uniform float uTime,uSpace,uNight,uDusk,uOver,uBow,uAur,uFlash; uniform vec4 uMoonK,uMetA[2],uMetB[2]; varying vec3 vD; ${EARTH_GLSL}
       void main(){ vec3 d=normalize(vD); float h=dot(d,uUp), sa=dot(d,uSunD);
         /* by day blue overhead and pale at the horizon; at sunrise and sunset warm low down, deepest by the sun; at night dark blue */
         vec3 c=mix(vec3(.85,.92,.9),vec3(.6,.82,.9),smoothstep(-.06,.22,h)); c=mix(c,vec3(.36,.64,.84),smoothstep(.22,.9,h));
         vec3 k=mix(vec3(.98,.74,.54),vec3(.56,.56,.74),smoothstep(-.05,.42,h)); k=mix(k,vec3(.27,.33,.55),smoothstep(.42,.95,h)); k=mix(k,vec3(1.,.6,.38),pow(max(sa,0.),5.)*(1.-smoothstep(0.,.45,h))*.85);
-        c=mix(c,k,uDusk); c=mix(c,mix(vec3(.1,.14,.23),vec3(.025,.04,.09),smoothstep(-.05,.7,h)),uNight);
+        c=mix(c,k,uDusk); c=mix(c,mix(vec3(.1,.14,.23),vec3(.025,.04,.09),smoothstep(-.05,.7,h))*(.8+.35*uMoonK.x),uNight);   // (a full moon lifts the night sky a little, a new one deepens it)
         c=mix(c,mix(vec3(.66,.7,.72),vec3(.53,.58,.62),smoothstep(0.,.8,h))*(1.-.78*uNight),uOver*.85);   // overcast
         /* the sun low in the sky, and the moon and the stars at night */
         float sd=acos(clamp(sa,-1.,1.)), clear=1.-uOver, md=acos(clamp(dot(d,uMoonD),-1.,1.));
         c+=vec3(1.,.68,.42)*exp(-sd*sd*40.)*.35*uDusk*clear; c=mix(c,vec3(1.,.9,.7),smoothstep(.052,.044,sd)*uDusk*clear*smoothstep(-.03,.01,h));
-        c+=vec3(.45,.55,.75)*exp(-md*md*300.)*.22*uNight*clear; c=mix(c,vec3(.95,.94,.86),smoothstep(.034,.028,md)*uNight*clear);
+        c+=vec3(.45,.55,.75)*exp(-md*md*300.)*.22*uNight*clear*(.25+.75*uMoonK.x);
+        /* the moon in its real phase (see the sky alive): lit as much as it is tonight, the rest of the disc only just there */
+        float mk=smoothstep(.034,.028,md)*uNight*clear; if(mk>0.){ vec3 e1=normalize(cross(uUp,uMoonD)), e2=cross(uMoonD,e1), q=(d-uMoonD)/.031; float qy=clamp(dot(q,e2),-1.,1.), lim=(1.-2.*uMoonK.x)*sqrt(1.-qy*qy);
+          c=mix(c,mix(c*.82+vec3(.025,.03,.045),vec3(.95,.94,.86),smoothstep(lim-.07,lim+.07,dot(q,e1)*uMoonK.y)),mk); }
+        /* the stars, more of them and lower down on a dark night with no moon */
         if(uNight>.01){ vec3 cell=floor(d*260.); float s=fract(sin(dot(cell,vec3(12.9898,78.233,37.719)))*43758.5453);
-          c+=step(.9965,s)*(.55+.45*sin(uTime*(.8+s*2.)+s*60.))*smoothstep(.02,.25,h)*clear*uNight*vec3(.95,.93,.86); }
+          c+=step(.9965-.0025*uMoonK.z,s)*(.55+.45*sin(uTime*(.8+s*2.)+s*60.))*smoothstep(.02-.4*uMoonK.z,.25-.3*uMoonK.z,h)*clear*uNight*vec3(.95,.93,.86); }
+        /* northern lights: soft curtains of green going to violet at their tops, low in the north, folding and drifting slowly */
+        if(uAur>.003){ vec3 nt=normalize(uNorth-uUp*dot(uNorth,uUp)), et=cross(uUp,nt), dh=d-uUp*h; float az=atan(dot(dh,et),dot(dh,nt)), wz=1.-smoothstep(.75,1.45,abs(az));
+          if(wz>0.){ float x=az*2.2, tm=uTime*.035, b0=-.3+.12*en(vec3(x*1.3,tm,1.7)), b1=b0+.34+.24*en(vec3(x*2.,tm*1.3,5.1)), y=(h-b0)/(b1-b0);
+            float band=smoothstep(0.,.14,y)*(1.-smoothstep(.3,1.,y)), rays=.4+.6*en(vec3(az*30.+uTime*.1,h*1.5,3.3)), fold=.55+.45*sin(az*6.+uTime*.06+3.*en(vec3(x,tm*2.,9.)));
+            c+=mix(vec3(.25,.92,.55),vec3(.6,.36,.88),smoothstep(.2,.9,y))*band*rays*fold*wz*uAur*clear*uNight*.55; } }
+        /* shooting stars: a bright head and a tail fading behind it, on its way across */
+        for(int i=0;i<2;i++){ vec4 a=uMetA[i], b=uMetB[i]; if(a.w>0.){ vec3 v=d-a.xyz; float al=dot(v,b.xyz), pr=length(v-b.xyz*al), hd=a.w*b.w;
+          c+=vec3(1.,.97,.9)*step(al,hd)*smoothstep(hd-.4*b.w,hd,al)*smoothstep(.0028,.0006,pr)*smoothstep(0.,.1,a.w)*smoothstep(1.,.7,a.w)*uNight*clear*1.5; } }
         /* flat painted clouds: white by day, pink at sunset, dark at night, grey and more of them under rain */
         vec3 q=vec3(d.x*1.8,d.y*3.6,d.z*1.8)+vec3(uTime*.006,0.,uTime*.003); float f=efbm(q), fw=fwidth(f)*1.2+.002, band=smoothstep(.0,.1,h)*(1.-smoothstep(.7,.9,h)), th=.57-.13*uOver;
         float cl=smoothstep(th-fw,th+fw,f)*band, top=smoothstep(th+.04-fw,th+.04+fw,efbm(q+vec3(.02,.06,-.02)));
         vec3 c1=mix(mix(vec3(.86,.92,.93),vec3(.96,.72,.66),uDusk),vec3(.1,.13,.2),uNight), c2=mix(mix(vec3(.99,.99,.96),vec3(1.,.87,.72),uDusk),vec3(.17,.2,.28),uNight);
         c1=mix(c1,vec3(.55,.6,.64)*(1.-.75*uNight),uOver); c2=mix(c2,vec3(.7,.74,.77)*(1.-.75*uNight),uOver);
         c=mix(c,c1,cl); c=mix(c,c2,top*cl);
+        c+=vec3(.72,.76,.92)*uFlash*(.3+.7*cl);   // lightning lights the clouds from inside
         /* after the rain, with the sun behind you: a rainbow, red outside */
         if(uBow>.01){ float ra=acos(clamp(dot(d,-uSunD),-1.,1.)), t=(.735-ra)/.036; float m=smoothstep(.7,.25,abs(t-.5))*smoothstep(-.02,.12,h);
           vec3 rb=clamp(vec3(1.5-abs(t*4.-.4),1.5-abs(t*4.-1.8),1.5-abs(t*4.-3.2)),0.,1.); c=mix(c,rb,m*uBow*.32); }
@@ -994,7 +1049,8 @@ function mktMat(u,o={}){ const m=new T.ShaderMaterial({uniforms:Object.assign({u
 const MKS_F=`uniform sampler2D uMap; uniform float uGlow; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR} ${MK_DIS}
   void main(){ mkFade(); nearFade(vW); vec3 n=normalize(vN), t=texture2D(uMap,vUv).rgb; gl_FragColor=vec4(toon(t,n,vW)+t*uGlow,1.); }`;
 /* the festoons: the wire and its bulbs swing a little, most in the middle of each span (aSw: which way, and how much there) */
-const MK_SW=`uniform float uTime,uSway; attribute vec4 aSw; attribute float aPh; vec3 swing(){ return aSw.xyz*aSw.w*uSway*(sin(uTime*1.25+aPh)+.35*sin(uTime*2.7+aPh*1.7)); }`;
+/* (uWind: the one wind, see the sky alive: a span is blown out to the side it blows toward, as much as it blows across it) */
+const MK_SW=`uniform float uTime,uSway; uniform vec4 uWind; attribute vec4 aSw; attribute float aPh; vec3 swing(){ return aSw.xyz*aSw.w*(uSway*(sin(uTime*1.25+aPh)+.35*sin(uTime*2.7+aPh*1.7))+.07*uWind.w*dot(uWind.xyz,aSw.xyz)); }`;
 /* several meshes (each with its own matrix) as one: positions, normals and whatever else they all have */
 function mktMerge(list,keys=['color']){ const P=[],N=[],X=keys.map(()=>[]), nm=new T.Matrix3(), v=new T.Vector3();
   for(const [g0,M] of list){ const g=g0.index?g0.toNonIndexed():g0, p=g.attributes.position, q=g.attributes.normal; nm.getNormalMatrix(M);
@@ -1115,7 +1171,7 @@ async function buildMarket(gap){ const g=new T.Group(); MKT.g=g; g.visible=false
     for(let k=0;k<nb;k++){ const s=(k+.5)/nb, p=cur.getPoint(s), u=V3.copy(p).normalize(), w=4*s*(1-s), c=p.clone().addScaledVector(u,-.07);
       BM.push(new T.Matrix4().compose(c,new T.Quaternion().setFromUnitVectors(UPY,u),V4.set(1,1,1))); BS.push(side.x,side.y,side.z,w); BPh.push(si*1.9+s*1.4);
       hp.push(c.x,c.y,c.z); hs.push(.36); hsw.push(side.x,side.y,side.z,w); hph.push(si*1.9+s*1.4); } });
-  const SWU={uTime:G.uTime,uSway:{value:.05}}; MKT.sway=SWU.uSway;
+  const SWU={uTime:G.uTime,uSway:{value:.05},uWind:WIND.u}; MKT.sway=SWU.uSway;
   { const wg=new T.BufferGeometry(); wg.setAttribute('position',new T.Float32BufferAttribute(WP,3)); wg.setAttribute('normal',new T.Float32BufferAttribute(WN,3)); wg.setAttribute('aSw',new T.Float32BufferAttribute(WS,4)); wg.setAttribute('aPh',new T.Float32BufferAttribute(WPh,1));
     const wm=new T.Mesh(wg,new T.ShaderMaterial({uniforms:Object.assign({uMk:MKT.u,uC:{value:C3('#2e2c2b')}},SWU),
       vertexShader:`${MK_SW} void main(){ vec4 w=modelMatrix*vec4(position,1.); w.xyz+=swing(); gl_Position=projectionMatrix*viewMatrix*w; }`,
@@ -1207,7 +1263,7 @@ function mktUpdate(dt,t,manual){ if(!MKT.g) return; const P=player;
   if(!show&&!warm) return;
   MKT.bulbs.material.uniforms.uGlow.value=MKT.glow; MKT.halo.material.uniforms.uK.value=e*dk*(.94+.06*Math.sin(t*2.1)); MKT.pool.material.uniforms.uK.value=e*dk;
   MKT.halo.material.uniforms.uH.value=MKT.smoke.m.material.uniforms.uH.value=colRT.height||innerHeight; MKT.signM.uniforms.uGlow.value=e*(.1+.62*dk);
-  MKT.kitM.uniforms.uC.value.setRGB(1+.16*dk,1+.08*dk,1); MKT.sway.value=.045+.05*MKT.wet;
+  MKT.kitM.uniforms.uC.value.setRGB(1+.16*dk,1+.08*dk,1); MKT.sway.value=(.045+.05*MKT.wet)*slSway();
   if(warm){ MKT.g.traverse(o=>{ if(o.isMesh||o.isPoints) o.frustumCulled=false; }); MKT.amp.frustumCulled=false; MKT.halo.material.uniforms.uK.value=MKT.pool.material.uniforms.uK.value=1; }
   else if(MKT.culled!==true){ MKT.culled=true; MKT.g.traverse(o=>{ if(o.isMesh&&o.geometry&&!o.isInstancedMesh&&!o.layers.isEnabled(1)) o.frustumCulled=true; }); MKT.amp.frustumCulled=true; }
   const quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on;
@@ -1518,7 +1574,9 @@ function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
    out. Now and then it rains (and in December it snows instead), sea fog rolls in with the foghorn, and after the rain
    there is a rainbow. Leaves turn in autumn and blossom in spring; there is snow and fairy lights in December and
    pumpkins on the doorsteps at Halloween. ?time=21:30, ?date=12-24 and ?weather=rain|fog|clear set any of it. */
-const SKY={h:15,doy:200,md:'07-15',dow:3,e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false}, SEA={};
+const SKY={h:15,th:15,y:2026,doy:200,md:'07-15',dow:3,e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false,storm:0,front:26,fogHold:300,fogGap:200}, SEA={};
+/* (th: the hour the town's sun keeps, stretched so that it rises and sets when it does where the visitor is; y: the year.
+   storm: how much of a thunderstorm there is; front: where the edge of a bank of sea fog has got to. See the sky alive) */
 const QPS=new URLSearchParams(location.search), SKYSET={time:QPS.get('time'),date:QPS.get('date'),weather:QPS.get('weather')};
 const D2R=Math.PI/180, SOUTH=new T.Vector3(.38,0,.46).normalize(), WEST=new T.Vector3(SOUTH.z,0,-SOUTH.x);
 /* where the sun is: elevation from the hour angle, the sun's declination for the day and our latitude; the moon opposite */
@@ -1535,12 +1593,16 @@ function skyClock(){ const now=new Date(); let h=now.getHours()+now.getMinutes()
   if(SKYSET.time){ const p=SKYSET.time.split(':'); h=clamp((+p[0]||0)+(+p[1]||0)/60+(+p[2]||0)/3600,0,23.9999); }
   /* a date is month and day (this year), or the year too: 2026-11-13. The day of the week is worked out from it */
   if(SKYSET.date){ const p=SKYSET.date.split('-'); if(p.length>2) y=+p.shift()||y; m=clamp(+p[0]||1,1,12); d=clamp(+p[1]||1,1,31); }
-  SKY.h=h; SKY.doy=doyOf(m,d); SKY.md=String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); SKY.dow=new Date(y,m-1,d).getDay(); }
-/* the weather for this visit: the same for everyone within the same three hours of the same day */
+  SKY.h=h; SKY.doy=doyOf(m,d); SKY.md=String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); SKY.dow=new Date(y,m-1,d).getDay(); slClock(y,m,d); }   // (the sun and moon there, the season, the cold: the sky alive)
+/* the weather for this visit: the same for everyone within the same three hours of the same day (the visitor's own, when it
+   comes, takes over: see the sky alive). Now and then the rain is a thunderstorm; some days are only grey. In the winter months
+   (and on any freezing day) what falls is snow */
 function skyWeather(){ let k='clear'; const now=new Date(), seed=(now.getFullYear()*400+SKY.doy)*8+Math.floor(SKY.h/3), r=fract(Math.sin(seed*12.9898)*43758.5453);
-  if(r<.2) k='rain'; else if(r<.36) k='fog';
+  if(r<.2) k=r<.05?'thunder':'rain'; else if(r<.36) k='fog'; else if(r<.46) k='cloudy';
   if(window.__TEST&&!SKYSET.weather) k='clear'; if(SKYSET.weather) k=SKYSET.weather;
-  WX.kind=k; WX.snow=inRange(SKY.md,'12-01','01-06'); WX.t=0; WX.rain=k==='rain'?1:0; WX.fog=0; WX.bow=0; WX.stop=70+r*400%60; WX.horn=10; WX.bowT=0; SKY.over=k==='rain'?1:0; }
+  const wet=k==='rain'||k==='snow'||k==='thunder';
+  WX.kind=k; WX.snow=k==='snow'||(wet&&slSnowy()); WX.t=0; WX.rain=wet?1:0; WX.storm=k==='thunder'?1:0; WX.fog=0; WX.front=26; WX.bow=0; WX.stop=70+r*400%60; WX.horn=10; WX.bowT=0; SKY.over=wet?1:k==='cloudy'?.72:0;
+  WX.fogHold=230+r*997%160; WX.fogGap=150+r*571%150; SL.wasWet=false; }
 const fract=x=>x-Math.floor(x);
 const SUND=new T.Vector3(), MOOND=new T.Vector3(), LT=new T.Vector3(), LT2=new T.Vector3();
 const mixV=(o,a,b,k)=>o.set(a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k);
@@ -1548,23 +1610,24 @@ const SKYC={day:{la:[.93,.92,.89],lb:[1.05,1.02,.95],sh:[.6,.66,.83],sky:[.62,.8
   gold:{la:[1.,.85,.7],lb:[1.1,.93,.75],sh:[.52,.53,.72],sky:[.88,.72,.63],fog:[.89,.8,.73]},
   night:{la:[.34,.4,.58],lb:[.4,.47,.66],sh:[.19,.23,.37],sky:[.17,.23,.36],fog:[.105,.145,.21]}};
 const cA=new T.Vector3(), cB=new T.Vector3();
-function skyApply(){ sunDir(SKY.h,SKY.doy,SUND,false); sunDir(SKY.h,SKY.doy,MOOND,true);
+function skyApply(){ sunDir(SKY.th,SKY.doy,SUND,false); sunDir(SKY.th,SKY.doy,MOOND,true);
   const ed=Math.asin(clamp(SUND.y,-1,1))/D2R; SKY.e=ed;
-  const night=1-sstep(-8,-1,ed), dusk=sstep(-8,0,ed)*(1-sstep(4,16,ed)), sunOn=ed>-2.5;
+  const night=1-sstep(-8,-1,ed), dusk=sstep(-8,0,ed)*(1-sstep(4,16+16*SL.seas.su,ed)), sunOn=ed>-2.5;   // (in summer the golden light starts higher, so the evenings are long and golden)
   SKY.night=night; SKY.dusk=dusk;
   /* the light that casts: the sun, or the moon once the sun is well down; how strong it is fades to nothing at the hand-over */
-  if(!SKY.hold) SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):1-sstep(-9,-3,ed);   // (hold: a test moving the light by hand) direct*=1-.7*SKY.over-.4*WX.fog;
+  if(!SKY.hold) SUN.copy(sunOn?SUND:MOOND); let direct=sunOn?sstep(-2,4,ed):(1-sstep(-9,-3,ed))*Math.min(1,.62+.76*SL.moon.k);   // (the moon's light: as it always was from half full on, fainter toward a new moon)   // (hold: a test moving the light by hand) direct*=1-.7*SKY.over-.4*WX.fog;
   const K=['la','lb','sh','sky','fog'], out={};
   for(const k of K){ mixV(cA,SKYC.day[k],SKYC.gold[k],dusk); mixV(cB,[cA.x,cA.y,cA.z],SKYC.night[k],night); out[k]=cB.clone(); }
+  slTint(out,night,dusk);   // the moon, summer evenings, storms and lightning (see the sky alive)
   LU.uShdC.value.copy(out.sh); LU.uLitA.value.copy(out.sh).lerp(out.la,direct); LU.uLitB.value.copy(out.sh).lerp(out.lb,direct);
   /* rain greys the air; sea fog closes in, pale by day and dark blue at night */
   const grey=V4.set(.7,.75,.77).multiplyScalar(1-.85*night);
-  out.fog.lerp(grey,.6*SKY.over); out.sky.lerp(grey,.5*SKY.over); out.fog.lerp(V4.set(.8,.85,.87).multiplyScalar(1-.78*night),WX.fog*.9);
+  out.fog.lerp(grey,.6*SKY.over); out.sky.lerp(grey,.5*SKY.over); out.fog.lerp(V4.set(.8,.85,.87).multiplyScalar(1-.78*night),Math.max(WX.fog,WX.front<25.9?.6*sstep(26,12,WX.front):0)*.9);
   LU.uFog.value.setRGB(out.fog.x,out.fog.y,out.fog.z); LU.uSky.value.setRGB(out.sky.x,out.sky.y,out.sky.z);
   const fg=WX.fog, ov=SKY.over; LU.uFogR.value.set(lerp(lerp(16,11,ov),2.5,fg),lerp(lerp(52,40,ov),16,fg)); LU.uFogA.value=lerp(lerp(.55,.65,ov),.92,fg);
-  LU.uNight.value=night; LU.uWet.value=Math.max(WX.rain,LU.uWet.value*.999); LU.uSnow.value=WX.snow?.8:0;
+  LU.uNight.value=night; LU.uWet.value=Math.max(WX.rain,LU.uWet.value*.999); LU.uSnow.value=SL.snow;
   LU.uSeason.value=seasonK(SKY.doy,doyOf(9,18),doyOf(11,30),12)-seasonK(SKY.doy,doyOf(3,22),doyOf(5,18),10);
-  SKYU.uSunD.value.copy(SUND); SKYU.uMoonD.value.copy(MOOND); SKYU.uDusk.value=dusk*(1-night*.5); SKYU.uOver.value=Math.max(ov,fg*.5); SKYU.uBow.value=WX.bow*(ed>2?1:0);
+  SKYU.uSunD.value.copy(SUND); SKYU.uMoonD.value.copy(MOOND); SKYU.uDusk.value=dusk*(1-night*.5); SKYU.uOver.value=Math.max(ov,fg*.5); SKYU.uBow.value=WX.bow*sstep(2,5,ed)*(1-sstep(36,42,ed));
   /* the shadows are drawn again when the light has moved a degree or so */
   if(SKY.baked.dot(SUN)<.9998){ SKY.baked.copy(SUN); baked=false; } }
 /* ---------- the things the sky brings: rain and snow, fireflies, fairy lights and pumpkins ---------- */
@@ -1574,16 +1637,18 @@ function buildSkyFx(){ skyClock(); skyWeather();
   { const N=LO?260:520, P=[], S=[], Cn=[], I=[]; for(let i=0;i<N;i++){ const s=[Math.random(),Math.random(),Math.random(),Math.random()];
       for(const [cx,cy] of [[-1,0],[1,0],[1,1],[-1,1]]){ P.push(0,0,0); S.push(...s); Cn.push(cx,cy); } const b=i*4; I.push(b,b+1,b+2, b,b+2,b+3); }
     const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('aS',new T.Float32BufferAttribute(S,4)); g.setAttribute('aC',new T.Float32BufferAttribute(Cn,2)); g.setIndex(I);
-    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight},transparent:true,depthWrite:false,side:T.DoubleSide,
-      vertexShader:`attribute vec4 aS; attribute vec2 aC; uniform vec3 uCam,uUp; uniform float uTime,uSnow; varying vec2 vC; varying float vA;
+    const m=new T.ShaderMaterial({uniforms:{uCam:{value:new T.Vector3()},uUp:UPU,uTime:G.uTime,uK:{value:0},uSnow:{value:0},uNight:LU.uNight,uWind:WIND.u,uHv:{value:0}},transparent:true,depthWrite:false,side:T.DoubleSide,
+      vertexShader:`attribute vec4 aS; attribute vec2 aC; uniform vec3 uCam,uUp; uniform vec4 uWind; uniform float uTime,uSnow,uHv; varying vec2 vC; varying float vA;
         void main(){ vec3 e1=normalize(cross(uUp,abs(uUp.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.))), e2=cross(uUp,e1);
-          float sp=mix(9.,.9,uSnow), y=fract(aS.y-uTime*sp/12.)*12.-5.; vec3 p=uCam+e1*(aS.x-.5)*18.+e2*(aS.z-.5)*18.+uUp*y;
+          float sp=mix(9.,.9,uSnow)*(1.+.25*uHv), y=fract(aS.y-uTime*sp/12.)*12.-5.; vec3 p=uCam+e1*(aS.x-.5)*18.+e2*(aS.z-.5)*18.+uUp*y;
           p+=(e1*sin(uTime*1.3+aS.w*20.)+e2*cos(uTime*1.1+aS.w*17.))*.35*uSnow;   // flakes drift
-          vec3 vd=normalize(p-cameraPosition), sd=normalize(cross(uUp,vd)); float L=mix(.42,.05,uSnow), W=mix(.022,.05,uSnow);
-          p+=sd*aC.x*W+(uSnow>.5?cross(vd,sd)*(aC.y-.5)*2.*W:uUp*aC.y*L); vC=aC; vA=smoothstep(18.,6.,distance(p,cameraPosition))*(.55+.45*aS.w);
+          /* blown with the wind (see the sky alive): further the longer it has fallen, the snow most; in a storm the rain is heavier */
+          vec3 wt=(uWind.xyz-uUp*dot(uWind.xyz,uUp))*uWind.w; float dr=mix(.14,.55,uSnow); p-=wt*y*dr;
+          vec3 vd=normalize(p-cameraPosition), sd=normalize(cross(uUp,vd)); float L=mix(.42,.05,uSnow)*(1.+.45*uHv), W=mix(.022,.05,uSnow);
+          p+=sd*aC.x*W+(uSnow>.5?cross(vd,sd)*(aC.y-.5)*2.*W:normalize(uUp-wt*dr)*aC.y*L); vC=aC; vA=smoothstep(18.,6.,distance(p,cameraPosition))*(.55+.45*aS.w);
           gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
-      fragmentShader:`uniform float uK,uSnow,uNight; varying vec2 vC; varying float vA; void main(){ float a=uSnow>.5?smoothstep(1.,.5,length(vec2(vC.x,vC.y*2.-1.))):1.-abs(vC.x)*.6;
-        gl_FragColor=vec4(mix(vec3(.82,.88,.93),vec3(.97),uSnow)*(1.-.55*uNight),a*vA*uK*mix(.5,.9,uSnow)); }`});
+      fragmentShader:`uniform float uK,uSnow,uNight,uHv; varying vec2 vC; varying float vA; void main(){ float a=uSnow>.5?smoothstep(1.,.5,length(vec2(vC.x,vC.y*2.-1.))):1.-abs(vC.x)*.6;
+        gl_FragColor=vec4(mix(vec3(.82,.88,.93),vec3(.97),uSnow)*(1.-.55*uNight),a*vA*uK*mix(.5,.9,uSnow)*(1.+.3*uHv)); }`});
     FALL=new T.Mesh(g,m); FALL.frustumCulled=false; FALL.layers.set(1); FALL.renderOrder=5; FALL.visible=false; sc.add(FALL); }
   /* fireflies by the trees on summer nights */
   if(inRange(SKY.md,'05-15','09-15')){ const n=LO?16:28, m=new T.InstancedMesh(new T.SphereGeometry(.035,6,4),new T.MeshBasicMaterial({color:new T.Color(1,1,.6)}),n);
@@ -1600,14 +1665,12 @@ function buildSkyFx(){ skyClock(); skyWeather();
       const mo=new T.Mesh(new T.PlaneGeometry(.18,.045),face); mo.position.set(0,.11,.185); g.add(mo); PUMPS.push(face); } } }
 /* ---------- each frame ---------- */
 function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
-  /* the weather moves on: the rain stops after a while and the cloud clears, and with the sun out behind you a rainbow; fog rolls in */
-  WX.t+=dt;
-  if(WX.kind==='rain'){ if(WX.t>WX.stop){ WX.rain=Math.max(0,WX.rain-dt/8); SKY.over=Math.max(0,SKY.over-dt/22); if(!WX.bowT&&SKY.over<.5&&SKY.e>2&&!WX.snow){ WX.bowT=1; A.chime(4,0,.025); } } }
-  if(WX.bowT){ WX.bowT+=dt; WX.bow=sstep(1,9,WX.bowT)*(1-sstep(55,70,WX.bowT)); }
-  if(WX.kind==='fog') WX.fog=sstep(10,40,WX.t);
+  /* the weather moves on: the rain stops after a while and the cloud clears, and with the sun out behind you a rainbow; fog
+     rolls in from the sea and out again; storms, the wind, the lights in the night sky (see the sky alive) */
+  slSky(dt);
   skyApply();
   /* rain or snow round the camera */
-  const fall=WX.rain*(1-sstep(0,1,SPACEU.value)); FALL.visible=fall>.01; if(FALL.visible){ const u=FALL.material.uniforms; u.uCam.value.copy(stCam.position); u.uK.value=fall; u.uSnow.value=WX.snow?1:0; }
+  const fall=WX.rain*(1-sstep(0,1,SPACEU.value)); FALL.visible=fall>.01; if(FALL.visible){ const u=FALL.material.uniforms; u.uCam.value.copy(stCam.position); u.uK.value=fall; u.uSnow.value=WX.snow?1:0; u.uHv.value=WX.storm; }
   A.rain(WX.snow?0:fall*(FIN.on?.3:1));
   /* the street lamps: dim at night, full as you come by, then easing back; a click as each one comes up */
   const P=player, nt=SKY.night;
@@ -1623,7 +1686,428 @@ function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
   if(XMAS){ XMAS.t+=dt; if(XMAS.t>.5){ XMAS.t=0; const k=.55+.45*nt; for(let i=0;i<XMAS.n;i++){ const c=XMAS.CL[(i+Math.floor(t*2))%4]; XMAS.m.setColorAt(i,V.set(c.r*k,c.g*k,c.b*k)); } XMAS.m.instanceColor.needsUpdate=true; } }
   PUMPS.forEach(m=>m.uniforms.uC.value.setRGB(lerp(.23,1,nt),lerp(.14,.72,nt),lerp(.07,.25,nt)));
   /* the foghorn, from the lighthouse when there is one, out at sea when not */
-  if(WX.fog>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.1*clamp(1.3-d0/30,.55,1)); } } }
+  if(SL.fogPh>.6&&!FIN.on&&!CUT.on){ WX.horn-=dt; if(WX.horn<=0){ WX.horn=26+Math.random()*8; const d0=PH?Math.hypot(P.x-PH.x,P.z-PH.z):14; A.foghorn(.1*clamp(1.3-d0/30,.55,1)); } } }
+/* ===================== the sky alive: the real sun and moon, one wind, the visitor's own weather, seasons you cannot miss =====================
+   Earth keeps the visitor's own clock and calendar (see the sky over Earth, above); this makes the most of it.
+   - The sun comes up and goes down when it does where the visitor probably is. The time zone the browser reports is looked
+     up in a small table of cities (one at the zone's own longitude when it is not there, Dublin when there is no zone), and
+     that day's sunrise and sunset there are worked out with the usual solar formula. The town's sun keeps its own path
+     across its own sky, but its clock is stretched so that it rises and sets at those times. Nothing is asked of the
+     visitor for it and nothing is sent anywhere.
+   - The moon has its real phase for the date: a full moon lights the town more and lays a glitter path on the sea, a new
+     moon leaves it darker, with more stars out.
+   - Once a visit, the weather where the visitor is now is asked of Open-Meteo for that city (no key, a few seconds at most),
+     and Earth takes it on: clear, cloud, fog, rain, snow or thunder, the wind and the cold. If it does not answer in time,
+     Earth's own weather goes on as it always has. ?weather= in the address still decides, for the tests.
+   - One wind, its direction and strength wandering slowly, gusting, harder in a storm: the flags, the trees, the grass, the
+     smoke and the steam, the festoons, the kite, the rain and the petals and leaves all go with it. It blows off the land
+     and out to sea at the cliff (the real direction is folded that way, its north or south kept), so the kite always flies.
+   - In the rain now and then a thunderstorm: a flash that lights the whole town for a moment, thunder after it as much later
+     as the storm is far off, the rain heavier. Sea fog rolls in from the lighthouse's side over a minute and back out again,
+     and the foghorn answers it. A rainbow when the rain stops in daylight with the sun low enough. Northern lights low in
+     the north on a rare clear winter night; a shooting star now and then, many more on the nights of the great showers.
+   - The seasons: in winter snow lies on the roofs, the paths, the benches and the ground (thicker after a fall, patchy on a
+     mild day), the broadleaf trees go bare, frost creeps round the windows and everyone's breath clouds in the cold; in
+     spring petals blow off the blossom, the window boxes are full of flowers and the birds are busier; in summer the
+     evenings are long and golden, an ice cream cart stands by the square on a sunny afternoon and bees work the flowers; in
+     autumn leaves fall and lie in piles you kick up as you walk through, and cups and chimneys steam on a cold morning.
+   All of it is made with the town and kept hidden until it is wanted, in the town's own materials, so no shader is made
+   when any of it appears; what there is a lot of is one mesh or one set of points. ?tz=, ?aurora= and ?temp= set the time
+   zone, the northern lights and the cold for the tests (st._dbg.life has the rest). */
+const SLQ={tz:QPS.get('tz'),aurora:QPS.get('aurora'),temp:QPS.get('temp')};
+const SL={key:'',tz:'',tzSet:SLQ.tz||null,loc:null,off:0,sun:{noon:12.4,rise:7,set:17,H0:80},moon:{ph:.5,k:1,wax:1},temp:10,tempM:10,tempSet:SLQ.temp!=null&&SLQ.temp!==''?+SLQ.temp:null,real:null,
+  seas:{w:0,sp:0,su:1,au:0,bare:0,pile:0,bloom:0},snow:0,snowSnap:true,aur:0,aurSet:SLQ.aurora!=null&&SLQ.aurora!==''?SLQ.aurora!=='0':null,aurEve:-1,aurOn:false,clk:0,
+  flash:0,fl:null,flashT:7,strikes:0,thunder:[],fogPh:0,hornWas:0,fogD:[.96,.27],metN:0,metSet:null,met:[{t:1,dur:1,A:new T.Vector3(),D:new T.Vector3(),L:.1},{t:1,dur:1,A:new T.Vector3(),D:new T.Vector3(),L:.1}],
+  shower:{a:0,name:null},wasWet:false,cold:0,bareBaked:0,song:6,gust:5,gustWas:0,built:false,warm:true,cull:[],
+  wx:{busy:false,done:false,state:'none',kind:null,data:null,p:null}};
+/* ---------- where the visitor probably is, and the day's sun there ---------- */
+const SL_CITY={'Europe/Dublin':[53.35,-6.26],'Europe/London':[51.51,-.13],'Europe/Belfast':[54.6,-5.93],'Europe/Lisbon':[38.72,-9.14],'Europe/Madrid':[40.42,-3.7],'Europe/Paris':[48.86,2.35],
+  'Europe/Brussels':[50.85,4.35],'Europe/Amsterdam':[52.37,4.9],'Europe/Berlin':[52.52,13.4],'Europe/Zurich':[47.38,8.54],'Europe/Rome':[41.9,12.5],'Europe/Vienna':[48.21,16.37],'Europe/Prague':[50.08,14.44],
+  'Europe/Warsaw':[52.23,21.01],'Europe/Copenhagen':[55.68,12.57],'Europe/Oslo':[59.91,10.75],'Europe/Stockholm':[59.33,18.07],'Europe/Helsinki':[60.17,24.94],'Europe/Athens':[37.98,23.73],
+  'Europe/Istanbul':[41.01,28.98],'Europe/Kiev':[50.45,30.52],'Europe/Kyiv':[50.45,30.52],'Europe/Moscow':[55.76,37.62],'Atlantic/Reykjavik':[64.15,-21.94],'America/St_Johns':[47.56,-52.71],
+  'America/Halifax':[44.65,-63.57],'America/New_York':[40.71,-74.01],'America/Toronto':[43.65,-79.38],'America/Chicago':[41.88,-87.63],'America/Denver':[39.74,-104.99],'America/Phoenix':[33.45,-112.07],
+  'America/Los_Angeles':[34.05,-118.24],'America/Vancouver':[49.28,-123.12],'America/Anchorage':[61.22,-149.9],'Pacific/Honolulu':[21.31,-157.86],'America/Mexico_City':[19.43,-99.13],
+  'America/Bogota':[4.71,-74.07],'America/Lima':[-12.05,-77.04],'America/Sao_Paulo':[-23.55,-46.63],'America/Argentina/Buenos_Aires':[-34.6,-58.38],'America/Buenos_Aires':[-34.6,-58.38],
+  'America/Santiago':[-33.45,-70.67],'Africa/Casablanca':[33.57,-7.59],'Africa/Lagos':[6.52,3.38],'Africa/Cairo':[30.04,31.24],'Africa/Nairobi':[-1.29,36.82],'Africa/Johannesburg':[-26.2,28.05],
+  'Asia/Jerusalem':[31.77,35.21],'Asia/Riyadh':[24.71,46.68],'Asia/Dubai':[25.2,55.27],'Asia/Tehran':[35.69,51.39],'Asia/Karachi':[24.86,67.01],'Asia/Kolkata':[19.08,72.88],'Asia/Calcutta':[19.08,72.88],
+  'Asia/Dhaka':[23.81,90.41],'Asia/Bangkok':[13.76,100.5],'Asia/Jakarta':[-6.21,106.85],'Asia/Singapore':[1.35,103.82],'Asia/Kuala_Lumpur':[3.14,101.69],'Asia/Manila':[14.6,120.98],
+  'Asia/Hong_Kong':[22.32,114.17],'Asia/Shanghai':[31.23,121.47],'Asia/Taipei':[25.03,121.57],'Asia/Seoul':[37.57,126.98],'Asia/Tokyo':[35.68,139.69],'Australia/Perth':[-31.95,115.86],
+  'Australia/Adelaide':[-34.93,138.6],'Australia/Brisbane':[-27.47,153.03],'Australia/Sydney':[-33.87,151.21],'Australia/Melbourne':[-37.81,144.96],'Australia/Hobart':[-42.88,147.33],'Pacific/Auckland':[-36.85,174.76]};
+const SL_REGION={Europe:50,America:38,Asia:30,Africa:5,Australia:-30,Pacific:-15,Atlantic:45,Indian:-10};
+let SL_ZONE=null;
+function slZone(){ if(SL.tzSet) return SL.tzSet; if(window.__TEST) return 'Europe/Dublin';   // (the tests see Dublin unless they ask for somewhere else)
+  if(SL_ZONE===null){ try{ SL_ZONE=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(e){ SL_ZONE=''; } } return SL_ZONE; }
+/* a zone's offset from UTC on a day, in hours: the browser's own from its clock, any other from the browser's list of zones */
+function slOff(tz,y,m,d){ if(!tz) return -new Date(y,m-1,d,12).getTimezoneOffset()/60;
+  try{ const t=Date.UTC(y,m-1,d,12), p=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(new Date(t)), g=k=>+((p.find(q=>q.type===k)||{}).value||0);
+    return (Date.UTC(g('year'),g('month')-1,g('day'),g('hour')%24,g('minute'))-t)/36e5; }catch(e){ return 0; } }
+/* the city of the zone; else a place at the zone's longitude on its continent's usual latitude; else Dublin */
+function slWhere(tz,y){ if(SL_CITY[tz]) return {lat:SL_CITY[tz][0],lon:SL_CITY[tz][1],city:tz};
+  const r=SL_REGION[(tz||'').split('/')[0]]; if(r!=null) return {lat:r,lon:clamp(slOff(tz,y,1,15)*15,-180,180),city:tz};
+  return {lat:53.35,lon:-6.26,city:'Europe/Dublin'}; }
+/* sunrise, noon and sunset on the visitor's clock (NOAA's formula: the equation of time and the sun's declination for the
+   day, the sun's disc and the air's bending at the horizon); H0 is half the day in degrees of the sky's turn */
+function slSun(lat,lon,doy,off){ const g=TAU/365*(doy-1), eq=229.18*(.000075+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g)),
+    dec=.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)+.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g), la=lat*D2R,
+    H0=Math.acos(clamp((Math.cos(90.833*D2R)-Math.sin(la)*Math.sin(dec))/(Math.cos(la)*Math.cos(dec)),-1,1))/D2R, noon=(720-4*lon-eq)/60+off;
+  return {noon,rise:noon-H0/15,set:noon+H0/15,H0}; }
+/* the town's hour for the visitor's: the day between their sunrise and sunset is stretched over the town's own day, and the
+   night likewise, so its sun is on the horizon at their sunrise and their sunset */
+function slHour(h){ const S=SL.sun, Hv=(((h-S.noon)*15)%360+540)%360-180, H0v=clamp(S.H0,1,179), dec=23.44*Math.sin(TAU*(SKY.doy-81)/365)*D2R,
+    H0t=Math.acos(clamp(-Math.tan(50*D2R)*Math.tan(dec),-1,1))/D2R, a=Math.abs(Hv), Ht=a<=H0v?a*H0t/H0v:H0t+(a-H0v)*(180-H0t)/(180-H0v);
+  return 12.5+Math.sign(Hv)*Ht/15; }
+/* the moon's age in its month (0 new, a half full), from a new moon in January 2000, and how much of it is lit */
+function slMoon(y,m,d,h){ const jd=Date.UTC(y,m-1,d)/864e5+2440587.5+(h-SL.off)/24, ph=fract((jd-2451550.1)/29.530588853); return {ph,k:(1-Math.cos(TAU*ph))/2,wax:ph<.5?1:-1}; }
+/* the great meteor showers, at their peaks (month, day) and how many days either side they last */
+const SL_SHOWER=[['QUADRANTIDS',1,3.5,2.5,1],['PERSEIDS',8,12.5,4,1],['ORIONIDS',10,21.5,4,.6],['GEMINIDS',12,14,3.5,1]];
+function slShower(doy){ let a=0, name=null; for(const [n,m,d,w,k] of SL_SHOWER){ const dd=Math.abs(((doy-doyOf(m,1)-d+1)%365+365+182.5)%365-182.5), q=k*Math.max(0,1-(dd/w)**2); if(q>a){ a=q; name=n; } } return {a,name}; }
+/* how cold it is, without the visitor's own weather: an Irish year (5 in January, 16 in July), warmest mid-afternoon,
+   a little different every day */
+function slTempModel(){ const r=fract(Math.sin((SKY.y*400+SKY.doy)*7.13)*43758.5453); return 10-5.5*Math.cos(TAU*(SKY.doy-20)/365)+3.5*Math.sin(TAU*(SKY.h-9)/24)+(r-.5)*4; }
+/* the seasons as they stand on the day, each 0 to 1 and easing in and out over a week or two */
+function slSeasons(){ const d=SKY.doy, s=SL.seas; s.w=seasonK(d,doyOf(12,1),doyOf(2,28),10); s.sp=seasonK(d,doyOf(3,1),doyOf(5,31),10); s.su=seasonK(d,doyOf(6,1),doyOf(8,31),10); s.au=seasonK(d,doyOf(9,1),doyOf(11,30),10);
+  s.bare=seasonK(d,doyOf(11,22),doyOf(3,18),16)*.9; s.pile=seasonK(d,doyOf(9,25),doyOf(12,5),12); s.bloom=seasonK(d,doyOf(3,20),doyOf(9,10),12); }
+/* (called at the end of the sky's clock: the visitor's place, sun, moon, seasons and cold for the day and hour) */
+function slClock(y,m,d){ SKY.y=y; const tz=slZone(), key=tz+'|'+y+'-'+m+'-'+d;
+  if(key!==SL.key){ SL.key=key; SL.tz=tz; SL.loc=slWhere(tz,y); SL.off=SL.tzSet||window.__TEST?slOff(tz,y,m,d):slOff(null,y,m,d);
+    SL.sun=slSun(SL.loc.lat,SL.loc.lon,SKY.doy,SL.off); SL.shower=slShower(SKY.doy); slSeasons(); SL.snowSnap=true; }
+  SKY.th=slHour(SKY.h); SL.moon=slMoon(y,m,d,SKY.h); SL.tempM=slTempModel(); SL.temp=SL.tempSet!=null?SL.tempSet:SL.real&&SL.real.temp!=null?SL.real.temp:SL.tempM; SL.cold=sstep(9,5,SL.temp); }
+/* rain falls as snow: whatever the cold, a real snowfall; in the winter months on any cold enough day */
+const slSnowy=()=>SL.temp<2||(SL.seas.w>.3&&SL.temp<9);
+/* how much snow lies on a winter's day: more some days than others, patchy when it is mild */
+function slSnowWant(){ const w=SL.seas.w; if(w<=0) return 0; const r=fract(Math.sin((SKY.y*400+SKY.doy)*3.71)*43758.5453); return w*(.5+.4*r)*(1-.5*sstep(4,8,SL.temp)); }
+/* northern lights tonight? one clear winter night in five or so, the same for everyone that night */
+const slAurTonight=()=>fract(Math.sin((SKY.y*400+(SKY.h<12?SKY.doy-1:SKY.doy))*17.31)*43758.5453)<.2;
+
+/* ---------- one wind: which way it blows (in the town's map, the way it goes) and how hard (0 to 1), wandering and gusting ---------- */
+const WIND={a:0,s:.3,e:.3,g:0,t:window.__TEST?0:Math.random()*1e3,set:null,real:null,v:new T.Vector3(1,0,0),u:{value:new T.Vector4(1,0,0,.3)},leaf:{value:new T.Vector4()}};
+let SL_FW=null;
+/* off the land and out to sea at the cliff: the way the bench faces */
+const slFwA=()=>SL_FW!==null?SL_FW:(SL_FW=Math.atan2(Math.cos(CLF.yaw),Math.sin(CLF.yaw)));
+/* the real wind (from a compass bearing) turned into how far the town's swings from that, folded to blow off the land at the
+   cliff: it keeps whether it comes more from the north or the south */
+function slFold(from){ const to=(from+180)*D2R, nx=-SOUTH.x, nz=-SOUTH.z, ex=-WEST.x, ez=-WEST.z, x=nx*Math.cos(to)+ex*Math.sin(to), z=nz*Math.cos(to)+ez*Math.sin(to);
+  let off=Math.atan2(z,x)-slFwA(); off=Math.atan2(Math.sin(off),Math.cos(off)); if(Math.abs(off)>Math.PI/2) off=Math.sign(off)*(Math.PI-Math.abs(off)); return clamp(off,-.6,.6); }
+function slWind(dt){ const W=WIND, K=WX.kind; W.t+=dt;
+  let base=K==='thunder'?.85:K==='rain'||K==='snow'?.55:K==='cloudy'?.42:K==='fog'?.12:.3; if(W.real) base=W.real.s; base=Math.max(base,.85*WX.storm); if(W.set!=null) base=W.set;
+  const want=clamp(base+.08*Math.sin(W.t/53)+.05*Math.sin(W.t/17+1),.03,1.1); W.s=damp(W.s,want,W.set!=null?20:.15,dt);
+  W.a=slFwA()+clamp((W.real?W.real.off:0)+.32*Math.sin(W.t/170+.6)+.16*Math.sin(W.t/61+2.1),-.75,.75);
+  /* a gust: a swell every half minute or so, quicker and harder the windier it is */
+  const gp=.5+.5*Math.sin(W.t*(.19+.2*W.s))*Math.sin(W.t*.083+1.3); W.g=Math.pow(gp,3); W.e=W.s*(.82+.45*W.g);
+  W.v.set(Math.cos(W.a),0,Math.sin(W.a)); W.u.value.set(W.v.x,0,W.v.z,W.e); W.leaf.value.set(W.v.x*W.e,0,W.v.z*W.e,G.uTime.value%600); }
+/* the wind's push along the ground where a thing is (world space; the planet is small, so it is turned to lie flat there) */
+const slWindAt=(p,o)=>{ const L=p.length()||1, d=(WIND.v.x*p.x+WIND.v.z*p.z)/(L*L); return o.set(WIND.v.x-p.x*d,-p.y*d,WIND.v.z-p.z*d); };
+/* the kite's wind (see the cliff): the town's, where you stand */
+const slKiteWind=()=>WIND.v;
+/* the festoons, the smoke and the birds take their cue from here too (see the market and the town's sounds) */
+const slSway=()=>.55+.9*WIND.e, slBirdK=()=>1/(1+1.2*SL.seas.sp+.3*SL.seas.su)+.5*SL.seas.w;
+
+/* ---------- the visitor's own weather, once a visit ---------- */
+function slWxGo(k){ const was=WX.kind, wetW=was==='rain'||was==='snow'||was==='thunder', wet=k==='rain'||k==='snow'||k==='thunder';
+  if(k===was&&!(wet&&WX.t>WX.stop)) return;
+  WX.kind=k; WX.t=0; if(wet){ WX.stop=420+Math.random()*420; WX.snow=k==='snow'||slSnowy(); }
+  if(k==='fog'){ WX.fogHold=300+Math.random()*200; WX.fogGap=200+Math.random()*200; }
+  if(wetW&&!wet) SL.wasWet=true; }
+/* Open-Meteo's current weather (WMO codes) as Earth's: thunder, snow, rain (snow at freezing), fog, a grey sky, or clear */
+function slWxKind(c){ const code=c.weather_code, T=+c.temperature_2m, cc=+c.cloud_cover||0;
+  if(code>=95) return 'thunder'; if((code>=71&&code<=77)||code===85||code===86) return 'snow'; if((code>=51&&code<=67)||(code>=80&&code<=82)) return T<=1?'snow':'rain';
+  if(code===45||code===48) return 'fog'; if(code===3||cc>=80) return 'cloudy'; return 'clear'; }
+function slWxApply(c){ const W=SL.wx; if(!c||typeof c.weather_code!=='number') throw new Error('no weather in the answer');
+  const k=slWxKind(c), T=+c.temperature_2m, ws=+c.wind_speed_10m, wd=+c.wind_direction_10m;
+  W.kind=k; W.data={code:c.weather_code,temp:T,wind:ws,dir:wd,cloud:+c.cloud_cover,day:c.is_day};
+  if(SKYSET.weather) return;   // (an address that names the weather keeps it)
+  SL.real={temp:isFinite(T)?T:null}; WIND.real={s:isFinite(ws)?clamp(ws/42,.04,1):.3,off:isFinite(wd)?slFold(wd):0};
+  skyClock(); slWxGo(k); }
+/* asked once, given a few seconds; an answer that never comes (or is not one) leaves Earth's own weather as it is */
+function slFetch(ms=3500){ const W=SL.wx; if(W.busy) return W.p; if(W.done) return Promise.resolve(W.state);
+  W.busy=true; W.state='asking'; const L=SL.loc||slWhere(slZone(),new Date().getFullYear()), ctl=window.AbortController?new AbortController():null, to=setTimeout(()=>{ if(ctl) ctl.abort(); },ms);
+  const url='https://api.open-meteo.com/v1/forecast?latitude='+L.lat.toFixed(2)+'&longitude='+L.lon.toFixed(2)+'&current=weather_code,temperature_2m,wind_speed_10m,wind_direction_10m,cloud_cover,is_day';
+  let p; try{ p=fetch(url,{signal:ctl?ctl.signal:undefined,credentials:'omit',referrerPolicy:'no-referrer'}); }catch(e){ p=Promise.reject(e); }
+  return W.p=p.then(r=>{ if(!r.ok) throw new Error('status '+r.status); return r.json(); }).then(j=>{ slWxApply(j&&j.current); W.state='ok'; })
+    .catch(e=>{ W.state=e&&e.name==='AbortError'?'timeout':'failed'; }).then(()=>{ clearTimeout(to); W.busy=false; W.done=true; return W.state; }); }
+
+/* ---------- the weather moving on (each step of the sky's clock): rain and snow and storms, fog, lights in the sky ---------- */
+/* sea fog's edge: how far into it a place is (0 clear, 1 in it), the bank coming in from the lighthouse's side */
+function slBank(x,z){ if(!(WX.front<25.9)) return 0; at(x,z,V3); return sstep(-3.5,3.5,(V3.x*SL.fogD[0]+V3.z*SL.fogD[1])*R-WX.front); }
+/* a stroke of lightning d km off: two flashes close together, and its thunder on its way at the speed of sound */
+function slStrike(){ const d=.4+Math.random()*3.6; SL.fl={t:0,k:clamp(1.05-d/5,.3,.95)}; SL.thunder.push({t:d/.343,d,p:Math.random()*2-1}); SL.strikes++; }
+function slMeteor(){ const q=SL.met.find(m=>m.t>=1); if(!q) return; const U=UPU.value, F=V3.subVectors(st.camL,st.camP); F.addScaledVector(U,-F.dot(U)); if(F.lengthSq()<1e-6) F.set(1,0,0); F.normalize();
+  const S2=V4.crossVectors(U,F), az=(Math.random()-.5)*2.2, el=-.32+Math.random()*.42;   // somewhere in the band of sky you can see, ahead or to the side
+  q.A.copy(F).multiplyScalar(Math.cos(az)*Math.cos(el)).addScaledVector(S2,Math.sin(az)*Math.cos(el)).addScaledVector(U,Math.sin(el)).normalize();
+  const up=V2.copy(U).addScaledVector(q.A,-U.dot(q.A)).normalize(), sd=V.crossVectors(q.A,up); q.D.copy(up).multiplyScalar(-1).addScaledVector(sd,(Math.random()-.5)*1.8).normalize();
+  q.L=.1+Math.random()*.14; q.dur=.45+Math.random()*.45; q.t=0; SL.metN++; }
+function slSky(dt){ const K=WX.kind, wet=K==='rain'||K==='snow'||K==='thunder'; WX.t+=dt; SL.clk+=dt;
+  slWind(dt);
+  /* rain, snow and storms come on over a few seconds (when the weather turns in front of you) and stop after a while */
+  if(wet&&WX.t<=WX.stop){ WX.rain=Math.min(1,WX.rain+dt/6); SKY.over=Math.min(1,SKY.over+dt/8); if(K==='thunder') WX.storm=Math.min(1,WX.storm+dt/10); SL.wasWet=true; }
+  else { WX.rain=Math.max(0,WX.rain-dt/8); WX.storm=Math.max(0,WX.storm-dt/8); const ov=K==='cloudy'?.72:0; SKY.over=SKY.over>ov?Math.max(ov,SKY.over-dt/22):Math.min(ov,SKY.over+dt/12);
+    /* the rain stopping in daylight with the sun behind you, and low enough for the bow to stand over the horizon: a rainbow */
+    if(SL.wasWet&&!WX.bowT&&WX.rain<.5&&SKY.over<.5&&SKY.e>2&&SKY.e<40&&!WX.snow){ WX.bowT=1; A.chime(4,0,.025); } }
+  if(WX.bowT){ WX.bowT+=dt; WX.bow=sstep(1,12,WX.bowT)*(1-sstep(85,110,WX.bowT))*(1-sstep(.3,.6,WX.rain)); if(WX.bowT>110){ WX.bowT=0; WX.bow=0; SL.wasWet=false; } }
+  /* sea fog: in from the water over forty seconds or so, a few minutes over the town, back out to sea, and later perhaps again */
+  if(K==='fog'){ const ho=WX.fogHold||300, c=WX.t%(ho+45+(WX.fogGap||200)); WX.front=c<ho?lerp(26,-26,sstep(4,44,c)):lerp(-26,26,sstep(ho,ho+45,c)); }
+  else WX.front=Math.min(26,(WX.front??26)+dt*52/45);
+  WX.fog=slBank(player.x,player.z); SL.fogPh=PH?slBank(PH.x,PH.z):slBank(15,4.2);
+  if(SL.fogPh>.6&&SL.hornWas<=.6) WX.horn=Math.min(WX.horn,1.2);   // the lighthouse answers the fog as it arrives
+  SL.hornWas=SL.fogPh;
+  /* snow lying: building up while it snows, settling back to the day's cover after */
+  const sw=slSnowWant(); if(SL.snowSnap){ SL.snowSnap=false; SL.snow=WX.snow&&WX.rain>.3?Math.max(sw,.7):sw; }
+  else if(WX.snow&&WX.rain>.3) SL.snow=Math.min(1,SL.snow+dt/90); else SL.snow=SL.snow>sw?Math.max(sw,SL.snow-dt/400):Math.min(sw,SL.snow+dt/60);
+  if(Math.abs(SL.seas.bare-SL.bareBaked)>.04){ SL.bareBaked=SL.seas.bare; baked=false; }   // (the sun's shadow drawn again when the trees thin)
+  /* a thunderstorm: lightning every so often, its thunder after it */
+  if(WX.storm>.3&&WX.rain>.5&&!FIN.on){ SL.flashT-=dt; if(SL.flashT<=0){ SL.flashT=6+Math.random()*16; slStrike(); } }
+  if(SL.fl){ const q=SL.fl, t=q.t+=dt; SL.flash=q.k*(t<.06?1:t<.1?.25:t<.17?.8:Math.max(0,1-(t-.17)/.16)*.5); if(t>.34){ SL.fl=null; SL.flash=0; } }
+  for(let i=SL.thunder.length-1;i>=0;i--){ const q=SL.thunder[i]; if((q.t-=dt)>0) continue; SL.thunder.splice(i,1); if(!CUT.on) A.thunder&&A.thunder(.075*clamp(1.15-q.d/4,.35,1)*(CAFE.on||GAR.on?.5:1),q.d,q.p); }
+  /* the night sky: northern lights low in the north on a rare clear winter night, coming and going; shooting stars */
+  const clear=(1-SKY.over)*(1-WX.rain)*(1-WX.fog);
+  let aw=SL.aurSet!=null?(SL.aurSet?1:0):SL.seas.w>.2&&slAurTonight()?.62+.38*Math.sin(SL.clk/97):0; aw*=sstep(.8,.97,SKY.night)*sstep(.7,.95,clear);
+  SL.aur=SL.aur<aw?Math.min(aw,SL.aur+dt/20):Math.max(aw,SL.aur-dt/12);
+  const rate=(.0045+.2*SL.shower.a)*(SL.metSet??1);
+  if(SKY.night>.85&&clear>.7&&!CAFE.on&&!GAR.on&&!FIN.on&&Math.random()<rate*dt) slMeteor();
+  SL.met.forEach((q,i)=>{ if(q.t<1) q.t=Math.min(1,q.t+dt/q.dur); SKYU.uMetA.value[i].set(q.A.x,q.A.y,q.A.z,q.t<1?q.t:0); SKYU.uMetB.value[i].set(q.D.x,q.D.y,q.D.z,q.L); });
+  const mk=SL.moon.k; SKYU.uMoonK.value.set(mk,SL.moon.wax,sstep(.45,.05,mk),0); SKYU.uAur.value=SL.aur; SKYU.uFlash.value=SL.flash;
+  SKYU.uGlit.value.set(SKY.night*sstep(.3,.9,mk)*clear*(1-sstep(0,.4,WX.fog)),0,0,0);
+  LU.uFogB.value.set(SL.fogD[0],SL.fogD[1],WX.front,WX.front<25.9?1:0); LU.uBare.value=SL.seas.bare; }
+/* the light of the sky as the sky alive has it (called from the sky's own light, above): a full moon lifts the night and a
+   new one darkens it, summer evenings are warmer gold, a storm is darker, and lightning lights everything for a moment */
+function slTint(out,night,dusk){ const mk=night*(SL.moon.k-.5)*2, su=dusk*SL.seas.su, f=SL.flash, sto=WX.storm;
+  if(mk){ const q=mk>0?1:.75; out.la.multiplyScalar(1+.16*mk*q); out.lb.multiplyScalar(1+.18*mk*q); out.sky.multiplyScalar(1+.22*mk*q); out.sh.multiplyScalar(1+.06*mk*q); }
+  if(su){ out.la.x*=1+.07*su; out.lb.x*=1+.08*su; out.lb.z*=1-.06*su; out.sky.x*=1+.05*su; }
+  if(sto){ out.la.multiplyScalar(1-.16*sto); out.lb.multiplyScalar(1-.16*sto); out.sh.multiplyScalar(1-.12*sto); out.sky.multiplyScalar(1-.2*sto); }
+  if(f){ out.la.add(V4.set(.5,.55,.7).multiplyScalar(f)); out.lb.add(V4.set(.55,.6,.75).multiplyScalar(f)); out.sh.add(V4.set(.45,.5,.66).multiplyScalar(f)); out.sky.addScalar(.3*f); out.fog.addScalar(.22*f); } }
+
+/* ---------- the things the sky alive brings to the town ---------- */
+const SLWIN=[], SLBOX=[], SLCHIM=[], FLAGS=[];
+/* (the town's houses tell it, as they are built, where their windows, window boxes and chimney tops are) */
+function slWin(W){ SLWIN.push(W.clone()); }
+function slBox(W){ SLBOX.push(W.clone()); }
+function slChim(M,x,y,z){ SLCHIM.push({p:new T.Vector3(x,y,z).applyMatrix4(M),t:Math.random()}); }
+/* a triangle for a kit drawn from one side only (the market's material): turned to face the way n points */
+const slTri=(a,b,c,n,col)=>{ V.subVectors(b,a).cross(V2.subVectors(c,a)); if(V.dot(n)<0) ktri(a,c,b,n,col); else ktri(a,b,c,n,col); };
+/* a new solid thing marks its ground on the walking grid, as the cliff's do (the grid is made before) */
+function slNav(o,on){ if(!NAV.free) return; const N=NAV.N, m=o.r+.3, out=[];
+  for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+    if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S, c=j*N+i; if((x-o.x)**2+(z-o.z)**2<m*m&&NAV.free[c]===1){ if(on) NAV.free[c]=0; out.push(c); } } return out; }
+/* free ground for something of radius r: off the roads and paths, clear of everything solid and of where people stand */
+const slFree=(x,z,r,pr=1.4)=>walkable(x,z)&&isle(at(x,z))>.07&&roadDist(x,z)>RW+SW+r&&pathDist(x,z)>r&&!OBS.some(o=>Math.hypot(x-o.x,z-o.z)<o.r+r)&&!MKT.obs.some(o=>Math.hypot(x-o.x,z-o.z)<o.r0+r)
+  &&!CLEAR().some(c=>Math.hypot(x-c[0],z-c[1])<r+1.6)&&!people.some(p=>Math.hypot(x-p.x,z-p.z)<r+pr)&&Math.hypot(x-DM.x,z-DM.z)>r+Math.max(1.6,pr);
+/* the flags: a cloth on a pole that the wind stands out (or lets hang), with waves running along it; drawn with the kite's own
+   material and shaped here each frame */
+function slFlag(x,z,h,W,H,cols,parent,topL){ const M=parent?PH.M:frameAt(x,z,0,standH(x,z)), NX=10, NY=5, n=(NX+1)*(NY+1), P=new Float32Array(n*3), C=[], I=[];
+  if(!parent){ cyl(M,'#d9d4c8',0,0,0,.045,h,'cyl8'); put(M,'sph','#c9a24a',0,h+.04,0,.06,.06,.06); const o={x,z,r:.16,h}; OBS.push(o); slNav(o,true); }
+  for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ const c=C3R(cols[Math.min(cols.length-1,Math.floor(i/(NX+1)*cols.length))]); C.push(c.r,c.g,c.b); if(i<NX&&j<NY){ const a=j*(NX+1)+i; I.push(a,a+1,a+NX+1, a+1,a+NX+2,a+NX+1); } }
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(P,3).setUsage(T.DynamicDrawUsage)); g.setAttribute('normal',new T.BufferAttribute(new Float32Array(n*3),3).setUsage(T.DynamicDrawUsage));
+  g.setAttribute('color',new T.Float32BufferAttribute(C,3)); g.setIndex(I);
+  const m=new T.Mesh(g,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fig:true})); m.frustumCulled=false; m.userData.dyn=true; (parent||sc).add(m);
+  const top=V.set(0,topL??h-.02,0).applyMatrix4(M).clone(); FLAGS.push({m,g,P,NX,NY,W,H,top,up:top.clone().normalize(),taper:cols.length<3,ph:Math.random()*TAU,x,z}); }
+const flF=new T.Vector3(), flS=new T.Vector3(), flD=new T.Vector3();
+function slFlagsUpdate(t){ const cam=st.camP;
+  for(const f of FLAGS){ if(f.top.distanceToSquared(cam)>45*45&&!SL.warmNow) continue; const U=f.up, e=Math.min(WIND.e,1.1);
+    slWindAt(f.top,flF); if(flF.lengthSq()<1e-8) flF.set(1,0,0); flF.normalize(); flS.crossVectors(U,flF);
+    const lift=clamp(.32+.85*e,.32,1); flD.copy(flF).multiplyScalar(lift).addScaledVector(U,-(1-lift)*1.15).normalize();
+    const amp=.035+.06*Math.min(e,1), w=3.5+8*Math.min(e,1), P=f.P;
+    for(let j=0,k=0;j<=f.NY;j++) for(let i=0;i<=f.NX;i++,k+=3){ const u=i/f.NX, v=j/f.NY, hh=f.taper?(1-.86*u):1, y=(.5-v)*f.H*hh-f.H*.5;
+      const wv=Math.sin(u*6.6-t*w+f.ph+v*.7)*amp*u, sag=-u*u*.1*(1-lift);
+      P[k]=f.top.x+flD.x*u*f.W+U.x*(y+sag)+flS.x*wv; P[k+1]=f.top.y+flD.y*u*f.W+U.y*(y+sag)+flS.y*wv; P[k+2]=f.top.z+flD.z*u*f.W+U.z*(y+sag)+flS.z*wv; }
+    f.g.attributes.position.needsUpdate=true; f.g.computeVertexNormals(); } }
+
+/* ---------- puffs: breath, steam off a cup, smoke from a chimney. One set of points, drawn as the market's smoke is ---------- */
+const PF={n:LO?60:96,p:[],m:null,live:false,brT:new Map()};
+const pfV=new T.Vector3(), pfW=new T.Vector3();
+function pfAdd(pos,vel,life,s0,s1,a,c){ let q=null; for(const r of PF.p) if(r.t>=r.life){ q=r; break; } if(!q) return; q.t=0; q.life=life; q.p.copy(pos); q.v.copy(vel); q.s0=s0; q.s1=s1; q.a=a; q.c=c; }
+function pfUpdate(dt){ const G0=PF.m.geometry, Pp=G0.attributes.position, Aa=G0.attributes.aA; let live=false;
+  PF.p.forEach((q,i)=>{ if(q.t<q.life){ q.t+=dt; live=true; slWindAt(q.p,pfW); q.v.addScaledVector(pfW,WIND.e*(q.c<.5?.9:.55)*dt).multiplyScalar(Math.exp(-.35*dt)); q.p.addScaledVector(q.v,dt); }
+    const u=Math.min(1,q.t/q.life), a=q.t>=q.life?0:sstep(0,.12,u)*(1-sstep(.4,1,u))*q.a; Pp.setXYZ(i,q.p.x,q.p.y,q.p.z); Aa.setXYZ(i,a,lerp(q.s0,q.s1,u),q.c); });
+  if(SL.warmNow){ live=true; Aa.setXYZ(0,.5,.2,1); }
+  PF.m.visible=live; if(live){ Pp.needsUpdate=true; Aa.needsUpdate=true; const u=PF.m.material.uniforms; u.uH.value=colRT.height||innerHeight; u.uL.value=1-.55*sstep(.05,.7,Math.max(SKY.night,SKY.dusk*.85)); } }
+/* everyone who breathes: you, the three of us, Diarmuid, Gideon and Owen, the market's people and the ice cream seller */
+function pfFigs(){ const L=[me,...people.map(p=>p.g)]; if(DM.g) L.push(DM.g); REGS.forEach(r=>{ if(r.g) L.push(r.g); }); MKT.figs.forEach(f=>L.push(f.g)); if(ICE.fig) L.push(ICE.fig.g); return L; }
+const pfShown=o=>{ for(let q=o;q;q=q.parent) if(!q.visible) return false; return true; };
+function pfSpawn(dt){ const cam=st.camP, cold=SL.cold, inside=CAFE.on||GAR.on;
+  /* breath in the cold: a little cloud every few seconds from each mouth, out and up, carried off on the wind */
+  if(cold>.05&&!inside) for(const g of PF.figs){ const hd=g.userData.head; if(!hd) continue; const e=hd.matrixWorld.elements; pfV.set(e[12],e[13],e[14]); if(pfV.distanceToSquared(cam)>16*16||!pfShown(g)) continue;
+    let tt=PF.brT.get(g); if(tt==null) tt=Math.random()*3; tt-=dt; if(tt<=0){ tt=2.6+Math.random()*1.4;
+      const fz=pfW.set(e[8],e[9],e[10]), sz=fz.length()||1; fz.multiplyScalar(1/sz); pfV.addScaledVector(fz,.16*sz).addScaledVector(V3.set(e[4],e[5],e[6]),-.09);
+      for(let k=0;k<2;k++) pfAdd(pfV,V2.copy(fz).multiplyScalar(.22+k*.1).addScaledVector(V4.copy(pfV).normalize(),.05),1.1+k*.3,.06*sz,.24*sz,.3*cold,1); }
+    PF.brT.set(g,tt); }
+  /* steam off Gideon and Owen's coffee on a cold morning (or any cold day) */
+  if(SL.temp<12&&REG.vis&&!inside) REGS.forEach(r=>{ if(!r.cup||!r.g.visible) return; r.cup.getWorldPosition(pfV); if(pfV.distanceToSquared(cam)>18*18) return; r.stT=(r.stT||0)-dt; if(r.stT>0) return; r.stT=.55+Math.random()*.4;
+    pfV.addScaledVector(V4.copy(pfV).normalize(),.07); pfAdd(pfV,V2.copy(pfV).normalize().multiplyScalar(.16),1.6,.035,.13,.26*sstep(12,8,SL.temp),1); });
+  /* smoke from the chimneys of the nearest houses, when it is cool enough for a fire: in the evening and the morning most */
+  const sk=sstep(14,8,SL.temp)*(.55+.45*Math.max(SKY.night,SKY.dusk,SKY.h<10?1:0)); if(sk>.05&&SLCHIM.length){
+    if(!PF.near||(PF.nearT-=dt)<=0){ PF.nearT=.5; PF.near=SLCHIM.map(c=>[c,c.p.distanceToSquared(cam)]).filter(x=>x[1]<38*38).sort((a,b)=>a[1]-b[1]).slice(0,4).map(x=>x[0]); }   // (the nearest four, looked for twice a second)
+    for(const c of PF.near){ c.t-=dt; if(c.t>0) continue; c.t=.5+Math.random()*.3; pfV.copy(c.p).normalize(); pfAdd(c.p,V2.copy(pfV).multiplyScalar(.32),4.2,.18,.7,.32*sk,.42); } } }
+
+/* ---------- petals and leaves on the wind, and bees: one mesh of many small bits, in the town's own colours and light ---------- */
+const DR={n:LO?44:72,nb:8,bits:[],bees:[],m:null,src:[],acc:0};
+const drQ=new T.Quaternion(), drQ2=new T.Quaternion(), drS=new T.Vector3(), drP=new T.Vector3(), drM=new T.Matrix4(), drA=new T.Vector3(), drC=new T.Color();
+const DR_PETAL=['#f6c9d6','#fbe8ee','#f2b3c6','#fdf3f5'], DR_LEAF=['#d9772f','#e9a93b','#b94a2c','#c98a3a','#a8562c'];
+function drPlace(i,x,z,h,q,s){ at(x,z,drP).multiplyScalar(R+h); drM.compose(drP,q,s); DR.m.setMatrixAt(i,drM); }
+function drUpdate(dt,t){ const cam=st.camP, P=player, sp=Math.max(0,-LU.uSeason.value), au=Math.max(0,LU.uSeason.value), k=Math.max(sp,au), inside=CAFE.on||GAR.on, wa=WIND.a, wx=Math.cos(wa), wz=Math.sin(wa), e=WIND.e;
+  const [cx,cz]=loc(V.copy(cam).normalize()); let any=false;
+  /* new ones off the trees near you, more the windier it is */
+  if(k>.05&&!inside&&!SL.warmNow){ DR.acc+=dt*3.2*k*(.45+e); while(DR.acc>1){ DR.acc-=1; const pool=DR.src.filter(s=>(sp>au?s.blos:s.turn)&&Math.hypot(s.x-cx,s.z-cz)<16); if(!pool.length) break;
+      const s=pool[Math.floor(Math.random()*pool.length)], b=DR.bits.find(q=>!q.on); if(!b) break; const pet=sp>au;
+      Object.assign(b,{on:true,land:0,x:s.x+(Math.random()-.5)*1.3*s.s,z:s.z+(Math.random()-.5)*1.3*s.s,h:(1.5+Math.random()*.9)*s.s,g:null,ph:Math.random()*TAU,spin:(Math.random()-.5)*7,pet,fall:pet?.26:.42,sc:pet?.75:1});
+      DR.m.setColorAt(b.i,drC.setStyle((pet?DR_PETAL:DR_LEAF)[Math.floor(Math.random()*(pet?4:5))],T.LinearSRGBColorSpace)); DR.m.instanceColor.needsUpdate=true; } }
+  for(const b of DR.bits){ if(!b.on){ if(b.shown){ b.shown=false; drM.makeScale(0,0,0); DR.m.setMatrixAt(b.i,drM); any=true; } continue; } any=true; b.shown=true;
+    if(!b.land){ const fl=Math.sin(t*2.4+b.ph); b.x+=(wx*(.25+1.3*e)-wz*fl*.3)*dt; b.z+=(wz*(.25+1.3*e)+wx*fl*.3)*dt; b.h-=(b.fall*(1+.4*Math.sin(t*3.1+b.ph)))*dt; b.ang=(b.ang||0)+b.spin*dt;
+      if(b.h<=.02){ b.h=.02; b.land=1; b.g=standH(b.x,b.z); } }
+    else { b.land+=dt; if(b.land>3.2) b.on=false; }
+    const gh=b.g??grid(GH,b.x,b.z), s=(b.land?1-sstep(2.6,3.2,b.land):1)*b.sc;
+    at(b.x,b.z,drA); drQ.setFromUnitVectors(UPY,drA); if(!b.land) drQ.multiply(drQ2.setFromAxisAngle(V.set(Math.sin(b.ph),.4,Math.cos(b.ph)).normalize(),b.ang)); else drQ.multiply(drQ2.setFromAxisAngle(UPY,b.ph));
+    drPlace(b.i,b.x,b.z,gh+b.h,drQ,drS.set(.045*s,.009*s,.03*s)); if(Math.hypot(b.x-cx,b.z-cz)>30) b.on=false; }
+  /* bees: summer days, round the flowers by Kríos and the window boxes near you */
+  const bk=SL.seas.su*(1-SKY.night)*(1-WX.rain)*(SL.temp>12?1:0);
+  DR.bees.forEach((B,j)=>{ const on=SL.warmNow||(bk>.2&&!inside&&B.at.distanceToSquared(cam)<22*22); if(!on){ if(B.shown){ B.shown=false; drM.makeScale(0,0,0); DR.m.setMatrixAt(B.i,drM); DR.m.setMatrixAt(B.i+1,drM); any=true; } return; }
+    B.shown=any=true; const a=t*(1.3+j*.07)+B.ph, r=.28+.1*Math.sin(t*.7+j);
+    drP.copy(B.at).addScaledVector(B.e1,Math.sin(a)*r+.05*Math.sin(t*17+j)).addScaledVector(B.e2,Math.sin(a*2)*r*.6).addScaledVector(B.up,.18+.1*Math.sin(t*1.9+j)+.02*Math.sin(t*23+j));
+    drQ.setFromUnitVectors(UPY,B.up).multiply(drQ2.setFromAxisAngle(UPY,a+Math.PI/2)); drM.compose(drP,drQ,drS.set(.022,.02,.032)); DR.m.setMatrixAt(B.i,drM);
+    drM.compose(drP,drQ,drS.set(.024,.012,.012)); DR.m.setMatrixAt(B.i+1,drM); });
+  if(any||SL.warmNow) DR.m.instanceMatrix.needsUpdate=true; DR.m.visible=any||SL.warmNow; }
+
+/* ---------- leaf piles under the trees in autumn: walk through one and the leaves fly up round your feet and come down where
+   they will; out of sight, they are swept back into their pile ---------- */
+const LP={piles:[],m:null,n:0,ruT:0,k:0};
+function lpLeaf(L){ const p=LP.piles[L.pi], s=L.sc*LP.k; at(L.x,L.z,drA); drQ.setFromUnitVectors(UPY,drA);
+  if(L.st===1) drQ.multiply(drQ2.setFromAxisAngle(L.ax,L.ang)); else { drQ.multiply(drQ2.setFromAxisAngle(UPY,L.ang)); drQ.multiply(drQ2.setFromAxisAngle(L.ax,L.tilt*(L.st?.15:1))); }
+  at(L.x,L.z,drP).multiplyScalar(R+p.g+L.h); drM.compose(drP,drQ,drS.set(.052*s,.011*s,.036*s)); LP.m.setMatrixAt(L.i,drM); }
+function lpReset(p){ for(const L of p.leaves){ L.x=L.rx; L.z=L.rz; L.h=L.rh; L.ang=L.ra; L.st=0; L.vx=L.vz=L.vh=0; } p.moved=false; }
+function lpUpdate(dt,t){ const k=SL.seas.pile*(1-sstep(.15,.5,SL.snow)), P=player, cam=st.camP, show=SL.warmNow||(k>.03&&!CAFE.on&&!GAR.on);
+  LP.m.visible=show; if(!show){ LP.k=0; return; } let dirty=Math.abs(k-LP.k)>.002||SL.warmNow; LP.k=SL.warmNow?1:k;
+  const [cx,cz]=loc(V.copy(cam).normalize()), wa=WIND.a, wx=Math.cos(wa), wz=Math.sin(wa), fx=P.f.x, fz=P.f.z, fl=Math.hypot(fx,fz)||1;
+  for(const p of LP.piles){ const dp=Math.hypot(P.x-p.x,P.z-p.z);
+    /* your feet through the pile: each leaf by them is thrown up and on, the way you are going */
+    if(dp<1.25&&P.speed>.5&&!CUT.on) for(const L of p.leaves){ if(L.st===1) continue; const d=Math.hypot(P.x-L.x,P.z-L.z); if(d>.46) continue; const f=P.speed*(1-d/.46*.5);
+      L.st=1; L.vx=fx/fl*f*(.35+.45*Math.random())+(L.x-P.x)/(d+.05)*.5*Math.random(); L.vz=fz/fl*f*(.35+.45*Math.random())+(L.z-P.z)/(d+.05)*.5*Math.random(); L.vh=1+Math.random()*1.5*Math.min(1,f/2.7)+.4; L.spin=(Math.random()-.5)*16; p.moved=true;
+      if(t-LP.ruT>.28){ LP.ruT=t; A.rustle&&A.rustle(.014+.008*Math.min(1,P.speed/2.7),0); } }
+    for(const L of p.leaves){ if(L.st!==1) continue; L.vh=Math.max(L.vh-6.5*dt,-.75); const dr=Math.exp(-1.4*dt); L.vx=L.vx*dr+wx*WIND.e*.8*dt; L.vz=L.vz*dr+wz*WIND.e*.8*dt;
+      L.x+=(L.vx+Math.sin(t*3+L.ang)*.12*(L.vh<0?1:0))*dt; L.z+=L.vz*dt; L.h+=L.vh*dt; L.ang+=L.spin*dt; L.spin*=Math.exp(-.6*dt); dirty=true;
+      if(L.h<=.012&&L.vh<0){ L.h=.012; L.st=2; } }
+    /* swept back when nobody is looking: you well away, and it is not on the screen */
+    if(p.moved&&dp>16&&p.leaves.every(L=>L.st!==1)&&Math.hypot(p.x-cx,p.z-cz)>14){ lpReset(p); dirty=true; } }
+  if(dirty){ for(const p of LP.piles) for(const L of p.leaves) lpLeaf(L); LP.m.instanceMatrix.needsUpdate=true; } }
+
+/* ---------- the ice cream cart: by the square on a summer afternoon when the sun is out ---------- */
+const ICE={x:-5.05,z:-1.85,u:{value:0},k:0,want:0,g:null,fig:null,obs:[],cells:[],solid:false,snap:true};
+function iceSolid(on){ if(ICE.solid===on) return; ICE.solid=on;
+  if(on){ ICE.cells=[]; for(const o of ICE.obs){ if(!OBS.includes(o)) OBS.push(o); ICE.cells.push(...slNav(o,true)); }
+    const P=player; for(const o of ICE.obs){ const dx=P.x-o.x, dz=P.z-o.z, d=Math.hypot(dx,dz), m=o.r+.3; if(d<m){ const k=d>1e-4?m/d:1; P.x=o.x+(d>1e-4?dx:m)*k; P.z=o.z+(d>1e-4?dz:0)*k; at(P.x,P.z,P.u); tang(P.u,P.f,P.f); } } }
+  else { for(const o of ICE.obs){ const i=OBS.indexOf(o); if(i>=0) OBS.splice(i,1); } if(NAV.free) for(const c of ICE.cells) NAV.free[c]=1; ICE.cells=[]; } }
+function iceUpdate(dt,t){ if(!ICE.g) return; const warm=SL.warmNow, sunny=SKY.night<.15&&WX.rain<.05&&SKY.over<.35&&WX.fog<.2&&SKY.h>=12.5&&SKY.h<19;
+  ICE.want=SL.seas.su>.4&&sunny&&SL.temp>13?1:0; if(ICE.snap){ ICE.k=ICE.want; ICE.snap=false; } else ICE.k=ICE.want>ICE.k?Math.min(1,ICE.k+dt/6):Math.max(0,ICE.k-dt/6);
+  const e=warm?1:ICE.k*ICE.k*(3-2*ICE.k); ICE.u.value=e; ICE.fig.u.value=e; const vis=warm||e>.002; if(ICE.g.visible!==vis) ICE.g.visible=vis;
+  iceSolid(!warm&&e>.02); if(!vis) return;
+  /* the seller: a breath and a sway, a look out at the square, at you when you come by, and now and then a scoop */
+  const f=ICE.fig, d=f.d, P=player, ph=f.ph; d.body.position.y=.004*Math.sin(t*1.6+ph); d.body.rotation.set(0,.05*Math.sin(t*.37+ph),0);
+  const near=Math.hypot(P.x-ICE.x,P.z-ICE.z)<5; f.look0=damp(f.look0,near?1:0,2.2,dt); let yaw=.35*Math.sin(t*.23+ph), pitch=.05;
+  if(f.look0>.01){ f.g.updateWorldMatrix(true,false); const lp=f.g.worldToLocal(V.copy(P.u).multiplyScalar(R+P.h+1.2)); lp.y-=1.17; yaw=lerp(yaw,clamp(Math.atan2(lp.x,lp.z),-1.1,1.1),f.look0); pitch=lerp(pitch,clamp(-Math.atan2(lp.y,Math.hypot(lp.x,lp.z)),-.3,.4),f.look0); }
+  d.head.rotation.set(pitch,yaw,0); const c=(t%7.5)/7.5, k=sstep(.05,.2,c)*(1-sstep(.45,.6,c)); d.arms[0].rotation.set(-.5-.4*k,0,.12+.1*Math.sin(t*5)*k); d.fore[0].rotation.set(-.6-.5*k,0,0); }
+
+/* ---------- each frame: the town's share of it (the sky's is in its clock, above). What is near is measured from where the
+   town has put its camera this frame (st.camP), not where it was last drawn from ---------- */
+const SLK={frost:{value:0},bloom:{value:0}};
+function slFade(u,want,dt,s){ u.value=want>u.value?Math.min(want,u.value+dt/s):Math.max(want,u.value-dt/s); return u.value; }
+function slWorld(dt,t){ if(!SL.built) return; const warm=SL.warm&&!S.ready; if(SL.warm&&S.ready){ SL.warm=false; ICE.snap=true; for(const m of SL.cull) m.frustumCulled=true; } SL.warmNow=warm;   /* (behind the loader, once: all of it drawn, so its shaders are made with the rest) */
+  /* frost round the windows on a cold winter night or morning; the window boxes full of flowers from spring through summer */
+  const fw=warm||(SL.seas.w>.2?SL.temp<5.5:SL.temp<1.5)?1:0, bw=warm||SL.seas.bloom>.5?1:0;   // (each fades whole, as the market does)
+  SLK.frost.m.visible=slFade(SLK.frost,fw,dt,4)>.002||warm; SLK.bloom.m.visible=slFade(SLK.bloom,bw,dt,4)>.002||warm;
+  slFlagsUpdate(t); pfSpawn(dt); pfUpdate(dt); drUpdate(dt,t); lpUpdate(dt,t); iceUpdate(dt,t);
+  /* the market's smoke and steam drift with the wind too */
+  if(MKT.smoke){ const S0=MKT.smoke; slWindAt(S0.src[0],S0.side); S0.side.normalize().multiplyScalar(.45+1.25*WIND.e); }
+  /* sounds: a blackbird now and then on a spring day (in the morning most), and the wind gusting when it blows hard */
+  const quiet=TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on||warm||S.mode!=='station'||S.st!==st;
+  SL.song-=dt; if(SL.song<=0){ SL.song=6+Math.random()*12; const sp=SL.seas.sp+.4*SL.seas.su; if(!quiet&&sp>.3&&SKY.night<.3&&WX.rain<.2&&Math.random()<sp*(SKY.h<10?1:.6)) A.song&&A.song((Math.random()-.5)*1.6); }
+  if(WIND.s>.45&&WIND.g>.7&&SL.gustWas<=.7&&!quiet&&SL.clk-(SL.gustAt||-9)>5){ SL.gustAt=SL.clk; A.gust&&A.gust(.012+.022*Math.min(1,WIND.s),(Math.random()-.5)*1.2); }
+  SL.gustWas=WIND.g; }
+
+/* ---------- building it all, with the town (after the market, before the town's static mesh is made) ---------- */
+async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot(PH.x,PH.z));
+  /* flags: the tricolour by the landing pad, a pennant at the jetty, a small one on top of the lighthouse */
+  const pick=(L,r)=>L.find(([x,z])=>slFree(x,z,r));
+  { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
+  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }
+  if(PH&&MK.ph){ const M=PH.M; kitTo('ph'); cyl(M,'#3e4448',0,6.24,0,.014,.62,'cyl8'); kitTo();
+    slFlag(PH.x,PH.z,0,.42,.2,['#cf4a36','#f4efe6'],MK.ph.g,6.84); }
+  /* frost: in each pane of every window, white crystals creeping in from the corners and along the bottom */
+  kitTo('slfrost'); const FC='#eef5f9', FC2='#dce9f1', tri=(W,a,b,c,col)=>slTri(V3.set(a[0],a[1],.068).applyMatrix4(W).clone(),V4.set(b[0],b[1],.068).applyMatrix4(W).clone(),new T.Vector3(c[0],c[1],.068).applyMatrix4(W),new T.Vector3(0,0,1).transformDirection(W),col);
+  for(const W of SLWIN){ for(const [x0,x1,y0,y1] of [[-.29,-.02,-.29,-.05],[.02,.29,-.29,-.05],[-.29,-.02,-.01,.27],[.02,.29,-.01,.27]]){ const xo=x0<0?x0:x1, xi=x0<0?x1:x0, s=Math.sign(xi-xo);
+      tri(W,[xo,y0],[xo+s*.11,y0],[xo,y0+.1],FC); tri(W,[xi,y0],[xi-s*.07,y0],[xi,y0+.05],FC2); tri(W,[xo,y1],[xo+s*.06,y1],[xo,y1-.07],FC);
+      for(let k=0;k<4;k++){ const xa=xo+s*(.02+k*.06), xb=xa+s*.06; tri(W,[xa,y0],[xb,y0],[(xa+xb)/2,y0+.025+.02*((k*7)%3)],k%2?FC2:FC); } } }
+  /* blooms: the window boxes overflowing, and more flowers round Kríos */
+  kitTo('slbloom'); const BLC=['#f19bb0','#f6d26b','#fbf6ec','#e9744f','#b9a2e0','#ee6f8a','#ffe08a'], br=seeded(57);
+  for(const W of SLBOX){ for(let k=0;k<9;k++) put(W,'blob',BLC[k%7],-.32+k*.08+(br()-.5)*.03,-.36+br()*.06,.08+br()*.12,.055,.05,.055); for(let k=0;k<5;k++) put(W,'blob',LEAF[1+(k%3)],-.3+k*.15,-.47-br()*.06,.22,.06,.09,.04); }
+  { const M=frameAt(0,0,0); for(let k=0;k<40;k++){ const a=br()*TAU, r=1.72+br()*.5; if(Math.abs(Math.sin(a))<.2||Math.abs(Math.cos(a))<.2) continue; put(M,'blob',BLC[k%7],Math.cos(a)*r,.1+br()*.05,Math.sin(a)*r,.09,.08,.09); } }
+  /* the ice cream cart: mint and cream with a striped umbrella, a cone on top, two wheels and a handle; its seller behind it */
+  kitTo('slice'); { const yaw=yawTo(ICE.x,ICE.z,ICE.x,0), M=frameAt(ICE.x,ICE.z,yaw,standH(ICE.x,ICE.z)), MN='#a9ded1', CR='#fbf6ec', PK='#f2a7b9', DK='#3a3a3c';
+    box(M,DK,0,.27,0,1.06,.05,.6); box(M,MN,0,.32,0,1,.52,.56); box(M,PK,0,.32,0,1.02,.07,.58); box(M,CR,0,.6,0,1.02,.06,.58); box(M,'#e9eef0',0,.84,0,1.02,.04,.58);
+    [-.24,.24].forEach(x=>put(M,'sph','#f4f7f8',x,.88,0,.19,.08,.19)); put(M,'cone','#d9a35b',-.3,1.0,.05,.07,.2,.07,0,Math.PI); put(M,'sph','#f6c9d6',-.3,1.13,.05,.08,.07,.08); put(M,'sph','#fbe7a8',-.27,1.18,.03,.05,.045,.05);
+    [-.3,.3].forEach(z=>{ put(M,'cyl','#2a2a2c',.3,.2,z*1.05,.2,.05,.2,0,Math.PI/2); put(M,'cyl',CR,.3,.2,z*1.1,.06,.02,.06,0,Math.PI/2); });
+    [-.22,.22].forEach(z=>box(M,DK,-.42,0,z,.04,.3,.04)); box(M,'#b8bcbf',-.66,.78,0,.04,.04,.5); [-.24,.24].forEach(z=>box(M,'#b8bcbf',-.56,.77,z,.22,.03,.03,0,0,-.35));
+    cyl(M,'#e8e2d8',.12,.86,-.14,.022,1.2,'cyl8');
+    const ap=new T.Vector3(.12,2.3,-.14), rim=k=>new T.Vector3(.12+Math.cos(k/8*TAU)*.78,1.98,-.14+Math.sin(k/8*TAU)*.78), nn=new T.Vector3();
+    for(let k=0;k<8;k++){ const a=ap.clone().applyMatrix4(M), b=rim(k).applyMatrix4(M), c=rim(k+1).applyMatrix4(M); nn.subVectors(b,a).cross(V.subVectors(c,a)).normalize(); if(nn.dot(a.clone().normalize())<0) nn.negate();
+      slTri(a,b,c,nn,k%2?CR:'#f26d7d'); slTri(a,b,c,nn.clone().negate(),k%2?'#e7ddd0':'#d65a69'); }
+    ICE.obs=[-.3,.3].map(x=>{ const [ox,oz]=loc(V.set(x,0,0).applyMatrix4(M).normalize()); return {x:ox,z:oz,r:.42,h:1.2}; }); const [vx,vz]=loc(V.set(0,0,-.72).applyMatrix4(M).normalize()); ICE.obs.push({x:vx,z:vz,r:.3,h:1.3});
+    ICE.M=M; }
+  kitTo();
+  const mk=(id,u)=>{ const K=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(K.P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(K.N,3)); g.setAttribute('color',new T.Float32BufferAttribute(K.C,3)); delete KITS[id];
+    g.computeBoundingSphere(); const m=new T.Mesh(g,mktMat(u,{kit:true})); m.frustumCulled=false; m.visible=false; SL.cull.push(m); return m; };   // (culled by the camera once warmed: see slWorld)
+  SLK.frost.m=mk('slfrost',SLK.frost); sc.add(SLK.frost.m); SLK.bloom.m=mk('slbloom',SLK.bloom); sc.add(SLK.bloom.m);
+  ICE.g=new T.Group(); ICE.g.visible=false; sc.add(ICE.g); { const m=mk('slice',ICE.u); m.visible=true; ICE.g.add(m); }   // (the group shows it or not)
+  /* its board: ICE CREAM in the dot type, as the market's boards are drawn (the same material, so the same shader) */
+  { const cv=document.createElement('canvas'); cv.width=512; cv.height=128; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
+    const draw=()=>{ const c=cv.getContext('2d'); c.fillStyle='#fbf6ec'; c.fillRect(0,0,512,128); c.fillStyle='#f26d7d'; c.fillRect(0,0,512,12); c.fillRect(0,116,512,12); c.fillStyle='#2f6b5a'; c.textAlign='center'; c.textBaseline='middle'; c.font='900 70px Doto, monospace'; c.fillText('ICE CREAM',256,66); tx.needsUpdate=true; };
+    draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    const sm=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx},uGlow:{value:0},uMk:ICE.u},LU),vertexShader:TOON_V(true),fragmentShader:MKS_F}); sm.userData.inkF=MKT_IF;
+    const b=new T.Mesh(new T.PlaneGeometry(.8,.19),sm); b.matrixAutoUpdate=false; b.matrix.copy(ICE.M).multiply(new T.Matrix4().makeTranslation(0,.475,.287)); b.frustumCulled=false; SL.cull.push(b); ICE.g.add(b); }
+  { const f=mktFigure({id:'icecream',look:{shirt:'#fbf6ec',crew:true,pants:'#3a3f4a',shoes:'#2b2b2e',skin:'#d9a27e',hair:'wavy',hairC:'#6b4a33',cheeks:true},arm:0,apron:true,hat:true});
+    const [vx,vz]=[ICE.obs[2].x,ICE.obs[2].z], u=at(vx,vz); standOn(f.g,u,tang(u,at(ICE.x,ICE.z),new T.Vector3()),standH(vx,vz)); f.u.value=0; f.look0=0; ICE.g.add(f.g); ICE.fig=f; }
+  await gap();
+  /* the puffs: the market's smoke material, a set of points of their own */
+  { const sm0=MKT.smoke.m.material, g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(new Float32Array(PF.n*3),3)); g.setAttribute('aA',new T.BufferAttribute(new Float32Array(PF.n*3),3));
+    PF.m=new T.Points(g,new T.ShaderMaterial({uniforms:{uH:{value:800},uK:{value:1},uL:{value:1}},transparent:true,depthWrite:false,vertexShader:sm0.vertexShader,fragmentShader:sm0.fragmentShader}));
+    PF.m.layers.set(1); PF.m.frustumCulled=false; PF.m.renderOrder=6; PF.m.visible=false; sc.add(PF.m);
+    PF.p=Array.from({length:PF.n},()=>({t:9,life:1,p:new T.Vector3(),v:new T.Vector3(),s0:.1,s1:.2,a:0,c:1})); PF.figs=pfFigs(); }
+  /* petals, leaves and bees: one instanced mesh of the town's toon material (the same as Kríos's bars) */
+  { const geo=new T.OctahedronGeometry(1,0), n=DR.n+DR.nb*2, m=new T.InstancedMesh(geo,toonMat('#ffffff',{fresh:true}),n); m.layers.set(1); m.frustumCulled=false; m.visible=false; drM.makeScale(0,0,0);
+    for(let i=0;i<n;i++){ m.setMatrixAt(i,drM); m.setColorAt(i,drC.setStyle(i<DR.n?DR_PETAL[i%4]:(i-DR.n)%2?'#2b2622':'#f2c230',T.LinearSRGBColorSpace)); } sc.add(m); DR.m=m;
+    DR.bits=Array.from({length:DR.n},(_,i)=>({i,on:false,shown:false}));
+    DR.src=TREES.map(([x,z,s])=>{ const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453); return {x,z,s,blos:tk>.55,turn:tk>.2}; });
+    const spots=[]; for(let k=0;k<5;k++){ const a=(k+.5)/5*TAU+.3; spots.push(at(Math.cos(a)*1.95,Math.sin(a)*1.95).multiplyScalar(R+.25)); }
+    SLBOX.slice(0,3).forEach(W=>spots.push(V.set(0,-.36,.12).applyMatrix4(W).clone()));
+    DR.bees=spots.slice(0,DR.nb).map((p,j)=>{ const up=p.clone().normalize(), e1=new T.Vector3().crossVectors(up,new T.Vector3(0,0,1)).normalize(), e2=new T.Vector3().crossVectors(up,e1); return {i:DR.n+j*2,at:p,up,e1,e2,ph:j*1.7,shown:false}; }); }
+  /* the leaf piles: by the trees round the square and along the paths, on the grass beside the way you walk */
+  { const cand=[]; for(const [x,z,s] of TREES){ const dp=pathDist(x,z); if(Math.hypot(x,z)>13||dp>4.2) continue; for(let k=0;k<8;k++){ const a=k/8*TAU+.4, r=.95+.25*s; cand.push([x+Math.cos(a)*r,z+Math.sin(a)*r,Math.hypot(x,z)]); } }
+    cand.sort((a,b)=>a[2]-b[2]); const np=LO?4:5, nl=LO?18:26, pr=seeded(83);
+    for(const [x,z] of cand){ if(LP.piles.length>=np) break; if(LP.piles.some(p=>Math.hypot(p.x-x,p.z-z)<3)||!slFree(x,z,.5,3)||Math.hypot(x-ICE.x,z-ICE.z)<2) continue; /* (out of reach of anyone who would stop you to talk) */ LP.piles.push({x,z,g:standH(x,z),leaves:[],moved:false}); }
+    let i=0; LP.piles.forEach((p,pi)=>{ for(let k=0;k<nl;k++){ const a=pr()*TAU, r=Math.sqrt(pr())*.5, rx=p.x+Math.cos(a)*r, rz=p.z+Math.sin(a)*r, rh=.015+.13*Math.pow(1-r/.5,1.3)*(.4+.6*pr());
+      p.leaves.push({i:i++,pi,rx,rz,rh,ra:pr()*TAU,x:rx,z:rz,h:rh,ang:0,tilt:(pr()-.5)*.9,ax:new T.Vector3(pr()-.5,.3,pr()-.5).normalize(),st:0,vx:0,vz:0,vh:0,spin:0,sc:.8+.4*pr()}); } lpReset(p); });
+    const m=new T.InstancedMesh(new T.OctahedronGeometry(1,0),toonMat('#ffffff',{fresh:true}),Math.max(1,i)); m.layers.set(1); m.frustumCulled=false; m.visible=false; LP.m=m; LP.n=i; LP.k=1;
+    LP.piles.forEach(p=>p.leaves.forEach(L=>{ m.setColorAt(L.i,drC.setStyle(DR_LEAF[L.i%5],T.LinearSRGBColorSpace)); lpLeaf(L); })); sc.add(m); }
+  /* entering Earth sweeps the piles back, and leaving it lets the thunder go */
+  { const en=st.enter, ex=st.exit; st.enter=function(){ LP.piles.forEach(lpReset); ICE.snap=true; return en.apply(this,arguments); }; st.exit=function(){ SL.thunder.length=0; return ex.apply(this,arguments); }; }
+  SL.built=true;
+  /* the visitor's own weather, asked for once Earth is made (never in the tests, which ask for it themselves) */
+  if(!window.__TEST) slFetch();
+  st._dbg.life={SL,WIND,FLAGS,PF,DR,LP,ICE,SLK,SLCHIM,slSun,slWhere,slOff,slHour,slMoon,slShower,slFold,slWxKind,slBank,walkable,
+    set(o){ if('weather' in o&&o.weather==null) SKYSET.weather=null; if('tz' in o){ SL.tzSet=o.tz||null; SL.key=''; } if('aurora' in o) SL.aurSet=o.aurora==null?null:!!o.aurora; if('temp' in o){ SL.tempSet=o.temp; SL.key=''; } if('meteors' in o) SL.metSet=o.meteors;
+      if('wind' in o) WIND.set=o.wind; if('real' in o){ SL.real=o.real; WIND.real=null; } skyClock(); skyApply(); },
+    step(sec,world){ for(let i=0;i<sec*10;i++){ skyUpdate(.1,G.uTime.value+i*.1); if(world) slWorld(.1,G.uTime.value+i*.1); } },
+    world(sec){ for(let i=0;i<sec*30;i++) slWorld(1/30,G.uTime.value+i/30); },
+    fetch(ms){ SL.wx.done=false; SL.wx.busy=false; return slFetch(ms); }, again(){ return slFetch(); },
+    /* the browser's own zone and where it puts the visitor, as a visit (not a test) would have it */
+    zone(){ let z=''; try{ z=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(e){} return {zone:z,where:slWhere(z,SKY.y)}; },
+    strike(){ slStrike(); }, meteor(){ slMeteor(); }, kickReset(){ LP.piles.forEach(lpReset); },
+    get state(){ const pv=PF.p.filter(q=>q.t<q.life); return {tz:SL.tz,city:SL.loc&&SL.loc.city,sun:{rise:+SL.sun.rise.toFixed(3),set:+SL.sun.set.toFixed(3),noon:+SL.sun.noon.toFixed(3)},th:+SKY.th.toFixed(3),e:+SKY.e.toFixed(2),night:+SKY.night.toFixed(2),
+      moon:{ph:+SL.moon.ph.toFixed(3),k:+SL.moon.k.toFixed(3)},temp:+SL.temp.toFixed(1),cold:+SL.cold.toFixed(2),seas:Object.fromEntries(Object.entries(SL.seas).map(([k,v])=>[k,+v.toFixed(2)])),
+      snow:+SL.snow.toFixed(2),uSnow:+LU.uSnow.value.toFixed(2),bare:+LU.uBare.value.toFixed(2),season:+LU.uSeason.value.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),storm:+WX.storm.toFixed(2),flakes:WX.snow,
+      fog:+WX.fog.toFixed(2),fogPh:+SL.fogPh.toFixed(2),front:+(WX.front??26).toFixed(2),bow:+WX.bow.toFixed(2),over:+SKY.over.toFixed(2),aur:+SL.aur.toFixed(2),metN:SL.metN,shower:SL.shower,strikes:SL.strikes,flash:+SL.flash.toFixed(2),
+      wind:{a:+WIND.a.toFixed(3),s:+WIND.s.toFixed(2),e:+WIND.e.toFixed(2),v:[+WIND.v.x.toFixed(3),+WIND.v.z.toFixed(3)]},puffs:pv.length,breath:pv.filter(q=>q.c===1&&q.s1>.15).length,smoke:pv.filter(q=>q.c<.5).length,
+      frost:+SLK.frost.value.toFixed(2),bloom:+SLK.bloom.value.toFixed(2),ice:{k:+ICE.k.toFixed(2),vis:ICE.g.visible,solid:ICE.solid},bits:DR.bits.filter(b=>b.on).length,bees:DR.bees.filter(b=>b.shown).length,
+      piles:{vis:LP.m.visible,k:+LP.k.toFixed(2),n:LP.piles.length,flying:LP.piles.reduce((s,p)=>s+p.leaves.filter(L=>L.st===1).length,0),down:LP.piles.reduce((s,p)=>s+p.leaves.filter(L=>L.st===2).length,0)},
+      flags:FLAGS.length,wx:{state:SL.wx.state,kind:SL.wx.kind,data:SL.wx.data}}; }}; }
+/* ===================== (the sky alive ends here) ===================== */
 /* ---------- the lighthouse: take the light and steer it ----------
    By the lighthouse you can take the light: drag (or the arrow keys) turns the beam out over the water, the camera up on
    the gallery behind it. The beam lights whatever it falls on and thins the fog along it, so at night and in fog it is
@@ -1721,7 +2205,7 @@ function pcSnap(){ const src=renderer.domElement, k=src.width/innerWidth, f=PC.f
 function pcWhere(){ const P=player; let best='earth', bd=1.7; for(const id in INST){ const q=INST[id], d=Math.hypot(P.x-q.x,P.z-q.z)/q.r; if(d<bd){ bd=d; best=id; } } return best; }
 function pcWhen(){ const now=new Date(), M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'], m=+SKY.md.slice(0,2), d=+SKY.md.slice(3);
   const hh=Math.floor(SKY.h), mm=Math.floor((SKY.h-hh)*60);
-  const wx=WX.snow&&WX.rain>.3?'SNOW':WX.rain>.3?'RAIN':WX.fog>.5?'SEA FOG':WX.bow>.3?'RAINBOW':SKY.night>.5?'CLEAR NIGHT':SKY.dusk>.5?(SKY.h<12?'SUNRISE':'SUNSET'):'CLEAR';
+  const wx=WX.snow&&WX.rain>.3?'SNOW':WX.rain>.3?(WX.storm>.5?'THUNDER':'RAIN'):WX.fog>.5?'SEA FOG':WX.bow>.3?'RAINBOW':SKY.night>.5?(SL.aur>.3?'NORTHERN LIGHTS':SL.moon.k>.97?'FULL MOON':'CLEAR NIGHT'):SKY.dusk>.5?(SKY.h<12?'SUNRISE':'SUNSET'):'CLEAR';
   return {date:d+' '+M[m-1]+' '+now.getFullYear(),time:String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'),wx}; }
 const PC_INK='#2a241d', PC_PAPER='#fbf6ec', PC_OR='#ef8a3c';
 /* a small drawing for each landmark's stamp */
@@ -2298,7 +2782,7 @@ function buildBirds(){ for(let i=0;i<6;i++){ const g=new T.Group(), wl=mesh(BOXG
 const INK=[], inkC=new Map(), shdC=new Map();
 const variant=(cache,m,frag,side)=>{ let k=cache.get(m); if(!k){ k=new T.ShaderMaterial({uniforms:m.uniforms,vertexShader:m.vertexShader,fragmentShader:frag,side:side??m.side,vertexColors:m.vertexColors}); cache.set(m,k); } return k; };
 function registerInk(){ sc.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true) return;
-  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide);   // (inkF: the market's things fade in the ink too)
+  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,o.material.userData.shdF||SHD_F,T.DoubleSide);   // (inkF: the market's things fade in the ink too; inkF and shdF: the bare trees' holes)
   if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); }); }
 const shRT=new T.WebGLRenderTarget(SHN,SHN,{depthBuffer:true}); shRT.depthTexture=new T.DepthTexture(SHN,SHN); LU.uShM.value=shRT.depthTexture;
 const shCam=new T.OrthographicCamera(-30,30,30,-30,1,160);
@@ -2365,7 +2849,9 @@ st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // bet
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
   buildRegulars();   // Gideon and Owen at their table outside it (the same)
   await buildMarket(gap); await gap();   // the Friday night market in the square, kept hidden on other nights (after Diarmuid, whose big amp is in it)
-  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
+  await buildSkyLife(gap); await gap();   // the sky alive: flags, frost, blooms, the ice cream cart, breath and smoke, petals and leaves (after the market, whose materials it shares)
+  const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};
+  kitM.uniforms.uLeaf=WIND.leaf; kitM.userData.inkF=KIT_IF; kitM.userData.shdF=KIT_SF;   // the trees in the wind, and bare in winter (see the sky alive)   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
   kitTo();
@@ -2874,6 +3360,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   buskUpdate(dt,t);   // Diarmuid: his guitar, his hands, his lights
   regUpdate(dt,t);   // Gideon and Owen at the café
   mktUpdate(dt,t);   // the market in the square, on a Friday night
+  slWorld(dt,t);   // the sky alive: flags, breath and smoke, petals and leaves, leaf piles, the ice cream cart, frost and blooms
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
     KR.bars.instanceMatrix.needsUpdate=true; KR.bars.instanceColor.needsUpdate=true;
@@ -2881,7 +3368,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   BIRDS.forEach(b=>{ const a=b.ph+t*b.sp, sg=Math.sign(b.sp), x=b.c[0]+Math.cos(a)*b.r, z=b.c[1]+Math.sin(a)*b.r; at(x,z,BU); tang(BU,at(x-Math.sin(a)*sg,z+Math.cos(a)*sg,V),V2); standOn(b.g,BU,V2,b.h);
     const fl=Math.sin(t*9+b.ph)*.5; b.wl.rotation.z=fl; b.wr.rotation.z=-fl; });
   // sound: the music and birds now and then
-  A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=1.2+Math.random()*3.5; if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
+  A.music(FIN.on?FIN.mus:CUT.on?(CUT.t>T_HOV-.6?.55*sstep(T_HOV-.6,T_LAND+.9,CUT.t):0):.55);   /* the town's music is up before the roar dies away */ skyUpdate(dt,t); birdT-=dt; if(birdT<=0){ birdT=(1.2+Math.random()*3.5)*slBirdK(); if(!(FIN.on&&FIN.shut)){ if(SKY.night>.5) A.cricket((Math.random()-.5)*1.6); else if(WX.rain<.3) A.chirp((Math.random()-.5)*1.6); } }   /* crickets at night, no birds in the rain */
   cafeStep(dt,t);   // the café: its room, its barista, and its camera while you are inside
   A.hiss(0); A.wind(0);   // (no sea hiss and no wind on Earth: they were the static under the town)
 };
@@ -3045,7 +3532,7 @@ function kiteSteer(dx,dy){ CL.taz=clamp(CL.taz+dx/innerWidth*2.6*(innerHeight>in
 /* the wind where you stand: W the way it blows (out to sea), U up, Rt your right as you face it */
 const kW=new T.Vector3(), kU=new T.Vector3(), kRt=new T.Vector3(), kO=new T.Vector3(), kTel=new T.Vector3(), kTaz=new T.Vector3(), kVt=new T.Vector3(), kN=new T.Vector3(), kNf=new T.Vector3(), kHand=new T.Vector3(), kAt=new T.Vector3();
 function kiteUpdate(dt,t){ const P=player, K=CLM.kite, d=me.userData; CL.kt+=dt;
-  kU.copy(P.u); tang(kU,CLM.fw,kW); kRt.crossVectors(kW,kU);
+  kU.copy(P.u); tang(kU,slKiteWind(),kW); kRt.crossVectors(kW,kU);   // (the town's one wind: see the sky alive)
   kO.copy(P.u).multiplyScalar(R+P.h+1.12).addScaledVector(kW,.15);   // where the line runs from: about your hand, held up
   if(CL.k==='carry'){
     if(clMoving()||TALK.goal) return kiteEnd();   // you set off somewhere else: it goes back
@@ -3068,7 +3555,7 @@ function kiteUpdate(dt,t){ const P=player, K=CLM.kite, d=me.userData; CL.kt+=dt;
     let hit=0;   // the edges of the wind: low over the water, high overhead, far out to the sides
     if(CL.el<.14){ hit=-CL.vel; CL.el=.14; CL.vel=Math.abs(CL.vel)*.25; } if(CL.el>1.2){ CL.el=1.2; CL.vel=-Math.abs(CL.vel)*.25; }
     if(Math.abs(CL.az)>1.22){ hit=Math.max(hit,Math.abs(CL.vaz)*CL.L*.3); CL.az=Math.sign(CL.az)*1.22; CL.vaz*=-.25; }
-    const sp=Math.hypot(CL.vaz*Math.cos(CL.el),CL.vel)*CL.L, wb=.03+.03*clamp(sp/6,0,1);   // its speed through the air; and the wind is never quite steady
+    const sp=Math.hypot(CL.vaz*Math.cos(CL.el),CL.vel)*CL.L, wb=(.03+.03*clamp(sp/6,0,1))*(.7+.6*WIND.e);   // its speed through the air; and the wind is never quite steady
     const az=CL.az+wb*(Math.sin(t*1.3)+.6*Math.sin(t*3.4+1.7)), el=CL.el+wb*.8*(Math.sin(t*1.05+2.3)+.6*Math.sin(t*2.7+.4)), ce=Math.cos(el), se=Math.sin(el), ca=Math.cos(az), sa=Math.sin(az);
     cv0.copy(kW).multiplyScalar(ce*ca).addScaledVector(kRt,ce*sa).addScaledVector(kU,se); const pos=cv1.copy(kO).addScaledVector(cv0,CL.L);
     /* which way it points: up off the line while it hangs there, into the turn as it swoops; its face to you */
@@ -3104,7 +3591,7 @@ function kiteUpdate(dt,t){ const P=player, K=CLM.kite, d=me.userData; CL.kt+=dt;
      grass it lies on */
   const rb=CL.rib, tip=cv0.set(0,-.62,0).applyQuaternion(K.quaternion).add(K.position), dd=Math.min(dt,.05), hm=CL.k==='down'?sstep(.62,1,CL.kt/2.6):0, fl=CL.k==='carry'?.25:1;
   rb[0].p.copy(tip);
-  for(let i=1;i<rb.length;i++){ const r=rb[i]; cv1.subVectors(r.p,r.q).multiplyScalar(.9); r.q.copy(r.p); r.p.add(cv1).addScaledVector(kW,4.2*fl*dd*dd).addScaledVector(kU,-2.6*dd*dd).addScaledVector(CL.kx,Math.sin(t*8-i*.7)*1.6*fl*dd*dd*i/rb.length); }
+  for(let i=1;i<rb.length;i++){ const r=rb[i]; cv1.subVectors(r.p,r.q).multiplyScalar(.9); r.q.copy(r.p); r.p.add(cv1).addScaledVector(kW,4.2*fl*dd*dd*(.6+.6*WIND.e)).addScaledVector(kU,-2.6*dd*dd).addScaledVector(CL.kx,Math.sin(t*8-i*.7)*1.6*fl*dd*dd*i/rb.length); }
   for(let it=0;it<3;it++) for(let i=1;i<rb.length;i++){ const a=rb[i-1].p, b=rb[i].p; cv1.subVectors(b,a); const l=cv1.length()||1e-6; b.copy(a).addScaledVector(cv1,.12/l); }
   for(let i=1;i<rb.length;i++){ const p=rb[i].p, r=p.length(); if(r<R+.016) p.multiplyScalar((R+.016)/r); }
   if(hm>0) for(let i=1;i<rb.length;i++) rb[i].p.lerp(CLM.home[i],hm);
@@ -3351,7 +3838,7 @@ function qWear(on){ if(!QS.swap) return; for(const w of QS.swap){ const m=on?w.v
 /* the scene's own meshes join the ink pass as the rest of the world does, so their lines are drawn the same way */
 function qInk(root){ root.traverse(o=>{ if(!o.isMesh||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
   o.userData.col=o.material; o.userData.inkM=qInkM(o.material); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide); INK.push(o); }); }
-function qInkM(m){ let k=inkC.get(m); if(!k){ k=new T.ShaderMaterial({uniforms:m.uniforms,vertexShader:m.vertexShader,fragmentShader:INK_F,side:m.side,vertexColors:m.vertexColors,defines:Object.assign({},m.defines)}); inkC.set(m,k); } return k; }
+function qInkM(m){ let k=inkC.get(m); if(!k){ k=new T.ShaderMaterial({uniforms:m.uniforms,vertexShader:m.vertexShader,fragmentShader:m.userData.inkF||INK_F,side:m.side,vertexColors:m.vertexColors,defines:Object.assign({},m.defines)}); inkC.set(m,k); } return k; }
 function setDoors(drop,slide){ for(const d of QS.doors){ d.g.matrix.multiplyMatrices(QPM,csM.makeTranslation(0,.1-QDROP*drop,d.sd*slide*(QHR+.12))); d.g.matrixWorldNeedsUpdate=true; } }
 function setLift(y){ if(!QS.lift) return; QS.lift.matrix.multiplyMatrices(QPM,csM.makeTranslation(0,.1+y,0)); QS.lift.matrixWorldNeedsUpdate=true; }
 /* the shaft cut into the pad, or the pad whole: only ever whole outside the scene */
