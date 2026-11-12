@@ -205,10 +205,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* ---------- 9: the visitor's own weather, from MET Norway (mocked) ---------- */
   const asked = []; let reply = null, delay = 0;
-  const met = c => ({ type: 'Feature', properties: { timeseries: [{ time: '2026-10-14T13:00:00Z', data: { instant: { details: { air_temperature: c.temp, wind_speed: c.wind / 3.6, wind_from_direction: c.dir, cloud_area_fraction: c.cloud } }, next_1_hours: { summary: { symbol_code: c.sym } } } }] } });
+  const metAnswer = c => ({ type: 'Feature', properties: { timeseries: [{ time: '2026-10-14T13:00:00Z', data: { instant: { details: { air_temperature: c.temp, wind_speed: c.wind / 3.6, wind_from_direction: c.dir, cloud_area_fraction: c.cloud } }, next_1_hours: { summary: { symbol_code: c.sym } } } }] } });
   await page.route('https://api.met.no/**', async route => { try { asked.push(route.request().url()); if (delay) await new Promise(r => setTimeout(r, delay));
     /* (an answer that is not the weather at all stands for a service that is down: a refused request would also be reported by the browser) */
-    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: typeof reply === 'string' ? reply : JSON.stringify(met(reply)) }); } catch (e) {} });
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: typeof reply === 'string' ? reply : JSON.stringify(metAnswer(reply)) }); } catch (e) {} });
   const cases = [[{ sym: 'clearsky_day', temp: 14, wind: 8, dir: 250, cloud: 5 }, 'clear'], [{ sym: 'cloudy', temp: 11, wind: 18, dir: 200, cloud: 95 }, 'cloudy'],
     [{ sym: 'fog', temp: 8, wind: 3, dir: 90, cloud: 100 }, 'fog'], [{ sym: 'rain', temp: 9, wind: 28, dir: 230, cloud: 100 }, 'rain'],
     [{ sym: 'snow', temp: -1, wind: 12, dir: 20, cloud: 100 }, 'snow'], [{ sym: 'heavyrainandthunder', temp: 19, wind: 40, dir: 270, cloud: 100 }, 'thunder'],
