@@ -1,6 +1,6 @@
 /* Inside the café: walking in, ordering each drink, the drone bringing it, looking into the cup, the link in the foam (its
    target is checked, never followed), back out of the cup, and leaving again.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/cafe.cjs [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/cafe.cjs [--mobile]
    The station's clock is stepped by hand between the real frames (headless frames are slow), and every button is a real
    click or tap; on a computer a drink is also ordered with the keys, and the way in is walking up to the door. */
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
@@ -104,7 +104,7 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   s = await state(); rec(s.st === 'exit', 'leaving', s.st);
   await run(1.3); await frames(3); await shot(P + 'cafe-leaving');
   s = await until(s => s.st === 'out' && s.k < .01, 5);
-  if (!mobile) { await page.keyboard.press('Escape'); await page.waitForTimeout(400); rec(await H(h => h.S.stId === 'cr' && h.S.mode === 'station'), 'Escape again just after coming out does not send you up to orbit'); }
+  if (!mobile) { await page.keyboard.press('Escape'); await page.waitForTimeout(400); rec(await H(h => h.S.stId === 'cr' && h.S.mode === 'station'), 'Escape again just after coming out leaves you on Earth'); }
   const you = await C((c, d) => ({ you: c.state.you, near: d.player.x }));
   rec(s.st === 'out' && s.me && you.you[1] > 2.6, 'you are back out on the pavement, facing the street', JSON.stringify({ st: s.st, k: s.k, me: s.me, you: you.you }));
   rec(s.near === .1, 'the camera is the walking one again', 'near ' + s.near);

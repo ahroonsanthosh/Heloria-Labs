@@ -2,7 +2,7 @@
    Gideon and Owen each say their line under their name), Skip and Escape go straight on to the last flight, and the last
    flight then runs as it always did with the two of them at the desk. The world keeps quiet while it plays, its sound plays
    and stops, Gideon and Owen are never counted as met, and nothing is cut out of the pad outside it.
-     node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/launch.cjs --out <dir> [--mobile] [--query time=21:30]
+     node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/launch.cjs --out <dir> [--mobile] [--query time=21:30]
    The station's clock is stepped by hand where it matters: headless frames are slow. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
@@ -17,7 +17,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const until = async (fn, ms = 60000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await D(fn)) return true; await wait(250); } return false; };
   const ui = () => page.evaluate(() => { const vis = e => { if (!e) return false; for (let p = e; p && p !== document.body; p = p.parentElement) { const s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity < .05) return false; } const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
     const box = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)]; };
-    const shown = [...document.querySelectorAll('#station button,#station a[href],#station .crl,#station .cre,#back,#chrome .brand')].filter(vis).map(e => e.id || e.className);
+    const shown = [...document.querySelectorAll('#station button,#station a[href],#station .crl,#station .cre,#chrome .brand')].filter(vis).map(e => e.id || e.className);
     return { shown, skip: vis(document.querySelector('#crSkip')), say: vis(document.querySelector('.crqsay')), id: vis(document.querySelector('.crqid')), sayBox: box(document.querySelector('.crqsay')), idBox: box(document.querySelector('.crqid')), skipBox: box(document.querySelector('#crSkip')), W: innerWidth, H: innerHeight }; });
   const overlap = (a, b) => !(a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1]);
 
@@ -97,7 +97,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* Skip: from the middle of it, the button itself */
   /* Earth again, from the start (the last flight put away first, as the white page does) */
-  const again = async () => { await D((d, h) => { h.ST.cr.finaleEnd(); }); await H(h => { document.documentElement.classList.remove('fin'); h.jump('cr'); }); await wait(800);
+  const again = async () => { await D((d, h) => { h.ST.cr.finaleEnd(); }); await H(h => { document.documentElement.classList.remove('fin'); h.earth(); }); await wait(800);
     await D(d => { d.skipCut(); d.AH.st = 'done'; }); await step(10); };
   await again();
   rec((await L()).hole === 0 && !(await L()).figs, 'back on Earth again, the pad is whole and nothing of it is drawn');

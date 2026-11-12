@@ -1,5 +1,5 @@
 /* The cliff on Earth: a bench you can sit on, and a kite you can fly.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/cliff.cjs --out <dir> [--mobile] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/cliff.cjs --out <dir> [--mobile] [--meter]
    It clicks (or taps) the bench from across the grass and you walk over and sit; the camera must settle into the view over the
    sea, follow a low sun round and look west by night. A key, a click, a drag and the stick each stand you up again, and walking
    into the bench sits you down (what you held to get there does not stand you up again). Then it clicks the kite: you carry it

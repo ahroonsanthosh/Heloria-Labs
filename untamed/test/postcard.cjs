@@ -1,5 +1,5 @@
 /* Postcards: the camera button, framing a view, taking it, the card that comes out (its size, stamp and postmark), saving it.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/postcard.cjs [--mobile] */
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/postcard.cjs [--mobile] */
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const P = mobile ? 'm-' : '', fail = m => { log('FAIL ' + m); process.exitCode = 1; };
   await H(h => { const d = h.ST.cr._dbg; d.sky.set({ time: '16:40', weather: 'clear' }); d.sky.step(.5); const q = d.INST.ph; d.player.x = q.x - 3.2; d.player.z = q.z - 1.2; d.player.u.copy(d.at(d.player.x, d.player.z)); });

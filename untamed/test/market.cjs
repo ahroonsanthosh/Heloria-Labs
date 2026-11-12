@@ -3,7 +3,7 @@
    big amp out; on any other day, and on a Friday morning, there is none of it. It fades in and out as the clock crosses
    the hour, it never blocks the paths across the square or the way to anyone you talk to, no new shader is made when it
    appears, and its sounds are short, soft and in line with the footsteps.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/market.cjs --out <dir> [--mobile] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/market.cjs --out <dir> [--mobile] [--meter]
    The station's clock is stepped by hand where only the logic matters; the sound is listened to in real time (--meter). */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
@@ -34,8 +34,6 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const tue = await M((e, d, h, a) => e.at(a, '21:30'), TUE);
   rec(!tue.open && !tue.vis && tue.e === 0 && !tue.solid && tue.inOBS === 0 && !tue.amp && tue.figs.every(f => !f.vis), 'no market on a Tuesday night', JSON.stringify(tue));
   const tueLv = await M(e => +window.__heloria.ST.cr._dbg.busk.level(window.__heloria.ST.cr._dbg.busk.DM.x + 11.5, window.__heloria.ST.cr._dbg.busk.DM.z).toFixed(3));
-  /* (the other worlds are made after the loader, a step at a quiet moment: they finish first, so what is counted below is the market's alone) */
-  await page.waitForFunction(() => window.__heloria.late().ready, null, { timeout: 900000, polling: 500 }).catch(() => {});
   await look(); const progTue = await H(h => h.renderer.info.programs.length); await shot(pre + 'market-tuesday-night');
   const morn = await M((e, d, h, a) => e.at(a, '10:00'), FRI);
   rec(!morn.open && !morn.vis && morn.e === 0 && !morn.solid && !morn.amp, 'no market on a Friday morning', JSON.stringify({ open: morn.open, vis: morn.vis, e: morn.e, dow: morn.dow }));

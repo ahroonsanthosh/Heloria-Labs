@@ -1,5 +1,3 @@
-<p align="center"><img src=".github/media/hole.jpg" alt="The black hole at the centre of Heloria, ray-traced in the browser" width="100%"></p>
-
 <h1 align="center">Heloria</h1>
 
 <p align="center">The website I built for Heloria Labs.</p>
@@ -14,23 +12,23 @@ Heloria Labs is three of us: me, Michael Sweeney Heffernan and Abraham Sabu Kuri
 [Ogive](https://github.com/michaelsheffernan/ogive) (AI tools for rocket design) and
 [Kríos](https://krios.ie) (voice practice for sales teams).
 
-The site has three ways in. Point at one on the front door and you see where it goes before you choose it.
+The site has two ways in. Point at one on the front door and you see where it goes before you choose it.
 
 <table>
 <tr>
-<td width="33%"><img src=".github/media/walk.jpg" alt="Walk: the pavilion in still water at golden hour"></td>
-<td width="33%"><img src=".github/media/land.jpg" alt="Land: the drawn town on Earth, just after the rocket comes down"></td>
-<td width="33%"><img src=".github/media/fly.jpg" alt="Fly: the system in orbit round the black hole"></td>
+<td width="50%"><img src=".github/media/walk.jpg" alt="Walk: the pavilion in still water at golden hour"></td>
+<td width="50%"><img src=".github/media/land.jpg" alt="Land: the drawn town on Earth, just after the rocket comes down"></td>
 </tr>
 <tr>
-<td valign="top"><b>Walk.</b> A pavilion in still water at golden hour, with a room of light for each project. Two minutes.</td>
-<td valign="top"><b>Land.</b> Straight down to a little drawn town, where the three of us are waiting to talk. Four minutes.</td>
-<td valign="top"><b>Fly.</b> The whole thing: a black hole, a game for every project, and Earth on the other side. Ten minutes.</td>
+<td valign="top"><b>Walk.</b> A pavilion in still water at golden hour, with a room of light for each project. Two minutes.
+At the end a rocket goes up from the far shore: catch it and it takes you down to Earth.</td>
+<td valign="top"><b>Land.</b> Straight down to a little drawn town, where the three of us are waiting to talk. Four minutes.
+When you have met us, the last flight takes you back up.</td>
 </tr>
 </table>
 
-Every way in leads to the three of us. On the walk we stand in frames on plinths in the water; on Earth each
-conversation finishes with a photo and a link, and a board outside the café books a chat with us.
+Both ways lead to the three of us. On the walk we stand in frames on plinths in the water; on Earth each conversation
+finishes with a photo and a link, and a board outside the café books a chat with us.
 
 <table>
 <tr>
@@ -41,10 +39,8 @@ conversation finishes with a photo and a link, and a board outside the café boo
 
 ## How it works
 
-- The black hole is ray-traced through Schwarzschild spacetime in a fragment shader, with a thin disk, Doppler
-  beaming and gravitational redshift. Every colour in it comes from one blackbody scale.
 - Every sound is made in the browser with the Web Audio API, and not one audio file ships with the site. The long
-  layers (the music, the water, the engine, each room's and station's air) are rendered once at load with an
+  layers (the music, the water, the rain, the engine, each room's air) are rendered once at load with an
   OfflineAudioContext into recordings that play through audio elements, so they hold up while the graphics card is
   busy. A browser pauses for a moment each time it loops a file, so two players take turns on every recording and
   overlap across the seam. Each recording is then kept in the browser's own store, so a second visit plays the very
@@ -92,7 +88,7 @@ It's a static site on Cloudflare. Every push to `main` deploys `docs/` as it is;
 <summary>Tests</summary>
 <br>
 
-Everything is checked in a headless browser with Playwright. The black hole is software-rendered there, so the tests
+Everything is checked in a headless browser with Playwright. The graphics are software-rendered there, so the tests
 are slow and best run one at a time.
 
 ```bash
@@ -104,7 +100,7 @@ node untamed/test/shot.cjs --html dist/untamed.html --scenario untamed/test/butt
 ```
 
 ```bash
-node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/earth.cjs
+node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/earth.cjs
 ```
 
 ```bash
@@ -114,8 +110,10 @@ node tools/site-smoke.cjs docs
 Add `--mobile` to any of them for a phone. To test exactly what the site serves, build the page with `--minify`
 (`python3 tamed/build.py --minify --single dist/tamed.html`, and the same for `untamed/build.py`).
 `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`) listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
-page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk. Each game has its own full
-check: `aetos.cjs`, `krios.cjs`, `ogive.cjs` and `pharos.cjs` in `untamed/test`.
+page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk, and `tamed/test/flow.cjs` the
+gate's two ways and the rocket at the end of the walk. `untamed/test/entry.cjs` lands from the loader (run it once more with
+`--hash aetos`: every address of the page lands, the old ones too), and `untamed/test/buttons.cjs` presses every button
+from the loader to the white page. `--earth` goes straight onto Earth, past the loader and the landing.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
 the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `cafe.cjs` goes into the café, orders
 every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
@@ -125,10 +123,9 @@ every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it
 Escape, and nothing of it left behind), and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
 
-Each way in opens as soon as its own world is made (Land on Earth, Fly on the orbit), and the other worlds are made after,
-at quiet moments. `untamed/test/late.cjs` (once per way in, with `--hash land` and `--hash aetos` too) checks that, and
-that going anywhere before it is made waits for it. The front door makes its gallery after the gate only where the browser
-compiles shaders in the background; a test can ask for that anyway with `window.__GLATE = true` in an init script.
+Land's loader makes Earth and compiles every shader it draws with before it lets you in, so nothing is made after. The
+front door makes its gallery after the gate only where the browser compiles shaders in the background; a test can ask for
+that anyway with `window.__GLATE = true` in an init script.
 </details>
 
 <br>

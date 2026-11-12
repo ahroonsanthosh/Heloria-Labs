@@ -1,5 +1,5 @@
 /* Earth's sky: the time of day, the weather and the street lamps.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/sky.cjs [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/sky.cjs [--mobile]
    (add --query date=12-24, date=10-31 or date=07-15 for the seasons' extras: snow and fairy lights, pumpkins, fireflies) */
 module.exports = async ({ shot, wait, H, log, mobile }) => {
   const P = mobile ? 'm-' : '', fail = m => { log('FAIL ' + m); process.exitCode = 1; };

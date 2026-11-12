@@ -5,7 +5,7 @@
    keep out of the way between you and whoever you talk to; the school's bell rings at its times; you can still walk to every
    landmark and every one of us; nothing new is compiled when the children come out or the clock moves; the new sounds sit
    at about the footsteps' level.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/civic.cjs --out <dir> [--mobile] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/civic.cjs --out <dir> [--mobile] [--meter]
    CIVIC_VIEWS=1 takes only the views (the town from above, the street looking east by day and by night), for a build from
    before the east side was civic, to compare (their names begin before-, or with CIVIC_TAG).
    The station's clock is stepped by hand where only the logic matters; the sound is listened to in real time. */
@@ -31,7 +31,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   });
   const C = (fn, arg) => H((h, [src, a]) => (0, eval)('(' + src + ')')(window.__C, h.ST.cr._dbg, h, a), [fn.toString(), arg]);
   const ui = on => page.evaluate(on => { let s = document.getElementById('civui'); if (!s) { s = document.createElement('style'); s.id = 'civui'; document.head.appendChild(s); }
-    s.textContent = on ? '' : '.st-cr .card,#crLabels,.crhint,#chrome,#back,.cre,.crcafein,.crpost,.crgo{visibility:hidden!important}'; }, on);
+    s.textContent = on ? '' : '.st-cr .card,#crLabels,.crhint,#chrome,.cre,.crcafein,.crpost,.crgo{visibility:hidden!important}'; }, on);
   const R = 24;
 
   /* ---------- the views: the whole town from above, the street from the square looking east, by day and by night ---------- */

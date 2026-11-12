@@ -2,7 +2,7 @@
    music dips, and it comes back as you walk away; tapping him (or E beside him, or his name tag from across town) gets
    you his solo and then he goes back to his piece; he never starts a conversation or counts as one of the three; you
    cannot walk through him, his amp or his case; inside a house you do not hear him; at night his lights are on.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/busker.cjs --out <dir> [--mobile] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/busker.cjs --out <dir> [--mobile] [--meter]
    With --meter it also says how loud the page is at each distance (the live sound plus the recordings playing).
    The station's clock is stepped by hand where only the logic matters; the sound is listened to in real time. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {

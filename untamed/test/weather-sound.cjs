@@ -1,5 +1,5 @@
 /* What Earth's weather and nights sound like, and that each is there: rain on the roofs, crickets at night, the foghorn.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --meter --scenario untamed/test/weather-sound.cjs */
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --meter --scenario untamed/test/weather-sound.cjs */
 module.exports = async ({ page, wait, H, log }) => {
   const fail = m => { log('FAIL ' + m); process.exitCode = 1; };
   await page.mouse.click(200, 200);   // the sound starts on a gesture

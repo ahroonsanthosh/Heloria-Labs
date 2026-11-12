@@ -1,5 +1,5 @@
 /* Steering the lighthouse: the button by it, dragging the beam round, the lost drone following it home, letting go.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/lighthouse.cjs [--mobile] */
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/lighthouse.cjs [--mobile] */
 module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   const P = mobile ? 'm-' : '', fail = m => { log('FAIL ' + m); process.exitCode = 1; };
   await H(h => { const d = h.ST.cr._dbg; d.sky.set({ time: '21:30', weather: 'clear' }); d.sky.step(1); });

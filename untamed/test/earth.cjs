@@ -1,6 +1,6 @@
 /* Earth, on its own: conversations that always start, never get lost and carry on where they left off; walking over to
    someone round whatever is in the way; nobody walking through anything.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/earth.cjs --out <dir> [--mobile]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/earth.cjs --out <dir> [--mobile]
    The station's clock is stepped by hand: headless frames are slow, and these are checks of logic, not of timing. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
@@ -106,11 +106,11 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(!ah.talk, 'and waits without asking again');
   await wait(600); await shot(pre + 'earth-ahroon-arrived');
 
-  /* Land: straight down to Earth. Every landmark stands, we talk about them as they are, and each says what it is close to */
-  const land = await E((e, d, h) => { const st = h.ST.cr; st.land = true; d.MET.clear(); d.marksEnter();
+  /* every landmark stands, we talk about them as they are, and each says what it is close to */
+  const land = await E((e, d, h) => { d.MET.clear(); d.marksEnter();
     return { marks: Object.values(d.MK).every(m => m.st === 'on'), first: d.people[0].lines[0], noPlay: d.people.every(p => p.lines.every(l => !/play|played|flew|up there|through the hole/i.test(l))) }; });
-  rec(land.marks, 'in Land every landmark is already built');
-  rec(land.noPlay && /Welcome to Earth/.test(land.first), 'in Land we talk about the landmarks as they are, not about playing them', land.first);
+  rec(land.marks, 'every landmark is already built');
+  rec(land.noPlay && /Welcome to Earth/.test(land.first), 'we talk about the landmarks as they are, not about playing them', land.first);
   /* just landed: the screen is yours, the town and the people; no landmark's card yet, not even Aetos's next to the pad */
   const fresh = await E((e, d) => { d.place(); d.closeTalk(); d.people.forEach(p => { p.greeted = true; }); e.run(45); const on1 = document.querySelector('#crProj').classList.contains('on');
     d.began(); e.run(45); return { before: on1, after: document.querySelector('#crProj').classList.contains('on'), ae: +Math.hypot(d.player.x - d.INST.ae.x, d.player.z - d.INST.ae.z).toFixed(2), r: d.INST.ae.r }; });
@@ -131,7 +131,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     rec(!cafe.on && cafe.btn, 'stopping by the café puts up no card, only the button to go in', JSON.stringify(cafe));
     rec(cafe.legs === 0, 'no board stands on the pavement outside the café', String(cafe.legs));
   } else log('the café is not in this build');
-  await E((e, d, h) => { h.ST.cr.land = false; d.marksEnter(); });
+  await E((e, d) => { d.marksEnter(); });
 
   console.log('\nSUMMARY ' + pass + ' passed, ' + fail + ' failed' + (failed.length ? '\n  FAILED: ' + failed.join('; ') : ''));
 };

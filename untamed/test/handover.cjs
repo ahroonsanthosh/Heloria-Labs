@@ -1,7 +1,7 @@
 /* The recordings' handovers when the page is busy: each long sound is two players in turn, crossing over a fade that is in
    the recording. A turn the mixer takes late (the page busy at that moment) must start the next player as far into its fade
    as the last one is into its own, so the crossing stays even and nothing dips or drops.
-     node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/handover.cjs */
+     node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/handover.cjs */
 module.exports = async ({ page, wait, H, log }) => {
   let fails = 0; const rec = (ok, m, x) => { if (!ok) fails++; log((ok ? 'PASS ' : 'FAIL ') + m + (x !== undefined ? '  (' + x + ')' : '')); };
   const loops = () => H(h => h.A._loops());

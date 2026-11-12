@@ -3,7 +3,7 @@
    word with that one in the same box as Diarmuid (no photo, nobody counted as met), the lines page through, and walking off
    or Escape ends it. They keep clear of the café's door, Diarmuid and the barista, and while the launch scene and the last
    flight play (where the same two stand at the desk) they are not at the café at all; afterwards they are back.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/regulars.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/regulars.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
    The station's clock is stepped by hand where only the logic matters: headless frames are slow. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
@@ -153,7 +153,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   if (!mobile) await page.keyboard.press('Escape'); else await G((e, d) => d.launch.skip());
   const flight = await G((e, d) => { e.run(10); return { fin: d.FIN.on, pre: !!d.FIN.pre, cafe: d.regs.REGS.map(r => r.g.visible), desk: !!d.launch.QS.figs.gideon.visible }; });
   rec(flight.fin && !flight.pre && flight.desk && flight.cafe.every(v => !v), 'in the last flight after it, still only the two at the desk', JSON.stringify(flight));
-  await G((e, d, h) => { h.ST.cr.finaleEnd(); }); await H(h => { document.documentElement.classList.remove('fin'); h.jump('cr'); }); await wait(800);
+  await G((e, d, h) => { h.ST.cr.finaleEnd(); }); await H(h => { document.documentElement.classList.remove('fin'); h.earth(); }); await wait(800);
   await G((e, d) => { d.skipCut(); d.AH.st = 'done'; e.put(1.6, -8.9, 1.6, -12); e.run(30); }); await frames(3); await wait(400);
   const after = await G((e, d) => ({ cafe: d.regs.REGS.map(r => r.g.visible), desk: !!(d.launch.QS.figs.gideon && d.launch.QS.figs.gideon.visible) }));
   const tg2 = await tags();

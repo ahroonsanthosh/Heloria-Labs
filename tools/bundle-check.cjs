@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* node tools/bundle-check.cjs /tmp/one   (after python3 tools/build.py --bundle /tmp/one) */
-/* the one-artifact bundle, served locally: the front door's three ways and its rocket stay in the same tab and reach
-   the untamed page with the right way in; the untamed page's walk link comes back to the front door */
+/* the one-artifact bundle, served locally: the front door's Land and the rocket at the end of the walk stay in the same tab
+   and reach Land's page; any address of that page lands on Earth; its walk link comes back to the front door */
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
 const dir = process.argv[2];
@@ -17,17 +17,17 @@ srv.listen(0, async () => {
   const page = await (await b.newContext({ viewport: { width: 1280, height: 800 } })).newPage(); const errs = [];
   page.on('pageerror', e => errs.push(e.message));
   await page.goto(base + '/index.html'); await page.waitForTimeout(4000);
-  const links = await page.evaluate(() => ['#tamed', '#land', '#untamed', '#rocket', '[data-untamed]', '[data-land]', '[data-rocket]'].map(q => [...document.querySelectorAll(q)].map(a => ({ q, href: a.href || '', target: a.getAttribute('target') }))).flat().filter(x => x.href));
+  const links = await page.evaluate(() => ['#tamed', '#land', '#rocket', '[data-land]'].map(q => [...document.querySelectorAll(q)].map(a => ({ q, href: a.href || '', target: a.getAttribute('target') }))).flat().filter(x => x.href));
   console.log(JSON.stringify(links, null, 1));
-  ok(links.some(l => l.href === base + '/untamed/index.html#land'), 'Land goes to the untamed page, #land');
-  ok(links.some(l => l.href === base + '/untamed/index.html'), 'Fly goes to the untamed page');
-  ok(links.some(l => l.href === base + '/untamed/index.html#aetos'), 'the rocket goes to the untamed page, #aetos');
+  ok(links.some(l => l.q === '#land' && l.href === base + '/untamed/index.html#land'), 'Land goes to its page, #land');
+  ok(links.some(l => l.q === '#rocket' && l.href === base + '/untamed/index.html#land'), 'the rocket goes there too');
+  ok(await page.evaluate(() => !document.querySelector('#untamed,[data-untamed],[data-rocket]')), 'no Fly, and nothing else that goes into orbit');
   ok(links.every(l => !l.target), 'none of them opens a new tab');
   for (const h of ['land', 'aetos', '']) {
     await page.goto('about:blank'); await page.goto(base + '/untamed/index.html' + (h ? '#' + h : ''));   // a fresh page each time, as from the front door
     await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
-    const s = await page.evaluate(() => ({ entry: window.__heloria.S.entry, walk: document.querySelector('#finWalk').href, wt: document.querySelector('#finWalk').getAttribute('target'), begin: document.querySelector('#beginT').textContent }));
-    ok(s.entry === (h || 'fly'), 'untamed page opens as ' + (h || 'fly'), s);
+    const s = await page.evaluate(() => ({ landing: document.documentElement.classList.contains('landing'), walk: document.querySelector('#finWalk').href, wt: document.querySelector('#finWalk').getAttribute('target'), begin: document.querySelector('#beginT').textContent }));
+    ok(s.landing && /to land$/.test(s.begin), 'the page at ' + (h ? '#' + h : 'its own address') + ' lands on Earth', s);
     ok(s.walk === base + '/index.html' && !s.wt, 'its walk link comes back to the front door, same tab', s.walk);
   }
   ok(!errs.length, 'no page errors', errs);

@@ -1,5 +1,5 @@
 /* Serve the built site over HTTP under a sub-path (as GitHub Pages does, https://user.github.io/repo/) and check that
-   both ways in boot with no missing files: Tamed at the front door, Untamed under untamed/, and the links between them.
+   both ways in boot with no missing files: the walk at the front door, Land under untamed/, and the links between them.
    node tools/site-smoke.cjs [docsDir] */
 const { chromium } = require('playwright'); const http = require('http'); const fs = require('fs'); const path = require('path');
 const root = path.resolve(process.argv[2] || 'docs'); const BASE = '/heloria/';
@@ -22,16 +22,17 @@ const srv = http.createServer((req, res) => {
   await p.goto(url(''), { timeout: 180000 });
   check(await p.waitForFunction(() => window.__tamed && window.__tamed.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Tamed boots at the front door, ' + BASE);
   const link = sel => p.evaluate(sel => { const a = document.querySelector(sel); return { href: a.href, target: a.getAttribute('target') }; }, sel);
-  const way = await link('#untamed'), land = await link('#land'), rocket = await link('#rocket');
-  check(way.href === url('untamed/') && !way.target, 'the gate\'s Fly way goes to untamed/ in the same tab (' + way.href + ')');
+  const land = await link('#land'), rocket = await link('#rocket');
+  check(await p.evaluate(() => [...document.querySelectorAll('#gate .way')].map(w => w.dataset.way).join() === 'walk,land'), 'the gate offers two ways: Walk and Land');
   check(land.href === url('untamed/#land') && !land.target, 'its Land way goes to untamed/#land in the same tab (' + land.href + ')');
-  check(rocket.href === url('untamed/#aetos') && !rocket.target, 'the rocket at the end of the walk goes to untamed/#aetos in the same tab (' + rocket.href + ')');
-  check(await p.evaluate(() => [...document.querySelectorAll('[data-untamed]')].every(a => /\/untamed\/$/.test(a.href))), 'every link to Fly points at untamed/');
-  /* the other way in: Untamed */
-  await p.goto(way.href, { timeout: 180000 });
-  check(await p.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Untamed boots at untamed/');
-  const back = await p.evaluate(() => { const a = document.querySelector('#calm'); return a && { href: a.href, target: a.getAttribute('target') }; });
-  check(back && back.href === url('') && !back.target, 'its Beacon station links back to the calm walk (' + (back && back.href) + ')');
+  check(rocket.href === url('untamed/#land') && !rocket.target, 'the rocket at the end of the walk goes there too, in the same tab (' + rocket.href + ')');
+  check(await p.evaluate(() => [...document.querySelectorAll('[data-land]')].every(a => /\/untamed\/#land$/.test(a.href))), 'every link to Land points at untamed/#land');
+  /* the other way in: Land, and an old address of the orbit lands there too */
+  await p.goto(url('untamed/#aetos'), { timeout: 180000 });
+  check(await p.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Land boots at untamed/ (from the old address untamed/#aetos)');
+  check(await p.evaluate(() => document.documentElement.classList.contains('landing') && /to land$/.test(document.querySelector('#beginT').textContent)), 'and it is Land');
+  const back = await p.evaluate(() => { const a = document.querySelector('#finWalk'); return a && { href: a.href, target: a.getAttribute('target') }; });
+  check(back && back.href === url('') && !back.target, 'its white page links back to the walk (' + (back && back.href) + ')');
   check(await p.evaluate(() => [...document.images].every(i => i.complete)) !== false, 'images there load');
   const fonts = await p.evaluate(() => [...document.fonts].filter(f => f.status === 'loaded').map(f => f.family));
   console.log('fonts loaded:', [...new Set(fonts)].join(', '));

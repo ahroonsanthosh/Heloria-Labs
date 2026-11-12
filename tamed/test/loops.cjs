@@ -1,9 +1,9 @@
 /* What sounds all the time is played from recordings (see LOOPS in 05-audio.js). This walks the gate (at rest and each of
-   its three ways), home, a doorway, each room, the team and contact, and at each checks that exactly the right recordings
+   its two ways), home, a doorway, each room, the team and contact, and at each checks that exactly the right recordings
    are playing, at a volume heading where it should, and that nothing else plays: a recording that should be silent there
    must have faded out and stopped.
      node tamed/test/run.cjs --html dist/tamed.html --lowq --scenario tamed/test/loops.cjs --out /tmp/loops */
-const ALL = ['waterClosed', 'waterOpen', 'warm', 'dark', 'wind', 'music', 'ae', 'phTone', 'phAir', 'og', 'ogHiss', 'kr', 'rkFar', 'rkNear'];
+const ALL = ['waterClosed', 'waterOpen', 'warm', 'wind', 'music', 'ae', 'phTone', 'phAir', 'og', 'ogHiss', 'kr', 'rkFar', 'rkNear'];
 module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   const loops = () => T(t => t.A.loops());
   /* playing: each named recording plays at a volume near the one it heads for; optional ones may play or not; every other
@@ -28,7 +28,7 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   log('  recordings: ' + (made.reduce((a, l) => a + l.bytes, 0) / 1048576).toFixed(2) + ' MB, worked out in ' + (await T(t => t.A.rendered)) + ' ms');
   /* nothing plays before the sound is woken */
   /* the sound is tried as the page opens (this browser lets it start): the score and the lake are already there */
-  await stage('before any click, where the browser allows it: the score (and the lake, and on a phone whichever way the gate is showing)', ['music'], ['waterOpen', 'waterClosed', 'warm', 'wind', 'dark'], 15000);
+  await stage('before any click, where the browser allows it: the score (and the lake, and on a phone whichever way the gate is showing)', ['music'], ['waterOpen', 'waterClosed', 'warm', 'wind'], 15000);
   if (!mobile) await page.mouse.click(8, 8); else await page.touchscreen.tap(8, 8);   // the first touch of the gate wakes the sound
   await page.waitForFunction(() => window.__tamed.A.on && window.__tamed.A.ctx.state === 'running', null, { timeout: 30000 });
   if (!mobile) {
@@ -36,7 +36,6 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
     await stage('the gate at rest: the score from the first moment, and the lake', ['music', 'waterOpen', 'waterClosed']);
     await T(t => t.hover('walk')); await stage('the gate showing Walk: the warm light and the lake, the score under them', ['warm', 'waterOpen', 'music']);
     await T(t => t.hover('land')); await stage('the gate showing Land: the score (no wind: it was the static on a phone)', ['music']);
-    await T(t => t.hover('fly')); await stage('the gate showing Fly: the dark, the score under it', ['dark', 'music']);
     await T(t => t.hover(null));
   }
   await T(t => t.enter()); await wait(3500); await settle(3);

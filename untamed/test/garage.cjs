@@ -1,5 +1,5 @@
 /* The workshop on Earth: its shutter opens on the garage, and you go in and look round.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/garage.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/garage.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
    From across the street a click (a tap) on the shutter walks you over and it rolls up: the motor, a click for each slat
    over the drum, the clank at the top, the strip lights flickering on. Walk away and it rolls down again; E beside it (on a
    phone, its tag) opens it again. Then in: walking into it on a computer, its tag on a phone; the camera comes down behind

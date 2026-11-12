@@ -12,7 +12,8 @@ module.exports = async ({ page, wait, T, settle, log, mobile }) => {
   await page.waitForFunction(() => window.__tamed.A.rendered !== 0, null, { timeout: 300000, polling: 500 }).catch(() => {});   // the recordings are made
   await page.mouse.click(8, 8);   // the first touch of the gate wakes the sound
   await wait(800); await listen('gate, nothing chosen');
-  for (const v of ['walk', 'land', 'fly']) { await T((t, v) => t.hover(v), v); await wait(400); await listen('gate, showing ' + v, 4200); }
+  const ways = await page.evaluate(() => [...document.querySelectorAll('#gate .way')].map(w => w.dataset.way));   // Walk and Land
+  for (const v of ways) { await T((t, v) => t.hover(v), v); await wait(400); await listen('gate, showing ' + v, 4200); }
   await T(t => t.hover(null));
   await T(t => t.enter()); await wait(3500); await settle(3); await listen('home, after entering');
   /* a hand through the water: each stroke swishes, louder and brighter the faster it moves */

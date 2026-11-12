@@ -1,11 +1,11 @@
-/* Functional walk-through with real input: the gate's three ways and what each one shows, every place by scroll (wheel
-   or swipe), by the menu and by the press-and-hold index; each room's View project goes straight to the project; the
-   rocket at the end of the walk takes you into orbit at Aetos; links point where they should.
+/* Functional walk-through with real input: the gate's two ways and what each one shows, every place by scroll (wheel or
+   swipe), by the menu and by the press-and-hold index; each room's View project goes straight to the project; the rocket
+   at the end of the walk takes you to Earth, as Land does; links point where they should.
    node tamed/test/run.cjs --lowq --scenario tamed/test/flow.cjs --out <dir> [--mobile] */
 /* where the preview's ways out go, read from the build itself so the two never drift apart */
 const BUILD = require('fs').readFileSync(require('path').join(__dirname, '..', 'build.py'), 'utf8');
 const art = k => (BUILD.match(new RegExp('^' + k + " = '([^']+)'", 'm')) || [])[1];
-const UNTAMED = art('ONE_ARTIFACT'), LAND = UNTAMED, ROCKET = UNTAMED;   // a standalone walk preview sends all three to the whole site
+const LAND = art('ONE_ARTIFACT');   // a standalone walk preview sends Land (and the rocket) to the whole site
 module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, ctx }) => {
   const st = () => T(t => t.state());
   const until = async (pred, desc, arg, timeout = 150000) => {
@@ -23,38 +23,38 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
   const press = async (sel) => { if (mobile) await page.tap(sel); else await page.click(sel); };
   const sectionIn = () => page.evaluate(() => [...document.querySelectorAll('.sec.in')].map(e => e.dataset.place).join(','));
 
-  /* ---- the gate: three ways, each saying what it is and how long it takes ---- */
+  /* ---- the gate: two ways, each saying what it is and how long it takes ---- */
   check(await page.evaluate(() => !document.querySelector('#tamed').disabled), 'Walk is enabled once ready');
   const ways = await page.evaluate(() => [...document.querySelectorAll('#gate .way')].map(w => [w.dataset.way, w.querySelector('.w').textContent, !!w.querySelector('.d').textContent.trim(), /min/.test(w.querySelector('.m').textContent)]));
-  check(JSON.stringify(ways) === JSON.stringify([['walk', 'Walk', true, true], ['land', 'Land', true, true], ['fly', 'Fly', true, true]]), 'the gate offers Walk, Land and Fly, each with a line and a time ' + JSON.stringify(ways));
-  const un = await page.evaluate(() => { const a = document.querySelector('#untamed'); return { href: a.href, target: a.target, rel: a.rel }; });
-  check(un.href === UNTAMED && un.target === '_blank' && /noopener/.test(un.rel), 'Fly opens ' + UNTAMED + ' in a new tab');
+  check(JSON.stringify(ways) === JSON.stringify([['walk', 'Walk', true, true], ['land', 'Land', true, true]]), 'the gate offers Walk and Land, each with a line and a time ' + JSON.stringify(ways));
+  check(await page.evaluate(() => !document.querySelector('#untamed,[data-untamed],[data-rocket],#gate .way[data-way="fly"]')), 'and no Fly');
   const ld = await page.evaluate(() => { const a = document.querySelector('#land'); return { href: a.href, target: a.target }; });
   check(ld.href === LAND && ld.target === '_blank', 'Land opens Earth in a new tab (' + ld.href + ')');
   if (!mobile) {
-    for (const [sel, v] of [['#tamed', 'walk'], ['#land', 'land'], ['#untamed', 'fly']]) {
+    for (const [sel, v] of [['#tamed', 'walk'], ['#land', 'land']]) {
       await page.hover(sel); await wait(450);
       check(await page.evaluate(v => { const g = document.querySelector('#gate'); return g.classList.contains(v) && document.querySelector('.way.on').dataset.way === v; }, v), 'pointing at ' + v + ' shows its world');
     }
     await page.mouse.move(vp.width * .5, vp.height * .12); await wait(400);
-    check(await page.evaluate(() => !/\b(walk|land|fly)\b/.test(document.querySelector('#gate').className)), 'pointing away brings the plain gate back');
+    check(await page.evaluate(() => !/\b(walk|land)\b/.test(document.querySelector('#gate').className)), 'pointing away brings the plain gate back');
     /* scrolling moves between the ways, one per gesture, showing each one's world; scrolling back goes back */
-    const seq = []; for (const dy of [120, 120, 120, 120, -120]) { await page.mouse.wheel(0, dy); await wait(450); seq.push(await page.evaluate(() => window.__tamed.S.gateHover)); }
-    check(JSON.stringify(seq) === JSON.stringify(['walk', 'land', 'fly', 'fly', 'land']), 'scrolling moves between Walk, Land and Fly, and back ' + JSON.stringify(seq));
+    const seq = []; for (const dy of [120, 120, 120, -120, 120]) { await page.mouse.wheel(0, dy); await wait(450); seq.push(await page.evaluate(() => window.__tamed.S.gateHover)); }
+    check(JSON.stringify(seq) === JSON.stringify(['walk', 'land', 'land', 'walk', 'land']), 'scrolling moves between Walk and Land, and back ' + JSON.stringify(seq));
     check(await page.evaluate(() => document.querySelector('#gate').classList.contains('land') && document.querySelector('.way.on').dataset.way === 'land'), 'and shows the world of the one it is on');
     check(await page.evaluate(() => window.__tamed.S.mode === 'gate'), 'scrolling on the gate chooses nothing by itself');
     await page.keyboard.press('ArrowLeft'); await wait(300);
     check(await page.evaluate(() => window.__tamed.S.gateHover === 'walk'), 'the arrow keys move between them too');
     await page.mouse.move(vp.width * .5, vp.height * .12);
   } else {
-    /* no hover on a phone: the gate shows the three in turn */
-    const seen = new Set(); for (let i = 0; i < 240 && seen.size < 3; i++) { const v = await page.evaluate(() => window.__tamed.S.gateHover); if (v) seen.add(v); await wait(300); }
-    check(seen.size === 3, 'on a phone the gate shows Walk, Land and Fly in turn (' + [...seen].join(', ') + ')');
+    /* no hover on a phone: the gate shows the two in turn */
+    const seen = new Set(); for (let i = 0; i < 240 && seen.size < 2; i++) { const v = await page.evaluate(() => window.__tamed.S.gateHover); if (v) seen.add(v); await wait(300); }
+    check(seen.size === 2 && seen.has('walk') && seen.has('land'), 'on a phone the gate shows Walk and Land in turn (' + [...seen].join(', ') + ')');
     /* a swipe moves between them by hand, and the gate stops showing them in turn */
     const sw = async dy => { await page.evaluate(dy => { const mk = (t, y) => { const tt = new Touch({ identifier: 7, target: document.body, clientX: 195, clientY: y }); return new TouchEvent(t, { touches: t === 'touchend' ? [] : [tt], changedTouches: [tt], bubbles: true }); };
       window.dispatchEvent(mk('touchstart', 500)); window.dispatchEvent(mk('touchend', 500 - dy)); }, dy); await wait(400); return page.evaluate(() => window.__tamed.S.gateHover); };
     await sw(-90); const m0 = await sw(-90); const m1 = await sw(90); const m2 = await sw(90); const m3 = await sw(-90);
-    check([m0, m1, m2, m3].join() === 'walk,land,fly,land', 'a swipe moves between the ways and back (' + [m0, m1, m2, m3].join(', ') + ')');
+    check([m0, m1, m2, m3].join() === 'walk,land,land,walk', 'a swipe moves between the ways and back (' + [m0, m1, m2, m3].join(', ') + ')');
+    await sw(90);
     await wait(5000); check(await page.evaluate(() => window.__tamed.S.gateHover === 'land'), 'and the gate stays on the one you chose to look at');
   }
   await press('#tamed');
@@ -82,19 +82,19 @@ module.exports = async ({ page, shot, wait, T, frames, log, mobile, vp, check, c
   check((await sectionIn()) === 'contact', 'Contact text is showing');
   const mail = await page.evaluate(() => document.querySelector('.mail').href); check(mail === 'mailto:contact@helorialabs.com', 'contact mailto is right');
   const q = await page.evaluate(() => { const a = document.querySelector('.contact .quiet'); return { href: a.href, target: a.target }; });
-  check(q.href === UNTAMED && q.target === '_blank', 'Contact has the quiet link to Fly');
+  check(q.href === LAND && q.target === '_blank', 'Contact has the quiet link to Land');
   await shot('flow-contact');
-  /* ---- the last thing on the walk: a rocket goes up from the far shore, and catching it is the way into orbit ---- */
+  /* ---- the last thing on the walk: a rocket goes up from the far shore, and catching it is the way to Earth ---- */
   const up = await page.waitForFunction(() => document.querySelector('#rocket').classList.contains('on'), null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   check(up, 'at Contact a rocket goes up from the far shore and can be caught');
   const rk = await page.evaluate(() => { const a = document.querySelector('#rocket'), b = a.getBoundingClientRect(); return { href: a.href, target: a.target, cur: a.dataset.cur, x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width }; });
-  check(rk.href === ROCKET && rk.target === '_blank' && rk.cur === 'Fly' && rk.w >= 100, 'the rocket says Fly, is big enough to catch, and goes into orbit at Aetos ' + JSON.stringify(rk));
-  await ctx.route(/claude\.ai\/artifact/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>orbit</title>orbit' }));
-  const [orbit] = await Promise.all([ctx.waitForEvent('page', { timeout: 20000 }).catch(() => null), mobile ? page.touchscreen.tap(rk.x, rk.y) : page.mouse.click(rk.x, rk.y)]);
-  check(!!orbit && orbit.url() === ROCKET, 'catching the rocket opens the way into orbit (' + (orbit ? orbit.url() : 'no tab') + ')');
-  if (orbit) await orbit.close();
+  check(rk.href === LAND && rk.target === '_blank' && rk.cur === 'Land' && rk.w >= 100, 'the rocket says Land, is big enough to catch, and goes to Earth ' + JSON.stringify(rk));
+  await ctx.route(/claude\.ai\/artifact/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>land</title>land' }));
+  const [earth] = await Promise.all([ctx.waitForEvent('page', { timeout: 20000 }).catch(() => null), mobile ? page.touchscreen.tap(rk.x, rk.y) : page.mouse.click(rk.x, rk.y)]);
+  check(!!earth && earth.url() === LAND, 'catching the rocket opens Land (' + (earth ? earth.url() : 'no tab') + ')');
+  if (earth) await earth.close();
   await until(x => x.mode === 'launch', 'the camera follows the rocket up');
-  await until(x => x.mode === 'world', 'and, with orbit open in its own tab, the evening comes back');
+  await until(x => x.mode === 'world', 'and, with Land open in its own tab, the evening comes back');
   /* back up by scrolling */
   if (mobile) await swipe(-380); else { for (let k = 0; k < 4; k++) { await page.mouse.wheel(0, -235); await wait(30); } }
   await at(stops[stops.length - 2]);

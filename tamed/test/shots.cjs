@@ -1,4 +1,4 @@
-/* Stills of every place: the gate (at rest, and each of its three ways shown), Home, the four rooms, Team (reflections,
+/* Stills of every place: the gate (at rest, and each of its two ways shown), Home, the four rooms, Team (reflections,
    then risen), Contact and its rocket, and the hold index.
    node tamed/test/run.cjs --scenario tamed/test/shots.cjs --out <dir> [--mobile] [--hq] [--only home,krios] */
 module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, check }) => {
@@ -10,7 +10,6 @@ module.exports = async ({ page, shot, wait, T, frames, settle, log, mobile, chec
     await wait(2600); await still('01-gate');
     await T(t => t.hover('walk')); await wait(1800); await still('02-gate-walk');
     await T(t => t.hover('land')); await wait(4600); await still('02-gate-land');
-    await T(t => t.hover('fly')); await wait(2200); await still('02-gate-fly');
     await T(t => t.hover(null));
   }
   await T(t => t.enter()); await wait(3200); await settle(4);

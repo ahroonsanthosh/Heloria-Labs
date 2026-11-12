@@ -1,5 +1,5 @@
 /* The post office on Earth: going in, Bríd at her counter, and posting your postcard.
-   node untamed/test/shot.cjs --html dist/untamed.html --station cr --settle 2500 --scenario untamed/test/postoffice.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/postoffice.cjs --out <dir> [--mobile] [--query time=21:30] [--meter]
    From the street its sign and its pillar box are in view; walking up to the door its tag says Go in, and how. In by a
    click (a tap) on the shop from across the street, by E (on a phone, its tag), and you are at the counter in your own
    eyes: nothing of the street over the room, no postcard button, the music a little quieter, Bríd looking up to say hello.

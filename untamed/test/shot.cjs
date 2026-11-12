@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Headless playtest helper (Chromium + SwiftShader, so it is slow: think 1 to 4 frames a second).
-   node untamed/test/shot.cjs --html /tmp/x/kr.html --station kr --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000] [--hash land]
-   Default: load, wait until ready, jump straight into the station, screenshot "menu".
+   node untamed/test/shot.cjs --html dist/untamed.html --earth --out /tmp/x/shots [--mobile] [--scenario s.cjs] [--settle 3000] [--hash land]
+   Default: load and wait until ready; --earth then goes straight onto Earth (no loader, no landing) and, with no scenario,
+   takes a screenshot, "earth".
    A scenario is a CommonJS module: module.exports = async ({page, shot, wait, H, vp, log}) => { ... }
      shot(name)            screenshot to <out>/<name>.png
      wait(ms)              sleep
@@ -18,7 +19,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const mobile = !!opt.mobile; const vp = mobile ? { width: 390, height: 844 } : { width: +(opt.w || 1280), height: +(opt.h || 800) };
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });
-  if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });   // --hq: full-resolution black hole and sky, for stills
+  if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });   // --hq: stills at full resolution
   /* --meter: whatever reaches the speakers is also read by an analyser, so a scenario can ask window.__meter() how loud
      the page is right now ({pk, db}); the page itself is not changed */
   if (opt.meter) await ctx.addInitScript(() => {
@@ -35,17 +36,10 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const shot = async n => { await page.screenshot({ path: path.join(out, n + '.png'), timeout: 240000 }); console.log('shot', path.join(out, n + '.png')); };
   const H = (fn, arg) => page.evaluate(([src, a]) => (0, eval)('(' + src + ')')(window.__heloria, a), [fn.toString(), arg]);
   const log = (...a) => console.log(...a);
-  await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the other ways in; --query time=21:30 and the like
+  await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the old addresses; --query time=21:30 and the like
   await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
-  /* --prebuild: every world made behind the loader before the test begins (as before worlds were made after it), for the long
-     tests of what the buttons do rather than of loading */
-  if (opt.prebuild) { const t0 = Date.now(); await page.waitForFunction(() => !window.__heloria.late || window.__heloria.late().ready, null, { timeout: 3600000, polling: 1000 }).catch(() => console.log('NOTE the worlds were still being made after an hour')); console.log('prebuilt in', Math.round((Date.now() - t0) / 1000), 's'); }
-  if (opt.station) { await H((h, id) => h.jump(id), opt.station); await W(+(opt.settle || 3000));
-    /* the worlds made after the loader finish first (on this slow machine each part takes seconds where a real one takes a moment,
-       and a click or a picture taken while one is being made waits on it): a test of a station tests the station, not loading.
-       --busy leaves them to be made while the test runs, as a visitor would have it */
-    if (!opt.busy) await page.waitForFunction(() => !window.__heloria.late || window.__heloria.late().ready, null, { timeout: 1200000, polling: 500 }).catch(() => console.log('NOTE the worlds after the loader were still being made when the test began'));
-    if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'menu'); }
+  if (opt.earth) { await H(h => h.earth()); await W(+(opt.settle || 3000));
+    if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'earth'); }
   if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile }); }
   console.log(errors.length ? 'ERRORS ' + errors.length : 'NO ERRORS');
   await b.close();
