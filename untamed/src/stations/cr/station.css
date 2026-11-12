@@ -118,7 +118,7 @@ html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}
 .st-cr .crframe-w i:nth-child(1){left:-9px;top:-9px;border-right:0;border-bottom:0}.st-cr .crframe-w i:nth-child(2){right:-9px;top:-9px;border-left:0;border-bottom:0}
 .st-cr .crframe-w i:nth-child(3){left:-9px;bottom:-9px;border-right:0;border-top:0}.st-cr .crframe-w i:nth-child(4){right:-9px;bottom:-9px;border-left:0;border-top:0}
 .st-cr .crframe-b{position:absolute;left:50%;bottom:calc(var(--gb) + 18px);transform:translateX(-50%);display:flex;gap:12px;align-items:center;pointer-events:auto;padding:7px 7px 7px 16px;background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;white-space:nowrap}
-.st-cr .crflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:7}
+.st-cr .crflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none!important;z-index:7}   /* (its .go is not the menu's .go: it never takes a click, or after a postcard nothing in the world could be clicked or dragged) */
 .st-cr .crflash.go{animation:crflash .55s ease-out}
 @keyframes crflash{from{opacity:.85}to{opacity:0}}
 .st-cr .crcard{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:rgba(20,18,16,.45);padding:16px}
@@ -237,3 +237,16 @@ html.crq #back,html.crq #chrome,html.crq #guide{opacity:0!important;pointer-even
 @media (hover:none),(pointer:coarse){.st-cr .crfire .crkey{display:none}}
 @media (prefers-reduced-motion:reduce){.st-cr .crfire{animation:none}}
 .st-cr.post .crwout,.st-cr.fin .crwout,.st-cr.cut .crwout{display:none!important}
+/* the post office: inside, nothing of the street over the room (no tags, cards or buttons, the postcard neither), only the
+   way out and, when you have a postcard, the button to post it; your posted card comes up without Take another */
+.st-cr.inpo #crLabels,.st-cr.inpo .cre,.st-cr.inpo .crhint,.st-cr.inpo .crpj,.st-cr.inpo .crgo,.st-cr.inpo .crsteer,.st-cr.inpo .crcafein{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+.st-cr.inpo .crstick{display:none}
+.st-cr.inpo #crCardAgain{display:none}
+.st-cr .crpoout[hidden],.st-cr .crpopost[hidden]{display:none}
+.st-cr .crpopost{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);background:#ef8a3c;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d;animation:crpost 1.8s ease-in-out infinite}
+.st-cr .crpopost .crkey{color:#2a241d;opacity:.55;margin-left:4px}
+@keyframes crpost{0%,100%{box-shadow:4px 4px 0 #2a241d,0 0 0 0 rgba(239,138,60,.5)}50%{box-shadow:4px 4px 0 #2a241d,0 0 0 9px rgba(239,138,60,0)}}
+@media (hover:none),(pointer:coarse){.st-cr .crpopost .crkey{display:none}}
+@media (prefers-reduced-motion:reduce){.st-cr .crpopost{animation:none}}
+.st-cr.post .crpopost,.st-cr.fin .crpopost,.st-cr.cut .crpopost,.st-cr.post .crpoout,.st-cr.fin .crpoout,.st-cr.cut .crpoout{display:none!important}
+.st-cr .crwt.done{background:#2e5843;color:#fbf6ec}
