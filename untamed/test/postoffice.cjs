@@ -4,7 +4,7 @@
    click (a tap) on the shop from across the street, by E (on a phone, its tag), and you are at the counter in your own
    eyes: nothing of the street over the room, no postcard button, the music a little quieter, Bríd looking up to say hello.
    With no postcard she says to go and take one, and you can look round all the same. Out by the button, and by Escape
-   (an Escape just after does not send you up to orbit). Then a postcard is taken (the real camera button, the real
+   (an Escape just after does nothing more). Then a postcard is taken (the real camera button, the real
    shutter) and posted in the pillar box outside: in it goes under the flap. Another is taken and handed over at the
    counter: she stamps it with a thunk, the postmark is on the card, into the sack it goes, and the card, postmarked,
    comes up to save or share. Going in and posting compile nothing new. With --meter it listens to each new sound against a
@@ -108,7 +108,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await W(w => w.run(2)); s = await state(); rec(s.st === 'exit' && await H(h => h.S.mode === 'station' && h.S.stId === 'cr'), (mobile ? 'the button' : 'Escape') + ' takes you out (and does not leave Earth)', s.st);
   await W(w => w.until(p => p.P.st === 'out', 30 * 5));
   await page.keyboard.press('Escape'); await wait(400);
-  rec(await H(h => h.S.stId === 'cr' && h.S.mode === 'station'), 'an Escape just after coming out does not send you up to orbit');
+  rec(await H(h => h.S.stId === 'cr' && h.S.mode === 'station'), 'an Escape just after coming out leaves you on Earth');
 
   /* ---- a postcard, posted in the pillar box outside ---- */
   rec(await takeCard() && (await state()).has, 'a postcard is taken outside (the camera button, then Take it)');

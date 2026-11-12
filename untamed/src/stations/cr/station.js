@@ -5260,7 +5260,7 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!PO.g||FIN.on|
 addEventListener('keyup',e=>{ if(e.code==='Escape'&&S.st===st&&S.mode==='station'&&PO.st==='in'&&performance.now()-PO.said<700&&pcCard.hidden) poLeave(); });
 /* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
-  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame());   // (a quiet frame before it: Earth may be made in parts after the loader)
+  st.build=async function(){ await b.apply(this,arguments); await nextFrame();   // (a frame before it)
     try{ buildPO(); }catch(err){ PO.err=String(err&&err.stack||err); console.warn('post office',err); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) poStep(dt,t); return r; };
   st.enter=function(){ poReset(); return en.apply(this,arguments); }; st.exit=function(){ poReset(true); return ex.apply(this,arguments); };
