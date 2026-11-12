@@ -13,11 +13,14 @@ const srv = http.createServer((req, res) => {
   res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
 }).listen(0, async () => {
   const port = srv.address().port, url = p => `http://localhost:${port}${BASE}${p}`; const bad = []; let fails = 0;
+  /* the visitor's own weather comes from an outside service that may refuse or be slow (Earth then keeps its own weather):
+     its failures are not the site's, and the browser's own line about a failed fetch with no address in it is that one too */
+  const OPTIONAL = /api\.open-meteo\.com|Failed to load resource: net::ERR_FAILED|status of 429 \(Too Many Requests\)/;   // (the site's own files are never rationed: a 429 is that service's)
   const check = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
-  p.on('response', r => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
-  p.on('pageerror', e => bad.push('pageerror ' + e.message)); p.on('console', m => { if (m.type() === 'error') bad.push('console ' + m.text()); });
+  p.on('response', r => { if (r.status() >= 400 && !OPTIONAL.test(r.url())) bad.push(r.status() + ' ' + r.url()); });
+  p.on('pageerror', e => bad.push('pageerror ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !OPTIONAL.test(m.text())) bad.push('console ' + m.text()); });
   /* the front door: Tamed */
   await p.goto(url(''), { timeout: 180000 });
   check(await p.waitForFunction(() => window.__tamed && window.__tamed.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Tamed boots at the front door, ' + BASE);
