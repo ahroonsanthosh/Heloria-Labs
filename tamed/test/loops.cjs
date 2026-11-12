@@ -69,10 +69,8 @@ module.exports = async ({ page, wait, T, settle, log, check, mobile }) => {
   await wait(600); { const L = await loops(), st = await T(t => t.A.ctx.state); check(L.every(l => !l.playing) && st !== 'running', 'a hidden tab plays nothing and the live sound is put to sleep (' + st + ')'); }
   await T(t => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
   await stage('back in front, it plays again', ['music', 'waterOpen'], ['rkFar']);
-  /* on a computer, another window in front (the page is still showing): it all fades away; back to the page, it returns */
-  await T(t => window.dispatchEvent(new Event('blur')));
-  await stage('another window in front: every recording fades out and stops', [], [], 15000);
-  { await wait(1500); const m = await T(t => t.A.meter()); check(m.peak < .002, 'another window in front: the live sound is silent too (peak ' + m.peak + ')'); }
+  /* on a computer, another window only in front (the page is still showing): the sound plays on, as any player's does */
+  await T(t => window.dispatchEvent(new Event('blur'))); await wait(3000);
+  await stage('another window only in front: the sound plays on', ['music', 'waterOpen'], ['rkFar']);
   await T(t => window.dispatchEvent(new Event('focus')));
-  await stage('back to the page, it plays again', ['music', 'waterOpen'], ['rkFar']);
 };

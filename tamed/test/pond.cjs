@@ -116,16 +116,6 @@ module.exports = async ({ page, wait, T, frames, log, mobile, vp, check, ctx }) 
     }
   }
 
-  /* ---- leaving the page: nothing is heard ---- */
-  if (!mobile) {
-    const st = await nearest();
-    await T(t => window.dispatchEvent(new Event('blur'))); await wait(1600);
-    await page.mouse.move(vp.width * .5, vp.height * .3); await wait(600); await frames(2);
-    if (st) { await aim(st.s.x, st.s.z, .04, 2); await frames(2); }
-    let pk = 0; for (let i = 0; i < 8; i++) { const m = await P(t => t.A.meter()); pk = Math.max(pk, m.peak); await wait(100); }
-    check(pk < .002, 'with another window in front the pond is silent too (peak ' + pk + ')');
-    await T(t => window.dispatchEvent(new Event('focus')));
-  }
 
   /* ---- once the walk has gone on through the door it all rests, and costs nothing: out in the courtyard by the pool the
      koi are not drawn and every stone is still ---- */

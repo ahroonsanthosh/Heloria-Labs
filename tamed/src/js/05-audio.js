@@ -239,16 +239,16 @@ const A=(()=>{
         if(L.canRate) for(const e of L.els) if(Math.abs(e.playbackRate-L.rate)>.002) e.playbackRate=L.rate; }
     } }
   setInterval(mix,40);
-  /* leaving the page: another tab or app, the phone locked, or on a computer another window in front. The sound goes with
-     you: at once when the page is hidden (a phone may freeze the page next, and would play its recordings on in the
-     background), faded out by the mixer when it is only behind another window; and it comes back when you do */
+  /* leaving the page: another tab or app, the phone locked, the window minimised or closed. The sound goes with you, at once
+     (a phone may freeze the page next, and would play its recordings on in the background), and it comes back when you
+     do. Another window only in front of it, the page still showing, is not leaving: the sound plays on, as any player's does */
   function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true; if(!ctx) return;   // (the page closing is as final as hidden: everything stops at once)
     set(n.master.gain,0,hid?.01:.15); MX.tc=.25;
     if(hid){ for(const L of LOOPS) if(L.run) halt(L); MX.v=0; ctx.suspend().catch(()=>{}); } }
   function back(){ if(!away||document.hidden) return; away=false; for(const L of LOOPS) L.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
     if(!ctx||!on) return; MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); }
   document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
-  addEventListener('pagehide',leave); addEventListener('blur',leave); addEventListener('focus',back);
+  addEventListener('pagehide',leave); addEventListener('focus',back);   // (another window only in front, the page still showing: the sound plays on, as any player's does; a page hidden, minimised or closed is silent at once)
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
   /* inside a click, a tap or a key a browser lets a recording start: each one is started there for a moment, silently, and
      stopped, so that a phone which only lets a page start sound inside a gesture lets it start later by itself */

@@ -21,10 +21,9 @@ module.exports = async ({ page, wait, H, log, mobile }) => {
     await H(h => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
     rec(await until(h => h.A._loops().some(l => l.playing) && h.A.ctx.state === 'running', 20000), 'round ' + round + ': back in front, it plays again', (await playing()).join(', '));
   }
-  await H(h => window.dispatchEvent(new Event('blur')));
-  rec(await until(h => !h.A._loops().some(l => l.playing), 20000), 'another window in front: every recording fades out and stops', (await playing()).join(', '));
+  await H(h => window.dispatchEvent(new Event('blur'))); await wait(3000);
+  rec(await H(h => h.A._loops().some(l => l.playing)), 'another window only in front (the page still showing): the sound plays on', (await playing()).join(', '));
   await H(h => window.dispatchEvent(new Event('focus')));
-  rec(await until(h => h.A._loops().some(l => l.playing), 20000), 'back to the page, it plays again', (await playing()).join(', '));
   /* and in Earth, where the town's music plays */
   await H(h => h.jump('cr')); await until(h => h.S.stId === 'cr', 60000); await H(h => h.ST.cr._dbg && h.ST.cr._dbg.skipCut && h.ST.cr._dbg.skipCut());
   rec(await until(h => h.A._loops().some(l => l.playing && l.name === 'music'), 60000), 'on Earth the town music plays', (await playing()).join(', '));

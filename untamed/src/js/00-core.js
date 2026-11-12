@@ -196,14 +196,14 @@ const A=(()=>{
       for(const el of r.els) if(el._on&&(el.ended||el.currentTime>=r.P+r.H-.03)){ el._on=false; if(!el.paused) el.pause(); }   // a player whose part is over stops there
       let a=r.els[r.cur]; const b=r.els[1-r.cur];
       if(!a._on){ a._on=true; try{ a.currentTime=r.fade&&!b._on?r.H:0; }catch(e){} }   // from silence a sound starts at full strength, past its fade in
-      if(!a.paused&&a.currentTime>=r.P-.04&&!b._on){ b._on=true; try{ b.currentTime=0; }catch(e){} r.cur=1-r.cur; }
+      if(!a.paused&&a.currentTime>=r.P-.04&&!b._on){ b._on=true; try{ b.currentTime=Math.max(0,a.currentTime-r.P); }catch(e){} r.cur=1-r.cur; }   // (a turn taken late, the page busy: the next one starts as far into its fade as this one is into its own, so the two still cross evenly and nothing dips)
       const v=clamp(r.vol/r.ref,0,1);
       for(const el of r.els){ if(!el._on) continue; if(el.playbackRate!==r.rate) el.playbackRate=r.rate; if(!IOS&&Math.abs(el.volume-v)>1e-4) el.volume=v;
         if(el.paused&&!el.ended&&!r.blocked) el.play().catch(()=>{ r.blocked=true; }); } } }
   setInterval(mix,20);
-  /* leaving the page: another tab or app, the phone locked, or on a computer another window in front. The sound goes with
-     you: at once when the page is hidden (a phone may freeze the page next, and would play its recordings on in the
-     background), faded out by the mixer when it is only behind another window; and it comes back when you do */
+  /* leaving the page: another tab or app, the phone locked, the window minimised or closed. The sound goes with you, at once
+     (a phone may freeze the page next, and would play its recordings on in the background), and it comes back when you
+     do. Another window only in front of it, the page still showing, is not leaving: the sound plays on, as any player's does */
   function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true;   // (the page closing is as final as hidden: everything stops at once)
     if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
     if(SC.el&&!SC.el.paused) SC.el.pause();   // (a cutscene's recording: it starts again from where the scene is when you come back)
@@ -211,7 +211,7 @@ const A=(()=>{
   function back(){ if(!away||document.hidden) return; away=false; wdT=-1; for(const r of LOOPS) r.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
     if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
   document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
-  addEventListener('pagehide',leave); addEventListener('blur',leave); addEventListener('focus',back);
+  addEventListener('pagehide',leave); addEventListener('focus',back);   // (another window only in front, the page still showing: the sound plays on, as any player's does; a page hidden, minimised or closed is silent at once)
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
   /* inside a click, a tap or a key a browser always lets a recording start: each player is started there once, silently,
      and stopped again, so a phone that only lets a page start sound inside a gesture lets it start later by itself */
@@ -554,7 +554,7 @@ const A=(()=>{
       mus:r(MUS.vol),musPlaying:MUS.els.some(e=>!e.paused&&!e.muted),bed:r(Object.values(BEDL).reduce((a,b)=>a+b.vol,0)),cb:r(CF.vol+CN.vol)}; }, // test hook: current levels
     /* test hooks: every recording (ready, its player's volume, how loud it is at full volume, playing), and how loud the
        recordings playing now are together */
-    _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length})); },
+    _loops(){ return LOOPS.map(r=>({name:r.name,ready:!!r.url,url:r.url,vol:+clamp(r.vol/r.ref,0,1).toFixed(4),rms:+r.rms.toFixed(4),playing:r.els.some(e=>!e.paused&&!e.muted),players:r.els.filter(e=>!e.paused).length,P:r.P,H:r.H,pos:r.els.map(e=>e.paused?-1:+e.currentTime.toFixed(3))})); },
     _players:name=>(LOOPS.find(r=>r.name===name)||{els:[]}).els,
     /* the recordings the way in is heard with first (Land: Earth's music and the rocket coming down; otherwise the orbit's
        score) made, or three seconds gone: the loader waits for these, so nothing sounds late however soon you are let in */
