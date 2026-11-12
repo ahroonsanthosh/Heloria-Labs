@@ -37,7 +37,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const H = (fn, arg) => page.evaluate(([src, a]) => (0, eval)('(' + src + ')')(window.__heloria, a), [fn.toString(), arg]);
   const log = (...a) => console.log(...a);
   await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the old addresses; --query time=21:30 and the like
-  await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 180000 });
+  await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 600000 });   // (Earth is all made behind the loader: on a busy machine's software drawing that can take minutes)
   if (opt.earth) { await H(h => h.earth()); await W(+(opt.settle || 3000));
     if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'earth'); }
   if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile }); }
