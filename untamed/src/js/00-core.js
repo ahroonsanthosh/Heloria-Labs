@@ -571,6 +571,39 @@ const A=(()=>{
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.3); a.gain.setValueAtTime(g,t0+1.5); a.gain.exponentialRampToValueAtTime(.0001,t0+2.4);
       [[98,1],[147,.55],[196,.3]].forEach(([f,k])=>{ const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(f*.96,t0); o.frequency.linearRampToValueAtTime(f,t0+.25); const kg=ctx.createGain(); kg.gain.value=k; o.connect(kg); kg.connect(lp); o.start(t0); o.stop(t0+2.5); });
       lp.connect(a); a.connect(comp); const sg=ctx.createGain(); sg.gain.value=.7; a.connect(sg); sg.connect(revIn); },
+    /* ---------- Earth's sky, alive (see the sky alive on Earth): thunder after the lightning, a gust of wind, a blackbird in
+       spring, leaves kicked up. Each is made live and dies away in a few seconds at most: a tone, or a band of noise that
+       swells and goes, never a bed under the town. g is the level, p where it is, left to right ---------- */
+    /* a panner for one of these, with a little of it into the room */
+    _skyOut(p,send){ let o=comp; if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p||0,-1,1); pn.connect(comp); if(send){ const sg=ctx.createGain(); sg.gain.value=send; pn.connect(sg); sg.connect(revIn); } o=pn; } return o; },
+    /* thunder d kilometres off: close by, a tearing crack first; then the rumble rolling on, swelling two or three times as it
+       dies away, darker and softer the further off it is, with a low thump under it */
+    thunder(g=.06,d=1,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, nr=clamp(1-d/4,0,1), dur=2.6+d*.5+Math.random(), o=this._skyOut(p*.6,.4);
+      if(nr>.25){ const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.Q.value=.6; b.frequency.setValueAtTime(2200,t0); b.frequency.exponentialRampToValueAtTime(480,t0+.32);
+        a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.7*nr,t0+.012); a.gain.exponentialRampToValueAtTime(.0001,t0+.36); s.connect(b); b.connect(a); a.connect(o); s.start(t0,Math.random()*8); s.stop(t0+.4); }
+      const s=shot(), lp=ctx.createBiquadFilter(), a=ctx.createGain(), pk=g*(.45+.55*nr); lp.type='lowpass'; lp.Q.value=.5; lp.frequency.setValueAtTime(240+480*nr,t0); lp.frequency.exponentialRampToValueAtTime(110,t0+dur);
+      let t=t0+.05+.25*(1-nr); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(pk,t);
+      for(let k=0,n0=2+Math.floor(Math.random()*2);k<n0;k++){ t+=.3+Math.random()*.45; a.gain.linearRampToValueAtTime(pk*(.3+Math.random()*.2),t); t+=.22+Math.random()*.3; a.gain.linearRampToValueAtTime(pk*(.75-k*.17),t); }
+      const end=Math.max(t+.8,t0+dur); a.gain.exponentialRampToValueAtTime(.0001,end); s.connect(lp); lp.connect(a); a.connect(o); s.start(t0,Math.random()*8); s.stop(end+.05);
+      const os=ctx.createOscillator(), og=ctx.createGain(); os.type='sine'; os.frequency.setValueAtTime(64,t0); os.frequency.exponentialRampToValueAtTime(34,t0+1.3);
+      og.gain.setValueAtTime(0,t0); og.gain.linearRampToValueAtTime(g*.55*(.3+.7*nr),t0+.06); og.gain.exponentialRampToValueAtTime(.0001,t0+1.4); os.connect(og); og.connect(o); os.start(t0); os.stop(t0+1.5); },
+    /* a gust going by: a soft rush that rises, turns over and falls away in two seconds or so, low and dark */
+    gust(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, dur=1.5+Math.random()*1.1, s=shot(), b=ctx.createBiquadFilter(), lp=ctx.createBiquadFilter(), a=ctx.createGain(), o=this._skyOut(p,.25);
+      b.type='bandpass'; b.Q.value=.8; b.frequency.setValueAtTime(300,t0); b.frequency.linearRampToValueAtTime(560+Math.random()*180,t0+dur*.45); b.frequency.linearRampToValueAtTime(280,t0+dur);
+      lp.type='lowpass'; lp.frequency.value=1300; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+dur*.45); a.gain.linearRampToValueAtTime(g*.45,t0+dur*.75); a.gain.linearRampToValueAtTime(0,t0+dur);
+      s.connect(b); b.connect(lp); lp.connect(a); a.connect(o); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); },
+    /* a blackbird's phrase in a spring garden: a few fluted notes in the town's key, each sliding a little, and a quick
+       flourish at the end; soft, and from somewhere off to one side */
+    song(p=0,g=.009){ if(!on||muted||!ctx) return; const o=this._skyOut(p,.45), base=1250+Math.random()*500, n0=3+Math.floor(Math.random()*3); let t=ctx.currentTime+.02;
+      const note=(f,d,sl,gg)=>{ const os=ctx.createOscillator(), a=ctx.createGain(); os.type='sine'; os.frequency.setValueAtTime(f,t); os.frequency.exponentialRampToValueAtTime(f*sl,t+d);
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.012); a.gain.setValueAtTime(gg*.8,t+d*.6); a.gain.exponentialRampToValueAtTime(.0001,t+d); os.connect(a); a.connect(o); os.start(t); os.stop(t+d+.03); };
+      for(let k=0;k<n0;k++){ const f=inKey(base*Math.pow(2,(Math.random()*1.2-.4))), d=.1+Math.random()*.14; note(f,d,Math.random()<.5?1.06:.95,g*(.8+Math.random()*.3)); t+=d+.04+Math.random()*.07; }
+      const f2=inKey(base*2.2); for(let k=0;k<3;k++){ note(f2*(1+k*.04),.045,1.1,g*.55); t+=.055; } },
+    /* leaves kicked up: a handful of dry crackles over a third of a second, soft */
+    rustle(g=.018,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, o=this._skyOut(p*.6,0);
+      for(let k=0,n0=6+Math.floor(Math.random()*6);k<n0;k++){ const t=t0+Math.random()*.32, d=.012+Math.random()*.03, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), gg=g*(.3+Math.random()*.7);
+        b.type='bandpass'; b.frequency.value=1700+Math.random()*2600; b.Q.value=1+Math.random();
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+d); s.connect(b); b.connect(a); a.connect(o); s.start(t,Math.random()*8); s.stop(t+d+.02); } },
     /* ---------- the café on Earth: its door and the bell over it, the barista's voice, the grinder, the tamp, the shot, the
        steam wand, a cup on its saucer. Every one is short and made live; the grinder and the steam are narrow bands of noise that last
        a second or so, never a bed under anything ---------- */
