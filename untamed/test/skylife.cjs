@@ -5,7 +5,7 @@
    from the water and out again, the foghorn answering; 4 northern lights on a rare clear winter night; 5 meteor showers on
    their dates and a rare shooting star on other nights; 6 the real sunrise and sunset where the visitor's time zone says they
    are; 7 the moon's real phase (a full moon's light and its path on the sea, a new moon's dark and its stars); 8 one wind that
-   the flags, the smoke and the kite agree on; 9 the visitor's own weather from Open-Meteo (mocked here, each kind, a failure
+   the flags, the smoke and the kite agree on; 9 the visitor's own weather from MET Norway (mocked here, each kind, a failure
    and a timeout; ?weather= still decides); 10 a rainbow after the rain. And no new shader is made as any of it comes in.
    node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/skylife.cjs --out <dir> [--mobile] [--meter]
    The station's clock is stepped by hand where only the logic matters, as in market.cjs; pictures are taken from real frames. */
@@ -203,19 +203,21 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(bow.highSun === 0, 'none with the sun too high (midsummer noon)', String(bow.highSun));
   await S((s, d, h) => { s.at('2026-09-10', '17:00', 'rain'); d.sky.set({ wxT: 500 }); d.life.step(32); const sun = h.ST.cr._dbg.LU.uSun.value.clone(), P = d.player; s.put(0, -7.6, 0, 0); s.look(sun.clone().multiplyScalar(-1)); d.cam.pitch = .08; s.run(25); d.cam.pitch = .08; }); await pic('sky-rainbow');
 
-  /* ---------- 9: the visitor's own weather, from Open-Meteo (mocked) ---------- */
+  /* ---------- 9: the visitor's own weather, from MET Norway (mocked) ---------- */
   const asked = []; let reply = null, delay = 0;
-  await page.route('https://api.open-meteo.com/**', async route => { try { asked.push(route.request().url()); if (delay) await new Promise(r => setTimeout(r, delay));
+  const met = c => ({ type: 'Feature', properties: { timeseries: [{ time: '2026-10-14T13:00:00Z', data: { instant: { details: { air_temperature: c.temp, wind_speed: c.wind / 3.6, wind_from_direction: c.dir, cloud_area_fraction: c.cloud } }, next_1_hours: { summary: { symbol_code: c.sym } } } }] } });
+  await page.route('https://api.met.no/**', async route => { try { asked.push(route.request().url()); if (delay) await new Promise(r => setTimeout(r, delay));
     /* (an answer that is not the weather at all stands for a service that is down: a refused request would also be reported by the browser) */
-    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: typeof reply === 'string' ? reply : JSON.stringify({ current: reply }) }); } catch (e) {} });
-  const cases = [[{ weather_code: 0, temperature_2m: 14, wind_speed_10m: 8, wind_direction_10m: 250, cloud_cover: 5, is_day: 1 }, 'clear'], [{ weather_code: 3, temperature_2m: 11, wind_speed_10m: 18, wind_direction_10m: 200, cloud_cover: 95, is_day: 1 }, 'cloudy'],
-    [{ weather_code: 45, temperature_2m: 8, wind_speed_10m: 3, wind_direction_10m: 90, cloud_cover: 100, is_day: 1 }, 'fog'], [{ weather_code: 63, temperature_2m: 9, wind_speed_10m: 28, wind_direction_10m: 230, cloud_cover: 100, is_day: 1 }, 'rain'],
-    [{ weather_code: 73, temperature_2m: -1, wind_speed_10m: 12, wind_direction_10m: 20, cloud_cover: 100, is_day: 1 }, 'snow'], [{ weather_code: 95, temperature_2m: 19, wind_speed_10m: 40, wind_direction_10m: 270, cloud_cover: 100, is_day: 1 }, 'thunder']];
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: typeof reply === 'string' ? reply : JSON.stringify(met(reply)) }); } catch (e) {} });
+  const cases = [[{ sym: 'clearsky_day', temp: 14, wind: 8, dir: 250, cloud: 5 }, 'clear'], [{ sym: 'cloudy', temp: 11, wind: 18, dir: 200, cloud: 95 }, 'cloudy'],
+    [{ sym: 'fog', temp: 8, wind: 3, dir: 90, cloud: 100 }, 'fog'], [{ sym: 'rain', temp: 9, wind: 28, dir: 230, cloud: 100 }, 'rain'],
+    [{ sym: 'snow', temp: -1, wind: 12, dir: 20, cloud: 100 }, 'snow'], [{ sym: 'heavyrainandthunder', temp: 19, wind: 40, dir: 270, cloud: 100 }, 'thunder'],
+    [{ sym: 'lightsleet', temp: 0, wind: 10, dir: 300, cloud: 100 }, 'snow'], [{ sym: 'rainshowers_day', temp: 12, wind: 22, dir: 240, cloud: 70 }, 'rain']];
   const got = [];
   for (const [c, want] of cases) { reply = c; const r = await S(async (s, d) => { s.at('2026-10-14', '13:00'); d.life.set({ weather: null }); const st = await d.life.fetch(3500); d.life.step(30); const L = d.life.state;
       return { st, kind: L.kind, rain: L.rain, flakes: L.flakes, fog: L.fog, over: L.over, temp: L.temp, wind: L.wind.s, data: L.wx.data }; });
-    got.push([want, r.st, r.kind, r.temp, r.wind]); rec(r.st === 'ok' && r.kind === want && Math.abs(r.temp - c.temperature_2m) < .01 && Math.abs(r.wind - Math.max(Math.min(1, Math.max(.04, c.wind_speed_10m / 42)), want === 'thunder' ? .85 : 0)) < .16, 'Open-Meteo says ' + want + ': Earth takes it on, with its cold and its wind', JSON.stringify(r)); }
-  rec(asked.length === cases.length && asked.every(u => /latitude=53\.35&longitude=-6\.26&current=weather_code,temperature_2m,wind_speed_10m,wind_direction_10m,cloud_cover,is_day$/.test(u)), 'it asks once each time, for Dublin (where the tests are), the current weather only', asked[0]);
+    got.push([want, r.st, r.kind, r.temp, r.wind]); rec(r.st === 'ok' && r.kind === want && Math.abs(r.temp - c.temp) < .01 && Math.abs(r.wind - Math.max(Math.min(1, Math.max(.04, c.wind / 42)), want === 'thunder' ? .85 : 0)) < .16, 'MET Norway says ' + c.sym + ' (' + want + ')' + ': Earth takes it on, with its cold and its wind', JSON.stringify(r)); }
+  rec(asked.length === cases.length && asked.every(u => /^https:\/\/api\.met\.no\/weatherapi\/locationforecast\/2\.0\/compact\?lat=53\.35&lon=-6\.26$/.test(u)), 'it asks MET Norway once each time, for Dublin (where the tests are)', asked[0]);
   const once = await S(async (s, d) => { const n0 = d.life.SL.wx.state; await d.life.again(); return d.life.SL.wx.state; }); await wait(300);
   rec(asked.length === cases.length, 'and only once a visit', String(asked.length));
   reply = 'not weather'; const failed_ = await S(async (s, d) => { s.at('2026-10-14', '13:00'); d.life.set({ weather: null }); const st = await d.life.fetch(3500); d.life.step(5); return { st, kind: d.life.state.kind }; });
@@ -224,9 +226,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(slow.st === 'timeout' && slow.kind === 'clear' && slow.ms < 3000, 'when it is slow, it is given up on after the short wait, and Earth\'s own weather goes on', JSON.stringify(slow));
   delay = 0; reply = cases[3][0]; const keep = await S(async (s, d) => { s.at('2026-10-14', '13:00', 'fog'); const st = await d.life.fetch(3500); d.life.step(5); return { st, kind: d.life.state.kind, said: d.life.SL.wx.kind }; });
   rec(keep.st === 'ok' && keep.kind === 'fog' && keep.said === 'rain', '?weather= in the address still decides', JSON.stringify(keep));
-  await page.unroute('https://api.open-meteo.com/**'); await S((s, d) => d.life.set({ real: null }));
+  await page.unroute('https://api.met.no/**'); await S((s, d) => d.life.set({ real: null }));
   const csp = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'build.py'), 'utf8').match(/connect-src[^;]*/)[0];
-  rec(/https:\/\/api\.open-meteo\.com/.test(csp), 'the site\'s Content-Security-Policy lets it ask Open-Meteo', csp);
+  rec(/Weather data from <a [^>]*>MET Norway<\/a>/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'body.html'), 'utf8')), 'MET Norway is credited on the white page, as its licence asks');
+  rec(/https:\/\/api\.met\.no/.test(csp) && !/open-meteo/.test(csp), 'the site\'s Content-Security-Policy lets it ask MET Norway, and no one else for the weather', csp);
   await S((s, d) => d.life.set({ weather: null }));
 
   /* ---------- no new shader as any of it comes in ---------- */

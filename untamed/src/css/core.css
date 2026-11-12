@@ -127,6 +127,9 @@ html.fin.launching #holdp{opacity:0}html.fin.launching #holdp.on{opacity:1}
 #fin .fa a{color:#5f5a52}
 #fin .fb{margin:2px 0 0;color:#5f5a52;letter-spacing:.24em;opacity:0}   /* who backs us, small, under the line */
 #fin.on .fb{animation:finup 1.6s ease 14.6s both}
+#fin .fw{margin:22px 0 0;color:#8b857b;font-size:9px;letter-spacing:.18em;opacity:0}   /* the visitor's weather comes from MET Norway, credited as its licence asks: small, last */
+#fin .fw a{color:inherit;text-decoration:underline;text-underline-offset:2px;pointer-events:auto}
+#fin.on .fw{animation:finup 1.6s ease 17.2s both}
 #fin.on .f1{animation:finc 4.2s ease 1s both}
 #fin.on .f2{animation:fins 7s ease 5.4s both}
 #fin.on .f2 p:nth-child(1){animation:finup 1.4s ease 5.6s both}

@@ -15,7 +15,7 @@ const srv = http.createServer((req, res) => {
   const port = srv.address().port, url = p => `http://localhost:${port}${BASE}${p}`; const bad = []; let fails = 0;
   /* the visitor's own weather comes from an outside service that may refuse or be slow (Earth then keeps its own weather):
      its failures are not the site's, and the browser's own line about a failed fetch with no address in it is that one too */
-  const OPTIONAL = /api\.open-meteo\.com|Failed to load resource: net::ERR_FAILED|status of 429 \(Too Many Requests\)/;   // (the site's own files are never rationed: a 429 is that service's)
+  const OPTIONAL = /api\.met\.no|Failed to load resource: net::ERR_FAILED|status of 429 \(Too Many Requests\)/;   // (the site's own files are never rationed: a 429 is that service's)
   const check = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 1280, height: 800 } });

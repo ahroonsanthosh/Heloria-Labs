@@ -1694,7 +1694,7 @@ function skyUpdate(dt,t){ SKY.t+=dt; if(SKY.t>1){ SKY.t=0; skyClock(); }
      visitor for it and nothing is sent anywhere.
    - The moon has its real phase for the date: a full moon lights the town more and lays a glitter path on the sea, a new
      moon leaves it darker, with more stars out.
-   - Once a visit, the weather where the visitor is now is asked of Open-Meteo for that city (no key, a few seconds at most),
+   - Once a visit, the weather where the visitor is now is asked of MET Norway for that city (no key, a few seconds at most),
      and Earth takes it on: clear, cloud, fog, rain, snow or thunder, the wind and the cold. If it does not answer in time,
      Earth's own weather goes on as it always has. ?weather= in the address still decides, for the tests.
    - One wind, its direction and strength wandering slowly, gusting, harder in a storm: the flags, the trees, the grass, the
@@ -1806,22 +1806,28 @@ function slWxGo(k){ const was=WX.kind, wetW=was==='rain'||was==='snow'||was==='t
   WX.kind=k; WX.t=0; if(wet){ WX.stop=420+Math.random()*420; WX.snow=k==='snow'||slSnowy(); }
   if(k==='fog'){ WX.fogHold=300+Math.random()*200; WX.fogGap=200+Math.random()*200; }
   if(wetW&&!wet) SL.wasWet=true; }
-/* Open-Meteo's current weather (WMO codes) as Earth's: thunder, snow, rain (snow at freezing), fog, a grey sky, or clear */
-function slWxKind(c){ const code=c.weather_code, T=+c.temperature_2m, cc=+c.cloud_cover||0;
-  if(code>=95) return 'thunder'; if((code>=71&&code<=77)||code===85||code===86) return 'snow'; if((code>=51&&code<=67)||(code>=80&&code<=82)) return T<=1?'snow':'rain';
-  if(code===45||code===48) return 'fog'; if(code===3||cc>=80) return 'cloudy'; return 'clear'; }
-function slWxApply(c){ const W=SL.wx; if(!c||typeof c.weather_code!=='number') throw new Error('no weather in the answer');
-  const k=slWxKind(c), T=+c.temperature_2m, ws=+c.wind_speed_10m, wd=+c.wind_direction_10m;
-  W.kind=k; W.data={code:c.weather_code,temp:T,wind:ws,dir:wd,cloud:+c.cloud_cover,day:c.is_day};
+/* the weather now from MET Norway (the Norwegian Meteorological Institute: free to use, credited on the white page, CC BY 4.0):
+   its symbol for the hour ahead and the air as it is, as Earth's own: thunder, snow, rain (snow at freezing), fog, a grey sky, or clear */
+function slWxKind(c){ const s=String(c.sym||''), T=+c.temp, cc=+c.cloud||0;
+  if(/thunder/.test(s)) return 'thunder'; if(/snow/.test(s)) return 'snow'; if(/sleet|rain/.test(s)) return T<=1?'snow':'rain';
+  if(/fog/.test(s)) return 'fog'; if(s==='cloudy'||cc>=80) return 'cloudy'; return 'clear'; }
+/* its answer read down to what Earth needs: the first hour's symbol, the temperature, the wind (in km/h, as Earth's wind is
+   scaled) and where it comes from, and the cloud */
+function slWxRead(j){ const t=j&&j.properties&&j.properties.timeseries&&j.properties.timeseries[0], d=t&&t.data, i=d&&d.instant&&d.instant.details; if(!i) return null;
+  const n=d.next_1_hours||d.next_6_hours||d.next_12_hours; return {sym:(n&&n.summary&&n.summary.symbol_code)||'',temp:+i.air_temperature,wind:+i.wind_speed*3.6,dir:+i.wind_from_direction,cloud:+i.cloud_area_fraction}; }
+function slWxApply(c){ const W=SL.wx; if(!c||!c.sym) throw new Error('no weather in the answer');
+  const k=slWxKind(c), T=c.temp, ws=c.wind, wd=c.dir;
+  W.kind=k; W.data={sym:c.sym,temp:T,wind:ws,dir:wd,cloud:c.cloud};
   if(SKYSET.weather) return;   // (an address that names the weather keeps it)
   SL.real={temp:isFinite(T)?T:null}; WIND.real={s:isFinite(ws)?clamp(ws/42,.04,1):.3,off:isFinite(wd)?slFold(wd):0};
   skyClock(); slWxGo(k); }
 /* asked once, given a few seconds; an answer that never comes (or is not one) leaves Earth's own weather as it is */
 function slFetch(ms=3500){ const W=SL.wx; if(W.busy) return W.p; if(W.done) return Promise.resolve(W.state);
   W.busy=true; W.state='asking'; const L=SL.loc||slWhere(slZone(),new Date().getFullYear()), ctl=window.AbortController?new AbortController():null, to=setTimeout(()=>{ if(ctl) ctl.abort(); },ms);
-  const url='https://api.open-meteo.com/v1/forecast?latitude='+L.lat.toFixed(2)+'&longitude='+L.lon.toFixed(2)+'&current=weather_code,temperature_2m,wind_speed_10m,wind_direction_10m,cloud_cover,is_day';
-  let p; try{ p=fetch(url,{signal:ctl?ctl.signal:undefined,credentials:'omit',referrerPolicy:'no-referrer'}); }catch(e){ p=Promise.reject(e); }
-  return W.p=p.then(r=>{ if(!r.ok) throw new Error('status '+r.status); return r.json(); }).then(j=>{ slWxApply(j&&j.current); W.state='ok'; })
+  const url='https://api.met.no/weatherapi/locationforecast/2.0/compact?lat='+L.lat.toFixed(2)+'&lon='+L.lon.toFixed(2);
+  /* (the site's own address goes with it, and nothing else: a page in a browser cannot name itself otherwise, and MET asks to know who is asking) */
+  let p; try{ p=fetch(url,{signal:ctl?ctl.signal:undefined,credentials:'omit',referrerPolicy:'strict-origin'}); }catch(e){ p=Promise.reject(e); }
+  return W.p=p.then(r=>{ if(!r.ok) throw new Error('status '+r.status); return r.json(); }).then(j=>{ slWxApply(slWxRead(j)); W.state='ok'; })
     .catch(e=>{ W.state=e&&e.name==='AbortError'?'timeout':'failed'; }).then(()=>{ clearTimeout(to); W.busy=false; W.done=true; return W.state; }); }
 
 /* ---------- the weather moving on (each step of the sky's clock): rain and snow and storms, fog, lights in the sky ---------- */
