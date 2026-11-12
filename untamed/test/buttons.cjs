@@ -100,6 +100,10 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   // the conversation box fades out; its buttons stop taking clicks at once, so wait for the fade before looking
   await until(() => getComputedStyle(document.querySelector('#crTalk')).opacity === '0', null, 8000); await wait(1200);
   await covered('.st-cr', "Earth with the Let's fly button");
+  /* the launch scene is made ready out of sight once all three are met, a part a frame; on this slow machine its last part
+     (its shaders) takes long enough that pressing Let's fly first would hold the page while the scene's sound runs on, so
+     it is let finish, as a visitor reading the button gives it time to */
+  await until(() => window.__heloria.ST.cr._dbg.launch.state.built, null, 300000);
   await tap('#crGo', "Let's fly"); rec(await H(h => h.ST.cr._dbg.FIN.on), "Let's fly starts the last flight");
   // it opens with the launch scene, with Skip the one button on the screen; Skip goes straight on to the last flight
   rec(await until(() => { const d = window.__heloria.ST.cr._dbg; return d.FIN.pre && d.launch.state.on && +getComputedStyle(document.querySelector('#crSkip')).opacity > .9; }, null, 30000), 'the launch scene plays first, with Skip on the screen');
