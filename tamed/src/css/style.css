@@ -32,10 +32,10 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #word span:nth-child(2){ transition-delay:.06s } #word span:nth-child(3){ transition-delay:.12s } #word span:nth-child(4){ transition-delay:.04s }
 #word span:nth-child(5){ transition-delay:.1s } #word span:nth-child(6){ transition-delay:.02s } #word span:nth-child(7){ transition-delay:.08s }
 .gate-line{ margin:2.2vh 0 0; font-size:13px; letter-spacing:.2em; text-transform:uppercase; opacity:0; transition:opacity 1.2s var(--ease) .2s; }
-.ways{ display:flex; align-items:stretch; gap:clamp(22px,3.6vw,60px); margin-top:clamp(34px,6.4vh,70px); opacity:0; transform:translateY(14px); transition:opacity 1.2s var(--ease) .35s,transform 1.4s var(--ease) .35s; }
+.ways{ display:flex; align-items:stretch; gap:clamp(30px,5vw,84px); margin-top:clamp(34px,6.4vh,70px); opacity:0; transform:translateY(14px); transition:opacity 1.2s var(--ease) .35s,transform 1.4s var(--ease) .35s; }
 #gate.ready .gate-line{ opacity:.62; } #gate.ready .ways{ opacity:1; transform:none; }
 .ways-rule{ width:1px; background:currentColor; opacity:.22; transition:opacity .6s var(--ease); }
-.way{ display:flex; flex-direction:column; align-items:center; gap:7px; width:clamp(10.5em,15.5vw,14.5em); transition:opacity .6s var(--ease),filter .6s var(--ease); position:relative; }
+.way{ display:flex; flex-direction:column; align-items:center; gap:7px; width:clamp(11.5em,18vw,16.5em); transition:opacity .6s var(--ease),filter .6s var(--ease); position:relative; }
 .way .w{ font-size:clamp(27px,2.9vw,44px); font-weight:900; line-height:1; position:relative; text-transform:uppercase; letter-spacing:.2em; padding-left:.2em; }   /* the mark's own dot type, so the three ways read as part of the name */
 .way .w::after{ content:''; position:absolute; left:8%; right:8%; bottom:-.12em; height:1px; background:currentColor; transform:scaleX(0); transform-origin:50% 50%; transition:transform .7s var(--ease); }
 .way:hover .w::after,.way:focus-visible .w::after,.way.on .w::after{ transform:scaleX(1); }
@@ -45,11 +45,11 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .gate-foot{ position:absolute; bottom:max(28px,env(safe-area-inset-bottom)); left:0; right:0; margin:0; text-align:center; font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.55; display:flex; gap:10px; justify-content:center; align-items:center; transition:opacity .8s; }
 .gate-foot .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; animation:breathe 2.4s ease-in-out infinite; }
 @keyframes breathe{ 50%{ transform:scale(.45); opacity:.4; } }
-/* each way shows its own world behind the letters, and the other two step back */
-#gate.walk .way:not([data-way="walk"]),#gate.land .way:not([data-way="land"]),#gate.fly .way:not([data-way="fly"]){ opacity:.3; filter:blur(1.2px); }
-#gate.walk .ways-rule,#gate.land .ways-rule,#gate.fly .ways-rule{ opacity:.1; }
-/* dark words over bright stone or sky keep a soft halo of light round them; over space they need none */
-#gate:not(.fly) .way{ text-shadow:0 0 18px rgba(255,250,242,.75),0 0 4px rgba(255,250,242,.5); }
+/* each way shows its own world behind the letters, and the other steps back */
+#gate.walk .way:not([data-way="walk"]),#gate.land .way:not([data-way="land"]){ opacity:.3; filter:blur(1.2px); }
+#gate.walk .ways-rule,#gate.land .ways-rule{ opacity:.1; }
+/* dark words over bright stone or sky keep a soft halo of light round them */
+#gate .way{ text-shadow:0 0 18px rgba(255,250,242,.75),0 0 4px rgba(255,250,242,.5); }
 /* Walk: the mist thins and the walk itself shows through, warm and still */
 #gate.walk .gate-glow{ opacity:1; transform:translate(-50%,-50%) scale(1.25); }
 #gate.walk #word{ color:#5A3E22; }
@@ -57,17 +57,9 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #gate.land .gate-glow{ opacity:0; }
 #gate.land{ color:#2A241D; }
 #gate.land .gate-foot{ opacity:.8; text-shadow:0 0 10px rgba(255,255,255,.95),0 0 3px rgba(255,255,255,.9); }   /* over the town, it keeps a little sky round it */
-/* Fly: the dark comes in and bends round a black hole; the letters cannot keep still */
-#gate.fly{ color:var(--light); }
-#gate.fly .gate-glow{ opacity:0; }
-#gate.fly #word span.in{ animation:tremor .11s steps(2) infinite; }
-#gate.fly #word span.in:nth-child(odd){ animation-duration:.13s; animation-direction:reverse; }
-#gate.fly .gate-line,#gate.fly .gate-foot{ opacity:.35; }
-/* choosing Land or Fly: the gate goes over to that world's light before the page changes */
-#gate::after{ content:''; position:absolute; inset:0; background:var(--out,#030305); opacity:0; pointer-events:none; transition:opacity .75s var(--ease2); }
+/* choosing Land: the gate goes over to Land's light before the page changes */
+#gate::after{ content:''; position:absolute; inset:0; background:var(--out,#EAF4F4); opacity:0; pointer-events:none; transition:opacity .75s var(--ease2); }
 #gate.leaving::after{ opacity:1; }
-@media (prefers-reduced-motion: reduce){ #gate.fly #word span.in{ animation:none; } }
-@keyframes tremor{ 0%{ transform:translate(.6px,-.4px) } 25%{ transform:translate(-.8px,.6px) } 50%{ transform:translate(.4px,.9px) } 75%{ transform:translate(-.5px,-.7px) } 100%{ transform:translate(.7px,.2px) } }
 #gate.go{ pointer-events:none; }
 #gate.go .gate-glow,#gate.go .gate-line,#gate.go .ways,#gate.go .gate-foot{ opacity:0; transition:opacity .7s var(--ease); }
 #gate.go #word{ color:var(--ink); }
@@ -250,7 +242,7 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
   #dial{ color:var(--light); } .dial-t{ text-shadow:0 1px 10px rgba(20,14,10,.45),0 0 2px rgba(20,14,10,.3); }
   #cue{ bottom:clamp(96px,14vh,130px); }
   .dial-t{ font-size:11px; }
-  .ways{ flex-direction:column; gap:16px; align-items:center; margin-top:4.6vh; }
+  .ways{ flex-direction:column; gap:22px; align-items:center; margin-top:6vh; }
   .ways-rule{ width:42px; height:1px; }
   .way{ width:min(20em,84vw); gap:4px; }
   .way .w{ font-size:clamp(26px,7.6vw,34px); }

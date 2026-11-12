@@ -12,10 +12,10 @@ const TRAIL=/[?&]diag(=|&|$)/.test(location.search)?(()=>{ let prev=null, prevAt
   addEventListener('pagehide',()=>save(true)); addEventListener('error',e=>add('ERROR '+String(e.message||e.error||'').slice(0,140)),true);
   addEventListener('unhandledrejection',e=>add('ERROR promise '+String(e.reason&&e.reason.message||e.reason).slice(0,140)));
   add('page opened'); return {add,prev,prevAt}; })():null;
-/* the ways out of the walk, set by the build: on the site untamed/ (Fly), untamed/#land (Land) and untamed/#aetos (the
-   rocket at the end of the walk, into orbit at Aetos); as an artifact, the other artifacts' links */
-const UNTAMED_URL='__UNTAMED__', LAND_URL='__LAND__', ROCKET_URL='__ROCKET__';
-/* on the site, the script and styles of the page Land and Fly open (see ahead() in 90-main.js); none as an artifact */
+/* the way out of the walk, set by the build: on the site untamed/#land (Land, where the rocket at the end of the walk goes
+   too); as an artifact, the whole site's link */
+const LAND_URL='__LAND__';
+/* on the site, the script and styles of the page Land opens (see ahead() in 90-main.js); none as an artifact */
 const AHEAD='__AHEAD__'.split(' ').filter(Boolean);
 /* on the site the address follows you: /walk while you walk. It is not a page of its own: reloading it, or going back,
    brings you to the front door again */
@@ -24,8 +24,7 @@ const walkAddress=()=>{ if(!PRETTY) return; try{ history.pushState({walk:1},'',S
 addEventListener('popstate',()=>{ if(PRETTY&&S.mode!=='gate') location.replace(SITE_ROOT); });
 const sameSite=u=>!/^https?:/.test(u);
 /* the same tab when it is part of this site, a new one when it lives somewhere else */
-const outLinks=d=>[['[data-untamed]',UNTAMED_URL],['[data-land]',LAND_URL],['[data-rocket]',ROCKET_URL]].forEach(([q,u])=>
-  d.querySelectorAll(q).forEach(a=>{ a.href=u; if(sameSite(u)){ a.removeAttribute('target'); a.removeAttribute('rel'); } }));
+const outLinks=d=>d.querySelectorAll('[data-land]').forEach(a=>{ a.href=LAND_URL; if(sameSite(LAND_URL)){ a.removeAttribute('target'); a.removeAttribute('rel'); } });
 const PHOTOS=__PHOTOS__;
 const T=window.THREE;
 /* without three.js there is no place to walk through: keep the words, as a plain page */

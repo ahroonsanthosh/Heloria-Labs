@@ -1,6 +1,6 @@
 <canvas id="gl" aria-hidden="true"></canvas>
 
-<!-- the gate: the letters settle, then three ways in. Each one shows its own world before you choose it -->
+<!-- the gate: the letters settle, then two ways in. Each one shows its own world before you choose it -->
 <div id="gate" class="loading" role="dialog" aria-modal="true" aria-label="Heloria Labs">
   <div class="gate-glow" aria-hidden="true"></div>
   <div class="gate-in">
@@ -17,12 +17,6 @@
         <span class="w mark">Land</span>
         <span class="d">Straight down to Earth, to meet the three of us</span>
         <span class="m">4 min · walk and talk</span>
-      </a>
-      <span class="ways-rule" aria-hidden="true"></span>
-      <a id="untamed" class="way" href="#" data-way="fly" data-untamed target="_blank" rel="noopener">
-        <span class="w mark">Fly</span>
-        <span class="d">The whole universe: a black hole, four games, then Earth</span>
-        <span class="m">10 min · fly and play</span>
       </a>
     </div>
   </div>
@@ -95,7 +89,7 @@
     <section class="sec contact" id="contact" data-place="contact">
       <h2 class="disp split" data-reflect="1">Talk to us.</h2>
       <a class="mail" href="mailto:contact@helorialabs.com"><span>contact@helorialabs.com</span></a>
-      <a class="quiet" href="#" data-untamed target="_blank" rel="noopener"><span>Or fly the whole thing</span><i aria-hidden="true"></i></a>
+      <a class="quiet" href="#" data-land target="_blank" rel="noopener"><span>Or land on Earth</span><i aria-hidden="true"></i></a>
     </section>
   </main>
 
@@ -119,8 +113,8 @@
     <span class="dial-t" id="dialT">Home</span>
   </button>
   <p id="cue"><b class="wheel" aria-hidden="true"><i></i></b><span>Scroll to begin</span></p>
-  <!-- the last thing on the walk: a rocket going up from the far shore. Catch it and it takes you into orbit -->
-  <a id="rocket" class="rocket-hit" href="#" data-rocket target="_blank" rel="noopener" data-cur="Fly" tabindex="-1" aria-label="Catch the rocket into orbit"></a>
+  <!-- the last thing on the walk: a rocket going up from the far shore. Catch it and it takes you to Earth -->
+  <a id="rocket" class="rocket-hit" href="#" data-land target="_blank" rel="noopener" data-cur="Land" tabindex="-1" aria-label="Catch the rocket to Earth"></a>
 </div>
 
 <!-- press and hold: every place -->

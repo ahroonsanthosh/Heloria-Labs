@@ -61,7 +61,7 @@ const A=(()=>{
     /* water bus: the small plips on the lake, close by outside and muffled inside like the water under them */
     n.water=ctx.createGain(); n.water.gain.value=0; n.waterLP=ctx.createBiquadFilter(); n.waterLP.type='lowpass'; n.waterLP.frequency.value=2400; n.waterLP.Q.value=.4;
     n.water.connect(n.waterLP); n.waterLP.connect(n.comp); const ws=ctx.createGain(); ws.gain.value=.25; n.waterLP.connect(ws); ws.connect(n.revIn);
-    n.nextPlip=ctx.currentTime+1; n.nextBird=ctx.currentTime+6; n.nextPing=0; n.nextGateBird=0;
+    n.nextPlip=ctx.currentTime+1; n.nextBird=ctx.currentTime+6; n.nextGateBird=0;
   }
   const last=new WeakMap();
   const set=(p,v,tc=.15)=>{ if(!ctx) return; const l=last.get(p); if(l!==undefined&&Math.abs(l-v)<=Math.max(1e-4,Math.abs(v)*.004)) return; last.set(p,v); p.setTargetAtTime(v,ctx.currentTime,tc); };
@@ -71,7 +71,7 @@ const A=(()=>{
      leaves holes in it: on real laptops and phones the walk jittered, turned to static and cut out while its tab was in
      front, and played clean in a background tab. A browser plays a recording through its media path, which keeps a long
      reserve ahead of the speaker. So each layer that sounds all the time (the score's pads and bass, the water, the air in
-     the grass, the four rooms, the gate's warm light and its dark, the rocket's rumble) is worked out once, out of sight, a
+     the grass, the four rooms, the gate's warm light, the rocket's rumble) is worked out once, out of sight, a
      moment after the page loads, from the same nodes as before, and played as an audio file; where you are sets each
      file's volume.
      A browser does not loop a file without a break (Chromium leaves a hole of a hundredth of a second or more at the wrap),
@@ -269,12 +269,9 @@ const A=(()=>{
     [[.11,.0385],[.27,.021],[.53,.0105]].forEach(([f,d])=>k.lfo(f,d,lapG.gain)); };
   loop(water(320),19,{name:'waterClosed',full:.62*.36,tc:.7,tc2:.5,room:true});
   loop(water(2400),19,{name:'waterOpen',full:.62,tc:.7,tc2:.5,room:true});
-  /* the gate: warm light on one side, the dark on the other */
+  /* the gate: the walk's warm light */
   loop((oc,out,sr,k)=>{ const bus=k.g(1,out); bus.connect(k.g(.7,k.wet));
     [62,69,74,78].forEach((m,i)=>k.drone('sine',mtof(m)*Math.pow(2,(i-1.5)*3/1200),k.g(.25/(1+i*.4),bus))); },12,{name:'warm',full:.09,tc:.35,room:true,H:3});
-  /* the dark under Fly at the gate: a deep, soft open fifth swelling slowly, and no noise (a low rumble of noise here was the
-     loudest sound on the walk, and sounded like a rocket going over) */
-  loop((oc,out,sr,k)=>{ const dg=k.g(.12,out); k.drone('sine',mtof(38),dg); k.lfo(.2,.04,dg.gain); k.drone('sine',mtof(45),k.g(.07,out)); k.drone('sine',mtof(50),k.g(.03,out)); },10,{name:'dark',full:.3,tc:.25});
   /* air in the grass */
   /* the air in the grass: a soft breath of it, well under the water and the score (it was far too loud, and too bright) */
   loop((oc,out,sr,k)=>{ const f=k.bq('bandpass',750,.6,k.g(.16,out)); k.noise('white',.94,f); k.lfo(.06,330,f.frequency); },16,{name:'wind',full:.06,tc:.8});
@@ -426,9 +423,8 @@ const A=(()=>{
       if(st.water>.3&&t>n.nextPlip){ plip(.018*st.water*(st.waterF>1500?1:.4)); n.nextPlip=t+.35+Math.random()*2.4; }
       if(st.birds>.2&&t>n.nextBird){ chirp(Math.random()*1.6-.8,.006*st.birds); n.nextBird=t+7+Math.random()*14; }
       for(const [nm,p,v] of RSND) roomSound(nm,p,v,st,t);
-      /* the gate's ways: open air and birds for Land; for Fly, far off in the dark, the ping of something not yet known */
+      /* the gate's Land way: open air and birds */
       if(st.land>.5&&t>n.nextGateBird){ chirp(Math.random()*1.4-.7,.011); n.nextGateBird=t+1.1+Math.random()*2.2; }
-      if(st.dark>.5&&t>n.nextPing){ const p=Math.random()*.6-.3; tone(1320,.12,.012,'sine',1180,0,.9,.002,pan(p,n.comp)); tone(1320,.1,.004,'sine',1180,.42,.9,.002,pan(-p,n.comp)); n.nextPing=t+2.4; }
       if(n.tape&&(st.rocketNear||0)<.05) n.tape=false;
       /* and each recording's level, as the live gains were set. The water's two are crossed by where its low-pass is: all
          closed at 320 Hz (inside), all open from 1500 Hz up */
@@ -439,7 +435,7 @@ const A=(()=>{
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air, brighter the less sure */
       const f=st.beam||0; lv('phTone',st.ph*.36,.35+.65*f); lv('phAir',st.ph*.36,(1-f)*.1*Math.sqrt((300+(1-f)*900)/1200));
       lv('og',st.og*.45); lv('ogHiss',st.og*.45,.025+(st.rise||0)*.04);
-      lv('warm',st.warm*.09); lv('dark',st.dark*.3);
+      lv('warm',st.warm*.09);
       const G=(st.rocket||0)*.16+(st.rocketNear||0)*.62, nr=st.rocketNear||0; lv('rkFar',G,Math.sqrt(1-nr)); lv('rkNear',G,Math.sqrt(nr));
     },
     /* the gate: a way being shown, and a way being taken */
@@ -447,11 +443,9 @@ const A=(()=>{
       if(v==='walk'){ plip(.016,.05); glass(74,t+.08,.016,-.2,n.comp); }
       else if(v==='land'){ noise(1.2,.06,700,2600,'bandpass',.5,0,.25); noise(3.3,.045,560,150,'bandpass',.9,0,.5);   /* the clouds parting, then the air you fall through */ tone(mtof(43),3.2,.012,'sine',mtof(40),0,.4,.6);
         setTimeout(()=>{ if(S.gateHover!=='land'||!on) return;
-          glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); }
-      else if(v==='fly'){ tone(mtof(26),2.6,.028,'sine',mtof(24),0,.5,.5); noise(2.4,.024,90,600,'lowpass',.7,0,.6); n.nextPing=t+.9; } },
+          glass(79,ctx.currentTime+.12,.02,.25,n.comp); glass(86,ctx.currentTime+.3,.014,.3,n.comp); },3400); } },
     leave(v){ if(!live()) return; const t=ctx.currentTime;
-      if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); }
-      else { tone(54,1.2,.07,'sine',30,0,.6,.01); noise(1,.05,2400,120,'lowpass',.7,0,.6); } },
+      if(v==='land'){ noise(.9,.05,300,3200,'bandpass',.8,0,.5); [74,79,83].forEach((m,i)=>glass(m,t+.05+i*.09,.022,(i-1)*.25,n.comp)); } },
     /* the rocket at the end of the walk, caught: it roars in close, a long rise, and the walk falls quiet under it */
     rocketGo(){ if(!live()) return; noise(2.6,.06,180,2600,'bandpass',.9,0,.6); tone(mtof(38),2.8,.05,'sine',mtof(50),0,.7,.9); tone(mtof(45),2.6,.03,'sine',mtof(57),.2,.7,.9);
       n.tape=true; n.tapeAt=performance.now()+300; },

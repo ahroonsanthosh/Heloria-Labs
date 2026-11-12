@@ -21,14 +21,14 @@ SRC = os.path.join(HERE, 'src')
 PHOTO_DIR = os.path.join(ROOT, 'untamed', 'src', 'assets', 'img')
 PEOPLE = ['ahroon', 'michael', 'abraham']   # in this order, everywhere
 THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js'
-# a standalone preview of the walk has nowhere of its own to send Land, Fly or the rocket: they open the whole site, which
-# lives as one artifact (tools/build.py --bundle). The separate previews these used to point at are gone
+# a standalone preview of the walk has nowhere of its own to send Land (or the rocket at the end of the walk, which goes
+# there too): it opens the whole site, which lives as one artifact (tools/build.py --bundle)
 ONE_ARTIFACT = 'https://claude.ai/artifact/AWxaghMgA1wnwfcS97NfEd'
-UNTAMED_ARTIFACT = LAND_ARTIFACT = ROCKET_ARTIFACT = ONE_ARTIFACT
-ART_LINKS = {'__UNTAMED__': UNTAMED_ARTIFACT, '__LAND__': LAND_ARTIFACT, '__ROCKET__': ROCKET_ARTIFACT, '__PRETTY__': '', '__AHEAD__': ''}
-SITE_LINKS = {'__UNTAMED__': 'untamed/', '__LAND__': 'untamed/#land', '__ROCKET__': 'untamed/#aetos', '__PRETTY__': '1', '__AHEAD__': ''}   # __PRETTY__: the address follows you; __AHEAD__: see ahead()
-# the one artifact that holds everything: this page at its front, the untamed as a page of its own beside it, the same tab
-BUNDLE_LINKS = {'__UNTAMED__': 'untamed/index.html', '__LAND__': 'untamed/index.html#land', '__ROCKET__': 'untamed/index.html#aetos', '__PRETTY__': '', '__AHEAD__': ''}
+LAND_ARTIFACT = ONE_ARTIFACT
+ART_LINKS = {'__LAND__': LAND_ARTIFACT, '__PRETTY__': '', '__AHEAD__': ''}
+SITE_LINKS = {'__LAND__': 'untamed/#land', '__PRETTY__': '1', '__AHEAD__': ''}   # __PRETTY__: the address follows you; __AHEAD__: see ahead()
+# the one artifact that holds everything: this page at its front, Land as a page of its own beside it, the same tab
+BUNDLE_LINKS = {'__LAND__': 'untamed/index.html#land', '__PRETTY__': '', '__AHEAD__': ''}
 LIMIT = 16 * 1024 * 1024
 EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
@@ -76,7 +76,7 @@ def check_dashes(files):
 
 
 def parts(links, photo_list, land):
-    """the css, the markup and the script, with the photos, the Land still and the ways out of the walk filled in"""
+    """the css, the markup and the script, with the photos, the Land still and the way out of the walk filled in"""
     css_files, js_files = sources()
     check_dashes(css_files + js_files + [os.path.join(SRC, 'head.html'), os.path.join(SRC, 'body.html')])
     css = '\n'.join(open(f, encoding='utf-8').read() for f in css_files)
@@ -125,7 +125,7 @@ def fingerprint(text):
     return hashlib.sha1(text.encode('utf-8')).hexdigest()[:10]
 
 def ahead(out):
-    """the Land and Fly page's own script and styles (their fingerprinted addresses, as the untamed build wrote them into
+    """the Land page's own script and styles (their fingerprinted addresses, as the untamed build wrote them into
     out/untamed/index.html), which the front door fetches once it is ready: see ahead() in js/90-main.js"""
     import re
     p = os.path.join(out, 'untamed', 'index.html')
@@ -136,8 +136,9 @@ def ahead(out):
 
 
 def write_site(out, minify=True):
-    """Tamed's part of the deployed site: out/index.html (the front door, with the three ways in), and its css and js in
-    out/assets/. The portraits and three.js are the shared files the untamed build puts in out/assets/img and vendor."""
+    """Tamed's part of the deployed site: out/index.html (the front door, with the two ways in), its css and js in
+    out/assets/, and the site's social image, out/assets/img/og.jpg (Land's page shows it too). The portraits and three.js
+    are the shared files the untamed build puts in out/assets/img and vendor."""
     # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
     import hashlib
     pfp = lambda p: hashlib.sha1(open(p, 'rb').read()).hexdigest()[:10]
@@ -146,7 +147,7 @@ def write_site(out, minify=True):
     if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
         M = minifier(); css, app = M.css(css), M.js(app)
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
-    og = 'assets/img/og-tamed.jpg' if os.path.exists(os.path.join(SRC, 'assets', 'og.jpg')) else 'assets/img/og.jpg'
+    og = 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
             '<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">\n'
             '<meta property="og:image" content="%s">\n<meta name="twitter:card" content="summary_large_image">\n' % og)
@@ -164,9 +165,8 @@ def write_site(out, minify=True):
     open(os.path.join(out, 'assets', 'tamed.js'), 'w', encoding='utf-8').write(app)
     with open(os.path.join(SRC, 'assets', 'land.webp'), 'rb') as f, open(os.path.join(out, 'assets', 'img', 'land.webp'), 'wb') as g:
         g.write(f.read())
-    if og.endswith('og-tamed.jpg'):
-        with open(os.path.join(SRC, 'assets', 'og.jpg'), 'rb') as f, open(os.path.join(out, og), 'wb') as g:
-            g.write(f.read())
+    with open(os.path.join(SRC, 'assets', 'og.jpg'), 'rb') as f, open(os.path.join(out, og), 'wb') as g:
+        g.write(f.read())
     return out
 
 

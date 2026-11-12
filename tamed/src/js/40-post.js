@@ -35,13 +35,13 @@ const POST={};
       gl_FragColor=vec4(c,1.); }`});
   POST.comp=new T.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{value:null},uRes:GU.uRes,uTime:GU.uTime,uAsp:{value:1},
       uExpo:{value:1},uBloom:{value:.12},uGrade:{value:new T.Color(1,1,1)},uLift:{value:new T.Vector3(.034,.028,.026)},uSat:{value:1.05},
-      uVeil:{value:1},uVeilCol:{value:new T.Color('#F3DDBF')},uDark:{value:0},uLand:{value:0},uLandT:{value:0},tLand:{value:null},uDarkC:{value:new T.Vector2(.5,.5)},uHole:{value:new T.Vector3(.5,.55,0)},uKeep:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
+      uVeil:{value:1},uVeilCol:{value:new T.Color('#F3DDBF')},uDark:{value:0},uLand:{value:0},uLandT:{value:0},tLand:{value:null},uDarkC:{value:new T.Vector2(.5,.5)},uKeep:{value:0},uDim:{value:0},uDimCol:{value:new T.Color(1,1,1)},
       uFlood:{value:0},uFloodCol:{value:new T.Color(1,1,1)},uFloodC:{value:new T.Vector2(.5,.5)},
       uMouse:{value:new T.Vector2(-999,-999)},uVel:{value:new T.Vector2()},uDropR:{value:15},uDropK:{value:0},
       uCA:{value:.0035},uVig:{value:1},uGrain:{value:.045},uFade:{value:0},uBlN:{value:1/QL.bloomLv}},
     vertexShader:vs, depthTest:false, depthWrite:false,
     fragmentShader:`uniform sampler2D tScene,tBloom,tLand; uniform vec2 uRes,uMouse,uVel,uFloodC,uDarkC; uniform float uTime,uAsp,uExpo,uBloom,uSat,uVeil,uDark,uLand,uLandT,uDim,uFlood,uDropR,uDropK,uCA,uVig,uGrain,uFade,uBlN,uKeep;
-    uniform vec3 uGrade,uLift,uVeilCol,uDimCol,uFloodCol,uHole; varying vec2 vUv; ${GLSL.noise}
+    uniform vec3 uGrade,uLift,uVeilCol,uDimCol,uFloodCol; varying vec2 vUv; ${GLSL.noise}
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
     /* most of the curve applied to luminance only, so warm light stays peach instead of turning yellow; the brightest channel rolls to white */
     vec3 tmap(vec3 x){ float L=dot(x,vec3(.2126,.7152,.0722)); float la=aces(vec3(L)).x; vec3 h=x*(la/max(L,1e-5));
@@ -95,37 +95,24 @@ const POST={};
       /* light flooding out of a room */
       if(uFlood>0.){ vec2 fq=(vUv-uFloodC)*vec2(uAsp,1.); float fr=length(fq); float n=fbm2(fq*3.+uTime*.2);
         float R=uFlood*2.1; float m=smoothstep(R,R-.35,fr+(n-.5)*.35); c=mix(c,uFloodCol,m*clamp(uFlood*1.3,0.,1.)); }
-      /* Land opens like Fly's dark, from the middle out, but onto open sky, through a bank of Land's own cloud at its edge */
+      /* Land opens from the middle out onto open sky, through a bank of Land's own cloud at its edge */
       if(uLand>0.){ vec2 lq=(vUv-vec2(.5,.56))*vec2(uAsp,1.); float lr=length(lq), n=fbm2(lq*2.2+vec2(uTime*.11,-uTime*.07));
         float R=uLand*1.35, e=lr+(n-.5)*.5, m=1.-smoothstep(R-.3,R+.02,e);
         vec3 lv=landView(vUv,uLandT); float eb=1.-smoothstep(R-.34,R-.06,e); lv=landCloud(lv,.5+.1*(1.-eb)+.02*(fbm2(lq*6.)-.5),1.);
         c=mix(c,lv,m*smoothstep(0.,.1,uLand)); }
-      /* the dark: what waits on the other side. It spreads from uDarkC; when there is a hole in it (uHole.z, its radius in
-         heights of the screen), the starlight behind is bent out round it, its shadow is black, and the thin hot disk round it
-         shows its near side across the front and its far side lensed over the top: the Fly way, before you choose it */
+      /* the dark: the night coming in from the rocket at the end of the walk as you follow it up. It spreads from uDarkC,
+         with the stars out in it */
       if(uDark>0.){ vec2 dq=(vUv-uDarkC)*vec2(uAsp,1.); float dr=length(dq); float n=fbm2(dq*2.6+vec2(uTime*.18,-uTime*.11));
         float R=uDark*1.3; float edge=(1.-smoothstep(R-.42-uKeep*.3,R+.02,dr+(n-.5)*.5*(1.-uKeep*.8)))*smoothstep(0.,.12,uDark);
         vec3 ink=mix(vec3(.012,.012,.02),vec3(.035,.04,.11),uKeep), keep=bl*uKeep;
-        vec2 hq=(vUv-uHole.xy)*vec2(uAsp,1.); float hr=length(hq), rh=uHole.z;
-        vec2 lq=rh>0.?hq*(1.+rh*rh*1.7/max(hr*hr,1e-5)):hq; vec2 sf=(lq/vec2(uAsp,1.)+uHole.xy)*uRes;
-        float stars=step(.9965,hash12(floor(sf/2.)))*hash12(floor(sf/2.)+3.)*edge;
+        float stars=step(.9965,hash12(floor(fc/2.)))*hash12(floor(fc/2.)+3.)*edge;
         c=mix(c,ink,edge*.97)+stars*.55*uDark; c*=1.-uDark*.18;
-        if(rh>0.){ float tl=-.13, cs=cos(tl), sn=sin(tl); vec2 dk=vec2(hq.x*cs-hq.y*sn,hq.x*sn+hq.y*cs);
-          float sh=1.-smoothstep(rh*.96,rh*1.01,hr);
-          float ring=exp(-(((hr-rh*1.045)/(rh*.028))*((hr-rh*1.045)/(rh*.028))));
-          float band=exp(-((dk.y/(rh*.055))*(dk.y/(rh*.055))))*(1.-smoothstep(rh*1.7,rh*3.1,abs(dk.x)))*smoothstep(rh*.2,rh*.75,abs(dk.x)+abs(dk.y)*3.);
-          float over=exp(-(((hr-rh*1.2)/(rh*.075))*((hr-rh*1.2)/(rh*.075))))*smoothstep(-.05*rh,rh*.5,dk.y);
-          float under=exp(-(((hr-rh*1.1)/(rh*.045))*((hr-rh*1.1)/(rh*.045))))*smoothstep(.05*rh,-rh*.45,dk.y)*.4;
-          float dop=1.+.7*clamp(-dk.x/(rh*2.4),-1.,1.);
-          float flick=.92+.08*fbm2(vec2(atan(dk.y,dk.x)*3.,hr*30.-uTime*.6));
-          c=mix(c,vec3(0.),sh*edge);
-          c+=(vec3(1.,.74,.46)*(band*1.15+over+under)*dop*flick+vec3(1.,.92,.8)*ring*.85)*edge*smoothstep(.25,1.,uDark); }
         c+=keep*edge; }
       c=c*(1.-lens*.03)+spec*.85-shade+rim*.06;
       c=mix(c,c*vec3(.94,.97,1.03),rim*.6);
       float v=length((vUv-.5)*vec2(uAsp,1.)*uVig); c*=mix(1.,smoothstep(1.25,.25,v),.42);
       c+=(hash12(fc+fract(uTime*7.3)*91.)-.5)*uGrain;
-      c=mix(c,vec3(.96,.93,.88),uFade);
+      c=mix(c,vec3(.918,.957,.957),uFade);   // the rocket caught: the page goes over to Land's daylight (#EAF4F4) before it changes
       gl_FragColor=vec4(clamp(c,0.,1.),1.);
     }`});
   new T.TextureLoader().load('__LANDIMG__',t=>{ t.colorSpace=T.NoColorSpace; t.anisotropy=4; POST.comp.uniforms.tLand.value=t; });

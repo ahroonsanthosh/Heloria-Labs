@@ -90,7 +90,7 @@ function frameBody(tn){
   requestAnimationFrame(frame);
   const raw=Math.max(0,(tn-last)/1000); last=tn;
   const dt=Math.min(TEST?.25:.05,raw); S.dt=dt; S.t+=dt; S.frame++;
-  const way=S.mode==='gate'?S.gateHover:null, tsT=way==='walk'?.25:way==='fly'?2.2:1;
+  const way=S.mode==='gate'?S.gateHover:null, tsT=way==='walk'?.25:1;
   S.timeScale=damp(S.timeScale,tsT,2.4,dt); S.ut=(S.ut||0)+dt*S.timeScale; GU.uTime.value=RM?S.ut*.4:S.ut;
   QM.tick(raw*1000); UI.cursor(dt);
   if(!S.ready||!GL_OK) return;
@@ -124,14 +124,13 @@ function frameBody(tn){
   cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
   cu.uBloom.value=lerp(.038,.18,inside);
   cu.uGrade.value.set(1,1,1).lerp(TINT,inside*.26+dusk*.1);
-  /* the gate: Walk thins the mist so the walk shows through; Land opens onto the sky over a small world; Fly brings the dark
-     in round a black hole. Then the rocket at
+  /* the gate: Walk thins the mist so the walk shows through; Land opens onto the sky over a small world. Then the rocket at
      the end of the walk: the night comes in from it as you follow it up */
   cu.uVeil.value=S.mode==='gate'?damp(cu.uVeil.value,way==='walk'?.6:1,2.5,dt):S.veil;
-  const dk=LAUNCH.dark>.001?LAUNCH.dark*1.15:(way==='fly'?1:0);
-  cu.uDark.value=LAUNCH.dark>.001?dk:damp(cu.uDark.value,dk,way==='fly'?1.1:3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
-  if(LAUNCH.dark>.001){ const v=LAUNCH.sc.copy(LAUNCH.mid).project(CAM.out); cu.uDarkC.value.set(v.x*.5+.5,v.y*.5+.5); cu.uHole.value.z=0; cu.uKeep.value=1; }
-  else { const H=UI.holeAt(); cu.uDarkC.value.set(.5,.5); cu.uKeep.value=0; cu.uHole.value.set(H[0],H[1],damp(cu.uHole.value.z,way==='fly'?H[2]:0,way==='fly'?1.6:4,dt)); }
+  cu.uDark.value=LAUNCH.dark>.001?LAUNCH.dark*1.15:damp(cu.uDark.value,0,3.2,dt); if(cu.uDark.value<.002) cu.uDark.value=0;
+  if(LAUNCH.dark>.001){ const v=LAUNCH.sc.copy(LAUNCH.mid).project(CAM.out); cu.uDarkC.value.set(v.x*.5+.5,v.y*.5+.5); cu.uKeep.value=1; }
+  else { cu.uDarkC.value.set(.5,.5); cu.uKeep.value=0; }
+  cu.uFade.value=LAUNCH.wash;
   cu.uLand.value=damp(cu.uLand.value,way==='land'&&cu.tLand.value?1:0,way==='land'?1.1:3.2,dt); if(cu.uLand.value<.002) cu.uLand.value=0;
   cu.uLandT.value=cu.uLand.value>0?(way==='land'||cu.uLandT.value>0?cu.uLandT.value+dt:0):0;
   cu.uDim.value=damp(S.idim||0,HOLD.open?.7:0,6,dt); S.idim=HOLD.open?Math.min(.7,(S.idim||0)+dt*3):Math.max(0,(S.idim||0)-dt*3);
@@ -155,7 +154,7 @@ function audioState(s,inside){
   const rest=gate&&!way?1:0;
   return {music:gate?.15+.5*rest:(1-inside*.3)*(1-go*.6), musF:gate?1600:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:.2*rest):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?(way==='walk'?1500:850):lerp(2400,320,inside)+contact*1800,
     wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(R('krios')), ae:prox(R('aetos')), ph:prox(R('pharos')), og:prox(R('ogive')), beam, rise:sstep(R('ogive')-.3,R('ogive')+.4,s),
-    warm:way==='walk'?1:0, land:way==='land'?1:0, dark:way==='fly'?1:0, rocket:LAUNCH.heard, rocketNear:go};
+    warm:way==='walk'?1:0, land:way==='land'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 /* the sound is tried the moment the page opens: a browser that allows it (one that knows you have played sound here before)
    plays the score at once; any other wakes it on the first click, tap or key (see gateWake) */
@@ -298,9 +297,9 @@ async function boot(){
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
   setTimeout(ahead,TEST?0:2500);
 }
-/* Land and Fly open a page of their own, with a large script of its own. Once this page is ready and quiet, that script and
-   its styles are fetched in the background into the browser's cache, so choosing either way (or the rocket at the end of
-   the walk) finds them already here. Nothing on this page waits for them; a visitor saving data, or on a very slow
+/* Land opens a page of its own, with a large script of its own. Once this page is ready and quiet, that script and its
+   styles are fetched in the background into the browser's cache, so choosing Land (or the rocket at the end of the walk)
+   finds them already here. Nothing on this page waits for them; a visitor saving data, or on a very slow
    connection, is not sent them */
 function ahead(){ if(!AHEAD.length) return; const c=navigator.connection; if(c&&(c.saveData||/2g$/.test(c.effectiveType||''))) return;
   for(const u of AHEAD){ try{ fetch(u,{priority:'low'}).then(r=>r.ok?r.arrayBuffer():null).catch(()=>{}); }catch(e){} } }

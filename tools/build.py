@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Build the whole Heloria Labs site: one place, three ways in.
+"""Build the whole Heloria Labs site: one place, two ways in.
 
   python3 tools/build.py            # docs/ (what Cloudflare serves) and the single-file builds in dist/
   python3 tools/build.py --docs /tmp/site   # the site somewhere else, nothing in dist/
   python3 tools/build.py --no-minify        # the deployed script and styles as written (esbuild minifies them otherwise:
                                             # npm install, once)
   python3 tools/build.py --bundle /tmp/one  # everything as one claude.ai artifact: index.html (the page) and
-                                            # untamed/index.html (a page of its own), linked in the same tab
+                                            # untamed/index.html (Land, a page of its own), linked in the same tab
 
 docs/
-  index.html          Heloria Tamed, the front door: the gate offers Walk, Land and Fly
-  untamed/index.html  Heloria Untamed, the playable universe (Beacon, its contact station, links back to the calm walk)
-  assets/             tamed.css, tamed.js, untamed.css, untamed.js, img/ (portraits, social images, icon), vendor/ (three.js)
+  index.html          Heloria Tamed, the front door: the gate offers Walk and Land
+  untamed/index.html  Land: Earth, the drawn town where the three of us are waiting (its white page links back to the walk)
+  assets/             tamed.css, tamed.js, untamed.css, untamed.js, img/ (portraits, social image, icon), vendor/ (three.js)
   404.html            for any address that is not here
   _headers            for Cloudflare: security headers, and how long each kind of file may be cached
-  _redirects          for Cloudflare: /walk, /land and /fly (the addresses shown while you are there) back to the front door
+  _redirects          for Cloudflare: /walk and /land (the addresses shown while you are there), and /fly (the old way into
+                      orbit), back to the front door
 """
 import argparse, importlib.util, os, shutil, sys
 
@@ -66,7 +67,8 @@ Canonical: https://helorialabs.com/.well-known/security.txt
 """
 
 
-# /walk, /land and /fly are where the address bar says you are, not pages: reloading one goes back to the front door
+# /walk and /land are where the address bar says you are, not pages: reloading one goes back to the front door. /fly was
+# the way into orbit, which is gone; an old link to it goes to the front door too
 REDIRECTS = """/walk / 302
 /walk/ / 302
 /land / 302

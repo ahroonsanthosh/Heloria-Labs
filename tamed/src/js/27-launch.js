@@ -1,8 +1,9 @@
 /* ================= THE LAST LIGHT: A ROCKET FROM THE FAR SHORE =================
    At the last stop, now and then a rocket goes up from behind the far hills into the evening, the same cream and
-   peach rocket as the one in the wild universe. Its sound comes a couple of seconds after its light, because it is far.
-   Catch it and the camera follows it up out of the sky into the night: that is the way into orbit, at Aetos. */
-const LAUNCH={vis:false, ph:-1, wait:1.6, turn:.16, heard:0, near:0, go:false, gt:0, back:false, left:false, href:'', camK:0, fov:16, dark:0,
+   peach rocket as the one on Earth. Its sound comes a couple of seconds after its light, because it is far. Catch it and
+   the camera follows it up out of the sky into the night, and the night gives way to Land's daylight: that is the way
+   down to Earth, as Land goes. */
+const LAUNCH={vis:false, ph:-1, wait:1.6, turn:.16, heard:0, near:0, go:false, gt:0, back:false, left:false, href:'', camK:0, fov:16, dark:0, wash:0,
   p:v3(), dir:v3(0,1,0), mid:v3(), sc:new T.Vector3(), scr:{x:-1,y:-1,on:false}};
 const L_T=21, L_GAP=5, L_LIFT=1.3;   // a flight, the quiet between flights, the engines lit behind the hills before it rises
 function makeLaunch(W){
@@ -87,7 +88,7 @@ function makeLaunch(W){
   };
 }
 
-/* the round hit area that follows it: Fly on the cursor, and a tap target big enough for a thumb */
+/* the round hit area that follows it: Land on the cursor, and a tap target big enough for a thumb */
 const RK=$('#rocket');
 function launchHit(){
   const on=!!(OUT&&OUT.launch)&&LAUNCH.vis&&!LAUNCH.go&&S.mode==='world'&&!HOLD.open;
@@ -97,8 +98,9 @@ function launchHit(){
   else LAUNCH.scr.on=false;
   const show=on&&LAUNCH.scr.on; if(show!==RK.classList.contains('on')){ RK.classList.toggle('on',show); RK.tabIndex=show?0:-1; }
 }
-/* caught: on this site the camera follows it up into the night and then the page changes; when the way into orbit lives
-   somewhere else, the link opens in its own tab and the evening comes back here */
+/* caught: on this site the camera follows it up into the night, the page goes over to Land's daylight (as the front door
+   does when you choose Land), and then the page changes; when Land lives somewhere else, the link opens in its own tab
+   and the evening comes back here */
 RK.addEventListener('click',e=>{
   if(!LAUNCH.vis||LAUNCH.go||S.mode!=='world'){ e.preventDefault(); return; }
   const local=sameSite(RK.getAttribute('href')||'');
@@ -107,10 +109,10 @@ RK.addEventListener('click',e=>{
   ui.classList.add('leaving'); RK.classList.remove('on'); A.rocketGo();
 });
 function launchTick(dt){
-  if(!LAUNCH.go){ LAUNCH.camK=damp(LAUNCH.camK,0,2.4,dt); LAUNCH.dark=damp(LAUNCH.dark,0,2.2,dt); LAUNCH.near=damp(LAUNCH.near,0,2,dt); return; }
+  if(!LAUNCH.go){ LAUNCH.camK=damp(LAUNCH.camK,0,2.4,dt); LAUNCH.dark=damp(LAUNCH.dark,0,2.2,dt); LAUNCH.near=damp(LAUNCH.near,0,2,dt); LAUNCH.wash=0; return; }
   if(!LAUNCH.hold) LAUNCH.gt+=dt; const t=LAUNCH.gt;   // (hold: only the stills tests stop its clock)
   LAUNCH.camK=RM?0:E.io(clamp(t/1.15,0,1)); LAUNCH.fov=lerp(16,11,sstep(1,2.6,t));
-  LAUNCH.dark=sstep(RM?0:.85,RM?1:2.3,t); LAUNCH.near=sstep(0,1.6,t);
+  LAUNCH.dark=sstep(RM?0:.85,RM?1:2.3,t); LAUNCH.near=sstep(0,1.6,t); LAUNCH.wash=LAUNCH.back?0:sstep(2.2,2.75,t);
   if(!LAUNCH.back&&t>=2.75&&!LAUNCH.left){ LAUNCH.left=true; location.assign(LAUNCH.href); }
   if(LAUNCH.back&&t>=3.4){ LAUNCH.go=false; LAUNCH.ph=L_T+L_GAP-6; S.mode='world'; ui.classList.remove('leaving'); }
 }

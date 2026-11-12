@@ -9,14 +9,14 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
 UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ holeK=null; gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; gateFoot(); };
-/* the three ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
-   walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down; Fly,
-   the dark coming in round a black hole. On a touch screen, with nothing to point with, the gate shows them in turn */
+UI.gateReady=()=>{ gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; gateFoot(); };
+/* the two ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
+   walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down. On a
+   touch screen, with nothing to point with, the gate shows them in turn */
 S.gateHover=null;
-const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk',untamed:'fly'};
+const WAYS=$$('#gate .way[data-way]'), OLD={tamed:'walk'};
 const setHover=(v,quiet)=>{ v=OLD[v]||v||null; if(S.gateHover===v) return; S.gateHover=v;
-  ['walk','land','fly'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
+  ['walk','land'].forEach(w=>gate.classList.toggle(w,v===w)); WAYS.forEach(w=>w.classList.toggle('on',w.dataset.way===v));
   if(v){ if(!quiet) A.hover(); A.preview(v); if(A.on) S.prevAt=performance.now(); } };
 /* the line at the foot: how to look and how to go */
 function gateFoot(){ $('#gateState').textContent=FINE?'Point or scroll to look, click to go':'Swipe to look, tap to go'; }
@@ -32,27 +32,24 @@ S.prevAt=0;
 const gateWake=()=>{ if(S.mode!=='gate'||(A.on&&A.ctx&&A.ctx.state==='running')) return;
   (A.on?A.ctx.resume():A.start()).then(()=>{ if(S.mode==='gate'&&!S.leaving&&S.gateHover&&performance.now()-S.prevAt>400){ A.preview(S.gateHover); S.prevAt=performance.now(); } }).catch(()=>{}); };
 ['pointerdown','pointerup','touchend','keydown'].forEach(ev=>addEventListener(ev,gateWake,{capture:true,passive:true}));
-/* Land and Fly leave the walk. On this site the gate goes over to that world's light first, so the change of page is not a
-   cut; when they live somewhere else they open in a tab of their own */
+/* Land leaves the walk. On this site the gate goes over to its light first, so the change of page is not a cut; when it
+   lives somewhere else it opens in a tab of its own */
 const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
   if(!sameSite(a.getAttribute('href')||'')) return;
-  e.preventDefault(); S.leaving=true; CYC.off=true; setHover(v,true); gate.style.setProperty('--out',v==='land'?'#EAF4F4':'#030305');
+  e.preventDefault(); S.leaving=true; CYC.off=true; setHover(v,true); gate.style.setProperty('--out','#EAF4F4');
   gate.classList.add('leaving'); A.leave(v); setTimeout(()=>location.assign(a.href),RM?120:820); });
-leaveTo($('#land'),'land'); leaveTo($('#untamed'),'fly');
-/* where the Fly way's black hole sits: behind the middle of the word, about as big as the letters are tall */
-let holeK=null; addEventListener('resize',()=>{ holeK=null; });
-UI.holeAt=()=>{ if(!holeK){ const r=$('#word').getBoundingClientRect(); holeK=[(r.left+r.width/2)/innerWidth,1-(r.top+r.height/2)/innerHeight,clamp(r.height*.62/innerHeight,.05,.11)]; } return holeK; };
-/* on a touch screen: Walk, Land and Fly in turn, slowly, each with its name lit, then a breath of the plain gate */
+leaveTo($('#land'),'land');
+/* on a touch screen: Walk and Land in turn, slowly, each with its name lit, then a breath of the plain gate */
 const CYC={off:FINE,i:-1,t:1.2};
 UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.t-=dt;
-  if(CYC.t<=0){ CYC.i=(CYC.i+1)%4; CYC.t=CYC.i===3?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land','fly',null][CYC.i],true); } };
+  if(CYC.t<=0){ CYC.i=(CYC.i+1)%3; CYC.t=CYC.i===2?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land',null][CYC.i],true); } };
 
-/* scroll moves between the three ways, one way per gesture, showing each one's world as it comes; so do a swipe on a
-   phone and the arrow keys. A click, a tap or Enter goes. (A trackpad goes on sending fading wheel events after the
-   fingers lift, so a new gesture is a quiet gap or a clear rise in strength; the rest is ignored) */
-const GW={last:0,peak:0,armed:true,acc:0}, ORDER=['walk','land','fly'];
+/* scroll moves between the two ways, one way per gesture, showing each one's world as it comes; so do a swipe on a phone
+   and the arrow keys. A click, a tap or Enter goes. (A trackpad goes on sending fading wheel events after the fingers
+   lift, so a new gesture is a quiet gap or a clear rise in strength; the rest is ignored) */
+const GW={last:0,peak:0,armed:true,acc:0}, ORDER=['walk','land'];
 const gateStep=d=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.off=true;
-  const i=ORDER.indexOf(S.gateHover); setHover(ORDER[i<0?0:clamp(i+d,0,2)]); };
+  const i=ORDER.indexOf(S.gateHover); setHover(ORDER[i<0?0:clamp(i+d,0,ORDER.length-1)]); };
 addEventListener('wheel',e=>{ if(S.mode!=='gate') return; e.preventDefault();
   const t=performance.now(), d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.2?e.deltaX:e.deltaY)*(e.deltaMode===1?18:e.deltaMode===2?innerHeight:1), ad=Math.abs(d), gap=t-GW.last; GW.last=t;
   if(gap>220||ad>GW.peak*1.7+6){ GW.armed=true; GW.acc=0; }
