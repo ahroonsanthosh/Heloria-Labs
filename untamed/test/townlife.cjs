@@ -19,7 +19,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       run(n) { for (let i = 0; i < n; i++) { h.S.t += 1 / 30; st.update(1 / 30, h.S.t); } },
       /* stepped until f() is true (or max frames); how many it took */
       until(src, max) { const f = (0, eval)('(' + src + ')'); let i = 0; for (; i < max && !f(d, T); i++) this.run(1); return i; },
-      put(x, z, fx, fz) { d.closeTalk(); d.people.forEach(q => { q.greeted = true; }); const P = d.player; P.x = x; P.z = z; P.u.copy(d.at(x, z)); const t = d.at(fx, fz); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); d.cam.tk = 0; d.cam.pitch = d.cam.PITCH; d.cam.dist = d.cam.D0(); P.tgt = null; P.path = null; P.speed = 0; T.TL.clearSkip = 3; },
+      put(x, z, fx, fz) { d.closeTalk(); d.people.forEach(q => { q.greeted = true; }); const P = d.player; P.x = x; P.z = z; P.u.copy(d.at(x, z)); const t = d.at(fx, fz); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); d.cam.tk = 0; d.cam.pitch = d.cam.PITCH; d.cam.dist = d.cam.D0(); P.tgt = null; P.path = null; P.speed = 0; T.TL.clearSkip = 8; },   // (put down beside the dog as it follows, it takes a few frames to trot clear: a visitor cannot appear out of nowhere like that)
       at(date, time, weather) { d.sky.set({ date, time, weather: weather || 'clear' }); d.sky.step(.2); this.run(2); return T.state; },
       calls: {},
     };
