@@ -119,7 +119,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       return { prims: prims.length, places: places.size, floors: TR.length, gens: gens.size, matched: geoGen.size };
     }
     /* whether a piece is drawn now (asked of its mesh, once per measurement) */
-    let VIS = new Map(); const MW0 = new Map(), fresh = () => { VIS = new Map(); };
+    let VIS = new Map(); const MW0 = new Map(), fresh = () => { VIS = new Map(); sc.updateMatrixWorld(); };   // (where everything is drawn this frame: a door swung open since the last is where it is now)
     /* (a piece of a mesh that has moved since it was read, a door swung open, is not where it was read: left out until read again) */
     const shown = q => { let v = VIS.get(q.m); if (v == null) VIS.set(q.m, v = visible(q.m) && q.m.matrixWorld.equals(MW0.get(q.m))); return v; };
     /* the floor under a point (x, z at height hh; p: the point in the world): the highest surface at or under it, the terrain or
@@ -261,10 +261,14 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       const seated = moved !== null && moved <= .004 && ud.legs.some(l => l.rotation.x < -.6), legs = [];   // (sitting: still, a thigh forward)
       /* each leg (a figure whose legs were merged into its body, as at the market's stalls: the whole of it, but its soft shadow) */
       const legsOn = ud.legs.filter(l => isUnder(l, f)), parts = legsOn.length ? legsOn : [f];
-      for (const l of parts) { let best = 1e9; const cand = [];
+      /* (a walking shoe is tipped by its leg's swing, so its sole is on the floor wherever it is lowest over the floor under it:
+         by its toe stepping up onto a step's nose, by its heel stepping down off one. The part of each leg looked at is the sole
+         as the leg tips it, from its lowest point up the sole's length times the tip, and 1.5 cm more; a shoe flat on the floor,
+         just its lowest 1.5 cm) */
+      for (const l of parts) { let best = 1e9; const cand = [], kn = ud.knees && ud.knees[ud.legs.indexOf(l)], tip = l === f ? 0 : Math.abs(Math.sin(l.rotation.x + (kn ? kn.rotation.x : 0))) * .216 * l.getWorldScale(v2).y;
         l.traverse(m => { if (!m.isMesh || !visible(m) || m.layers.mask === 2) return; const P = m.geometry.attributes.position.array; for (let i = 0; i < P.length; i += 3) { v3.fromArray(P, i).applyMatrix4(m.matrixWorld); cand.push(v3.dot(up), v3.x, v3.y, v3.z); } });
         let lo = 1e9; for (let i = 0; i < cand.length; i += 4) lo = Math.min(lo, cand[i]);
-        for (let i = 0; i < cand.length; i += 4) { if (cand[i] > lo + .015) continue; locOf(cand[i + 1], cand[i + 2], cand[i + 3], tmp); const fl = floorAt(tmp[0], tmp[1], tmp[2], null, [cand[i + 1], cand[i + 2], cand[i + 3]]); const c = tmp[2] - fl.h; if (c < best) best = c; }
+        for (let i = 0; i < cand.length; i += 4) { if (cand[i] > lo + .015 + tip) continue; locOf(cand[i + 1], cand[i + 2], cand[i + 3], tmp); const fl = floorAt(tmp[0], tmp[1], tmp[2], null, [cand[i + 1], cand[i + 2], cand[i + 3]]); const c = tmp[2] - fl.h; if (c < best) best = c; }
         legs.push(best); }
       const nm = nameOf(f) || 'someone', xz = locOf(pos.x, pos.y, pos.z, tmp);
       if (legs.length < 2) legs.push(legs[0]); return { f, who: nm, x: +xz[0].toFixed(2), z: +xz[1].toFixed(2), legs: legs.map(v => +v.toFixed(3)), low: +Math.min(...legs).toFixed(3), seated, moving: moved == null ? null : moved > .004 }; }
@@ -366,6 +370,9 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await G((g, d) => { d.sky.set({ time: '12:40' }); g.run(30); g.collect(); });
   walks.kerbs = await G((g, d) => { d.closeTalk(); g.put(-3.2, -12, -2, -5.6); g.run(2); const p = d.navPath(-3.2, -12, -2, -5.6, .3); d.player.path = p ? p.concat([[-2, -5.6]]) : [[-2, -5.6]]; d.player.stuck = 0; d.began();
     return g.trace(30 * 20, d => !d.player.path && !d.player.tgt); });
+  /* (the way from the pad to the pier goes round the town grows site and passes 2.3 m from Ahroon, who greets anyone he has not
+     met and so ends the walk; that is the game as meant, so he is met first. No other walk here passes within 3.8 m of him) */
+  await G((g, d) => { d.MET.add(0); });
   walks.pier = await G((g, d) => { if (!d.pier || !d.pier.PR) return null; const P = d.pier.PR, T_ = d.pier.TR; T_.next = T_.clk + 600; d.pier.trPlan(); g.put(-3.2, -12, P.Hc[0], P.Hc[1]); g.run(2);
     const p = d.navPath(-3.2, -12, P.Hc[0], P.Hc[1], 1.2); d.player.path = p ? p.concat([[P.Hc[0], P.Hc[1]]]) : null; d.player.stuck = 0; d.began(); return g.trace(30 * 40, d => !d.player.path && !d.player.tgt); });
   const PLACES = [['café', 'cafe', 'C'], ['lighthouse', 'lighthouse', 'L'], ['chipper', 'chipper', 'C'], ['pub', 'pub', 'P'], ['post office', 'po', 'P'], ['town hall', 'civic.inside', 'HSI', 'hall'], ['school', 'civic.inside', 'HSI', 'school'], ['workshop', 'garage', 'G']];
