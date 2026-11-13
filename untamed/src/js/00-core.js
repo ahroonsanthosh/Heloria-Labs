@@ -431,6 +431,37 @@ const A=(()=>{
         const o=oc.createOscillator(), a=oc.createGain(); o.type='sine'; o.frequency.setValueAtTime(118,t); o.frequency.exponentialRampToValueAtTime(74,t+.16);
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.55*w,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.22); o.connect(a); a.connect(dv); o.start(t); o.stop(t+.25);
         const s=oc.createBufferSource(), f=oc.createBiquadFilter(), g=oc.createGain(); s.buffer=sk; f.type='lowpass'; f.frequency.value=900+600*w; f.Q.value=.7; g.gain.value=.22*w; s.connect(f); f.connect(g); g.connect(dv); s.start(t); } }});
+  /* ---------- the lighthouse on Earth, inside (see the lighthouse, inside): the wind in the tower, the lens's motor, and the
+     sea below. Recordings, as the session is, each made the first time it is wanted (as you come near the lighthouse) and
+     played quietly. None is a bed of hiss: the wind is two low moans whose notes wander and swell with the gusts, the motor
+     a hum in narrow bands (noise, so two copies crossing never cancel) and the soft tick of its gear, the sea three swells a
+     period, a low wash with a brighter break over it ---------- */
+  const TWIND=loop({name:'tower-wind',sr:16000,P:10,H:2,ref:.035,ios:.025,gate:.25,tc:.9,tcOut:.9,make(oc){ const b=bus(oc,.4,.5), s=noiseSrc(oc);
+      [[300,7,1,1/3.3],[455,9,.6,1/5.2],[820,14,.22,1/7.4]].forEach(([f,q,g,r])=>{ const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q;
+        const lf=oc.createOscillator(), lg=oc.createGain(); lf.frequency.value=r; lg.gain.value=f*.16; lf.connect(lg); lg.connect(bp.frequency); lf.start(0);
+        const am=oc.createGain(), al=oc.createOscillator(), ag=oc.createGain(); am.gain.value=.55; al.frequency.value=r*.63; ag.gain.value=.42; al.connect(ag); ag.connect(am.gain); al.start(0);
+        const k=oc.createGain(); k.gain.value=this.ref*g*nb(oc,f,q)*.7; s.connect(bp); bp.connect(am); am.connect(k); k.connect(b.in); k.connect(b.rv); }); }});
+  const LHUM=loop({name:'lens-hum',sr:16000,P:7.44,H:1.5,ref:.022,ios:.016,gate:.25,tc:.6,tcOut:.6,make(oc,t0){ const b=bus(oc,.3,.3), s=noiseSrc(oc);
+      [[98,38,1],[196,38,.5],[294,32,.26],[392,28,.12]].forEach(([f,q,g])=>{ const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q; const k=oc.createGain(); k.gain.value=this.ref*g*nb(oc,f,q)*.55; s.connect(bp); bp.connect(k); k.connect(b.in); });
+      const end=oc.length/oc.sampleRate-.1; for(let t=t0+.2,k=0;t<end;t+=.62,k++){ const o=oc.createOscillator(), a=oc.createGain(); o.type='triangle'; o.frequency.value=k%2?1180:1560;
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(this.ref*.42,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+.035); o.connect(a); a.connect(b.in); o.start(t); o.stop(t+.05); } }});
+  const SEAW=loop({name:'sea-wash',sr:16000,P:12,H:2,ref:.04,ios:.03,gate:.25,tc:1,tcOut:1,make(oc){ const b=bus(oc,.3,.5), s=noiseSrc(oc), lp=oc.createBiquadFilter(), br=oc.createBiquadFilter(), e1=oc.createGain(), e2=oc.createGain(), L=oc.length/oc.sampleRate;
+      lp.type='lowpass'; lp.frequency.value=480; lp.Q.value=.6; br.type='bandpass'; br.frequency.value=1050; br.Q.value=.9;
+      const k1=oc.createGain(), k2=oc.createGain(); k1.gain.value=this.ref*nb(oc,480,.6,true)*.8; k2.gain.value=this.ref*nb(oc,1050,.9)*.3;
+      s.connect(lp); lp.connect(e1); e1.connect(k1); k1.connect(b.in); k1.connect(b.rv); s.connect(br); br.connect(e2); e2.connect(k2); k2.connect(b.in); k2.connect(b.rv);
+      let seed=71; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647; e1.gain.setValueAtTime(.25,0); e2.gain.setValueAtTime(0,0);
+      for(let t=0;t<L;){ const up=1.4+rnd()*.6, top=.75+rnd()*.25; e1.gain.linearRampToValueAtTime(top,t+up); e2.gain.setValueAtTime(0,t+up*.7); e2.gain.linearRampToValueAtTime(top*.9,t+up+.25);
+        e2.gain.linearRampToValueAtTime(0,t+up+1.6); e1.gain.linearRampToValueAtTime(.22+rnd()*.1,t+up+2.3); t+=up+2.3+rnd()*.5; } }});
+  /* ---------- the chipper on Earth (see the chipper): the fryer, a recording made the first time it is wanted (as you come
+     near the shop while it is open): small dry crackles, each a short burst rung in the middle of the range, and under them
+     the oil bubbling low; nothing above about 4 kHz ---------- */
+  const FRYL=loop({name:'fryer',sr:22050,P:6,H:1,ref:.03,ios:.022,gate:.25,tc:.5,tcOut:.6,make(oc){ const b=bus(oc,.2,.3), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0);
+      let seed=331; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+      for(let t=0;t<n/sr;t+=.004+rnd()*.012){ const i0=Math.floor(t*sr), N=Math.floor(sr*(.0015+rnd()*.005)), f=1700+rnd()*2100, w=2*Math.PI*f/sr, g=(.15+rnd()*.85)*(rnd()<.08?1.8:1);
+        for(let i=0;i<N&&i0+i<n;i++) d[i0+i]+=Math.sin(w*i)*(rnd()*2-1)*g*Math.exp(-i/(N*.35)); }
+      const s=oc.createBufferSource(), lp=oc.createBiquadFilter(), k=oc.createGain(); s.buffer=buf; lp.type='lowpass'; lp.frequency.value=4000; k.gain.value=this.ref*.9; s.connect(lp); lp.connect(k); k.connect(b.in); s.start(0);
+      const nz=noiseSrc(oc), bl=oc.createBiquadFilter(), bg=oc.createGain(), kb=oc.createGain(); bl.type='bandpass'; bl.frequency.value=240; bl.Q.value=2.5; kb.gain.value=this.ref*nb(oc,240,2.5)*.35;
+      bg.gain.setValueAtTime(.5,0); for(let t=0;t<n/sr;t+=.07+rnd()*.09) bg.gain.linearRampToValueAtTime(.25+rnd()*.75,t); nz.connect(bl); bl.connect(bg); bg.connect(kb); kb.connect(b.in); }});
   setInterval(soloEnd,100);
   let making=!!OAC;
   /* what you hear first as you land: Earth's music and the rocket's roar as it comes down */
@@ -668,7 +699,7 @@ const A=(()=>{
       else if(n.ten){ const t0=ctx.currentTime; n.teng.gain.cancelScheduledValues(t0); n.teng.gain.setTargetAtTime(0,t0,.08); try{ n.ten.stop(t0+.7); }catch(e){} n.ten=null; } },
     /* every continuous layer to silence (the score up high excepted: the white page carries it on), on the way to the white
        page and away from it */
-    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
+    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
     /* a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
@@ -982,6 +1013,31 @@ const A=(()=>{
     dartPull(){ if(!on||muted||!ctx) return; for(let k=0;k<3;k++){ const v=vr(.08); tone(1900*v,.018,.006,'triangle',0,k*.07+Math.random()*.02,0,.001); noise(.02,.004,2400*v,1200,'bandpass',1.4,k*.07); } },
     /* the session (see SESS): v how loud, 0 to 1, by how near the pub you are; made the first time it is asked for */
     pubSession(v){ v=clamp(v||0,0,1); SESS.want=v*SESS.ref; if(v>0&&!SESS.url&&!SESS.busy) render(SESS); },
+    /* ---------- the lighthouse on Earth, inside: the air in the tower (see TWIND, LHUM, SEAW: w the wind, h the motor, s the
+       sea, each 0 to 1; each made the first time it is asked for, or when near is set, as you come close); a footstep on an
+       iron tread; a gull ---------- */
+    lhAir(w,h,s,near){ const L=[[TWIND,w],[LHUM,h],[SEAW,s]]; for(const [r,v] of L){ const x=clamp(v||0,0,1); r.want=x*r.ref; if((x>0||near)&&!r.url&&!r.busy) render(r); } },
+    /* the cast-iron tread: a dull knock under the foot and the tread's short ring, two partials, as iron rings */
+    ironStep(g=.05){ if(!on||muted||!ctx) return; const v=vr(.06); tone(170*v,.12,g*.62,'sine',105*v); tone(1180*v,.11,g*.16,'triangle',0,0,.25,.001); tone(1180*v*2.72,.06,g*.06,'sine',0,0,.2,.001); noise(.05,g*.45,1700*v,700,'bandpass',1.6); },
+    /* a gull wheeling over the cliff: two or three falling cries, rough and nasal, from one side */
+    gull(p=0,g=.011){ if(!on||muted||!ctx) return; const o=this._skyOut(p,.35), n0=2+Math.floor(Math.random()*3), f0=1100+Math.random()*350; let t=ctx.currentTime+.02;
+      for(let k=0;k<n0;k++){ const os=ctx.createOscillator(), a=ctx.createGain(), bp=ctx.createBiquadFilter(), d=.15+Math.random()*.13; os.type='sawtooth'; bp.type='bandpass'; bp.frequency.value=f0*1.7; bp.Q.value=1.5;
+        os.frequency.setValueAtTime(f0*1.22,t); os.frequency.exponentialRampToValueAtTime(f0*.76,t+d); a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g,t+.02); a.gain.setValueAtTime(g*.8,t+d*.6); a.gain.exponentialRampToValueAtTime(.0001,t+d);
+        os.connect(bp); bp.connect(a); a.connect(o); os.start(t); os.stop(t+d+.03); t+=d+.06+Math.random()*.08; } },
+    /* ---------- the chipper on Earth: the fryer (see FRYL: v how loud, 0 to 1, made the first time it is asked for, or when
+       near is set), the till, the salt and the vinegar, and the paper ---------- */
+    chipFry(v,near){ v=clamp(v||0,0,1); FRYL.want=v*FRYL.ref; if((v>0||near)&&!FRYL.url&&!FRYL.busy) render(FRYL); },
+    /* the till: three keys pressed, its bell, and the drawer running out with a knock */
+    till(){ if(!on||muted||!ctx) return; for(let k=0;k<3;k++){ const v=vr(.08); tone(880*v,.025,.012,'triangle',0,k*.09,0,.001); noise(.02,.01,2600*v,1500,'bandpass',2,k*.09); }
+      [[2093,1],[2637,.55]].forEach(([f,a])=>{ tone(f,.85,.02*a,'sine',0,.32,.4,.002); tone(f*2.4,.28,.005*a,'sine',0,.32,.2,.002); });
+      noise(.22,.02,700,240,'lowpass',.8,.42); tone(118,.12,.028,'sine',78,.6); },
+    /* the salt shaken over the chips: three quick rattles of grains in the cellar */
+    shaker(g=.02){ if(!on||muted||!ctx) return; for(let k=0;k<3;k++){ const d=k*.16; noise(.07,g,5200,2600,'bandpass',1.4,d); noise(.04,g*.6,2400,1600,'bandpass',2,d+.05); } },
+    /* the vinegar: its shakes, then the hiss and spit as it lands on the hot chips */
+    vinegar(g=.02){ if(!on||muted||!ctx) return; for(let k=0;k<3;k++) noise(.05,g*.5,1400,900,'bandpass',2,k*.17); noise(.9,g*.55,3000,1700,'bandpass',.9,.25);
+      for(let k=0;k<6;k++) tone(300+Math.random()*250,.04,g*.25,'sine',500,.3+Math.random()*.6,0,.003); },
+    /* the paper: folded over and over round the chips, a crackle at each fold (k: how much) */
+    wrap(k=1){ if(!on||muted||!ctx) return; for(let i=0;i<4;i++){ const d=i*.22+Math.random()*.06; noise(.16,.016*k,3400,1500,'bandpass',.8,d); noise(.1,.01*k,1200,700,'bandpass',1,d+.04); } },
     /* ---------- the fire station on Earth: the bell rung for a drill, and the hose: the water let go with a gush, its
        patter on the forecourt while it runs, and a sputter as it is shut off. g how loud (eased for distance), p left or
        right. Soft, short and dark: water here is a patter of small knocks, never a hiss ---------- */

@@ -337,7 +337,7 @@ function buildTown(){
   const H=(x,z,o)=>house(x,z,yawTo(x,z,0,0),o);
   pubHouse(-13.3,-3.2,yawTo(-13.3,-3.2,0,0),{wall:'#f1e2c6',roof:'#c8664b'});   // the pub, The Rocket & Anchor (its door opens and there are darts: see the pub, at the end)
   poHouse(-13,3.8,yawTo(-13,3.8,0,0),{wall:'#cfe0e6',roof:'#4f6f8f'});   // the post office (its door opens: see the post office, at the end)
-  H(-5.8,13.6,{wall:'#f3d9c4',roof:'#9a5340',w:3.2,d:2.6});
+  chHouse(-5.8,13.6,yawTo(-5.8,13.6,0,0),{wall:'#f3d9c4',roof:'#9a5340'});   // the chipper, Lanzetti's (its shutter goes up at lunchtime: see the chipper, at the end)
   townHall(13.3,-3.4,yawTo(13.3,-3.4,0,0));   // the east side is civic: the town hall and the school (see them, before the workshop)
   schoolHouse(12.9,7.2,yawTo(12.9,7.2,0,0));
   fireHouse(-10.6,10.4,yawTo(-10.6,10.4,0,0),{});   // the fire station (its door rolls up by day, and there are drills: see the fire station, at the end)
@@ -360,14 +360,13 @@ function buildTown(){
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
   { const M=frameAt(PAD[0],PAD[1],0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); } obs(PAD[0],PAD[1],1.3,4.5); }
-  /* Pharos: a lighthouse on the cliff */
+  /* Pharos: a lighthouse on the cliff. Hollow, with a door at its foot, a stair, the keeper's room, and a lantern and gallery
+     big enough to stand in (see the lighthouse, inside, at the end); the beam starts in its lens */
   { const [x,z]=coastR(15,4.2,2.3); const M=frameAt(x,z,yawTo(x,z,0,0)); cyl(M,'#bdb5a8',0,0,0,1.15,.5); const mk=mark('ph',x,z,.5); kitTo('ph');
-    for(let k=0;k<6;k++) put(M,'tcyl',k%2?'#cf4a36':'#f4efe6',0,.5+k*.72+.36,0,.84-k*.06,.72,.84-k*.06);
-    cyl(M,'#3e4448',0,4.82,0,.92,.1); for(let k=0;k<14;k++){ const a=k/14*TAU; box(M,'#3e4448',Math.cos(a)*.86,4.92,Math.sin(a)*.86,.03,.36,.03); } cyl(M,'#3e4448',0,5.26,0,.88,.03);
-    cyl(M,'#e7f1ef',0,4.92,0,.5,.62); put(M,'cone','#cf4a36',0,5.54+.3,0,.66,.6,.66); put(M,'sph','#3e4448',0,6.2,0,.08,.08,.08);
+    lhShell(M,mk);
     const beam=new T.Mesh(new T.CylinderGeometry(.03,.36,6,12,1,true).rotateZ(Math.PI/2).translate(3,0,0),toonMat('#fff4c8',{op:.18,fresh:true})); beam.material.depthWrite=false; beam.layers.set(1);
-    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,5.2,0)); bg.add(beam); mk.g.add(bg); PH={beam,M,x,z,a:0,over:false,dr:drone('#f5f3ea')}; mk.g.add(PH.dr); kitTo();
-    INST.ph={x,z,h:6.7,r:7};
+    const bg=new T.Group(); bg.matrixAutoUpdate=false; bg.matrix.copy(sub(M,0,LHD.LAMP,0)); bg.add(beam); mk.g.add(bg); PH={beam,M,x,z,a:0,over:false,dr:drone('#f5f3ea')}; mk.g.add(PH.dr); kitTo();
+    INST.ph={x,z,h:8.5,r:7};
     /* (the keeper's cottage stood here, inside what is now the school's ground: its ground is kept as it was, so the trees
        and rocks round town grow where they always did; see the school) */
     const yy=yawTo(x,z,0,0), rr=Math.hypot(x,z), ix=-x/rr, iz=-z/rr; obsRect(x+ix*.6+iz*2.7,z+iz*.6-ix*2.7,yy,2.45,2.25,3.6); CIV.cot=OBS.slice(-2);
@@ -2199,13 +2198,13 @@ function steerUpdate(dt,t){ const nt=SKY.night;
     L.g.userData.light.material.uniforms.uC.value.setStyle(PHS.state==='lost'?((t*2)%1<.5?'#ff5a4a':'#5a1a16'):'#7dff9a',T.LinearSRGBColorSpace);
     L.ring.visible=PHS.state==='lock'; if(L.ring.visible){ const s=1+.25*Math.sin(PHS.st*20); L.ring.matrix.copy(M).multiply(Mf.makeScale(s/1.7,s/1.7,s/1.7)); L.ring.matrixAutoUpdate=false; L.ring.matrixWorldNeedsUpdate=true; } }
   /* by the lighthouse the button stays put: a step at the edge of its ground does not take it away under your hand for a moment */
-  const sb=!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!CAFE.on&&!HSI.on, near=PJ.id==='ph';   // (not from inside the school, next door)
+  const sb=!PHS.on&&!TALK.p&&!CUT.on&&!FIN.on&&GLN.t<0&&!CAFE.on&&!HSI.on&&!LHI.on&&LHI.st!=='go'&&!LHI.tagCan, near=PJ.id==='ph';   // (not from inside the school, next door, nor in the lighthouse or right at its door, where E takes you in)
   PHS.btnT=sb&&near?.7:Math.max(0,(PHS.btnT||0)-dt); steerBtn.hidden=!(sb&&PHS.btnT>0); }
 /* the camera up behind the lamp, looking out along the beam; handing back to the walking camera smoothly */
 function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002) return;
   const Lp=V.set(0,0,0).applyMatrix4(PHS.bgW), U=V3.copy(Lp).normalize(), Dh=V2.set(Math.cos(PHS.yaw),0,-Math.sin(PHS.yaw)).transformDirection(PHS.bgW);
   const pk=innerHeight>innerWidth?1.35:1;   // a phone held upright stands further back
-  V4.copy(Lp).addScaledVector(Dh,-2.4*pk).addScaledVector(U,3.6*pk); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,11).addScaledVector(U,-5.5); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);   // up over the gallery, looking out and down along the beam
+  V4.copy(Lp).addScaledVector(Dh,-3.3*pk).addScaledVector(U,4.6*pk); PHS.cp.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1); V4.copy(Lp).addScaledVector(Dh,11).addScaledVector(U,-6.5); PHS.cl.lerp(V4,PHS.k>.98?1-Math.exp(-6*dt):1);   // up over the gallery, looking out and down along the beam (far enough back that the lantern's roof, big enough to stand under, takes no more of the view than it did)
   st.camP.lerp(PHS.cp,PHS.k); st.camL.lerp(PHS.cl,PHS.k); stUp.lerp(U,PHS.k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(PHS.k>.5) LU.uPly.value.copy(st.camP); S.stSnap=true; }
 /* ---------- postcards ----------
    The camera in the corner frames whatever you are looking at; take it and it comes out as a postcard: your view inside a
@@ -2280,7 +2279,7 @@ function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H
     pcCard.hidden=false; PC.busy=false; A.chime(7,0,.03); },'image/jpeg',.92); }
 pcShare.addEventListener('click',async e=>{ e.stopPropagation(); if(!PC.blob) return; try{ await navigator.share({files:[new File([PC.blob],'heloria-postcard.jpg',{type:'image/jpeg'})],title:'A postcard from Heloria',text:'Greetings from Earth. helorialabs.com'}); }catch(err){} });
 /* the camera button is there while you are out walking, not in the middle of a conversation, a landing or the launch */
-function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on)) pcOpen(false); }   // (none inside the café, the workshop, the post office, the town hall or the school: the room has its own things to do)
+function pcUpdate(){ const ok=started&&!CUT.on&&!FIN.on&&!TALK.p&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&!LHI.on&&!CHP.on&&pcCard.hidden; pcBtn.hidden=!(ok||PC.on); if(PC.on&&(CUT.on||FIN.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||LHI.on||CHP.on)) pcOpen(false); }   // (none inside the café, the workshop, the post office, the town hall, the school, the pub, the lighthouse or the chipper: the room has its own things to do)
 /* ---------- inside the café ----------
    The café is a room you can go into. Walk up to its door (or tap the café, or Go in for a coffee by it): the door swings
    open, the camera comes down behind you to eye height and through the doorway, and you are standing at the counter.
@@ -2538,7 +2537,7 @@ function cafeRest(){ const B=CAFE.bar; [B.x,B.z]=BP.home; B.fx=B.x; B.fz=B.z; B.
 let ESCQ=0;
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||e.code!=='Escape') return; if(e.repeat||performance.now()-ESCQ<2500){ e.preventDefault(); e.stopImmediatePropagation(); } },true);
 function cset(s){ if(s==='out'&&CAFE.st==='exit') ESCQ=performance.now(); CAFE.st=s; CAFE.on=s==='enter'||s==='in'||s==='exit'; CAFE.t=0; el.classList.toggle('incafe',CAFE.on); if(CAFE.cur){ CAFE.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } cafeUI(); }
-const cbusy=()=>!CAFE.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0;
+const cbusy=()=>!CAFE.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||LHI.on||CHP.on;
 /* where you are and which way you face, in the café's frame */
 function cafeYou(){ const P=player; clocal(cV.copy(P.u).multiplyScalar(R+P.h),CAFE.pl); cV2.copy(P.f).transformDirection(CAFE.Mi); return {x:CAFE.pl.x,z:CAFE.pl.z,fz:cV2.z}; }
 const cafeAtDoor=(m=1)=>{ const y=cafeYou(); return Math.abs(y.x)<.62*m&&y.z>1.5&&y.z<2.8+(m-1)*.6; };
@@ -3039,7 +3038,7 @@ const G_IN=.8, G_HOLD=2.05, G_OUT=.7;   // the flight over, the look at him, the
 function openInvite(){ AH.asked=true; openTalk(people[0],0,INVITE); }
 function ahroonHome(){ const a=people[0]; if(!a) return; [a.x,a.z]=AHR; a.dir=at(a.x,a.z); if(a.ob){ a.ob.x=a.x; a.ob.z=a.z; } a.walk=0; GLN.t=-1; AH.asked=false; AH.st=allMet()?'wait':'home'; AH.t=allMet()?1.2:0; }
 function ahroonCome(){ const a=people[0]; AH.st='come'; AH.chk=0; AH.rp=0; AH.path=null; AH.lx=a.x; AH.lz=a.z; }
-function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on){ a.walk=0; return; }
+function ahroonUpdate(dt){ const a=people[0], P=player; if(!a) return; if(FIN.on||CUT.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||LHI.on||CHP.on){ a.walk=0; return; }
   const d=Math.hypot(P.x-a.x,P.z-a.z);
   if(AH.st==='wait'){ a.walk=0; if(TALK.p) return; AH.t-=dt; if(AH.t>0) return;
     if(d<7){ AH.st='here'; a.wave=2; openInvite(); return; }   // close enough: he just asks
@@ -3243,7 +3242,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   let iz=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0), ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0), mag=1;
   if(down&&down.touch&&down.moved){ ix=down.ix; iz=down.iz; mag=Math.min(1,Math.hypot(ix,iz)); if(mag<.15){ ix=iz=0; } }
   if(GLN.t>=0){ ix=iz=0; P.tgt=null; }   // while the camera looks at Ahroon, you wait
-  if(PHS.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, the workshop, the post office, the town hall, the school or the pub), you stay put
+  if(PHS.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||LHI.on||CHP.on){ ix=iz=0; P.tgt=null; }   // holding the light (or in the café, the workshop, the post office, the town hall, the school, the pub, the lighthouse or the chipper), you stay put
   const run=keys.has('ShiftLeft')||keys.has('ShiftRight');
   /* talking, you stay put. To walk off, let go of the keys (or the stick) and set off again, and keep going a moment */
   if(TALK.p){ const mv=!!(ix||iz), stick=!!(down&&down.touch&&down.moved), sig=stick?'stick':Math.sign(ix)+','+Math.sign(iz);
@@ -5020,7 +5019,7 @@ async function buildCivIn(gap){ hiBookLoad(); hiBuildHall(); await gap(); hiBuil
 function hiWarmShow(on){ const H=HSI.hall, Sc=HSI.school; H.g.visible=H.kg.visible=Sc.g.visible=on; hiInLeaves(H,on); hiInLeaves(Sc,on); Sc.kids.forEach(k=>{ k.f.visible=on; }); }
 
 /* ---------- where you are, and the way over ---------- */
-const hiBusy=()=>!HSI.ok||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||CL.st!=='idle'||CL.k!=='home'||PC.on;
+const hiBusy=()=>!HSI.ok||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||CL.st!=='idle'||CL.k!=='home'||PC.on||LHI.on||CHP.on;
 function hiYou(B){ const P=player; hiV1.copy(P.u).multiplyScalar(R+P.h).applyMatrix4(B.Mi); hiV2.copy(P.f).transformDirection(B.Mi); return {x:hiV1.x,z:hiV1.z,fx:hiV2.x,fz:hiV2.z}; }
 function hiSet(s){ if(s==='out'&&HSI.st==='exit') ESCQ=performance.now(); HSI.st=s; HSI.on=s!=='out'&&s!=='go'; HSI.t=0; el.classList.toggle('inciv',HSI.on); el.classList.toggle('incivk',s==='clock');
   const B=HSI[HSI.b]; hiOut.hidden=s!=='in'; hiDownB.hidden=s!=='clock'; if(B) hiOut.textContent=B.id==='hall'?'Leave the town hall':'Leave the school';
@@ -5853,7 +5852,7 @@ function garUniforms(t){ const nt=SKY.night, day=1-nt, L=GU.uGL.value, lit=(GAR.
 
 /* ---------- where you are, and going over ---------- */
 function garYou(){ const P=player; wsL(gV.copy(P.u).multiplyScalar(R+P.h),GAR.pl); gV2.copy(P.f).transformDirection(GAR.Mi); return {x:GAR.pl.x,z:GAR.pl.z,fz:gV2.z,fx:gV2.x}; }
-const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||HSI.on||CL.st!=='idle'||CL.k!=='home';
+const garBusy=()=>!GAR.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||HSI.on||CL.st!=='idle'||CL.k!=='home'||LHI.on||CHP.on;
 const garNear=()=>GAR.da<2.6&&GAR.you.z>GW.d/2+.15;
 function garSet(s){ if(s==='out'&&GAR.st==='exit') ESCQ=performance.now(); GAR.st=s; GAR.on=s==='enter'||s==='in'||s==='exit'; GAR.t=0; el.classList.toggle('ingar',GAR.on); garOut.hidden=s!=='in'; if(GAR.cur){ GAR.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } }
 /* the tag, a click, E: up if it is down, in if it is up; from further off you walk over first */
@@ -6428,7 +6427,7 @@ function poCardDraw(img,stamped){ const cv=PO.ccv, port=img.height>img.width;
 
 /* ---------- where you are, and going over ---------- */
 function poYou(){ const P=player; poL(poV.copy(P.u).multiplyScalar(R+P.h),PO.pl); poV2.copy(P.f).transformDirection(PO.Mi); return {x:PO.pl.x,z:PO.pl.z,fz:poV2.z,fx:poV2.x}; }
-const poBusy=()=>!PO.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PUB.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden;
+const poBusy=()=>!PO.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PUB.on||LHI.on||CHP.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden;
 const poAtDoor=(m=1)=>{ const y=PO.you; return Math.abs(y.x-PW.DX)<.55*m&&y.z>PW.d/2+.15&&y.z<PW.d/2+1.25+(m-1)*.8; };
 const poAtBox=()=>PO.db<1.15&&PO.you.z>PW.d/2+.3;
 function poSet(s){ if(s==='out'&&PO.st==='exit') ESCQ=performance.now(); PO.st=s; PO.on=s==='enter'||s==='in'||s==='exit'; PO.t=0; el.classList.toggle('inpo',PO.on); if(PO.cur){ PO.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } poUI(); }
@@ -7127,7 +7126,7 @@ function pfTufts(M,x0,x1,z0,z1){ const gr=sc.children.find(o=>o.isInstancedMesh&
 
 /* ---------- where you are, and going over ---------- */
 function pbYou(){ const P=player; pbL(pbV.copy(P.u).multiplyScalar(R+P.h),PUB.pl); pbV2.copy(P.f).transformDirection(PUB.Mi); return {x:PUB.pl.x,z:PUB.pl.z,fz:pbV2.z,fx:pbV2.x}; }
-const pbBusy=()=>!PUB.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PO.on||PO.st!=='out'||PO.bx.st!=='idle'||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden;
+const pbBusy=()=>!PUB.g||!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PO.on||PO.st!=='out'||PO.bx.st!=='idle'||LHI.on||CHP.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden;
 const pbAtDoor=(m=1)=>{ const y=PUB.you; return Math.abs(y.x-PB.DX)<.55*m&&y.z>PB.d/2+.15&&y.z<PB.d/2+1.25+(m-1)*.8; };
 function pbSet(s){ if(s==='out'&&PUB.st==='exit') ESCQ=performance.now(); PUB.st=s; PUB.on=s==='enter'||s==='in'||s==='exit'; PUB.t=0; el.classList.toggle('inpub',PUB.on); if(PUB.cur){ PUB.cur=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } pbUI(); }
 /* go in: from by the door straight away, from further off walking over there first (round whatever is in the way) */
@@ -7754,7 +7753,7 @@ function fsReset(){ FS.dr='idle'; FS.dt=0; FS.flow=0; FS.on0=FS.off0=-1e9; FS.li
 function fsPick(e){ if(!FS.pickE||FS.door<.9) return null; fsNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); fsRay.setFromCamera(fsNdc,stCam);
   if(stCam.position.distanceTo(FS.c0)>26||fsL(stCam.position,fsV).z<FW.cz+FW.d/2-.1) return null;
   if(FS.ff.some(q=>q.f.visible&&fsRay.intersectObject(q.pick,false).length)) return 'crew'; return fsRay.intersectObject(FS.pickE,false).length?'engine':null; }
-const fsFree=()=>S.st===st&&S.mode==='station'&&!FIN.on&&!CUT.on&&!TALK.p&&!PUB.on&&!PO.on&&!CAFE.on&&!GAR.on&&!PHS.on&&!PC.on&&pcCard.hidden&&GLN.t<0;
+const fsFree=()=>S.st===st&&S.mode==='station'&&!FIN.on&&!CUT.on&&!TALK.p&&!PUB.on&&!PO.on&&!CAFE.on&&!GAR.on&&!PHS.on&&!LHI.on&&!CHP.on&&!PC.on&&pcCard.hidden&&GLN.t<0;
 { const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&FS.g&&fsFree()) FS.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse'}; return op.call(this,e); }; }
 addEventListener('pointermove',e=>{ const tp=FS.tap; if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
   if(e.pointerType!=='mouse'||!FS.g||!fsFree()||down||hov||PUB.cur||PO.cur) return; const pk=FS.dr==='idle'?fsPick(e):null, ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return;
@@ -8989,4 +8988,900 @@ st._dbg.homes={HM,WB,hmWant,hmFire,wbRead,wbSigns,greet(){ PO.seen=false; poGree
     wins:HM.wins.map(w=>({role:w.role,k:+w.k.toFixed(2),sil:+w.sil.toFixed(2)})),lit:HM.wins.filter(w=>w.k>.4).length,puffs:HM.puffs,
     lines:HM.lines.map(L=>({x:+L.x.toFixed(2),z:+L.z.toFixed(2),out:L.items.filter(it=>it.k>.5).length,n:L.items.length,lean:+(L.lean||0).toFixed(2)})),back:WB.back,n:WB.n,err:HM.err||null}; }};
 /* ===================== (the homes end here) ===================== */
+
+/* ===================== the lighthouse inside, and the chipper: what the two share =====================
+   Two more places you walk into, made the pub's way (see the pub): built with the town and hidden until you go in, drawn
+   once behind the loader so going in compiles nothing new, lit by the café's own shaders with four lamps of their own, and
+   inked as the town is. What the two do the same is here: where a point of the building is in the world, going over to the
+   door, the way in and the way out (the door swings, the camera comes down behind you into your own eyes, and back out
+   onto the pavement, the walking camera taking over where this one ends), the camera handed over and back, the tag over the
+   door, the clicks, drags and keys, and putting it all back. Each building's own things follow it */
+const wiV=new T.Vector3(), wiV2=new T.Vector3(), wiV3=new T.Vector3(), wiV4=new T.Vector3(), wiM=new T.Matrix4(), wiM2=new T.Matrix4(), wiRay=new T.Raycaster(), wiNdc=new T.Vector2();
+const wiW=(B,x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(B.M);   // a point in the building's frame (x across, y up, z out to the street), in the world
+const wiD=(B,x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(B.M);
+const wiL=(B,w,o=new T.Vector3())=>o.copy(w).applyMatrix4(B.Mi);
+const wiXZ=(B,x,z)=>loc(wiW(B,x,0,z,wiV4).normalize());   // on the town's map
+/* a building's room: what it is doing (st: out, go, enter, in, exit), its camera, its door, and its light (as the café's) */
+function wiRoom(o){ const B=Object.assign({st:'out',on:false,k:0,t:0,g:null,meshes:[],warm:true,err:null,yaw:0,pitch:0,lean:0,dragT:9,drag:null,tap:null,kb:false,cur:false,touchy:false,visits:0,
+  cp:new T.Vector3(),cl:new T.Vector3(),cu:new T.Vector3(0,1,0),up:new T.Vector3(0,1,0),pl:new T.Vector3(),u0:new T.Vector3(),curve:null,lcurve:null,wIn:null,fig:[0,0],fh:0,fph:0,fstep:0,go:0,out:0,mk:0,fk:0,nr:false,
+  door:0,doorV:0,doorT:0,shut:0,dOpen:0,you:{x:0,z:9,fz:0,fx:0},dd:99,tagOn:false,tagCan:false,dIn:{value:0},m:{},
+  U:{uCL:{value:[0,1,2,3].map(()=>new T.Vector4(0,-99,0,0))},uCU:{value:new T.Vector3(0,1,0)},uNr:{value:.12},uDim:{value:1}}},o);
+  B.ink=new T.ShaderMaterial({uniforms:B.U,vertexShader:TOON_V(),side:T.DoubleSide,fragmentShader:CINK.fragmentShader}); WI.push(B); return B; }
+const WI=[];
+/* the room's materials: the café's, with this room's lamps (uIn: a door's, the town's light outside and the room's in) */
+const wiMat=(B,uIn)=>new T.ShaderMaterial({uniforms:Object.assign({uC:{value:new T.Color(1,1,1)},uIn:uIn||{value:1}},LU,B.U),vertexShader:TOON_V(),fragmentShader:CAFE_F,vertexColors:true,side:T.DoubleSide});
+const wiBoard=(B,tx)=>new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx}},LU,B.U),vertexShader:TOON_V(true),fragmentShader:BOARD_F});
+/* a mesh of the room's, inked as the room is */
+function wiAdd(B,m,par=B.g,ink=true){ m.matrixAutoUpdate=false; m.frustumCulled=false; par.add(m); B.meshes.push(m); if(ink) wiInked(B,m); return m; }
+function wiInked(B,m){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=B.ink; m.userData.shdM=m.material; INK.push(m); return m; }
+/* a figure in the room's light (all of it but its soft shadow), inked as the room is */
+function wiFigure(B,f,mat){ f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=mat; o.frustumCulled=false; wiInked(B,o); B.meshes.push(o); }); B.g.add(f); return f; }
+/* a quad in the room, its corners in the building's frame */
+const wiQuad=(B,a,b,c,d,col)=>{ const p=[a,b,c,d].map(q=>wiW(B,...q)); wiV3.subVectors(p[1],p[0]).cross(wiV2.subVectors(p[2],p[0])).normalize(); kquad(p[0],p[1],p[2],p[3],wiV3.clone(),col); };
+/* what a tap finds (a box in the building's frame, never drawn) */
+const wiHit=(B,w,h,d,x,y,z,ry=0)=>{ const m=new T.Mesh(new T.BoxGeometry(w,h,d)); m.matrixAutoUpdate=false; m.matrixWorld.copy(B.M).multiply(wiM.makeRotationY(ry).setPosition(x,y,z)); return m; };
+
+/* ---------- where you are, and going over ---------- */
+function wiYou(B){ const P=player; wiL(B,wiV.copy(P.u).multiplyScalar(R+P.h),B.pl); wiV2.copy(P.f).transformDirection(B.Mi); return {x:B.pl.x,z:B.pl.z,fz:wiV2.z,fx:wiV2.x}; }
+/* by the door: in front of it, near enough (DZ: from, to, and how much further a looser test reaches) */
+const wiAtDoor=(B,m=1)=>{ const y=B.you, z=B.DZ; return Math.abs(y.x-B.DX)<.55*m&&y.z>z[0]&&y.z<z[1]+(m-1)*z[2]; };
+function wiSet(B,s){ if(s==='out'&&B.st==='exit') ESCQ=performance.now(); B.st=s; B.on=s!=='out'&&s!=='go'; B.t=0; el.classList.toggle(B.cls,B.on); if(wiCurOn){ wiCurOn=false; const ce=$('#cur'); if(ce) ce.classList.remove('big'); } B.ui(); }
+/* go in: from by the door straight away, from further off walking over there first (round whatever is in the way) */
+function wiGo(B){ if(B.st!=='out'||B.busy()||!B.open()) return false; if(wiAtDoor(B,1.4)){ began(); wiEnter(B); return true; }
+  const P=player, [gx,gz]=wiXZ(B,...B.AP), path=navPath(P.x,P.z,gx,gz,1.2);
+  closeTalk(); TALK.goal=null; C.guide=null; if(path){ P.path=path.concat([[gx,gz]]); P.tgt=null; } else { P.path=null; P.tgt=at(gx,gz).multiplyScalar(R); } P.stuck=0; B.go=0; wiSet(B,'go'); began(); A.tick(); return true; }
+function wiGoing(B,dt){ const P=player; B.go+=dt;
+  if(B.busy()||TALK.goal||B.go>25||!B.open()){ wiSet(B,'out'); return; }
+  if(wiAtDoor(B,1.2)&&(!P.path||P.path.length<=1)){ P.path=null; P.tgt=null; wiEnter(B); return; }
+  if(!P.path&&!P.tgt) wiSet(B,'out'); }
+/* out in the street: walking into the door takes you in */
+function wiOutside(B){ const P=player, y=B.you; if(!B.busy()&&B.open()&&!TALK.goal&&!P.path&&P.speed>.35&&Math.abs(y.x-B.DX)<.42&&y.z>B.DZ[0]&&y.z<B.DZ[1]+.25&&y.fz<-.55) wiEnter(B); }
+
+/* ---------- the way in and the way out (as the pub's) ---------- */
+function wiDir(B,yaw,pitch,o){ return wiD(B,-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch),o); }   // yaw 0 looks in from the door
+const wiYawTo=(x0,z0,x,z)=>Math.atan2(-(x-x0),-(z-z0));
+const wiGround=(B,x,z)=>{ const [mx,mz]=wiXZ(B,x,z); return wiL(B,at(mx,mz,wiV3).multiplyScalar(R+standH(mx,mz)),wiV3).y; };
+/* you, walking in or out: your figure on the building's floor (or its steps), turning the way you go, a step at each stride */
+function wiFig(B,dt,t,x,z,sp){ const [ox,oz]=B.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); B.fig=[x,z];
+  if(dd>1e-4){ const a=angWrap(Math.atan2(dx,dz)-B.fh); B.fh+=a*Math.min(1,dt*9); }
+  const [mx,mz]=wiXZ(B,x,z), y=B.figY(x,z); wiW(B,x,y,z,wiV); if(z<B.F0) wiV2.copy(B.up); else at(mx,mz,wiV2); wiD(B,Math.sin(B.fh),0,Math.cos(B.fh),wiV3);
+  sT.crossVectors(wiV2,tang(wiV2,wiV3,wiV3)).normalize(); Mf.makeBasis(sT,wiV2,wiV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(wiV);
+  B.fph+=dt*sp*4.6; animate(me,B.fph,clamp(sp/2.7,0,1),0,t,9); B.fstep+=sp*dt; if(B.fstep>.62){ B.fstep=0; B.stepSnd(x,z,mx,mz); } }
+function wiEnter(B){ if(B.on||B.busy()||!B.open()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
+  const y=wiYou(B); B.fig=[y.x,y.z]; B.fh=Math.atan2(wiV2.x,wiV2.z); B.fph=P.ph; B.fstep=0; B.yaw=B.yaw0; B.pitch=cport()?B.pP:B.p0; B.lean=0; B.dragT=9; B.out=0; B.go=0;
+  B.onEnter(); const E_=B.eye(new T.Vector3()); B.wIn=[B.fig.slice(),...B.wayIn];
+  B.curve=new T.CatmullRomCurve3([st.camP.clone(),...B.camIn.map(p=>wiW(B,...p)),E_],false,'centripetal');
+  B.lcurve=new T.CatmullRomCurve3([st.camL.clone(),...B.lookIn.map(p=>wiW(B,...p)),E_.clone().add(wiDir(B,B.yaw,B.pitch,wiV3))],false,'centripetal');
+  B.u0.copy(stUp); B.k=1; B.dOpen=0; me.visible=true; B.visits++; wiSet(B,'enter'); return true; }
+function wiWayIn(B,dt,t){ const c=B.t+=dt, T_=B.IN, wk=sstep(0,T_-.5,c), [x,z,L]=cpoly(B.wIn,wk), sp=L*6*wk*(1-wk)/(T_-.5);
+  if(c>.35&&!B.dOpen){ B.dOpen=1; B.doorT=1; B.sndDoor(true); } if(c>T_-.65&&B.doorT===1){ B.doorT=0; B.shut=1; }
+  const s=E.io(clamp(c/(T_-.1),0,1)); B.curve.getPointAt(s,B.cp); B.lcurve.getPointAt(Math.min(1,s*1.04),B.cl); B.cu.copy(B.u0).lerp(B.up,sstep(.2,.8,s)).normalize();
+  if(me.visible){ wiFig(B,dt,t,x,z,sp); if(c>1.2&&me.position.distanceTo(B.cp)<.85||c>T_-.4) me.visible=false; }
+  B.onWayIn(c); if(c>=T_){ B.wIn=null; B.curve=B.lcurve=null; wiSet(B,'in'); B.onIn(); } }
+function wiLeave(B){ if(B.st!=='in'||!B.canLeave()) return false; B.onLeave(); const P=player, [ax,az]=wiXZ(B,...B.AP); closeTalk();
+  P.x=ax; P.z=az; P.u.copy(at(ax,az)); tang(P.u,wiW(B,B.AP[0],0,9,wiV),P.f); P.h=standH(ax,az); P.speed=0; P.path=null; P.tgt=null;
+  const D=rigLimit(ax,az,P.u,P.f,C.PITCH,C.D0()), head=wiV.copy(P.u).multiplyScalar(R+P.h+C.HEAD); B.endP=new T.Vector3(); B.endL=new T.Vector3(); rigPose(head,P.u,P.f,C.PITCH,D,B.endP,B.endL); B.endD=D;
+  B.y0=B.yaw; B.p0x=B.pitch; B.curve=null; B.fig=B.S.slice(); B.fh=Math.atan2(B.DX-B.S[0],B.F0-B.S[1]); B.dOpen=0; wiSet(B,'exit'); return true; }
+function wiWayOut(B,dt,t){ const c=B.t+=dt, P=player, TO=B.OUT;
+  if(c<.6){ const k=E.io(c/.6), to=wiYawTo(B.S[0],B.S[1],B.DX,B.F0); B.yaw=B.y0+angWrap(to-B.y0)*k; B.pitch=lerp(B.p0x,-.06,k); B.lean=0; B.eye(B.cp); wiDir(B,B.yaw,B.pitch,wiV).add(B.cp); B.cl.copy(wiV); B.cu.copy(B.up); }
+  else { if(!B.curve){ B.curve=new T.CatmullRomCurve3([B.cp.clone(),...B.camOut.map(p=>wiW(B,...p)),B.endP.clone()],false,'centripetal'); B.lc0=B.cl.clone(); }
+    const s=E.io(clamp((c-.6)/(TO-.65),0,1)); B.curve.getPointAt(s,B.cp); wiV4.copy(me.position).addScaledVector(B.up,1.2);
+    B.cl.copy(B.lc0).lerp(wiV4,sstep(0,.3,s)).lerp(B.endL,sstep(.45,1,s)); B.cu.copy(B.up).lerp(P.u,s).normalize(); }
+  if(c>.3&&!B.dOpen){ B.dOpen=1; B.doorT=1; B.sndDoor(true); } if(c>TO-.65&&B.doorT===1){ B.doorT=0; B.shut=1; }
+  const u=clamp((c-.3)/(TO-.7),0,1), wk=u*u*(3-2*u), [x,z,L]=cpoly([B.S,...B.wayOut],wk), sp=L*6*u*(1-u)/(TO-.7);
+  if(c>.3){ me.visible=true; wiFig(B,dt,t,x,z,sp); }
+  if(c>=TO){ const [mx,mz]=wiXZ(B,...B.AP); P.x=mx; P.z=mz; P.u.copy(at(mx,mz)); tang(P.u,wiW(B,B.AP[0],0,9,wiV),P.f); P.h=standH(mx,mz); P.ph=B.fph;
+    C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.dist=B.endD; C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dragT=9; C.tk=0; stUp.copy(P.u);
+    B.curve=null; wiSet(B,'out'); B.cp.copy(B.endP); B.cl.copy(B.endL); B.cu.copy(P.u); me.visible=true; B.onOut(); } }
+
+/* ---------- each frame, after the town has moved you and placed its camera: the door, the camera, the lens, the music ---------- */
+function wiStep(B,dt,t){ if(!B.g) return false;
+  if(FIN.on||CUT.on){ if(B.st!=='out'||B.k>0||B.g.visible||B.door>.001) wiReset(B); wiTag(B,false); B.quiet(); return false; }
+  B.you=wiYou(B); B.dd=Math.hypot(B.you.x-B.DX,B.you.z-B.AP[1]);
+  if(B.st==='go') wiGoing(B,dt); else if(B.st==='enter') wiWayIn(B,dt,t); else if(B.st==='exit') wiWayOut(B,dt,t); else if(B.st==='in') B.inside(dt,t); else wiOutside(B);
+  const vis=B.warm||B.on; if(B.g.visible!==vis) B.g.visible=vis;
+  /* (the first time, behind the loader, or the first frame on Earth if it is made after: drawn once, then only while you are in) */
+  if(B.warm&&S.ready){ B.warm=false; B.cull(true); }
+  /* the door on its hinge: swung open by you (a spring, a little overshoot), shut behind you with its knock */
+  const dk=B.doorT*1.5; B.doorV+=((dk-B.door)*36-B.doorV*8.5)*dt; B.door+=B.doorV*dt;
+  if(B.shut&&B.door<.03&&B.doorT===0){ B.shut=0; B.door=0; B.doorV=0; B.sndDoor(false); }
+  if(Math.abs(B.door)>1e-4||B.doorV) B.doorPose();
+  B.dIn.value=B.on?1:0;
+  /* the camera: this one while you are in here (and on the way in and out), handed back smoothly after */
+  if(!B.on) B.k=damp(B.k,0,7,dt);
+  if(B.k>.001){ const k=B.on?1:B.k; st.camP.lerp(B.cp,k); st.camL.lerp(B.cl,k); stUp.lerp(B.cu,k).normalize(); stCam.up.copy(stUp); UPU.value.copy(stUp); if(B.on) LU.uPly.value.copy(st.camP); S.stSnap=true; }
+  /* a wider lens in here, eased in and out with you */
+  B.fk=B.st==='enter'?sstep(.15,.95,B.t/B.IN):B.st==='exit'?1-sstep(.25,.9,B.t/B.OUT):B.on?1:0;
+  if(B.fk>.001){ const fv=lerp(stCam.fov,B.fov(),B.fk); if(Math.abs(stCam.fov-fv)>.01){ stCam.fov=fv; stCam.updateProjectionMatrix(); } }
+  const nr=B.on?.02:.1; if(B.on||B.nr){ B.nr=B.on; if(stCam.near!==nr){ stCam.near=nr; stCam.updateProjectionMatrix(); } }
+  /* no rain in here; the town's music quieter */
+  if(B.st==='in'&&FALL&&!B.outdoors()) FALL.visible=false;
+  B.mk=damp(B.mk,B.st==='in'?1:B.on?.6:0,2.5,dt); if(B.mk>.002) A.music(.55*(1-.42*B.mk));
+  wiTag(B,true); return true; }
+/* back to how it was: entering or leaving Earth, the launch scene, the end of the last flight */
+function wiReset(B,leaving){ const was=B.on||B.k>0; if(leaving&&B.warm){ B.warm=false; B.cull(true); }
+  B.onReset(); B.drag=B.tap=null; B.curve=B.lcurve=null; B.wIn=null; B.k=0; B.mk=0; B.out=0; B.door=B.doorV=B.doorT=0; B.shut=0; B.dIn.value=0; B.doorPose(); if(B.g) B.g.visible=false; wiSet(B,'out');
+  if((was||B.nr)&&stCam.near!==.1){ stCam.near=.1; stCam.updateProjectionMatrix(); } B.nr=false; B.fk=0; if(me&&!FIN.on&&!CUT.on&&was) me.visible=true; wiTag(B,false); }
+
+/* ---------- the tag over the door, the buttons, clicks, drags and keys ---------- */
+function wiTag(B,live){ let on=false, can=false; const tg=B.tag;
+  if(live&&B.M&&started&&B.st==='out'&&!B.busy()&&B.you.z>B.F+.15&&B.dd<7){ const v=wiW(B,B.DX,cport()?B.tagY[0]:B.tagY[1],B.tagZ,wiV).project(stCam); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=B.open()&&wiAtDoor(B,1.2);
+    if(on) tg.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
+  const tx=B.tagText(); if(tg.textContent!==tx) tg.textContent=tx;
+  if(on!==B.tagOn){ B.tagOn=on; tg.classList.toggle('on',on); } if(can!==B.tagCan){ B.tagCan=can; tg.classList.toggle('can',can); } }
+function wiTagMk(B,cls){ const t=document.createElement('span'); t.className='crwt ui '+cls; $('#crLabels',el).appendChild(t);
+  t.addEventListener('click',e=>{ e.stopPropagation(); if(S.st===st&&S.mode==='station'){ B.kb=e.detail===0; wiGo(B); } }); return t; }
+const wiBtn=(cls,id,cur,html,fn,par)=>{ const b=document.createElement('button'); b.className='btn hit '+cls; b.type='button'; b.id=id; b.dataset.cur=cur; b.innerHTML=html; b.hidden=true;
+  if(par) par.appendChild(b); else el.insertBefore(b,$('#crSkip',el)); b.addEventListener('pointerdown',e=>e.stopPropagation()); b.addEventListener('click',e=>{ e.stopPropagation(); fn(e.detail===0); }); return b; };
+function wiPick(B,e,list){ wiNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); wiRay.setFromCamera(wiNdc,stCam); for(const [id,m] of list) if(m&&wiRay.intersectObject(m,false).length) return id; return null; }
+/* what a click from the street is on: the building's front (from in front of it, not round the back) */
+function wiFront(B,e){ if(!B.pick||stCam.position.distanceTo(B.c0)>26||wiL(B,stCam.position,wiV).z<B.F0) return false; return wiPick(B,e,[['front',B.pick]])==='front'; }
+{ const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on){ const B=WI.find(b=>b.on&&b.g);
+      if(B){ B.touchy=e.pointerType!=='mouse'; B.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; return; }
+      for(const b of WI) if(b.g) b.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; }
+    return op.call(this,e); }; }
+let wiCurOn=false;
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return; let lab=null, mine=false;
+  for(const B of WI){ if(!B.g) continue; const Dg=B.drag, tp=B.tap;
+    if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
+    if(Dg&&e.pointerId===Dg.id){ if(Math.hypot(e.clientX-Dg.x,e.clientY-Dg.y)>(e.pointerType==='mouse'?6:9)) Dg.moved=true;
+      if(Dg.moved&&B.st==='in'){ B.look(e.clientX-Dg.lx,e.clientY-Dg.ly); B.dragT=0; } Dg.lx=e.clientX; Dg.ly=e.clientY; return; }
+    if(e.pointerType!=='mouse') continue;
+    /* the cursor says what a click would do */
+    if(B.on){ mine=true; if(hov) hov=null; if(B.st==='in') lab=B.label(B.pickIn(e)); }
+    else if(!lab&&B.st==='out'&&!B.busy()&&B.open()&&!down&&!hov&&!DM.hov&&!CL.hov&&!PO.cur&&!PUB.cur&&wiFront(B,e)) lab='Go in'; }
+  if(e.pointerType!=='mouse') return; const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return;
+  if(lab){ ct.textContent=lab; ce.classList.add('big'); wiCurOn=true; } else if(wiCurOn||mine){ ce.classList.remove('big'); wiCurOn=false; } },{passive:true});
+addEventListener('pointerup',e=>{ for(const B of WI){ const Dg=B.drag, tp=B.tap;
+    if(Dg&&e.pointerId===Dg.id){ B.drag=null; if(!Dg.moved&&S.st===st&&S.mode==='station'&&B.st==='in'){ B.kb=false; B.click(B.pickIn(e),e); } continue; }
+    if(!tp||e.pointerId!==tp.id) continue; B.tap=null; if(S.st!==st||S.mode!=='station'||tp.moved||tp.talk||FIN.on||CUT.on||B.st!=='out'||B.busy()) continue;
+    if(pickPerson(e)||pickBusk(e)) continue; if(wiFront(B,e)&&B.open()){ B.kb=false; wiGo(B); } } });
+addEventListener('pointercancel',()=>{ for(const B of WI){ B.drag=null; B.tap=null; } });
+addEventListener('pointerdown',()=>{ for(const B of WI) B.kb=false; },true);
+/* keys: E or Enter by the door takes you in; inside, each room's own; Escape (and S) takes you out */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
+  for(const B of WI){ if(!B.g) continue;
+    if(B.on){ B.touchy=false; if(B.key(e,k,ctl)){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
+    if(B.st==='go'&&k==='Escape'){ wiSet(B,'out'); player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&B.st==='out'&&!B.busy()&&B.open()&&wiAtDoor(B,1.2)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ B.kb=true; if(wiGo(B)){ e.preventDefault(); e.stopImmediatePropagation(); return; } } } },true);
+const wiBusy=()=>!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PO.on||PO.st!=='out'||PO.bx.st!=='idle'||PUB.on||HSI.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden||WI.some(b=>b.on);
+/* built after the town, its trees, the pub and the fire station; stepped after the town has moved you; put back with it */
+function wiWire(B,build,step){ const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
+  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame()); try{ build(); }catch(err){ B.err=String(err&&err.stack||err); console.warn(B.id,err); kitTo(); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) step(dt,t); return r; };
+  st.enter=function(){ wiReset(B); return en.apply(this,arguments); }; st.exit=function(){ wiReset(B,true); return ex.apply(this,arguments); };
+  st.finaleEnd=function(){ const r=fe.apply(this,arguments); wiReset(B); return r; };
+  /* not a quiet moment (for a world still being made) while you are in there */
+  if(st.calm){ const c0=st.calm; st.calm=function(){ return c0.apply(this,arguments)&&!B.on; }; } }
+/* ===================== (what the two share ends here) ===================== */
+
+/* ===================== the lighthouse, inside: up the stair to the keeper's room and the lamp =====================
+   Pharos's lighthouse is hollow, and the door at its foot opens. Walk up its steps (the tag over the door says Go in: E, or
+   a click or a tap on the door from the path, or just walk into it) and you go in as into the pub: the door swings in and
+   the camera comes up the steps behind you into your own eyes, at the foot of an iron spiral stair. Climb it (the button,
+   E or W) and the camera goes up and round with you, an iron ring under each foot, to the keeper's room: a desk under the
+   window with the keeper's log open on it, the stove, the keeper's coat and cap, the clock. Read the log: its pages are what
+   Heloria has done, as this site tells it (the walk, the README, the white page and the plaques, and nothing else), and the
+   last is today, at your time and in the weather here. A ladder goes on up through the hatch to the lamp room, where the
+   big lens turns round the lamp, in step with the beam outside; and a door in the glass steps out onto the gallery, where
+   you walk all the way round (drag, or the arrows), over the town on one side and the sea on the other. Down takes you back
+   the way you came, and Leave, Escape or S at the foot takes you out.
+   The wind in the tower grows as you climb; up top the lens's motor hums, and the sea and the gulls are below. Outside,
+   Steer the light is as it was: the beam starts in the lens, now a little higher, in a lantern you can stand in.
+   The tower's shell, its door, the gallery and the lantern are made with the town (the shell open where the door is); the
+   rooms inside after the trees, hidden until you go in and drawn once behind the loader, in the café's own shaders with
+   lamps of their own (a lantern on the stair, the keeper's lamp, the lamp in the lens), so going in compiles nothing new.
+   Inside, the town's music is quieter and nothing of the street is drawn over the rooms. */
+/* where it all is, in the lighthouse's own frame (x across, y up, z out toward the town): the floors (the foot, the
+   keeper's room, its ceiling, the top of the tower, the gallery's deck), the lamp; the shell's radius at the foot and the
+   top, the inside's; each band's height; the door (width, head, where it hangs), the shell's gap for it; the gallery's
+   radius, the lantern's, its glass (from, to), the rail's, the lantern door's gap; the stair (treads, where it starts, each
+   rise, the line you walk), the keeper's floor's opening for it, the ladder and its hatch (where, how far out, how wide),
+   the windows (angle, height), where you stand at the foot and in the keeper's room, the lamp room's stand, and where you
+   come up to the door from */
+const LHD={FL:.5,FK:3.1,CK:5.1,TOP:5.54,FT:5.64,LAMP:6.49,RB:.9,RT:.64,IB:.82,IT:.58,BH:.84,DW:.62,DH:2.18,DZ:.95,G:.42,GR:1.12,LR:.68,GL0:5.94,GL1:7.34,RL:1.07,GG:.3,
+  N:13,TH0:Math.PI/2,RISE:.2,SR:.42,HL:[4.66,7.92],TL:2.15,HR:[.24,.62],HG:.36,WIN:[[Math.PI,1.62],[Math.PI*1.5,2.74],[Math.PI,3.96]],EY:1.15,
+  S:[-.28,.42],KS:[.12,-.06],LA:2.95,LSR:.55,AP:[0,2.34],BOOK:[0,-.45]};
+const lhRin=y=>LHD.IB+(LHD.IT-LHD.IB)*(y-LHD.FL)/(LHD.TOP-LHD.FL), lhRout=y=>LHD.RB+(LHD.RT-LHD.RB)*(y-LHD.FL)/(LHD.TOP-LHD.FL);
+const LHI=wiRoom({id:'lh',cls:'inlh',at:'foot',mv:null,ga:0,walk:0,log:0,logOn:false,page:0,flip:1,flipDir:1,drawn:-1,swipe:0,gullT:3,gd:0,gdT:0,air:[0,0,0],held:0,
+  DX:0,F:1.76,F0:1.76,DZ:[1.95,2.45,.3],AP:LHD.AP,S:LHD.S,yaw0:-.62,p0:.1,pP:.06,IN:3.4,OUT:3.0,tagY:[1.55,2.05],tagZ:1.12,
+  wayIn:[[0,2.0],[0,1.3],[0,.72],LHD.S], camIn:[[0,LHD.FL+1.7,3.05],[0,LHD.FL+LHD.EY+.12,1.4],[0,LHD.FL+LHD.EY+.06,.72]], lookIn:[[0,1.7,.5],[0,1.75,-.3]],
+  wayOut:[[0,.75],[0,1.3],[0,2.0],LHD.AP], camOut:[[0,LHD.FL+LHD.EY+.1,.75],[0,LHD.FL+LHD.EY+.2,1.45]],
+  busy:()=>!LHI.g||wiBusy(), open:()=>true, canLeave:()=>LHI.at==='foot'&&!LHI.mv,
+  figY:(x,z)=>z<1.15?LHD.FL:z<1.45?.33:z<1.76?Math.max(.17,wiGround(LHI,x,z)):wiGround(LHI,x,z),
+  stepSnd:(x,z,mx,mz)=>A.step(z<1.76||roadDist(mx,mz)<RW+SW?1:0), sndDoor:o=>A.civDoor(o,true),
+  eye:o=>lhEye(o), fov:()=>cport()?76:64, tagText:()=>'Go in', ui:()=>lhUI(), outdoors:()=>LHI.at==='gal'||!!(LHI.mv&&LHI.mv.k==='back'),
+  onEnter(){ LHI.at='foot'; LHI.mv=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; }, onWayIn(){}, onIn(){}, onLeave(){ lhLog(false); }, onOut(){},
+  onReset(){ LHI.at='foot'; LHI.mv=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; lhGdoorPose(); A.lhAir(0,0,0); LHI.air=[0,0,0]; },
+  inside:(dt,t)=>lhInside(dt,t), look:(dx,dy)=>lhLook(dx,dy), label:k=>k==='gdoor'?(LHI.at==='gal'?'Back in':'Step out'):LHLAB[k]||null, pickIn:e=>lhPick(e), click:k=>lhClick(k), key:(e,k,ctl)=>lhKey(e,k,ctl),
+  doorPose:()=>lhDoorPose(), cull:on=>{ [LHI.m.door,LHI.m.gdoor].forEach(m=>{ if(m) m.frustumCulled=on; }); }, quiet:()=>{ A.lhAir(0,0,0); LHI.air=[0,0,0]; }});
+const LHLAB={out:'Leave',stair:'Climb',log:'Read',ladder:'Up',down:'Down',hatch:'Down',prev:'Earlier',next:'Later',lens:null};
+
+/* ---------- the tower from outside, made with the town: the shell in its bands (open where the door is), the door's stone
+   surround and its steps, the windows; the gallery on its brackets, its rail, the lantern (its low wall, its glazing bars,
+   its roof and vent) and the glass. The gallery and the lantern are made once and drawn two ways: in the town's light, and
+   (while you are up there) in the room's, which is not cut away beside the lens as the town's things are ---------- */
+function lhShell(M,mk){ const D=LHD, ro=lhRout, dk='#3e4448', ston='#d6cfc2';
+  Object.assign(LHI,{M,Mi:M.clone().invert()});
+  for(let k=0;k<6;k++){ const y0=D.FL+k*D.BH, y1=y0+D.BH, gap=y0<D.DH-.01; kadd(new T.CylinderGeometry(ro(y1),ro(y0),D.BH,32,1,true,gap?D.G:0,gap?TAU-2*D.G:TAU).toNonIndexed(),k%2?'#cf4a36':'#f4efe6',sub(M,0,(y0+y1)/2,0)); }
+  /* the door's surround (its jambs deep enough to meet the curve of the wall), the lintel and a cornice; the steps up to it,
+     reaching down into the ground so they meet it wherever it falls */
+  [-1,1].forEach(s=>box(M,ston,s*(D.DW/2+.06),D.FL,.86,.12,D.DH-D.FL+.02,.36)); box(M,ston,0,D.DH,.84,D.DW+.36,.26,.4); box(M,'#c9c1b3',0,D.DH+.26,.86,D.DW+.5,.07,.44);
+  box(M,'#bdb5a8',0,-.4,1.3,.94,.73,.34); box(M,'#bdb5a8',0,-.4,1.6,.94,.57,.32);
+  for(const [a,y] of D.WIN){ const r=ro(y)+.004, W=sub(M,Math.sin(a)*r,y,Math.cos(a)*r,a); box(W,'#f4efe6',0,-.25,0,.28,.5,.06); box(W,'#7fa3b4',0,-.19,.012,.2,.38,.06); box(W,'#f4efe6',0,-.27,.03,.32,.04,.08); }
+  /* the gallery and the lantern */
+  kitTo('lhtop');
+  { const g=new T.RingGeometry(.6,D.GR,40).rotateX(-Math.PI/2); kadd(g.clone().translate(0,D.FT,0).toNonIndexed(),dk,M); kadd(g.translate(0,D.TOP,0).toNonIndexed(),dk,M); }
+  kadd(new T.CylinderGeometry(D.GR,D.GR,D.FT-D.TOP,40,1,true).toNonIndexed(),dk,sub(M,0,(D.FT+D.TOP)/2,0));
+  for(let k=0;k<14;k++){ const B=sub(M,0,0,0,k/14*TAU+.11); box(B,dk,0,D.TOP-.2,.86,.07,.2,.42); box(B,dk,0,D.TOP-.36,.72,.06,.16,.14); }   // the brackets under it
+  for(let k=0;k<20;k++){ const a=k/20*TAU+.08; box(sub(M,Math.sin(a)*D.RL,0,Math.cos(a)*D.RL,a),dk,0,D.FT,0,.035,.8,.035); }
+  [D.FT+.8,D.FT+.42].forEach((y,i)=>kadd(new T.TorusGeometry(D.RL,i?.014:.022,6,56).rotateX(Math.PI/2).translate(0,y,0).toNonIndexed(),dk,M));
+  /* the lantern: a low wall, open where its door is; the bars of the glazing (two at the door's jambs) and the rings round
+     them but across the door; a cornice, the roof and the vent */
+  kadd(new T.CylinderGeometry(D.LR,D.LR,D.GL0-D.FT,32,1,true,D.GG,TAU-2*D.GG).toNonIndexed(),'#2f3437',sub(M,0,(D.FT+D.GL0)/2,0));
+  for(let k=1;k<12;k++){ const a=k/12*TAU; box(sub(M,Math.sin(a)*D.LR,0,Math.cos(a)*D.LR,a),dk,0,D.GL0,0,.035,D.GL1-D.GL0,.035); }
+  [-1,1].forEach(s=>{ const a=s*D.GG; box(sub(M,Math.sin(a)*D.LR,0,Math.cos(a)*D.LR,a),dk,0,D.FT,0,.05,D.GL1-D.FT,.05); });
+  for(const y of [D.GL0+.47,D.GL0+.94]){ const n=26; for(let k=0;k<n;k++){ const a0=D.GG+(TAU-2*D.GG)*k/n, a1=D.GG+(TAU-2*D.GG)*(k+1)/n; hiRod(M,dk,V.set(Math.sin(a0)*D.LR,y,Math.cos(a0)*D.LR),V2.set(Math.sin(a1)*D.LR,y,Math.cos(a1)*D.LR),.014); } }
+  cyl(M,dk,0,D.GL1,0,D.LR+.05,.07); put(M,'cone','#cf4a36',0,D.GL1+.07+.33,0,.86,.66,.86); put(M,'sph',dk,0,D.GL1+.82,0,.12,.12,.12); cyl(M,dk,0,D.GL1+.9,0,.012,.36,'cyl8');
+  kitTo('ph'); LHI.topG=kgeo('lhtop');
+  const om=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); om.uniforms.uKit={value:1};
+  const top=new T.Mesh(LHI.topG,om); top.matrixAutoUpdate=false; top.userData.cast=true; mk.g.add(top); LHI.m.topOut=top;
+  /* the glass: from outside a pale lantern, as it always was; from inside (and on the gallery) clear */
+  const gg=new T.CylinderGeometry(D.LR-.006,D.LR-.006,D.GL1-D.GL0,32,1,true,D.GG,TAU-2*D.GG); LHI.glassG=gg;
+  const go=new T.Mesh(gg,toonMat('#e7f1ef',{side:T.DoubleSide})); go.matrixAutoUpdate=false; go.matrix.copy(sub(M,0,(D.GL0+D.GL1)/2,0)); mk.g.add(go); LHI.m.glassOut=go;
+  /* the door at the foot: oak boards, ledged, with iron straps and a ring; hung on its right, opening in. And the lantern's
+     door, glazed, hung on its jamb, opening out onto the gallery. Each in the room's light inside and the town's outside */
+  { kitTo('lhdoor'); const I=new T.Matrix4(), w=D.DW, h=D.DH-D.FL-.02;
+    for(let k=0;k<5;k++) box(I,k%2?'#5b3e2a':'#634431',-w/2+(k-2)*w/5,0,0,w/5-.004,h,.05);
+    [.25,h-.3].forEach(y=>box(I,'#2a2826',-w/2,y,.03,w-.04,.05,.012)); put(I,'cyl','#2a2826',-w+.1,h*.48,.04,.035,.01,.035,0,Math.PI/2); hiTorus(sub(I,-w+.1,h*.48-.05,.05),'#2a2826',.035,.006);
+    kitTo(); const m=new T.Mesh(kgeo('lhdoor'),wiMat(LHI,LHI.dIn)); m.matrixAutoUpdate=false; m.frustumCulled=false; wiInked(LHI,m); sc.add(m); LHI.m.door=m; LHI.m.hinge=[D.DW/2,D.FL+.01,D.DZ]; }
+  { kitTo('lhgd'); const I=new T.Matrix4(), w=2*D.LR*Math.sin(D.GG)-.04, h=D.GL1-D.FT-.04;
+    [0,-w].forEach(x=>box(I,dk,x+(x?.02:-.02),0,0,.04,h,.04)); [0,.3,h-.04].forEach(y=>box(I,dk,-w/2,y,0,w,.04,.04)); box(I,'#2f3437',-w/2,.04,0,w-.04,.26,.02); box(I,'#cfe4e6',-w/2,.34,0,w-.04,h-.4,.006);
+    box(I,'#c9a24a',-w+.07,.62,.03,.02,.08,.02);
+    kitTo(); const m=new T.Mesh(kgeo('lhgd'),wiMat(LHI,{value:0})); m.matrixAutoUpdate=false; m.frustumCulled=false; wiInked(LHI,m); sc.add(m); LHI.m.gdoor=m;
+    LHI.m.ghinge=[Math.sin(D.GG)*D.LR,D.FT+.02,Math.cos(D.GG)*D.LR]; }
+  kitTo('ph'); lhDoorPose(); lhGdoorPose(); }
+function lhDoorPose(){ const d=LHI.m.door; if(!d) return; const [hx,hy,hz]=LHI.m.hinge; d.matrix.multiplyMatrices(LHI.M,wiM.makeTranslation(hx,hy,hz).multiply(wiM2.makeRotationY(-LHI.door))); d.matrixWorldNeedsUpdate=true; }
+function lhGdoorPose(){ const d=LHI.m.gdoor; if(!d) return; const [hx,hy,hz]=LHI.m.ghinge; d.matrix.multiplyMatrices(LHI.M,wiM.makeTranslation(hx,hy,hz).multiply(wiM2.makeRotationY(3.2*E.io(LHI.gd)))); d.matrixWorldNeedsUpdate=true; }
+
+/* ---------- the keeper's log: Heloria as this site tells it, a page a side, and today ---------- */
+const LHLOG=[
+  [{h:'KEEPER\'S LOG',t:['Heloria Labs.','A small software lab in Ireland.'],title:true},
+   {h:'HELORIA LABS',t:['Three of us, in Ireland.','Ahroon Santhosh, Michael Sweeney Heffernan, Abraham Sabu Kurian.','We build around hard problems.','We dare to build where others hesitate.']}],
+  [{h:'AETOS',t:['Counter-drone command software.','When the sky fills with drones, Aetos tracks every one, tells friend from threat, and puts the one that matters in front of the operator.','Led by Ahroon Santhosh.']},
+   {h:'PHAROS',t:['GPS-free drone navigation.','With GPS jammed or gone, the drone finds where it is by matching what its camera sees to the map, and says so when it is not sure.','Led by Ahroon Santhosh.','Take the light, and a drone that has lost its way locks onto it and follows it home: Pharos in small.']}],
+  [{h:'OGIVE',t:['AI tools for OpenRocket.','Name the height. Ogive reworks the rocket in OpenRocket, one design at a time, until the simulated flight reaches it.','Led by Michael Sweeney Heffernan.']},
+   {h:'KRÍOS',t:['Voice practice for sales teams.','Reps rehearse the calls that matter out loud, against a buyer who answers back, before a real one ever hears them.','Built by Michael Sweeney Heffernan. Our group project.','Abraham Sabu Kurian works on Kríos.']}],
+  [{h:'BACKED',t:['Backed by Andrena Ventures.','Challenging what\'s impossible.','Always looking for builders. Show us something you\'ve built: contact@helorialabs.com']},
+   {h:'TODAY',today:true}]];
+/* today's entry: the moment and the weather as the postcard's postmark has them */
+const lhToday=()=>{ const w=pcWhen(); return [w.date+' · '+w.time,w.wx==='CLEAR'?'Clear.':w.wx.charAt(0)+w.wx.slice(1).toLowerCase()+'.','A visitor climbed the stair. The lens is turning. All well.']; };
+const lhLogText=i=>LHLOG[i].map(p=>p.h+'. '+(p.today?lhToday():p.t).join(' ')).join(' ');
+/* the spread on its canvas: ruled paper, a red margin, the heading stamped, the entry in ink; the chart and the clock's dial
+   share the canvas, below */
+function lhLogDraw(){ const cv=LHI.logC; if(!cv) return; const c=cv.getContext('2d'), sp=LHLOG[LHI.page], ink='#2c2a3c', hand=s=>`italic 600 ${s}px Georgia, 'Times New Roman', serif`;
+  for(let s=0;s<2;s++){ const x0=s*512, p=sp[s]; c.fillStyle='#f3ead4'; c.fillRect(x0,0,512,640); c.strokeStyle='rgba(120,150,190,.35)'; c.lineWidth=2; for(let y=118;y<620;y+=38){ c.beginPath(); c.moveTo(x0+18,y); c.lineTo(x0+494,y); c.stroke(); }
+    c.strokeStyle='rgba(190,70,60,.45)'; c.beginPath(); c.moveTo(x0+(s?52:66),20); c.lineTo(x0+(s?52:66),630); c.stroke();
+    const g=c.createLinearGradient(x0+(s?0:512),0,x0+(s?40:472),0); g.addColorStop(0,'rgba(80,60,40,.28)'); g.addColorStop(1,'rgba(80,60,40,0)'); c.fillStyle=g; c.fillRect(x0+(s?0:472),0,40,640);
+    c.fillStyle='#5a3a26'; c.textAlign='left'; c.textBaseline='alphabetic'; c.font=`900 ${p.title?44:34}px Doto, monospace`; c.fillText(p.h,x0+(s?70:84),p.title?150:92,400);
+    const lines=p.today?lhToday():p.t; let y=p.title?230:150; c.fillStyle=ink; c.font=hand(26);
+    for(const para of lines){ const words=para.split(' '); let ln=''; for(const w of words){ const tt=ln?ln+' '+w:w; if(c.measureText(tt).width>(s?404:392)&&ln){ c.fillText(ln,x0+(s?70:84),y); y+=36; ln=w; } else ln=tt; } if(ln){ c.fillText(ln,x0+(s?70:84),y); y+=36; } y+=12; }
+    if(p.title){ c.strokeStyle='#5a3a26'; c.lineWidth=3; c.beginPath(); c.arc(x0+256,470,62,0,TAU); c.stroke(); c.fillStyle='#5a3a26'; c.beginPath(); c.moveTo(x0+244,500); c.lineTo(x0+250,428); c.lineTo(x0+262,428); c.lineTo(x0+268,500); c.closePath(); c.fill(); c.fillRect(x0+246,416,20,10);
+      c.strokeStyle='#c98a3a'; c.lineWidth=4; [[-1,0],[1,0]].forEach(([d])=>{ c.beginPath(); c.moveTo(x0+256+d*14,421); c.lineTo(x0+256+d*70,404); c.stroke(); }); } }
+  LHI.logTx.needsUpdate=true; LHI.drawn=LHI.page; if(lhLogEl) lhLogEl.textContent='The keeper\'s log, '+(LHI.page+1)+' of '+LHLOG.length+'. '+lhLogText(LHI.page); }
+/* the chart of the coast (the cliff, the light, the town and the sea round it) and the clock's dial, once */
+function lhChart(){ const c=LHI.logC.getContext('2d'), y0=640; c.fillStyle='#e9dcbc'; c.fillRect(0,y0,320,192); c.fillStyle='#bcd3d6'; c.beginPath(); c.moveTo(0,y0); c.lineTo(320,y0); c.lineTo(320,y0+70); c.bezierCurveTo(250,y0+90,230,y0+40,170,y0+60); c.bezierCurveTo(110,y0+80,60,y0+40,0,y0+66); c.fill();
+  c.strokeStyle='#5a4a3a'; c.lineWidth=2; c.stroke(); c.strokeStyle='rgba(90,74,58,.35)'; for(let k=1;k<4;k++){ c.beginPath(); c.moveTo(0,y0+66-k*14); c.bezierCurveTo(70,y0+30-k*12,120,y0+70-k*14,170,y0+52-k*14); c.bezierCurveTo(230,y0+30-k*14,250,y0+80-k*14,320,y0+62-k*14); c.stroke(); }
+  c.fillStyle='#cf4a36'; c.beginPath(); c.arc(214,y0+64,6,0,TAU); c.fill(); c.fillStyle='#5a4a3a'; for(let k=0;k<9;k++) c.fillRect(70+(k%3)*22+Math.floor(k/3)*8,y0+110+Math.floor(k/3)*16,12,9);
+  c.strokeStyle='#5a4a3a'; c.lineWidth=2; c.beginPath(); c.arc(270,y0+140,26,0,TAU); c.stroke(); c.beginPath(); c.moveTo(270,y0+108); c.lineTo(276,y0+140); c.lineTo(270,y0+172); c.lineTo(264,y0+140); c.closePath(); c.fillStyle='#5a4a3a'; c.fill();
+  c.font='900 18px Doto, monospace'; c.textAlign='center'; c.fillText('PHAROS',214,y0+92); c.strokeRect(4,y0+4,312,184);
+  c.save(); c.translate(336,y0); c.scale(184/512,184/512); clockFace(c,512); c.restore(); LHI.logTx.needsUpdate=true; }
+
+/* ---------- building the inside: the floors, the walls, the stair, the keeper's room, the lamp room and its lens. After
+   the trees are laid out (the steps are made solid, and the walking grid round them made again) ---------- */
+function buildLighthouse(){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M=B.M, rin=lhRin, kr=rin(D.FK)+.012, rnd=seeded(83);
+  B.up.copy(wiD(B,0,1,0)); B.U.uCU.value.copy(B.up); B.c0=wiW(B,0,1.2,0);
+  const g=B.g=new T.Group(); g.matrixAutoUpdate=false; g.visible=true; sc.add(g); const mat=wiMat(B), noSun=m=>{ m.uniforms.uLitA={value:new T.Vector3()}; return m; }; noSun(mat);
+  const P=(r,a,y)=>[Math.sin(a)*r,y,Math.cos(a)*r];
+  /* a flat ring's pieces, from r0 to r1, round from a0 to a1, at y (its colours in turn) */
+  const fan=(y,r0,r1,a0,a1,n,cols)=>{ for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n; wiQuad(B,P(r0,t0,y),P(r1,t0,y),P(r1,t1,y),P(r0,t1,y),cols[i%cols.length]); } };
+  /* a wedge: a tread, a step of the floor's edge (a0 to a1, r0 to r1, its top at y, th thick) */
+  const wedge=(a0,a1,r0,r1,y,th,c,c2)=>{ const n=3; for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n;
+      wiQuad(B,P(r0,t0,y),P(r1,t0,y),P(r1,t1,y),P(r0,t1,y),c); wiQuad(B,P(r0,t0,y-th),P(r1,t0,y-th),P(r1,t1,y-th),P(r0,t1,y-th),c2||c); wiQuad(B,P(r1,t0,y),P(r1,t1,y),P(r1,t1,y-th),P(r1,t0,y-th),c2||c); }
+    wiQuad(B,P(r0,a0,y),P(r1,a0,y),P(r1,a0,y-th),P(r0,a0,y-th),c2||c); wiQuad(B,P(r0,a1,y),P(r1,a1,y),P(r1,a1,y-th),P(r0,a1,y-th),c2||c); };
+  kitTo('lhin');
+  /* ---- the walls: whitewash over stone, a dark skirting, the keeper's room panelled to the dado; the lower wall open where
+     the door is, its reveal and the stone round it as deep as the wall ---- */
+  const prof=(y0,y1,n,o=0)=>{ const Q=[]; for(let i=0;i<=n;i++){ const y=y0+(y1-y0)*i/n; Q.push(new T.Vector2(rin(y)-o,y)); } return Q; };
+  kadd(new T.LatheGeometry(prof(D.FL,D.DH,4),32,D.G,TAU-2*D.G).toNonIndexed(),'#ebe4d3',M); kadd(new T.LatheGeometry(prof(D.DH,D.CK,10),32).toNonIndexed(),'#ebe4d3',M);
+  kadd(new T.LatheGeometry(prof(D.FL,D.FL+.12,1,.006),32,D.G,TAU-2*D.G).toNonIndexed(),'#3f4a45',M);
+  for(let y=D.FL+.3;y<D.CK-.1;y+=.3){ const lo=y<D.DH+.02; kadd(new T.LatheGeometry(prof(y,y+.014,1,.002),32,lo?D.G:0,lo?TAU-2*D.G:TAU).toNonIndexed(),'#dcd3c0',M); }   // the stone's courses under the whitewash
+  kadd(new T.LatheGeometry(prof(D.FK,D.FK+.86,2,.008),32,D.HL[1]-TAU,D.HL[0]-D.HL[1]+TAU).toNonIndexed(),'#8a6446',M); kadd(new T.LatheGeometry(prof(D.FK+.84,D.FK+.9,1,.016),32,D.HL[1]-TAU,D.HL[0]-D.HL[1]+TAU).toNonIndexed(),'#5e4230',M);
+  [-1,1].forEach(s=>box(M,'#d6cfc2',s*(D.DW/2+.03)-s*.013,D.FL,.74,.06,D.DH-D.FL,.42)); box(M,'#d6cfc2',0,D.DH-.012,.74,D.DW+.12,.06,.42);
+  /* ---- the floors: flags at the foot; the keeper's boards (open over the stair, its edge showing), the ceiling over him,
+     and the lamp room's iron plates, each open where the ladder comes through, the hatch between them lined ---- */
+  fan(D.FL+.003,0,.42,0,TAU,7,['#a8a094','#9d958a','#b3ab9e']); fan(D.FL+.003,.42,rin(D.FL)+.01,.2,TAU+.2,13,['#9f978b','#b1a99c','#a59d91']);
+  const a0=D.HL[1], a1=D.HL[0]+TAU; fan(D.FK,.075,kr,a0,a1,16,['#8a6446','#7d5a3e','#94704f']); fan(D.FK-.08,.075,kr,a0,a1,8,['#6b4c34']);
+  wiQuad(B,P(.075,a0,D.FK),P(kr,a0,D.FK),P(kr,a0,D.FK-.08),P(.075,a0,D.FK-.08),'#5e4230'); wiQuad(B,P(.075,a1,D.FK),P(kr,a1,D.FK),P(kr,a1,D.FK-.08),P(.075,a1,D.FK-.08),'#5e4230');
+  const hatch=(y,r2,cols,lid)=>{ const h0=D.TL-D.HG, h1=D.TL+D.HG; fan(y,0,D.HR[0],0,TAU,8,cols); fan(y,D.HR[0],D.HR[1],h1,h0+TAU,12,cols); fan(y,D.HR[1],r2,0,TAU,16,cols); };
+  hatch(D.CK,rin(D.CK)+.012,['#efe8d8','#e6dfcf']); hatch(D.FT+.003,D.LR-.004,['#6d6f70','#626465']);
+  for(const [r,s] of [[D.HR[0],1],[D.HR[1],-1]]) for(let i=0;i<4;i++){ const t0=D.TL-D.HG+2*D.HG*i/4, t1=D.TL-D.HG+2*D.HG*(i+1)/4; wiQuad(B,P(r,t0,D.FT),P(r,t1,D.FT),P(r,t1,D.CK),P(r,t0,D.CK),'#d8d0bf'); }
+  [D.TL-D.HG,D.TL+D.HG].forEach(a=>wiQuad(B,P(D.HR[0],a,D.FT),P(D.HR[1],a,D.FT),P(D.HR[1],a,D.CK),P(D.HR[0],a,D.CK),'#d8d0bf'));
+  /* ---- the stair: the newel, thirteen cast-iron treads round it (a nosing on each), the balusters and the rail, and a
+     balustrade along the keeper's side of its opening ---- */
+  cyl(M,'#33373a',0,D.FL,0,.06,D.FK-D.FL+.9,'cyl8'); put(M,'sph','#c9a24a',0,D.FK+.92,0,.07,.07,.07);
+  const dA=TAU/D.N;
+  for(let i=0;i<D.N;i++){ const t0=D.TH0+i*dA, t1=t0+dA+.04, y=D.FL+(i+1)*D.RISE, r1=rin(y)-.025;
+    wedge(t0,t1,.06,r1,y,.04,'#454a4e','#33373a'); wiQuad(B,P(.07,t0+.004,y+.002),P(r1,t0+.004,y+.002),P(r1,t0+.05,y+.002),P(.07,t0+.05,y+.002),'#6a7076');
+    const pa=t0+dA*.5, pr=r1-.035; hiRod(M,'#33373a',V.fromArray(P(pr,pa,y)),V2.fromArray(P(pr,pa,y+.8)),.009); }
+  { const pts=[]; for(let k=0;k<=48;k++){ const s=k/48, a=D.TH0+s*TAU, y=D.FL+s*(D.FK-D.FL)+.8; pts.push(P(rin(y)-.06,a,y)); } hiTube(M,'#5a3a26',pts,.016,96); }
+  { const a=D.HL[0]+.02; for(let k=0;k<4;k++){ const r=.12+k*(kr-.2)/3; hiRod(M,'#33373a',V.fromArray(P(r,a,D.FK)),V2.fromArray(P(r,a,D.FK+.8)),.01); } hiRod(M,'#5a3a26',V.fromArray(P(.1,a,D.FK+.8)),V2.fromArray(P(kr-.04,a,D.FK+.8)),.016); }
+  /* ---- at the foot: a bench, oil cans, a coil of rope, the lifebuoy on the wall, and a lantern on its bracket ---- */
+  { const a=4.25, r=rin(D.FL)-.2, Bn=sub(M,...P(r,a,0),a); box(Bn,'#6b4c34',0,D.FL+.32,0,.5,.05,.2); [-1,1].forEach(s=>box(Bn,'#5a3e2a',s*.2,D.FL,0,.05,.32,.18)); }
+  [[2.55,.62,'#a83a2c'],[2.75,.6,'#3f6b56'],[2.62,.48,'#a83a2c']].forEach(([a,r,c])=>{ const [x,,z]=P(r,a,0); cyl(M,c,x,D.FL,z,.06,.22); cyl(M,'#2a2826',x,D.FL+.22,z,.02,.04,'cyl8'); });
+  hiTorus(wiM.makeTranslation(...P(.5,3.45,D.FL+.04)).premultiply(M).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),'#b59a6a',.11,.035,14);
+  { const a=5.55, r=rin(1.35)-.04, L=sub(M,...P(r,a,1.35),a+Math.PI); for(let k=0;k<4;k++) hiTorus(sub(L,0,0,0).multiply(wiM.makeRotationZ(k*Math.PI/2)),k%2?'#f4efe6':'#cf4a36',.15,.04,6,Math.PI/2); }
+  const LMP=[[3.9,1.95],[.55,2.75]].map(([a,y])=>{ const r=rin(y)-.05, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#2a2826',0,-.02,-.02,.04,.1,.06); put(W,'cyl','#2a2826',0,-.11,.1,.05,.02,.05); put(W,'sph','#fff2c4',0,-.04,.1,.035,.05,.035); put(W,'cone','#2a2826',0,.04,.1,.05,.06,.05);
+    return P(r-.12,a,y-.06); });
+  /* ---- the keeper's room: the desk under the window, the log open on it, the lamp, the inkwell and a mug; the chair; the
+     shelf of books, the chart and the clock; the stove and its pipe; the coat and cap on their peg; the ladder ---- */
+  const BK=D.BOOK, tY=D.FK+.62;
+  { const Dk=sub(M,BK[0],0,BK[1]-.02); box(Dk,'#6b4c34',0,tY-.04,0,.56,.04,.3); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Dk,'#5a3e2a',a*.25,D.FK,b*.12,.04,.58,.04)); box(Dk,'#5a3e2a',0,tY-.16,0,.5,.1,.26);
+    box(Dk,'#6a2420',0,tY,.02,.38,.012,.26); cyl(Dk,'#2a2826',-.235,tY,-.09,.018,.03,'cyl8'); hiRod(Dk,'#e9e2d0',V.set(-.23,tY+.025,-.08),V2.set(-.255,tY+.08,-.02),.004);
+    cyl(Dk,'#e9e2d0',-.24,tY,.08,.022,.055); cyl(Dk,'#7a2a20',-.24,tY+.004,.08,.024,.016);
+    cyl(Dk,'#c9a24a',.238,tY,-.1,.032,.025); cyl(Dk,'#c9a24a',.238,tY+.025,-.1,.01,.035,'cyl8'); put(Dk,'sph','#fff2c4',.238,tY+.085,-.1,.02,.032,.02); cyl(Dk,'#d8e4e6',.238,tY+.05,-.1,.024,.085); }
+  { const Ch=sub(M,-.24,0,-.22,.5); box(Ch,'#5a3e2a',0,D.FK+.36,0,.24,.03,.24); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Ch,'#4a3222',a*.1,D.FK,b*.1,.03,.36,.03)); [-1,1].forEach(a=>box(Ch,'#4a3222',a*.1,D.FK+.39,-.11,.03,.36,.03)); box(Ch,'#5a3e2a',0,D.FK+.64,-.11,.24,.08,.025); }
+  { const a=3.85, y=D.FK+1.2, r=rin(y)-.09, Sh=sub(M,...P(r,a,y),a+Math.PI); box(Sh,'#6b4c34',0,0,0,.36,.025,.15); for(let k=0;k<7;k++) box(Sh,['#7a2a20','#2f5a45','#2f3d5a','#8a6a3a'][k%4],-.15+k*.045,.025,0,.035,.15+rnd()*.05,.11); }
+  { const a=4.4, r=.43, [x,,z]=P(r,a,0); hiLathe(wiM.makeTranslation(x,D.FK,z).premultiply(M).clone(),'#2a2826',[[0,0],[.1,0],[.12,.08],[.14,.25],[.13,.4],[.09,.48],[.05,.5],[0,.5]],12);
+    put(M,'sph','#ff9a4a',x,D.FK+.2,z,.035,.03,.035); cyl(M,'#2a2826',x,D.FK+.5,z,.035,D.CK-D.FK-.5,'cyl8'); cyl(M,'#5d6066',x+.03,D.FK+.5,z,.06,.08); put(M,'sph','#5d6066',x+.03,D.FK+.6,z,.06,.03,.06); }
+  { const a=4.57, y=D.FK+1.38, r=rin(y)-.03, Cp=sub(M,...P(r,a,y),a+Math.PI); box(Cp,'#2a2826',0,0,-.01,.03,.03,.04); box(Cp,'#e8b84a',0,-.62,.05,.22,.6,.07); put(Cp,'sph','#e8b84a',0,-.04,.06,.1,.06,.05); box(Cp,'#20242a',0,.03,.04,.14,.06,.12); box(Cp,'#20242a',0,.03,.11,.12,.012,.06); }
+  { const a=D.TL, r=.5, [x,,z]=P(r,a,0), Ld=sub(M,x,0,z,a+Math.PI); [-1,1].forEach(s=>box(Ld,'#33373a',s*.15,D.FK,0,.03,D.FT-D.FK+.42,.03)); for(let y=D.FK+.26;y<D.FT+.3;y+=.26) box(Ld,'#4a4f54',0,y,0,.3,.025,.025); }
+  /* ---- the windows from inside: deep reveals, the glass the day outside ---- */
+  for(const [a,y] of D.WIN){ const r=rin(y)-.012, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#d8d0bf',0,-.27,-.03,.32,.5,.04); box(W,'#c6dde2',0,-.19,0,.2,.38,.01); box(W,'#f4efe6',0,-.2,.012,.02,.4,.01); box(W,'#f4efe6',0,.0,.012,.2,.02,.01); box(W,'#8a6446',0,-.3,.04,.34,.04,.1); }
+  /* ---- the lamp room: the lens's pedestal and the clockwork that turns it, a dark ceiling under the roof ---- */
+  cyl(M,'#2f3437',0,D.FT,0,.16,.06); cyl(M,'#3e4448',0,D.FT,0,.09,D.LAMP-.32-D.FT,'cyl8'); box(M,'#2f3437',0,D.FT+.06,0,.24,.2,.24); box(M,'#c9a24a',.121,D.FT+.12,0,.005,.08,.08);
+  fan(D.GL1+.06,0,D.LR,0,TAU,12,['#2f3437']);
+  kitTo(); B.m.room=wiAdd(B,new T.Mesh(kgeo('lhin'),mat));
+  /* the gallery and the lantern again, in the room's light, while you are up there; and the glass, clear */
+  B.m.topIn=wiAdd(B,new T.Mesh(B.topG,wiMat(B,{value:0})));
+  { const m=new T.Mesh(B.glassG,CGLASS); m.matrixAutoUpdate=false; m.frustumCulled=false; m.matrix.copy(sub(M,0,(D.GL0+D.GL1)/2,0)); g.add(m); B.m.glassIn=m; }
+  /* ---- the lens: brass posts and rings, the prisms in rings above and below, the belt of glass, and a bull's-eye each side,
+     the lamp in the middle; it turns with the beam ---- */
+  { kitTo('lhlens'); const I=new T.Matrix4(), gl=['#d6eef0','#bcdde2'];
+    for(let k=0;k<6;k++){ const y=.15+k*.045, r=.25-k*.022; hiTorus(wiM.makeTranslation(0,y,0).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),gl[k%2],r,.019,24); hiTorus(wiM.makeTranslation(0,-y,0).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),gl[k%2],r,.019,24); }
+    kadd(new T.CylinderGeometry(.255,.255,.24,24,1,true).toNonIndexed(),'#cde7ea',I);
+    for(const s of [-1,1]){ const Bx=wiM.makeTranslation(s*.262,0,0).multiply(wiM2.makeRotationY(Math.PI/2)).clone(); for(let k=1;k<4;k++) hiTorus(Bx,gl[k%2],k*.035,.008,20); put(Bx,'cyl','#eaf6f7',0,0,0,.025,.006,.025,0,Math.PI/2); }
+    [-.4,.4].forEach(y=>hiTorus(wiM.makeTranslation(0,y,0).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),'#c9a24a',.15+(y>0?0:.04),.012,24)); hiTorus(wiM.makeRotationX(Math.PI/2),'#c9a24a',.268,.01,28);
+    for(let k=0;k<4;k++){ const a=k/4*TAU+Math.PI/4; hiRod(I,'#c9a24a',V.set(Math.cos(a)*.25,-.4,Math.sin(a)*.25),V2.set(Math.cos(a)*.2,.42,Math.sin(a)*.2),.008); }
+    put(I,'sph','#fff2c4',0,0,0,.07,.09,.07); cyl(I,'#c9a24a',0,-.33,0,.03,.24,'cyl8');
+    kitTo(); B.m.lens=wiAdd(B,new T.Mesh(kgeo('lhlens'),mat)); }
+  /* ---- the log, the chart and the clock's dial: one canvas; the book's two pages, the page that turns, the clock's hands ---- */
+  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=832; B.logC=cv; B.logTx=new T.CanvasTexture(cv); B.logTx.anisotropy=4; lhLogDraw(); lhChart();
+    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ lhLogDraw(); lhChart(); }).catch(()=>{});
+    const bm=noSun(wiBoard(B,B.logTx)), uv=(gm,u0,v0,u1,v1)=>{ const a=gm.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(u0/1024,u1/1024,a.getX(i)),lerp(1-v1/832,1-v0/832,a.getY(i))); return gm; };
+    [-1,1].forEach(s=>{ const m=new T.Mesh(uv(new T.PlaneGeometry(.17,.23),s<0?0:512,0,s<0?512:1024,640),bm); m.matrix.copy(M).multiply(wiM.makeTranslation(BK[0]+s*.088,tY+.02,BK[1]).multiply(wiM2.makeRotationZ(s*.08)).multiply(wiM2.makeRotationX(-Math.PI/2))); wiAdd(B,m); });
+    { const m=new T.Mesh(uv(new T.PlaneGeometry(.3,.18),0,640,320,832),bm), a=2.75, y=D.FK+1.42, r=rin(y)-.035; m.matrix.copy(sub(M,...P(r,a,y),a+Math.PI)); wiAdd(B,m); kitTo('lhfr'); box(sub(M,...P(r+.012,a,y),a+Math.PI),'#5a3e2a',0,-.105,-.012,.33,.21,.02); kitTo(); wiAdd(B,new T.Mesh(kgeo('lhfr'),mat)); }
+    { const a=2.2, y=D.FK+1.5, r=rin(y)-.03; const m=new T.Mesh(uv(new T.CircleGeometry(.075,24),336,640,520,824),bm); m.matrix.copy(sub(M,...P(r,a,y),a+Math.PI)); wiAdd(B,m); B.ck=[r-.005,a,y];
+      const hm=(L,wd)=>{ kitTo('lhhand'); box(new T.Matrix4(),'#2a2622',0,-.008,0,wd,L,.004); kitTo(); return wiAdd(B,new T.Mesh(kgeo('lhhand'),mat)); }; B.m.hh=hm(.045,.008); B.m.mh=hm(.064,.005); }
+    kitTo('lhflip'); box(new T.Matrix4(),'#f3ead4',.085,0,0,.17,.002,.23); kitTo(); B.m.flip=wiAdd(B,new T.Mesh(kgeo('lhflip'),mat)); B.m.flip.visible=false;
+    try{ renderer.initTexture&&renderer.initTexture(B.logTx); }catch(e){} }
+  /* ---- the lamps, for the light: on the stair (two), the keeper's lamp, the lamp in the lens ---- */
+  const lw=(p,i,w)=>{ wiW(B,...p,wiV); B.U.uCL.value[i].set(wiV.x,wiV.y,wiV.z,w); };
+  lw(LMP[0],0,.75); lw(LMP[1],1,.6); lw([BK[0]+.238,tY+.12,BK[1]-.12],2,.85); lw([0,D.LAMP,0],3,1);
+  /* ---- what a tap finds: the door and the stair at the foot; the desk, the ladder and the stair's opening in the keeper's
+     room; the book's pages; the lantern's door, the hatch and the lens up top ---- */
+  const pk=(w,h,d,p,ry=0)=>wiHit(B,w,h,d,p[0],p[1],p[2],ry);
+  B.pk={door:pk(D.DW,D.DH-D.FL,.3,[0,(D.DH+D.FL)/2,.8]),stair:pk(.9,1.4,.8,[.35,D.FL+.9,-.15]),desk:pk(.6,.5,.4,[BK[0],tY+.1,BK[1]]),ladder:pk(.4,1.6,.3,P(.5,D.TL,D.FK+.9),D.TL),
+    hole:pk(1.1,.3,.6,[0,D.FK+.1,.3]),pgL:pk(.18,.1,.24,[BK[0]-.09,tY+.03,BK[1]]),pgR:pk(.18,.1,.24,[BK[0]+.09,tY+.03,BK[1]]),
+    gdoor:pk(.5,1.6,.2,[0,D.FT+.85,.66]),hatch:pk(.42,.12,.42,P(.43,D.TL,D.FT+.02),D.TL),lens:pk(.56,.9,.56,[0,D.LAMP,0])};
+  B.pick=pk(1.3,2.4,1.2,[0,1.1,1.2]);
+  /* the steps are solid; the walking grid round the foot made again by the grid's own rule, and no grass through the steps */
+  obsAt(M,0,1.42,.46,.6); pfRegrid(M,-1.6,1.6,.9,3.1); pfTufts(M,-.6,.6,1.05,1.85);
+  lhUI(); }
+
+/* ---------- where your eyes are: at the foot, in the keeper's room (or over the log), in the lamp room, on the gallery ---------- */
+function lhEye(o){ const D=LHD; if(LHI.at==='foot') return wiW(LHI,D.S[0],D.FL+D.EY,D.S[1],o);
+  if(LHI.at==='keep'){ wiW(LHI,D.KS[0],D.FK+D.EY,D.KS[1],o); if(LHI.log>0){ lhBookEye(wiV4); o.lerp(wiV4,E.io(LHI.log)); } return o; }
+  if(LHI.at==='lamp') return wiW(LHI,Math.sin(D.LA)*D.LSR,D.FT+D.EY,Math.cos(D.LA)*D.LSR,o);
+  return wiW(LHI,Math.sin(LHI.ga)*.9,D.FT+D.EY,Math.cos(LHI.ga)*.9,o); }
+/* over the log: far enough back that both pages fill the screen's width or height, whichever comes first */
+const LHBP=-1.3;
+function lhBookEye(o){ const D=LHD, vf=stCam.fov*Math.PI/360, hf=Math.atan(Math.tan(vf)*innerWidth/innerHeight), d=Math.max(.2/Math.tan(hf),.14/Math.tan(vf))*1.06;
+  return wiW(LHI,D.BOOK[0],D.FK+.64,D.BOOK[1],o).addScaledVector(wiDir(LHI,0,LHBP,wiV3),-d*1.1); }
+const LHMV={climb:{from:'foot',to:'keep',T:5.6},down:{from:'keep',to:'foot',T:5.0},up:{from:'keep',to:'lamp',T:3.6},hatch:{from:'lamp',to:'keep',T:3.2},out:{from:'lamp',to:'gal',T:2.6},back:{from:'gal',to:'lamp',T:2.8}};
+function lhGo(k){ if(LHI.st!=='in'||LHI.mv) return false; const q=LHMV[k]; if(!q||q.from!==LHI.at) return false; if(LHI.logOn) lhLog(false);
+  LHI.mv={k,...q,t:0,y0:LHI.yaw,p0:LHI.pitch,i:-1,ga0:angWrap(LHI.ga)}; A.tick(); lhUI(); return true; }
+const lhAng=(a,b,k)=>a+angWrap(b-a)*k;
+/* each way between the stops: where your eyes go, which way they look, and the sound of each step */
+function lhMove(dt){ const q=LHI.mv, D=LHD; q.t+=dt; const u=clamp(q.t/q.T,0,1), sp=(a,y)=>[Math.sin(a)*D.SR,y,Math.cos(a)*D.SR], L3=(a,b,k)=>a.map((v,i)=>lerp(v,b[i],k));
+  const foot=[D.S[0],D.FL+D.EY,D.S[1]], keep=[D.KS[0],D.FK+D.EY,D.KS[1]], lamp=[Math.sin(D.LA)*D.LSR,D.FT+D.EY,Math.cos(D.LA)*D.LSR], P0=sp(D.TH0,D.FL+D.EY), P1=sp(D.TH0+TAU,D.FK+D.EY);
+  const desk=wiYawTo(D.KS[0],D.KS[1],D.BOOK[0],D.BOOK[1]), lens=wiYawTo(lamp[0],lamp[2],0,0), LF=[Math.sin(D.TL)*.33,0,Math.cos(D.TL)*.33], lad=D.TL+Math.PI;
+  let p, yaw, pit; const step=(n,s,g)=>{ const i=Math.floor(s*n); if(i!==q.i&&s>0&&s<1){ q.i=i; A.ironStep(g); } };
+  if(q.k==='climb'){ if(u<.13){ const k=E.io(u/.13); p=L3(foot,P0,k); yaw=lhAng(q.y0,D.TH0-Math.PI/2+.42,k); pit=lerp(q.p0,-.08,k); }
+    else if(u<.88){ const s=(u-.13)/.75, a=D.TH0+s*TAU; p=sp(a,D.FL+s*(D.FK-D.FL)+D.EY+.018*Math.abs(Math.sin(s*D.N*Math.PI))); yaw=a-Math.PI/2+.42; pit=-.08+.2*sstep(.55,.85,s)-.2*sstep(.85,1,s); step(D.N,s,.05); }
+    else { const k=E.io((u-.88)/.12); p=L3(P1,keep,k); yaw=lhAng(D.TH0+TAU-Math.PI/2+.42,desk,k); pit=lerp(-.08,-.7,k); } }
+  else if(q.k==='down'){ if(u<.12){ const k=E.io(u/.12); p=L3(keep,P1,k); yaw=lhAng(q.y0,D.TH0+TAU+Math.PI/2-.2,k); pit=lerp(q.p0,-.35,k); }
+    else if(u<.88){ const s=(u-.12)/.76, a=D.TH0+TAU-s*TAU; p=sp(a,D.FK-s*(D.FK-D.FL)+D.EY+.018*Math.abs(Math.sin(s*D.N*Math.PI))); yaw=a+Math.PI/2-.2; pit=-.35+.25*sstep(.8,1,s); step(D.N,s,.05); }
+    else { const k=E.io((u-.88)/.12); p=L3(P0,foot,k); yaw=lhAng(D.TH0+Math.PI/2-.2,Math.PI,k); pit=lerp(-.1,0,k); } }
+  else if(q.k==='up'){ const lf=[LF[0],D.FK+D.EY,LF[2]];
+    if(u<.18){ const k=E.io(u/.18); p=L3(keep,lf,k); yaw=lhAng(q.y0,lad,k); pit=lerp(q.p0,.6,k); }
+    else if(u<.8){ const s=E.io((u-.18)/.62); p=[LF[0],D.FK+D.EY+s*(D.FT-D.FK),LF[2]]; yaw=lad; pit=.6-.6*sstep(.55,1,s); step(9,s,.032); }
+    else { const k=E.io((u-.8)/.2); p=L3([LF[0],D.FT+D.EY,LF[2]],lamp,k); yaw=lhAng(lad,lens,k); pit=lerp(0,-.08,k); } }
+  else if(q.k==='hatch'){ const lt=[LF[0],D.FT+D.EY,LF[2]];
+    if(u<.2){ const k=E.io(u/.2); p=L3(lamp,lt,k); yaw=lhAng(q.y0,lad,k); pit=lerp(q.p0,-.7,k); }
+    else if(u<.82){ const s=E.io((u-.2)/.62); p=[LF[0],D.FT+D.EY-s*(D.FT-D.FK),LF[2]]; yaw=lad; pit=-.7+.6*sstep(.5,1,s); step(9,s,.032); }
+    else { const k=E.io((u-.82)/.18); p=L3([LF[0],D.FK+D.EY,LF[2]],keep,k); yaw=lhAng(lad,desk,k); pit=lerp(-.1,-.7,k); } }
+  else if(q.k==='out'){ const di=[0,D.FT+D.EY,.42], gp=[0,D.FT+D.EY,.9];
+    if(u<.35){ const k=E.io(u/.35), a=lerp(D.LA,0,k), r=lerp(D.LSR,.42,k); p=[Math.sin(a)*r,D.FT+D.EY,Math.cos(a)*r]; yaw=lhAng(q.y0,Math.PI,k); pit=lerp(q.p0,0,k); step(3,k,.03); }
+    else if(u<.78){ const k=E.io((u-.35)/.43); p=L3(di,gp,k); yaw=Math.PI; pit=lerp(0,-.25,k); step(2,k,.035); }
+    else { const k=E.io((u-.78)/.22); p=gp; yaw=Math.PI; pit=lerp(-.25,-.72,k); }
+    if(u>.22&&!LHI.gdT){ LHI.gdT=1; A.civDoor(true,false); } }
+  else { const di=[0,D.FT+D.EY,.42], gp=[0,D.FT+D.EY,.9];
+    if(u<.3){ const k=E.io(u/.3), a=lerp(q.ga0,0,k); p=[Math.sin(a)*.9,D.FT+D.EY,Math.cos(a)*.9]; yaw=lhAng(q.y0,a+Math.PI,Math.min(1,k*2)); pit=lerp(q.p0,-.05,k); step(4,k,.035); }
+    else if(u<.45){ const k=E.io((u-.3)/.15); p=gp; yaw=lhAng(Math.PI,0,k); pit=0; }
+    else if(u<.78){ const k=E.io((u-.45)/.33); p=L3(gp,di,k); yaw=0; pit=0; step(2,k,.035); }
+    else { const k=E.io((u-.78)/.22), a=lerp(0,D.LA,k), r=lerp(.42,D.LSR,k); p=[Math.sin(a)*r,D.FT+D.EY,Math.cos(a)*r]; yaw=lhAng(0,lens,k); pit=lerp(0,-.08,k); }
+    if(u>.7&&LHI.gdT){ LHI.gdT=0; LHI.gshut=1; } }
+  wiW(LHI,...p,LHI.cp); LHI.yaw=yaw; LHI.pitch=pit; wiDir(LHI,yaw,pit,wiV).add(LHI.cp); LHI.cl.copy(wiV); LHI.cu.copy(LHI.up); me.visible=false;
+  if(u>=1){ LHI.at=q.to; if(q.k==='out') LHI.ga=0; LHI.mv=null; LHI.dragT=0; LHI.held=keys.has('KeyW')||keys.has('ArrowUp')||keys.has('KeyS')||keys.has('ArrowDown')?1:0; lhUI(); } }
+/* inside, at a stop: drag (or the arrows, A and D) to look round; on the gallery you walk round to wherever you look. W (or
+   up) goes on up, S (or down) goes back down, or out at the foot */
+function lhInside(dt){ const D=LHD; if(LHI.mv){ lhMove(dt); return; }
+  const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0), fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown');
+  LHI.log=LHI.logOn?Math.min(1,LHI.log+dt/.7):Math.max(0,LHI.log-dt/.6);
+  if(!LHI.logOn){ if(kx){ LHI.yaw+=kx*1.6*dt; LHI.dragT=0; }
+    if(!fw&&!bk) LHI.held=0; if((fw||bk)&&!LHI.held){ LHI.out+=dt; if(LHI.out>.3){ LHI.out=0; LHI.held=1; const a=LHI.at;
+        if(fw) lhGo(a==='foot'?'climb':a==='keep'?'up':a==='lamp'?'out':''); else if(a==='foot') wiLeave(LHI); else lhGo(a==='keep'?'down':a==='lamp'?'hatch':'back'); return; } } else LHI.out=0;
+    LHI.dragT+=dt; if(LHI.dragT>3&&LHI.at!=='gal'){ const y0=LHI.at==='foot'?LHI.yaw0:LHI.at==='keep'?wiYawTo(D.KS[0],D.KS[1],D.BOOK[0],D.BOOK[1]):wiYawTo(Math.sin(D.LA)*D.LSR,Math.cos(D.LA)*D.LSR,0,0);
+      LHI.yaw=lhAng(LHI.yaw,y0,1-Math.exp(-1.6*dt)); LHI.pitch=damp(LHI.pitch,LHI.at==='keep'?-.7:LHI.at==='foot'?(cport()?.06:.1):-.08,1.6,dt); } }
+  if(LHI.at==='gal'){ const d=angWrap(LHI.yaw-Math.PI-LHI.ga), v=clamp(d*2.4,-.85,.85); LHI.ga+=v*dt; LHI.walk+=Math.abs(v*dt)*.9; if(LHI.walk>.5){ LHI.walk=0; A.ironStep(.032); } }
+  lhEye(LHI.cp); let yaw=LHI.yaw, pit=LHI.pitch; if(LHI.log>0){ const k=E.io(LHI.log); yaw=lhAng(yaw,0,k); pit=lerp(pit,LHBP,k); }
+  wiDir(LHI,yaw,pit,wiV).add(LHI.cp); LHI.cl.copy(wiV); LHI.cu.copy(LHI.up); me.visible=false; }
+function lhLook(dx,dy){ if(LHI.logOn){ LHI.swipe+=dx; if(Math.abs(LHI.swipe)>60){ lhPage(LHI.swipe<0?1:-1); LHI.swipe=0; } return; }
+  LHI.yaw-=dx*.0042; LHI.pitch=clamp(LHI.pitch-dy*.0034,-.95,.8); LHI.dragT=0; }
+/* the log: open (the camera leans over the desk), a page turned (it lifts and goes over, and the next is there), shut */
+function lhLog(on){ if(on){ if(LHI.st!=='in'||LHI.at!=='keep'||LHI.mv||LHI.logOn) return false; LHI.logOn=true; LHI.swipe=0; lhLogDraw(); A.poShuffle(.5); }
+  else { if(!LHI.logOn) return false; LHI.logOn=false; LHI.dragT=0; } lhUI(); return true; }
+function lhPage(d){ if(!LHI.logOn||LHI.flip<1) return false; const n=clamp(LHI.page+d,0,LHLOG.length-1); if(n===LHI.page) return false; LHI.flipDir=d; LHI.flip=0; LHI.next=n; A.poShuffle(.7); lhUI(); return true; }
+function lhFlip(dt){ const m=LHI.m.flip; if(!m) return; if(LHI.flip<1){ LHI.flip=Math.min(1,LHI.flip+dt/.55); if(LHI.flip>=.5&&LHI.page!==LHI.next){ LHI.page=LHI.next; lhLogDraw(); lhUI(); } }
+  const on=LHI.flip<1; if(m.visible!==on) m.visible=on; if(!on) return; const D=LHD, a=LHI.flipDir>0?Math.PI*E.io(LHI.flip):Math.PI*(1-E.io(LHI.flip));
+  m.matrix.copy(LHI.M).multiply(wiM.makeTranslation(D.BOOK[0],D.FK+.62+.022,D.BOOK[1]).multiply(wiM2.makeRotationZ(a))); m.matrixWorldNeedsUpdate=true; }
+
+/* ---------- the buttons inside, the clicks and the keys ---------- */
+const lhBar=document.createElement('div'); lhBar.className='crlhbar'; el.insertBefore(lhBar,$('#crSkip',el)); lhBar.addEventListener('pointerdown',e=>e.stopPropagation());
+const lhK=k=>` <span class="crkey">${k}</span>`;
+const LHB={climb:wiBtn('crlhb crlhpri','crLhClimb','Climb','Climb the stair'+lhK('E'),kb=>{ LHI.kb=kb; lhGo('climb'); },lhBar),
+  log:wiBtn('crlhb crlhpri','crLhLog','Read','Read the log'+lhK('E'),kb=>{ LHI.kb=kb; lhLog(true); },lhBar),
+  up:wiBtn('crlhb','crLhUp','Up','Up to the lamp'+lhK('W'),kb=>{ LHI.kb=kb; lhGo('up'); },lhBar),
+  out:wiBtn('crlhb crlhpri','crLhOut','Step out','Step out'+lhK('E'),kb=>{ LHI.kb=kb; lhGo('out'); },lhBar),
+  back:wiBtn('crlhb crlhpri','crLhBack','Back in','Back in'+lhK('E'),kb=>{ LHI.kb=kb; lhGo('back'); },lhBar),
+  down:wiBtn('crlhb','crLhDown','Down','Down'+lhK('S'),kb=>{ LHI.kb=kb; lhGo(LHI.at==='keep'?'down':'hatch'); },lhBar),
+  prev:wiBtn('crlhb','crLhPrev','Earlier','Earlier'+lhK('&larr;'),kb=>{ LHI.kb=kb; lhPage(-1); },lhBar),
+  next:wiBtn('crlhb crlhpri','crLhNext','Later','Later'+lhK('&rarr;'),kb=>{ LHI.kb=kb; lhPage(1); },lhBar),
+  close:wiBtn('crlhb','crLhClose','Close','Close the log'+lhK('Esc'),kb=>{ LHI.kb=kb; lhLog(false); },lhBar)};
+const lhOut=wiBtn('crleave crlhout','crLhLeave','Leave','Leave the lighthouse',kb=>{ LHI.kb=kb; wiLeave(LHI); });
+const lhHint=document.createElement('div'); lhHint.className='crpbhint ui crlhhint'; lhHint.hidden=true; el.insertBefore(lhHint,$('#crSkip',el));
+const lhLogEl=document.createElement('div'); lhLogEl.className='crsr'; lhLogEl.setAttribute('aria-live','polite'); el.insertBefore(lhLogEl,$('#crSkip',el));
+LHI.tag=wiTagMk(LHI,'crwlh');
+function lhUI(){ const inn=LHI.st==='in'&&!LHI.mv, a=LHI.at, lg=LHI.logOn;
+  const want={climb:inn&&a==='foot',log:inn&&a==='keep'&&!lg,up:inn&&a==='keep'&&!lg,out:inn&&a==='lamp',back:inn&&a==='gal',down:inn&&(a==='keep'&&!lg||a==='lamp'),prev:inn&&lg,next:inn&&lg,close:inn&&lg};
+  for(const k in LHB){ if(LHB[k].hidden===!!want[k]) LHB[k].hidden=!want[k]; } if(inn&&lg){ LHB.prev.disabled=LHI.page<=0; LHB.next.disabled=LHI.page>=LHLOG.length-1; }
+  lhOut.hidden=!(inn&&a==='foot'); const tx=inn&&a==='gal'?(LHI.touchy||cport()?'Drag to walk round the gallery':'Drag, or the arrows, to walk round the gallery'):'';
+  if(lhHint.textContent!==tx) lhHint.textContent=tx; lhHint.hidden=!tx; lhLogEl.hidden=!lg; }
+function lhPick(e){ const k=LHI.pk; if(!k) return null; if(LHI.mv) return null;
+  if(LHI.at==='foot') return wiPick(LHI,e,[['out',k.door],['stair',k.stair]]);
+  if(LHI.at==='keep') return LHI.logOn?wiPick(LHI,e,[['prev',k.pgL],['next',k.pgR]]):wiPick(LHI,e,[['log',k.desk],['ladder',k.ladder],['down',k.hole]]);
+  if(LHI.at==='lamp') return wiPick(LHI,e,[['gdoor',k.gdoor],['hatch',k.hatch],['lens',k.lens]]);
+  return wiPick(LHI,e,[['gdoor',k.gdoor]]); }
+function lhClick(k){ if(LHI.mv) return; if(k==='out') wiLeave(LHI); else if(k==='stair') lhGo('climb'); else if(k==='log') lhLog(true); else if(k==='ladder') lhGo('up'); else if(k==='down') lhGo('down');
+  else if(k==='prev') lhPage(-1); else if(k==='next') lhPage(1); else if(k==='gdoor') lhGo(LHI.at==='gal'?'back':'out'); else if(k==='hatch') lhGo('hatch'); else if(k==='lens') A.tick(); }
+function lhKey(e,k,ctl){ if(k==='Escape'){ if(LHI.st==='in'&&!e.repeat&&!LHI.mv){ LHI.kb=true; if(LHI.logOn) lhLog(false); else if(LHI.at==='gal') lhGo('back'); else if(LHI.at==='lamp') lhGo('hatch'); else if(LHI.at==='keep') lhGo('down'); else wiLeave(LHI); } return true; }
+  if(ctl&&(k==='Enter'||k==='Space')) return false; const act=k==='KeyE'||k==='Enter'||k==='Space'; if(LHI.st!=='in'||LHI.mv||e.repeat) return act;
+  if(LHI.logOn){ if(act||k==='ArrowRight'||k==='KeyD'){ lhPage(1); return true; } if(k==='ArrowLeft'||k==='KeyA'){ lhPage(-1); return true; } if(k==='KeyS'||k==='ArrowDown'){ lhLog(false); return true; } return false; }
+  if(act){ LHI.kb=true; const a=LHI.at; if(a==='foot') lhGo('climb'); else if(a==='keep') lhLog(true); else if(a==='lamp') lhGo('out'); else lhGo('back'); return true; }
+  return false; }
+
+/* ---------- each frame: the lens turning with the beam, the lantern's door, the clock, the air in the tower, the gulls ---------- */
+function lhStep(dt,t){ if(!wiStep(LHI,dt,t)) return; const D=LHD, B=LHI, up=B.on||B.warm;
+  if(up&&PH){ B.m.lens.matrix.copy(PH.M).multiply(wiM.makeTranslation(0,D.LAMP,0).multiply(wiM2.makeRotationY(PHS.yaw))); B.m.lens.matrixWorldNeedsUpdate=true; }
+  const top=B.on&&(B.at==='lamp'||B.at==='gal'||!!B.mv&&B.mv.k!=='climb'&&B.mv.k!=='down'), tin=top||B.warm;   // (up top the gallery and the lantern are drawn in the room's light, and the glass is clear; never both at once but behind the loader)
+  if(top&&PH) PH.beam.material.uniforms.uOp.value*=clamp(SKY.night*1.5+WX.fog,0,1);   // (from beside the lamp the beam is only a thing to see at night or in fog)
+  if(B.m.topOut.visible===top) B.m.topOut.visible=!top; if(B.m.glassOut.visible===top) B.m.glassOut.visible=!top; for(const m of [B.m.topIn,B.m.glassIn,B.m.lens]) if(m.visible!==tin) m.visible=tin;
+  /* the lantern's door: opened as you step out, shut behind you as you come back in */
+  const g0=B.gd; B.gd=damp(B.gd,B.gdT,B.gdT?3.2:4,dt); if(Math.abs(B.gd-g0)>1e-5) lhGdoorPose(); if(B.gshut&&B.gd<.03){ B.gshut=0; A.civDoor(false,false); }
+  if(up){ lhFlip(dt); const h=SKY.h, [r,a,y]=B.ck; [[B.m.hh,(h%12)/12],[B.m.mh,h%1]].forEach(([m,u],i)=>{ m.matrix.copy(sub(B.M,Math.sin(a)*(r-.006-i*.003),y,Math.cos(a)*(r-.006-i*.003),a+Math.PI)).multiply(wiM.makeRotationZ(-u*TAU)); m.matrixWorldNeedsUpdate=true; }); }
+  /* the lamps: the lamp in the lens brighter by night; the others warm */
+  const nt=SKY.night; B.U.uCL.value[3].w=.6+.6*nt; B.U.uCL.value[0].w=B.U.uCL.value[1].w=.6+.2*nt; B.U.uCL.value[2].w=.75+.25*nt;
+  /* the air: the wind grows as you climb (most out on the gallery), the motor near the lens, the sea up top and through the
+     open door; the gulls now and then from up there. Made as you come near, so it is ready when you go in */
+  let w=0, hum=0, sea=0; if(B.on){ wiL(B,B.cp,wiV); const y=wiV.y, outT=B.at==='gal'&&!B.mv||B.mv&&(B.mv.k==='out'||B.mv.k==='back');
+    w=clamp((y-1.6)/(D.FT+D.EY-1.6),0,1)*.7+(outT?.3:0); hum=clamp(1-Math.abs(y-(D.FT+D.EY))/2.4,0,1)*(outT?.55:1); sea=outT?1:clamp((y-D.FK)/(D.FT-D.FK),0,1)*.4+(B.door>.15?.3:0); }
+  B.air[0]=damp(B.air[0],w,1.2,dt); B.air[1]=damp(B.air[1],hum,1.6,dt); B.air[2]=damp(B.air[2],sea,1.2,dt); A.lhAir(B.air[0],B.air[1],B.air[2],B.dd<12);
+  if(B.on&&(B.at==='gal'||B.at==='lamp')&&!B.mv){ B.gullT-=dt; if(B.gullT<=0){ B.gullT=4+Math.random()*6; A.gull(Math.random()*1.6-.8,B.at==='gal'?.011:.005); } } }
+wiWire(LHI,buildLighthouse,lhStep);
+st._dbg.lighthouse={L:LHI,LHD,LHLOG,LHMV,get err(){ return LHI.err; },go:()=>wiGo(LHI),enter:()=>wiEnter(LHI),leave:()=>wiLeave(LHI),move:lhGo,log:lhLog,page:lhPage,reset:()=>wiReset(LHI),text:lhLogText,today:lhToday,
+  local:(x,z)=>wiXZ(LHI,x,z),world:(x,y,z)=>wiW(LHI,x,y,z),toLocal:w=>wiL(LHI,w),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  get state(){ const B=LHI, e=wiL(B,B.cp,new T.Vector3()); return {st:B.st,on:B.on,at:B.at,mv:B.mv&&B.mv.k,k:+B.k.toFixed(3),vis:!!(B.g&&B.g.visible),me:me.visible,near:stCam.near,fov:+stCam.fov.toFixed(1),door:+B.door.toFixed(2),gd:+B.gd.toFixed(2),
+    eye:[+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2)],you:[+B.you.x.toFixed(2),+B.you.z.toFixed(2)],dd:+B.dd.toFixed(2),ga:+B.ga.toFixed(2),log:+B.log.toFixed(2),logOn:B.logOn,page:B.page,mk:+B.mk.toFixed(2),
+    tag:{on:B.tagOn,can:B.tagCan,txt:B.tag.textContent},leave:!lhOut.hidden,btn:Object.keys(LHB).filter(k=>!LHB[k].hidden),air:B.air.map(v=>+v.toFixed(2)),topOut:B.m.topOut.visible,lensYaw:+PHS.yaw.toFixed(3),hint:lhHint.hidden?'':lhHint.textContent}; },
+  /* where on the screen the door, the stair, the desk, the pages, the ladder, the lantern's door and the lens are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const D=LHD, p={door:[0,1.3,LHI.on?.85:1.0],stair:[.35,D.FL+.9,-.15],desk:[D.BOOK[0],D.FK+.66,D.BOOK[1]],pgL:[D.BOOK[0]-.09,D.FK+.64,D.BOOK[1]],pgR:[D.BOOK[0]+.09,D.FK+.64,D.BOOK[1]],
+      ladder:[Math.sin(D.TL)*.5,D.FK+1.3,Math.cos(D.TL)*.5],gdoor:[0,D.FT+.9,.66],lens:[0,D.LAMP,0]}[what]||[0,1.3,1];
+    const q=wiW(LHI,...p,new T.Vector3()).project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
+/* ===================== (the lighthouse, inside, ends here) ===================== */
+
+/* ===================== the chipper: Lanzetti's, fish and chips =====================
+   The plain house on the north side of the loop, next door to the workshop, is a chip shop now: Lanzetti's. A green
+   shopfront with the name in cream over the window and a stripe of the old country's colours under it, a bench under the
+   window, a bin by the door, and through the glass the tiles, the counter and the menu lit over the fryers.
+   It keeps the visitor's clock, as the sky does: in the morning the shutter is down, with a sign on it (open from
+   lunchtime), and it rolls up at noon; it is open until two in the morning, when the market in the square packs up too.
+   There is someone waiting at lunchtime, a small queue in the evening, and while the market is on it is busy, with people
+   eating on the bench outside.
+   Walk in (the tag over the door, E, a click or a tap on the shop from across the street, or just walk into the door): the
+   bell over the door rings and you are at the counter. Enzo Lanzetti is behind it, his family's photographs on the wall and
+   the hill town they came from painted beside them. Order off the board (Single, One and one, Curry chips, Battered sausage,
+   Spice bag): he says it back, rings it into the till, lifts the basket out of the fryer and shakes it, and lays it out on
+   the paper in front of you. Shake the salt and the vinegar over it yourself (the cellar and the bottle are on the counter),
+   and he wraps it up in the paper. Take it outside, and you are carrying it for a while after, as you walk about. Leave,
+   Escape or a tap on the door takes you out (with your chips, if they are ready).
+   Sound: the fryer (louder as the basket goes in), the bell over the door, the till, the paper.
+   As with the pub and the lighthouse, the room is built after the town's trees (on the house's own ground until then) and
+   hidden until you go in, drawn once behind the loader in the café's own shaders, so going in compiles nothing new. */
+/* where it all is, in the shop's own frame (x across, y up, z out to the street): its size, walls, floor and eye height;
+   the door (middle, width, head), the big window (middle, width, sill, head), the pilasters; where you stand; the counter
+   (from, to, its middle and depth) and its top; where the paper goes, the salt, the vinegar and the till on it; where Enzo
+   stands for each thing (at home, at the till, at the fryer, at the paper); the fryers (from, to, middle, depth); the menu
+   (from, to, bottom, top); and the people who wait (where, which way they face, sitting or not) */
+const CHD={w:3.2,d:2.6,h:2.75,t:.08,FL:.22,EY:1.15,DX:.95,DW:.72,DH:1.86,WX:-.55,WW:1.7,WS:.78,WH:1.98,PIL:[-1.52,.445,1.52],
+  S:[.42,.8],CNT:[-1.52,1.52,-.12,.44],CTOP:.95,SERVE:[.3,-.14],SALT:[.62,0],VIN:[.76,-.02],TILL:[1.2,-.22],
+  HOME:[.15,-.55],TILLP:[1.08,-.55],FRYP:[-.55,-.58],SERVP:[.3,-.52],FRY:[-1.45,.35,-1.0,.42],MENU:[.53,1.48,1.02,2.06],BASK:[-.55,-.98],
+  Q:[{at:[-1.05,.36],f:Math.PI-.3,in:true},{at:[-.42,.8],f:.15,in:true,eat:true},{at:[-.82,1.71],f:0,sit:true,eat:true},{at:[.18,1.88],f:-1.25}]};
+const CHMENU=[{n:'Single',k:'Chips',p:'4.50'},{n:'One and one',k:'Fish and chips',p:'11'},{n:'Curry chips',k:'Chips, curry sauce',p:'5.50'},{n:'Battered sausage',k:'In batter, with chips',p:'3'},{n:'Spice bag',k:'Chicken, chips, peppers',p:'9'}];
+/* Enzo: the same hand as everyone in town (see figure), his whites, an apron and a paper hat, the moustache gone grey;
+   not one of us, so no photo and no page, and he stays behind his counter. What he says comes up over the menu */
+const ENZO={shirt:'#f6f3ec',short:true,pants:'#2f3137',shoes:'#2a2420',sole:'#1d1915',skin:'#d9a37c',hair:'short',hairC:'#5d5650',head:[.156,.17,.162,.12,.026],face:{bw:.013,arch:.008,by:.05},mouth:'smile',cheeks:true,mous:true,build:1.08,depth:.82,pitch:390};
+const CHL={hi:'Ciao! Come in, come in. What can I get you?',night:'Ciao! Busy one tonight, the market\'s on. What can I get you?',again:'Ah, you\'re back! What\'ll it be?',
+  items:['One single. Lovely, the chips are just in.','A one and one. The fish is battered fresh.','Curry chips. My nonna would be horrified. Coming up.','A battered sausage. Good choice.','A spice bag! Everybody wants the spice bag now.'],
+  sv:'Salt and vinegar? Go on, help yourself.',wrap:'I\'ll wrap that up for you.',ready:'There you go. Mind, it\'s hot. Buon appetito!',bye:'Ciao! Come back soon.',
+  more:['Nonno started this place. Three of us at the fryer since.','The secret is in the batter. No, I\'m not telling you.','Open from lunchtime till late. Later again when the market\'s on.']};
+const CHQL=[{shirt:'#c45d4a',funnel:.45,zip:'#d8d2c4',pants:'#39414f',shoes:'#2b2b2e',skin:'#e0b090',hair:'textured',hairC:'#5a3c26'},{shirt:'#3f6e8c',crew:true,under:'#e9e4d6',pants:'#c9b48e',shoes:'#e8e2d6',skin:'#8d5a3c',hair:'curly',hairC:'#1d1612'},
+  {shirt:'#e3b04a',pants:'#2f3640',shoes:'#6b4a33',skin:'#f0c9a8',hair:'bun',hairC:'#b5793f',knee:true},{shirt:'#6d5a8c',crew:true,pants:'#2b2d33',shoes:'#c94f3d',skin:'#c48c66',hair:'short',hairC:'#2a1d16'}];
+const chOpen=()=>SKY.h>=12||SKY.h<2;   // open from lunchtime until two in the morning, when the market shuts
+/* how many are waiting: at lunch one, in the evening two, and while the market is on four (two in, two on the bench and at the door) */
+const chQueue=()=>!chOpen()?0:mktOpen()?4:SKY.h>=17?2:SKY.h>=12.4&&SKY.h<14?1:0;
+const CHP=wiRoom({id:'chip',cls:'inchip',ph:'menu',oi:-1,ot:0,salt:0,vin:0,shk:null,said:'',sayT:0,chat:0,seen:false,carry:-1,carryT:0,sh:1,shT:1,shK:0,motor:null,q:0,fry:0,fryK:0,slide:0,
+  DX:CHD.DX,F:CHD.d/2,F0:CHD.d/2,DZ:[CHD.d/2+.15,CHD.d/2+1.25,.8],AP:[CHD.DX,CHD.d/2+.75],S:CHD.S,p0:-.1,pP:-.14,IN:3.1,OUT:2.8,tagY:[1.55,1.98],tagZ:CHD.d/2+.25,
+  wayIn:[[CHD.DX,CHD.d/2+.55],[CHD.DX,CHD.d/2-.4],[CHD.S[0]+.1,CHD.S[1]+.08]], camIn:[[CHD.DX,CHD.FL+1.5,CHD.d/2+1.9],[CHD.DX,CHD.FL+CHD.EY+.12,CHD.d/2+.15],[CHD.DX,CHD.FL+CHD.EY+.05,CHD.d/2-.45]], lookIn:[[CHD.DX,1.3,.4],[.2,1.3,-.5]],
+  wayOut:[[CHD.DX,CHD.d/2-.45],[CHD.DX,CHD.d/2+.2],[CHD.DX,CHD.d/2+.75]], camOut:[[CHD.DX,CHD.FL+CHD.EY+.1,CHD.d/2-.5],[CHD.DX,CHD.FL+CHD.EY+.15,CHD.d/2+.2]],
+  busy:()=>!CHP.g||wiBusy(), open:()=>chOpen(), canLeave:()=>true,
+  figY:(x,z)=>{ const f=CHD.d/2; return z<f-.05?CHD.FL:z<f+.6?Math.max(.16,wiGround(CHP,x,z)):wiGround(CHP,x,z); },
+  stepSnd:(x,z,mx,mz)=>A.step(z<CHD.d/2?2:roadDist(mx,mz)<RW+SW?1:0), sndDoor:o=>A.poBell(o),
+  eye:o=>chEye(o), fov:()=>cport()?78:56, tagText:()=>chOpen()?'Go in':'Opens at lunchtime', ui:()=>chUI(), outdoors:()=>false,
+  onEnter(){ CHP.ph='menu'; CHP.oi=-1; CHP.salt=CHP.vin=0; CHP.shk=null; CHP.greet=0; CHP.tilled=CHP.fried=CHP.laid=CHP.wrapped=0; chPaper(); chSay(''); }, onWayIn(c){ if(c>1.4&&!CHP.greet){ CHP.greet=1; CHP.e.wave=1.8; } },
+  onIn(){ chSay(!CHP.seen?(mktOpen()?CHL.night:CHL.hi):CHL.again); CHP.seen=true; chUI(); if(CHP.kb) chFocus(); }, onLeave(){ if(CHP.ph==='ready') chCarry(CHP.oi); chSay(''); }, onOut(){},
+  onReset(){ CHP.ph='menu'; CHP.oi=-1; CHP.shk=null; CHP.greet=0; chPaper(); chSay(''); if(CHP.e) CHP.e.wave=0; }, quiet:()=>{ A.chipFry(0); },
+  inside:(dt,t)=>chInside(dt,t), look:(dx,dy)=>{ CHP.yaw=clamp(CHP.yaw-dx*.0042,-2.7,2.7); CHP.pitch=clamp(CHP.pitch-dy*.0034,-.8,.6); CHP.dragT=0; },
+  label:k=>({enzo:'Talk',salt:'Salt',vin:'Vinegar',door:'Leave',paper:'Take it',menu:'Menu'})[k]||null, pickIn:e=>chPick(e), click:k=>chClick(k), key:(e,k,ctl)=>chKey(e,k,ctl),
+  doorPose:()=>chDoorPose(), cull:on=>{ [CHP.m.door,CHP.m.pane,CHP.m.pane2,CHP.m.fascia,CHP.m.shut].forEach(m=>{ if(m) m.frustumCulled=on; }); }});
+/* (on a phone held upright the view is narrow: it looks between Enzo and the salt and the vinegar, so both are in it) */
+Object.defineProperty(CHP,'yaw0',{get:()=>cport()?-.04:.2});
+const chW=(x,y,z,o)=>wiW(CHP,x,y,z,o);
+
+/* ---------- the shop from the street: as the pub is, a house whose front is a shopfront, green, the name in cream; the
+   window and the door, the shutter that comes down over both, a bench and a bin. On the house's own ground until the trees
+   are laid out (see buildChipper) ---------- */
+function chHouse(x,z,yaw,o){ const D=CHD, M=frameAt(x,z,yaw), w=D.w, d=D.d, h=D.h, t=D.t, tr='#f6f1e7', rh=1.3, f=d/2, G='#1d5a3c', G2='#174a31', CR='#efe4c8';
+  Object.assign(CHP,{M,Mi:M.clone().invert(),x,z,hy:yaw}); HOUSES.push({M,w,d,h,dx:D.DX,flat:false});
+  box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18);
+  slab(M,o.wall,'x',f-t/2,w,t,.2,h,[[D.DX,D.DW,.2,D.DH],[D.WX,D.WW,D.WS,D.WH]]); slab(M,o.wall,'x',-f+t/2,w,t,.2,h,[]); slab(M,o.wall,'z',w/2-t/2,d-2*t,t,.2,h,[]); slab(M,o.wall,'z',-w/2+t/2,d-2*t,t,.2,h,[]);
+  put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,f+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-f-.04,w+.1,.12,.05);
+  box(M,'#b07a5e',w*.28,h+.25,-d*.16,.34,rh*.95,.34); slChim(M,w*.28,h+.27+rh*.95,-d*.16);   // (the fryer's flue; its smoke: see the sky alive)
+  windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
+  /* the shopfront: green pilasters with cream caps, the fascia and its cornice, a stripe of green, white and red under it,
+     the stall riser in green tiles under the window, the window's frame and bars, the door's frame and its step */
+  D.PIL.forEach(px=>{ box(M,G,px,.2,f+.03,.17,1.86,.08); box(M,CR,px,1.95,f+.075,.19,.05,.03); box(M,G2,px,.2,f+.05,.21,.14,.1); });
+  box(M,G2,0,2.06,f+.02,w+.06,.5,.06); box(M,G,0,2.56,f+.06,w+.12,.07,.16); box(M,CR,0,2.06,f+.052,w+.02,.025,.012);
+  [['#2f8a4f',-1],['#f6f1e7',0],['#c8372e',1]].forEach(([c,k])=>box(M,c,k*(w-.2)/3,2.035,f+.055,(w-.2)/3,.025,.012));
+  box(M,G,D.WX,.2,f+.01,D.WW+.06,D.WS-.26,.06); for(let k=0;k<6;k++) box(M,'#2f6b4f',D.WX-D.WW/2+.15+k*(D.WW-.3)/5,.28,f+.042,.2,D.WS-.4,.012);
+  box(M,G,D.WX,D.WH-.02,f+.02,D.WW+.08,.1,.07); [-1,1].forEach(s=>box(M,G,D.WX+s*(D.WW/2+.01),D.WS,f+.02,.07,D.WH-D.WS,.07)); box(M,'#efe7d6',D.WX,D.WS-.06,f+.05,D.WW+.12,.06,.14);
+  box(M,G,D.WX,D.WH-.4,f-.005,D.WW,.035,.04); [-1,1].forEach(s=>box(M,G,D.WX+s*D.WW/6,D.WS,f-.005,.035,D.WH-D.WS-.4,.04));
+  [-1,1].forEach(s=>box(M,G,D.DX+s*(D.DW/2+.035),.2,f+.02,.07,D.DH-.2+.06,.07)); box(M,G,D.DX,D.DH,f+.02,D.DW+.16,.08,.07); box(M,'#bdb6aa',D.DX,0,f+.32,1.0,.16,.56);
+  /* the shutter's box under the fascia and its two rails */
+  box(M,'#8e9496',0,1.98,f+.11,w-.02,.09,.1); [-1,1].forEach(s=>box(M,'#8e9496',s*(w/2-.06),.2,f+.12,.05,1.8,.06));
+  /* the bench under the window (its people, when there are any, see the queue), and the bin by the door */
+  { const B=sub(M,D.WX-.02,0,f+.42); [-.52,.52].forEach(s=>{ box(B,'#3a3330',s,0,-.02,.06,.4,.34); box(B,'#3a3330',s,.4,-.17,.06,.36,.05); });
+    for(let k=0;k<3;k++) box(B,'#9a6a44',0,.4,-.13+k*.12,1.22,.045,.1); for(let k=0;k<2;k++) box(B,'#9a6a44',0,.52+k*.14,-.19,1.22,.09,.035,0,-.1); }
+  { const B=sub(M,D.DX+.62,0,f+.3); cyl(B,'#2f6b4f',0,0,0,.15,.55); cyl(B,'#1d5a3c',0,.55,0,.16,.05); cyl(B,'#c9cdd2',0,.6,0,.05,.02); }
+  /* the name over the window, in cream on green, and the stripe under it */
+  { const {tx}=pbCanvas(1024,160,chFascia), fm=new T.Mesh(new T.PlaneGeometry(w-.3,.42),pbSignMat(tx)); fm.matrixAutoUpdate=false; fm.matrix.copy(sub(M,0,2.3,f+.054)); fm.userData.cast=true; sc.add(fm); CHP.m.fascia=fm; }
+  /* the door: glazed, green, a brass bar across it; it opens in. The glass of the window and the door, painted from one
+     canvas (the shop as you would glimpse it, and the letters on the glass); gone from the window while you are inside */
+  { kitTo('chdoor'); const I=new T.Matrix4(), w_=D.DW;
+    box(I,G,-w_/2,0,0,w_,.5,.05); box(I,G,-w_/2,D.DH-.2-.12,0,w_,.12,.05); box(I,G,-w_+.05,.5,0,.1,D.DH-.2-.62,.05); box(I,G,-.05,.5,0,.1,D.DH-.2-.62,.05);
+    box(I,'#c9a24a',-w_/2,.98,.035,w_-.16,.03,.03); box(I,'#c9a24a',-w_/2,.98,-.035,w_-.16,.03,.03);
+    kitTo(); const dm=new T.Mesh(kgeo('chdoor'),toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); dm.matrixAutoUpdate=false; sc.add(dm); CHP.m.door=dm; CHP.m.hinge=[D.DX+D.DW/2,.2,f-.04]; }
+  { const {cv,tx}=pbCanvas(1024,512,chPaint); CHP.pcv=cv; const pm=paneMat(tx), uv=(g,x0,y0,x1,y1)=>{ const a=g.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(x0/1024,x1/1024,a.getX(i)),lerp(1-y1/512,1-y0/512,a.getY(i))); return g; };
+    const wm=new T.Mesh(uv(new T.PlaneGeometry(D.WW-.04,D.WH-D.WS-.04),0,0,860,512),pm); wm.matrixAutoUpdate=false; wm.matrix.copy(sub(M,D.WX,(D.WS+D.WH)/2,f-.035)); sc.add(wm); CHP.m.pane=wm;
+    const dp=new T.Mesh(uv(new T.PlaneGeometry(D.DW-.2,D.DH-.2-.62),868,0,1024,300),pm); dp.position.set(-D.DW/2,.5+(D.DH-.2-.62)/2,0); CHP.m.door.add(dp); CHP.m.pane2=dp; }
+  /* the shutter: corrugated, its sign painted on it; rolled up into its box while the shop is open */
+  { const {tx}=pbCanvas(512,320,chShutPaint), sm=new T.Mesh(new T.PlaneGeometry(w-.14,1.78),pbSignMat(tx)); sm.matrixAutoUpdate=false; sc.add(sm); CHP.m.shut=sm; }
+  chDoorPose(); chShutPose(); CHP.cull(false);
+  /* while the trees and rocks round town are laid out, its ground is the house's that stood here (see buildChipper) */
+  const o0=OBS.length; obsRect(x,z,yaw,3.2+.25,d+.25,2.4+rh+.3); CHP.obs0=OBS.slice(o0); return M; }
+function chDoorPose(){ const d=CHP.m.door; if(!d) return; const [hx,hy,hz]=CHP.m.hinge; d.matrix.multiplyMatrices(CHP.M,wiM.makeTranslation(hx,hy,hz).multiply(wiM2.makeRotationY(-CHP.door))); d.matrixWorldNeedsUpdate=true; }
+function chShutPose(){ const m=CHP.m.shut; if(!m) return; const k=Math.max(.002,CHP.sh); m.visible=CHP.sh>.004; m.matrix.copy(CHP.M).multiply(wiM.makeTranslation(0,1.98-.89*k,CHD.d/2+.14).multiply(wiM2.makeScale(1,k,1))); m.matrixWorldNeedsUpdate=true; }
+/* the name: cream letters with a dark edge on green, the fish and chips beside it, and the three colours under them */
+function chFascia(cv){ const c=cv.getContext('2d'), W=cv.width, H=cv.height; c.fillStyle='#174a31'; c.fillRect(0,0,W,H); c.strokeStyle='#efe4c8'; c.lineWidth=3; c.strokeRect(8,8,W-16,H-16);
+  c.textBaseline='middle'; let f=H*.6; c.font=`900 ${f}px Doto, monospace`; const t='LANZETTI\'S', m=c.measureText(t).width; if(m>W*.6){ f*=W*.6/m; c.font=`900 ${f}px Doto, monospace`; }
+  c.textAlign='left'; c.lineWidth=f*.12; c.lineJoin='round'; c.strokeStyle='#0c2a1b'; c.strokeText(t,36,H*.5); c.fillStyle='#f3e6c4'; c.fillText(t,36,H*.5);
+  c.textAlign='right'; c.font=`900 ${H*.24}px Doto, monospace`; c.fillStyle='#f3e6c4'; c.fillText('FISH & CHIPS',W-36,H*.38,W*.3); c.fillText('SINCE NONNO',W-36,H*.66,W*.3);
+  [['#2f8a4f',0],['#f6f1e7',1],['#c8372e',2]].forEach(([cl,k])=>{ c.fillStyle=cl; c.fillRect(W-36-W*.3+k*W*.1,H*.8,W*.1,8); }); }
+/* the glass: the shop as you would glimpse it (white tiles, the green counter, the menu lit over the fryers, Enzo in his
+   whites), the letters on the window, and OPEN in the door's glass */
+function chPaint(cv){ const c=cv.getContext('2d'), H=512;
+  c.fillStyle='#ece8de'; c.fillRect(0,0,860,H); c.strokeStyle='rgba(150,150,140,.35)'; c.lineWidth=2; for(let y=20;y<H;y+=34){ c.beginPath(); c.moveTo(0,y); c.lineTo(860,y); c.stroke(); } for(let x=20;x<860;x+=40){ c.beginPath(); c.moveTo(x,0); c.lineTo(x,H*.55); c.stroke(); }
+  c.fillStyle='#2f6b4f'; c.fillRect(0,H*.2,860,18); c.fillStyle='#c3c7ca'; c.fillRect(40,H*.28,500,H*.16); c.fillStyle='#9aa0a3'; c.fillRect(40,H*.42,500,10);
+  c.fillStyle='#1f2a26'; c.fillRect(600,H*.12,220,H*.3); c.fillStyle='#f3e6c4'; for(let k=0;k<5;k++) c.fillRect(620,H*(.17+k*.045),150,9);
+  { const bx=330, by=H*.4; c.fillStyle='#f6f3ec'; c.beginPath(); c.ellipse(bx,by+H*.16,48,H*.12,0,0,TAU); c.fill(); c.fillStyle='#d9a37c'; c.beginPath(); c.arc(bx,by,30,0,TAU); c.fill(); c.fillStyle='#f6f3ec'; c.fillRect(bx-30,by-48,60,26); c.fillStyle='#5d5650'; c.fillRect(bx-14,by+8,28,6); }
+  c.fillStyle='#2f6b4f'; c.fillRect(0,H*.6,860,H*.4); c.fillStyle='#c3c7ca'; c.fillRect(0,H*.58,860,H*.03); c.fillStyle='#255a40'; for(let i=0;i<8;i++) c.fillRect(i*108+14,H*.66,80,H*.26);
+  c.fillStyle='rgba(240,236,220,.14)'; c.fillRect(0,0,860,H);
+  c.fillStyle='#ece8de'; c.fillRect(868,0,156,300); c.fillStyle='#2f6b4f'; c.fillRect(868,180,156,120); c.fillStyle='rgba(240,236,220,.16)'; c.fillRect(868,0,156,300);
+  const L=document.createElement('canvas'); L.width=1024; L.height=H; const lc=L.getContext('2d'); lc.textAlign='center'; lc.textBaseline='middle';
+  const word=(t,x,y,f,wmax,col)=>{ lc.font=`900 ${f}px Doto, monospace`; const m=lc.measureText(t).width, fs=m>wmax?f*wmax/m:f; lc.font=`900 ${fs}px Doto, monospace`; lc.lineWidth=fs*.14; lc.lineJoin='round'; lc.strokeStyle='#0c2a1b'; lc.strokeText(t,x,y); lc.fillStyle=col; lc.fillText(t,x,y); };
+  word('FISH & CHIPS',430,H*.74,H*.13,760,'#f3e6c4'); word('SPICE BAGS · CURRY CHIPS',430,H*.87,H*.06,700,'#f3e6c4');
+  lc.font='900 44px Doto, monospace'; lc.lineWidth=10; lc.strokeStyle='rgba(255,70,60,.5)'; lc.strokeText('OPEN',946,90); lc.fillStyle='#ff6a5a'; lc.fillText('OPEN',946,90); word('PULL',946,240,30,120,'#f3e6c4');
+  c.drawImage(L,0,0); { const im=c.getImageData(0,0,1024,H), Dd=im.data, LD=lc.getImageData(0,0,1024,H).data; for(let i=0;i<Dd.length;i+=4) Dd[i+3]=LD[i+3]>128?255:128; c.putImageData(im,0,0); } }
+/* the shutter: corrugated steel, and its sign */
+function chShutPaint(cv){ const c=cv.getContext('2d'), W=cv.width, H=cv.height; for(let y=0;y<H;y+=12){ c.fillStyle=(y/12)%2?'#a3a9ac':'#8c9295'; c.fillRect(0,y,W,12); c.fillStyle='rgba(255,255,255,.18)'; c.fillRect(0,y,W,2); }
+  c.fillStyle='#f6f1e7'; c.fillRect(W*.24,H*.26,W*.52,H*.42); c.strokeStyle='#174a31'; c.lineWidth=6; c.strokeRect(W*.24+6,H*.26+6,W*.52-12,H*.42-12);
+  c.fillStyle='#174a31'; c.textAlign='center'; c.textBaseline='middle'; c.font='900 46px Doto, monospace'; c.fillText('CLOSED',W/2,H*.39,W*.46); c.font='900 20px Doto, monospace'; c.fillText('OPEN FROM LUNCHTIME',W/2,H*.52,W*.46); c.fillStyle='#c8372e'; c.fillText('LANZETTI\'S',W/2,H*.61,W*.46); }
+/* the menu over the counter, lit; the hill town painted, and the family's photograph (one canvas) */
+function chBoards(cv){ const c=cv.getContext('2d'), F=s=>`900 ${s}px Doto, monospace`, M_=s=>`600 ${s}px ui-monospace, Menlo, monospace`;
+  c.fillStyle='#1f2a26'; c.fillRect(0,0,480,576); c.strokeStyle='#f3e6c4'; c.lineWidth=6; c.strokeRect(12,12,456,552); [['#2f8a4f',0],['#f6f1e7',1],['#c8372e',2]].forEach(([cl,k])=>{ c.fillStyle=cl; c.fillRect(30+k*140,30,140,10); });
+  c.fillStyle='#f3e6c4'; c.textAlign='center'; c.textBaseline='middle'; c.font=F(52); c.fillText('LANZETTI\'S',240,84,420); c.font=M_(18); c.fillText('FISH & CHIPS',240,122);
+  CHMENU.forEach((q,i)=>{ const y=180+i*72; c.textAlign='left'; c.font=F(30); c.fillStyle='#f3e6c4'; c.fillText(q.n.toUpperCase(),34,y,320); c.font=M_(16); c.fillStyle='rgba(243,230,196,.7)'; c.fillText(q.k,36,y+28,300); c.textAlign='right'; c.font=F(30); c.fillStyle='#ffd27a'; c.fillText(q.p,446,y,90); });
+  c.textAlign='center'; c.font=M_(16); c.fillStyle='#f3e6c4'; c.fillText('SALT & VINEGAR ON THE COUNTER',240,540,420);
+  /* the hill town: a village up on its hill, the church, cypresses, the sky warm */
+  { const x0=480, y0=0, w=544, h=288; c.fillStyle='#5a3e2a'; c.fillRect(x0,y0,w,h); const g=c.createLinearGradient(0,y0+16,0,y0+h-16); g.addColorStop(0,'#f2c98a'); g.addColorStop(1,'#e9b06a'); c.fillStyle=g; c.fillRect(x0+16,y0+16,w-32,h-32);
+    c.fillStyle='#8a9a5a'; c.beginPath(); c.moveTo(x0+16,y0+h-16); c.quadraticCurveTo(x0+w*.5,y0+50,x0+w-16,y0+h-16); c.fill(); c.fillStyle='#6f8048'; c.beginPath(); c.moveTo(x0+16,y0+h-16); c.quadraticCurveTo(x0+w*.3,y0+h*.55,x0+w*.6,y0+h-16); c.fill();
+    const r=seeded(5); for(let k=0;k<14;k++){ const bx=x0+w*.32+r()*w*.36, by=y0+h*.32+Math.abs(bx-x0-w*.5)*.32+r()*20; c.fillStyle=['#efe2c4','#e8d2a8','#f3e9d4'][k%3]; c.fillRect(bx,by,26,20); c.fillStyle='#b8573a'; c.fillRect(bx-2,by-6,30,7); }
+    c.fillStyle='#efe2c4'; c.fillRect(x0+w*.48,y0+h*.18,22,44); c.fillStyle='#b8573a'; c.beginPath(); c.moveTo(x0+w*.48-3,y0+h*.18); c.lineTo(x0+w*.48+11,y0+h*.18-16); c.lineTo(x0+w*.48+25,y0+h*.18); c.fill();
+    c.fillStyle='#3f5a32'; [[.2,.62],[.24,.66],[.78,.6],[.82,.64]].forEach(([u,v])=>{ c.beginPath(); c.ellipse(x0+w*u,y0+h*v,7,26,0,0,TAU); c.fill(); }); }
+  /* the family in front of the shop: four of them in a row, the eldest in the middle, sepia */
+  { const x0=480, y0=288, w=544, h=288; c.fillStyle='#2a221c'; c.fillRect(x0,y0,w,h); c.fillStyle='#d9c6a2'; c.fillRect(x0+18,y0+18,w-36,h-36); c.fillStyle='#b89a72'; c.fillRect(x0+18,y0+18,w-36,h*.42);
+    c.fillStyle='#8a7050'; c.fillRect(x0+60,y0+40,w-120,40); [[.24,1],[.4,.9],[.56,1.05],[.72,.85]].forEach(([u,s])=>{ const cx=x0+w*u, cy=y0+h*.55; c.fillStyle='#6a5236'; c.beginPath(); c.arc(cx,cy-46*s,16*s,0,TAU); c.fill(); c.fillStyle='#efe4cc'; c.fillRect(cx-20*s,cy-30*s,40*s,70*s); c.fillStyle='#4a3a26'; c.fillRect(cx-16*s,cy+40*s,12*s,40*s); c.fillRect(cx+4*s,cy+40*s,12*s,40*s); });
+    c.fillStyle='#4a3a26'; c.font=F(22); c.textAlign='center'; c.fillText('LANZETTI\'S',x0+w/2,y0+64); } }
+
+/* ---------- building the inside: the tiles and the floor, the counter, its hot cabinet, the till, the salt and the
+   vinegar, the fryers under their hood, the menu, the window's ledge, the pictures; Enzo; the people who wait; the paper,
+   the chips and the parcel. After the trees: then what stands outside is made solid and the walking grid round it made again ---------- */
+function buildChipper(){ if(!CHP.M||CHP.g) return; const D=CHD, B=CHP, M=B.M, w=D.w, d=D.d, t=D.t, F=D.FL, iw=w/2-t, id=d/2-t, top=D.h-.04, I=new T.Matrix4(), rnd=seeded(97);
+  B.up.copy(wiD(B,0,1,0)); B.U.uCU.value.copy(B.up); B.c0=chW(0,1.4,0);
+  const g=B.g=new T.Group(); g.matrixAutoUpdate=false; g.visible=true; sc.add(g); const mat=wiMat(B), up=B.up;
+  kitTo('chin');
+  /* ---- the floor in black and white squares; tiles to above the counter, a green band, cream paint over it, the ceiling ---- */
+  for(let i=0;i<16;i++) for(let j=0;j<13;j++){ const x0=-iw+i*2*iw/16, x1=x0+2*iw/16, z0=-id+j*2*id/13, z1=z0+2*id/13; kquad(chW(x0,F+.004,z0),chW(x1,F+.004,z0),chW(x1,F+.004,z1),chW(x0,F+.004,z1),up,(i+j)%2?'#2a2a2c':'#ece9e1'); }
+  const fh=[[D.DX,D.DW,0,D.DH],[D.WX,D.WW,D.WS,D.WH]], li=(c,y0,y1,th,o=0)=>{
+    slab(M,c,'x',id-th/2-o,2*iw,th,y0,y1,fh); slab(M,c,'x',-id+th/2+o,2*iw,th,y0,y1,[]); slab(M,c,'z',iw-th/2-o,2*id-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-iw+th/2+o,2*id-2*(th+o),th,y0,y1,[]); };
+  li('#f1efe9',F,F+1.45,.025); li('#2f6b4f',F+1.45,F+1.55,.04,.004); li('#f3e3c3',F+1.55,top,.025); li('#2a2a2c',F,F+.08,.04,.006);
+  for(let k=1;k<10;k++){ const y=F+k*.145; box(M,'#d2cfc6',0,y,-id+.026,2*iw,.008,.004); [-1,1].forEach(s=>box(M,'#d2cfc6',s*(iw-.026),y,0,.004,.008,2*id)); }
+  for(let k=1;k<10;k++){ const x=-iw+k*2*iw/10; box(M,'#d2cfc6',x,F,-id+.026,.008,1.45,.004); } for(let k=1;k<8;k++){ const z=-id+k*2*id/8; [-1,1].forEach(s=>box(M,'#d2cfc6',s*(iw-.026),F,z,.004,1.45,.008)); }
+  box(M,'#f7f3ea',0,top,0,2*iw,.04,2*id); [[-.4,-.15],[.35,.7]].forEach(([x,z])=>{ box(M,'#e6e2d8',x,top-.05,z,1.1,.05,.16); box(M,'#fff2c4',x,top-.07,z,1.0,.02,.1); });
+  [-1,1].forEach(s=>box(M,'#174a31',D.DX+s*(D.DW/2+.035),F,id-.03,.07,D.DH-F+.07,.04)); box(M,'#174a31',D.DX,D.DH,id-.03,D.DW+.14,.07,.04);
+  box(M,'#174a31',D.WX,D.WS-.02,id-.1,D.WW+.1,.04,.22); [-1,1].forEach(s=>box(M,'#174a31',D.WX+s*(D.WW/2+.02),D.WS,id-.03,.05,D.WH-D.WS,.05)); box(M,'#174a31',D.WX,D.WH-.03,id-.03,D.WW+.1,.06,.05);
+  box(M,'#5a5f63',D.DX,F,id-.36,.7,.012,.42);   // the mat
+  /* ---- the counter: green panels, a steel kick and a steel top; on it the hot cabinet's base, the till, napkins ---- */
+  const [cx0,cx1,cz,cd]=D.CNT, ct=F+D.CTOP;
+  box(M,'#2f6b4f',(cx0+cx1)/2,F,cz,cx1-cx0,D.CTOP-.04,cd); box(M,'#c3c7ca',(cx0+cx1)/2,F,cz+cd/2+.003,cx1-cx0,.12,.008); for(let k=0;k<7;k++) box(M,'#255a40',cx0+.22+k*(cx1-cx0-.44)/6,F+.2,cz+cd/2+.004,.32,.58,.006);
+  box(M,'#c3c7ca',(cx0+cx1)/2,ct-.04,cz,cx1-cx0+.04,.04,cd+.06); box(M,'#9aa0a3',1.3,ct-.039,cz,.004,.041,cd+.06);
+  { const hc=[-.75,-.22]; box(M,'#c3c7ca',hc[0],ct,hc[1],.86,.04,.32); [-1,1].forEach(a=>[-1,1].forEach(b=>box(M,'#9aa0a3',hc[0]+a*.42,ct,hc[1]+b*.15,.02,.3,.02))); box(M,'#c3c7ca',hc[0],ct+.3,hc[1],.88,.03,.34); box(M,'#fff2c4',hc[0],ct+.285,hc[1],.8,.012,.06);
+    for(let k=0;k<3;k++){ const x=hc[0]-.3+k*.1; put(M,'cyl8','#d39a3e',x,ct+.07,hc[1]+.04,.025,.16,.025,0,0,Math.PI/2); put(M,'sph','#c98a32',x,ct+.07,hc[1]+.04-.08,.025,.025,.025); }
+    for(let k=0;k<2;k++) put(M,'sph','#d9a24a',hc[0]+.12+k*.18,ct+.07,hc[1]-.02,.07,.03,.12); }
+  { const T_=D.TILL; box(M,'#2a2c2e',T_[0],ct,T_[1],.3,.1,.22); box(M,'#3a3d40',T_[0],ct+.1,T_[1]+.02,.26,.05,.16); for(let k=0;k<9;k++) box(M,'#e9e2d0',T_[0]-.08+(k%3)*.06,ct+.151,T_[1]-.03+Math.floor(k/3)*.05,.04,.008,.035); box(M,'#3a3d40',T_[0],ct+.15,T_[1]+.1,.2,.14,.02,0,-.3); box(M,'#9fd0b0',T_[0],ct+.17,T_[1]+.112,.16,.07,.004,0,-.3); }
+  box(M,'#c3c7ca',-1.32,ct,.0,.1,.12,.1); box(M,'#f6f3ec',-1.32,ct+.02,.0,.08,.1,.02);   // napkins
+  /* ---- behind: the steel splashback, the fryers (three wells of oil, two baskets hung up over them, the knobs), the hood ---- */
+  const [fx0,fx1,fz,fd]=D.FRY; box(M,'#c3c7ca',(fx0+fx1)/2,F+.88,-id+.02,fx1-fx0+.1,.94,.012);
+  box(M,'#b3b8bb',(fx0+fx1)/2,F,fz,fx1-fx0,.86,fd); box(M,'#c3c7ca',(fx0+fx1)/2,F+.86,fz,fx1-fx0+.02,.03,fd+.02);
+  for(let k=0;k<3;k++){ const x=fx0+.3+k*.6; box(M,'#6a4a14',x,F+.875,fz-.02,.44,.008,.28); box(M,'#8e9496',x,F+.86,fz-.02,.48,.025,.32); cyl(M,'#2a2c2e',x-.12,F+.6,fz+fd/2+.01,.03,.02); cyl(M,'#2a2c2e',x+.12,F+.6,fz+fd/2+.01,.03,.02); }
+  for(const k of [0,2]){ const x=fx0+.3+k*.6, Bk=sub(M,x,F+1.18,fz-.18); box(Bk,'#5a5f63',0,0,0,.3,.14,.24); box(Bk,'#2a2c2e',0,.06,.13,.04,.04,.2); }
+  box(M,'#9aa0a3',(fx0+fx1)/2,F+1.32,-id+.06,fx1-fx0,.02,.04);
+  box(M,'#c3c7ca',(fx0+fx1)/2,F+1.86,-id+.28,fx1-fx0+.12,.3,.56); box(M,'#b3b8bb',(fx0+fx1)/2,F+1.78,-id+.53,fx1-fx0+.12,.1,.06); box(M,'#8e9496',(fx0+fx1)/2,F+1.785,-id+.28,fx1-fx0,.01,.46);
+  /* ---- under the menu: the bench with the paper and the bags, the scoop and a pot of curry sauce ---- */
+  const [mx0,mx1]=D.MENU; box(M,'#c3c7ca',(mx0+mx1)/2,F,-.98,mx1-mx0,.9,.44); box(M,'#f6f3ec',.78,F+.9,-.98,.34,.06,.3); box(M,'#b98a5a',1.18,F+.9,-.98,.22,.1,.16);
+  cyl(M,'#8e9496',1.0,F+.9,-.82,.06,.08); cyl(M,'#7a4a1c',1.0,F+.97,-.82,.055,.012);
+  box(M,'#2a2c2e',(mx0+mx1)/2,F+D.MENU[2]-.03,-id+.02,mx1-mx0+.06,D.MENU[3]-D.MENU[2]+.06,.04);
+  /* ---- the window's ledge and its two stools; a ketchup bottle and a cruet ---- */
+  box(M,'#2f6b4f',D.WX,F+.92,id-.13,D.WW-.04,.04,.22); [-1.0,-.25].forEach(x=>{ cyl(M,'#9aa0a3',x,F,.82,.02,.6,'cyl8'); cyl(M,'#9aa0a3',x,F,.82,.14,.02); cyl(M,'#c8372e',x,F+.6,.82,.14,.05); });
+  cyl(M,'#c8372e',-1.25,F+.96,id-.12,.025,.12); cyl(M,'#f6f3ec',-1.25,F+1.08,id-.12,.012,.03,'cyl8');
+  /* ---- the pictures' frames (the hill town on the left wall, the family on the right) ---- */
+  box(M,'#5a3e2a',-iw+.01,F+1.62,.45,.02,.42,.58); box(M,'#2a221c',iw-.01,F+1.62,.48,.02,.4,.56);
+  kitTo(); B.m.room=wiAdd(B,new T.Mesh(kgeo('chin'),mat));
+  /* the hot cabinet's glass */
+  { const m=new T.Mesh(new T.BoxGeometry(.84,.26,.3),CGLASS); m.matrixAutoUpdate=false; m.frustumCulled=false; m.matrix.copy(M).multiply(wiM.makeTranslation(-.75,ct+.17,-.22)); g.add(m); }
+  /* ---- the boards: the menu (lit), the hill town and the family ---- */
+  { const {tx}=pbCanvas(1024,576,chBoards), bm=wiBoard(B,tx), uv=(gm,x0,y0,x1,y1)=>{ const a=gm.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(x0/1024,x1/1024,a.getX(i)),lerp(1-y1/576,1-y0/576,a.getY(i))); return gm; };
+    const pl=(gw,gh,r,Mx)=>{ const m=new T.Mesh(uv(new T.PlaneGeometry(gw,gh),...r),bm); m.matrix.copy(Mx); return wiAdd(B,m); };
+    pl(mx1-mx0,D.MENU[3]-D.MENU[2],[0,0,480,576],sub(M,(mx0+mx1)/2,F+(D.MENU[2]+D.MENU[3])/2,-id+.045));
+    pl(.52,.36,[480,0,1024,288],sub(M,-iw+.022,F+1.83,.45,Math.PI/2)); pl(.5,.34,[480,288,1024,576],sub(M,iw-.022,F+1.82,.48,-Math.PI/2)); B.btx=tx;
+    try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} }
+  /* ---- the salt, the vinegar, the basket in the middle fryer, the salt's grains and the vinegar's drops, each its own ---- */
+  const own=(id,fn)=>{ kitTo(id); fn(new T.Matrix4()); kitTo(); return wiAdd(B,new T.Mesh(kgeo(id),mat)); };
+  B.m.salt=own('chsalt',I=>{ cyl(I,'#f6f3ec',0,0,0,.028,.09); put(I,'sph','#c9cdd2',0,.09,0,.028,.02,.028); for(let k=0;k<3;k++) put(I,'sph','#5a5f63',(k-1)*.01,.105,0,.003,.003,.003); });
+  B.m.vin=own('chvin',I=>{ cyl(I,'#6a3a18',0,0,0,.03,.12); put(I,'sph','#6a3a18',0,.12,0,.03,.02,.03); cyl(I,'#6a3a18',0,.13,0,.012,.04,'cyl8'); cyl(I,'#c8372e',0,.17,0,.014,.015,'cyl8'); box(I,'#efe4c8',0,.03,.029,.04,.05,.002); });
+  B.m.bask=own('chbask',I=>{ box(I,'#5a5f63',0,0,0,.3,.14,.24); box(I,'#d9a24a',0,.12,0,.26,.03,.2); box(I,'#2a2c2e',0,.1,.16,.04,.04,.22); });
+  B.m.grain=own('chgrain',I=>{ for(let k=0;k<10;k++) box(I,'#ffffff',(rnd()-.5)*.03,-k*.03,(rnd()-.5)*.03,.006,.006,.006); }); B.m.grain.visible=false;
+  B.m.drop=own('chdrop',I=>{ for(let k=0;k<7;k++) put(I,'sph','#b9862a',(rnd()-.5)*.03,-k*.04,(rnd()-.5)*.03,.006,.009,.006); }); B.m.drop.visible=false;
+  /* the paper (white, or the spice bag's brown), its two sides that fold over, what is on it for each thing on the menu, the
+     salt and the vinegar on the chips, and the wrapped parcel; each in its own colour, the paper's set when you order */
+  B.pm=wiMat(B); const pm=B.pm, chip=(I,n,s)=>{ for(let k=0;k<n;k++){ const a=rnd()*TAU, r=rnd()*.08*s; box(I,['#f0c24e','#e8b440','#f3cf6a'][k%3],Math.cos(a)*r,.004+rnd()*.03,Math.sin(a)*r*1.4,.014,.012,.075+rnd()*.03,rnd()*3,(rnd()-.5)*.6,(rnd()-.5)*.4); } };
+  const pown=(id,fn,m_=mat)=>{ kitTo(id); fn(new T.Matrix4()); kitTo(); const o=wiAdd(B,new T.Mesh(kgeo(id),m_)); o.visible=false; return o; };
+  B.m.sheet=pown('chsheet',I=>box(I,'#ffffff',0,0,0,.2,.004,.36),pm); B.m.flL=pown('chflL',I=>box(I,'#ffffff',-.085,0,0,.17,.004,.36),pm); B.m.flR=pown('chflR',I=>box(I,'#ffffff',.085,0,0,.17,.004,.36),pm);
+  B.m.parcel=pown('chparcel',I=>{ box(I,'#ffffff',0,0,0,.15,.055,.22); box(I,'#ececec',0,.055,0,.09,.004,.22); },pm);
+  B.m.heaps=[pown('chh0',I=>chip(I,18,1)),pown('chh1',I=>{ chip(I,12,1); put(I,'sph','#d9a24a',.02,.05,.0,.06,.03,.13,.3); }),pown('chh2',I=>{ chip(I,16,1); put(I,'sph','#8a5a1c',0,.05,0,.08,.02,.1); put(I,'sph','#9a6a24',.03,.055,.04,.05,.015,.06); }),
+    pown('chh3',I=>{ chip(I,7,.8); put(I,'cyl','#d39a3e',0,.04,0,.03,.17,.03,.4,0,Math.PI/2); }),pown('chh4',I=>{ chip(I,12,1); for(let k=0;k<6;k++) box(I,['#b8742e','#c8372e','#3f8a3a'][k%3],(rnd()-.5)*.12,.03+rnd()*.03,(rnd()-.5)*.18,.03,.012,k%3?.02:.07,rnd()*3); for(let k=0;k<14;k++) box(I,'#d9541e',(rnd()-.5)*.14,.05+rnd()*.02,(rnd()-.5)*.2,.006,.004,.006); })];
+  B.m.salted=pown('chsalted',I=>{ for(let k=0;k<16;k++) box(I,'#ffffff',(rnd()-.5)*.14,.045+rnd()*.025,(rnd()-.5)*.2,.005,.004,.005); }); B.m.vined=pown('chvined',I=>{ for(let k=0;k<9;k++) put(I,'sph','#9a6a24',(rnd()-.5)*.13,.045+rnd()*.02,(rnd()-.5)*.18,.01,.003,.01); });
+  /* ---- Enzo: his whites, an apron, a paper hat; and the people who wait, each in their own clothes ---- */
+  const chFigMat=()=>{ const m=wiMat(B); m.uniforms.uLitA={value:new T.Vector3()}; return m; };
+  { const f=figure(ENZO), bm=chFigMat();
+    { const P=part(); P.put(FG.box,'#fbf8f2',0,.66,.105*ENZO.build,.22,.36,.012); P.put(FG.box,'#fbf8f2',0,.86,.1*ENZO.build,.14,.1,.012); f.userData.body.add(P.mesh()); }
+    { const P=part(); P.put(FG.box,'#fbf8f2',0,.2,-.01,.17,.08,.26); P.put(FG.box,'#2f6b4f',0,.168,-.01,.172,.014,.262); f.userData.head.add(P.mesh()); }
+    wiFigure(B,f,bm); B.e={fig:f,d:f.userData,x:D.HOME[0],z:D.HOME[1],f:0,tx:D.HOME[0],tz:D.HOME[1],tf:0,ph:0,sp:0,wave:0,nod:0,blink:2,lk:0,act:'rest',arm:[[0,0,0],[0,0,0]],H:[new T.Vector3(),new T.Vector3()]}; }
+  B.qf=D.Q.map((q,i)=>{ const o=Object.assign({},CHQL[i],{knee:!!q.sit}), f=figure(o), d=f.userData;
+    if(q.sit){ d.body.position.y=-.06; d.legs.forEach((l,j)=>{ l.rotation.set(j?-1.48:-1.4,0,(j?1:-1)*.07); d.knees[j].rotation.x=j?1.36:1.25; }); }
+    if(q.eat){ const P=part(); P.put(FG.cone,'#f6f3ec',0,-.2,.03,.035,.1,.035,Math.PI); for(let k=0;k<4;k++) P.put(FG.box,'#f0c24e',(k%2-.5)*.012,-.15,.03+(k-1.5)*.008,.009,.045,.009); d.fore[0].add(P.mesh()); }
+    else if(i===3){ const P=part(); P.put(FG.box,'#1f2226',0,-.2,.03,.04,.075,.008,-.3); d.fore[0].add(P.mesh()); }
+    if(q.in) wiFigure(B,f,chFigMat()); else { f.traverse(m=>{ if(!m.isMesh||m.material===SHM) return; m.frustumCulled=false; m.userData.col=m.material; m.userData.inkM=variant(inkC,m.material,INK_F); m.userData.shdM=variant(shdC,m.material,SHD_F,T.DoubleSide); INK.push(m); }); sc.add(f); }
+    const [qx,qz]=q.at, U=wiV2.copy(B.up); if(q.in) wiW(B,qx,F,qz,f.position); else if(q.sit) wiW(B,qx,.01,qz,f.position); else { const [mx,mz]=wiXZ(B,qx,qz); at(mx,mz,U); f.position.copy(U).multiplyScalar(R+standH(mx,mz)); }
+    tang(U,wiD(B,Math.sin(q.f),0,Math.cos(q.f),wiV3),wiV3); sT.crossVectors(U,wiV3).normalize(); Mf.makeBasis(sT,U,wiV3); f.quaternion.setFromRotationMatrix(Mf); f.updateMatrixWorld(true);
+    return {q,f,d,i,ph:i*1.7,blink:2+i,vis:true}; });
+  /* ---- the lamps: over the counter, over you, the hot cabinet's, the menu's glow ---- */
+  [[-.4,top-.12,-.15,1.05],[.35,top-.12,.7,.85],[-.75,ct+.26,-.22,.45],[1.0,F+1.5,-.95,.55]].forEach(([x,y,z,w_],i)=>{ chW(x,y,z,wiV); B.U.uCL.value[i].set(wiV.x,wiV.y,wiV.z,w_); });
+  /* ---- what a tap finds: the front from the street; inside Enzo, the salt, the vinegar, the paper, the menu and the door ---- */
+  const pk=(w_,h_,d_,x,y,z)=>wiHit(B,w_,h_,d_,x,y,z);
+  B.pick=pk(w-.1,2.4,.5,0,1.25,d/2+.15); B.pk={enzo:pk(.5,1.3,.4,D.HOME[0],F+.75,D.HOME[1]),salt:pk(.12,.2,.12,D.SALT[0],ct+.07,D.SALT[1]),vin:pk(.12,.26,.12,D.VIN[0],ct+.1,D.VIN[1]),
+    paper:pk(.4,.14,.4,D.SERVE[0],ct+.05,D.SERVE[1]),menu:pk(mx1-mx0,D.MENU[3]-D.MENU[2],.1,(mx0+mx1)/2,F+(D.MENU[2]+D.MENU[3])/2,-id+.05),door:pk(D.DW,D.DH-F,.3,D.DX,(D.DH+F)/2,id)};
+  /* ---- what you carry out: the parcel in your hand (white, or the spice bag's brown) ---- */
+  B.carryM=['#f7f4ec','#b98a5a'].map(c=>{ const m=new T.Mesh(new T.BoxGeometry(.13,.06,.2),toonMat(c)); m.position.set(0,-.21,.06); m.rotation.x=-.25; m.visible=false; me.userData.fore[0].add(m);
+    m.userData.col=m.material; m.userData.inkM=variant(inkC,m.material,INK_F); m.userData.shdM=variant(shdC,m.material,SHD_F,T.DoubleSide); INK.push(m); return m; });
+  chSolids(); chPaper(); chProps(0); chPose(0,0,true); }
+/* what stands outside is solid once the trees are laid out: the shop's own walls, the bench and where the one at the door
+   waits; the walking grid round it made again by the grid's own rule; no grass through the step */
+function chSolids(){ const M=CHP.M, f=CHD.d/2, gone=new Set(CHP.obs0); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
+  const o0=OBS.length; obsRect(CHP.x,CHP.z,CHP.hy,CHD.w+.25,CHD.d+.25,CHD.h+1.6); obsAt(M,CHD.WX-.02,f+.42,.62,1); obsAt(M,.18,1.88,.24,1.4); obsAt(M,CHD.DX+.62,f+.3,.18,.6); CHP.obs=OBS.slice(o0);
+  pfRegrid(M,-CHD.w/2-1,CHD.w/2+1,-CHD.d/2-.8,CHD.d/2+1.2); pfTufts(M,-CHD.w/2-.1,CHD.w/2+.1,-CHD.d/2-.1,CHD.d/2+.62); }
+
+/* ---------- inside: where your eyes are; looking round; the paper on the counter ---------- */
+function chEye(o,lean=0){ const p=cport(); return chW(CHD.S[0]-lean*.08,CHD.FL+CHD.EY+(p?.05:0)-lean*.1,CHD.S[1]-lean*.42,o); }
+function chInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0);
+  if(kx){ CHP.yaw=clamp(CHP.yaw+kx*1.6*dt,-2.7,2.7); CHP.dragT=0; }
+  const fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown'), out=Math.abs(angWrap(CHP.yaw-wiYawTo(CHD.S[0],CHD.S[1],CHD.DX,CHD.d/2)))<.7;
+  if(bk||fw&&out){ CHP.out+=dt; if(CHP.out>.3){ CHP.out=0; wiLeave(CHP); return; } } else CHP.out=0;
+  CHP.dragT+=dt; if(CHP.dragT>2.4){ CHP.yaw=damp(CHP.yaw,CHP.yaw0,1.8,dt); CHP.pitch=damp(CHP.pitch,cport()?CHP.pP:CHP.p0,1.8,dt); }
+  CHP.lean=damp(CHP.lean,fw&&!out?1:0,1.8,dt); chEye(CHP.cp,CHP.lean); wiDir(CHP,CHP.yaw,CHP.pitch,wiV).add(CHP.cp); CHP.cl.copy(wiV); CHP.cu.copy(CHP.up); me.visible=false; }
+/* the paper on the counter: what is on it now (the order, how far it is wrapped, salted, vinegared), slid toward you when ready */
+function chPaper(){ const m=CHP.m; if(!m.sheet) return; const ph=CHP.ph, i=CHP.oi, laid=i>=0&&(ph==='season'||ph==='wrap'||ph==='ready'||ph==='serve'&&CHP.ot>.75), wrapped=ph==='ready'||ph==='wrap'&&CHP.ot>1.5;
+  m.sheet.visible=laid&&!wrapped; m.flL.visible=m.flR.visible=laid&&!wrapped; m.parcel.visible=laid&&wrapped; m.heaps.forEach((h,k)=>{ h.visible=laid&&!wrapped&&k===i; });
+  m.salted.visible=laid&&!wrapped&&CHP.salt>0; m.vined.visible=laid&&!wrapped&&CHP.vin>0; if(i>=0) CHP.pm.uniforms.uC.value.setRGB(...(i===4?[.74,.55,.36]:[.97,.96,.93])); }
+function chPaperPose(){ const D=CHD, m=CHP.m; if(!m.sheet) return; const ct=D.FL+D.CTOP, P=wiM.makeTranslation(D.SERVE[0],ct+.003,D.SERVE[1]+.22*E.io(CHP.slide)), Mx=wiM2.multiplyMatrices(CHP.M,P);
+  const wk=CHP.ph==='wrap'?CHP.ot:CHP.ph==='ready'?9:0, lay=CHP.ph==='serve'?sstep(.75,1.05,CHP.ot):1;
+  for(const o of [m.sheet,m.parcel,m.salted,m.vined,...m.heaps]){ o.matrix.copy(Mx); if(lay<1) o.matrix.multiply(chM1.makeScale(1,lay,1)); o.matrixWorldNeedsUpdate=true; }
+  [[m.flL,-1,sstep(.1,.75,wk)],[m.flR,1,sstep(.6,1.3,wk)]].forEach(([o,s,k])=>{ o.matrix.copy(Mx).multiply(chM1.makeTranslation(s*.1,0,0)).multiply(chM2.makeRotationZ(s*2.62*k)); o.matrixWorldNeedsUpdate=true; }); }
+const chM1=new T.Matrix4(), chM2=new T.Matrix4();
+
+/* ---------- the order: said back, rung in, fried, laid out, seasoned by you, wrapped, handed over ---------- */
+function chSay(s){ if(s===CHP.said) return; CHP.said=s; chSayEl.textContent=s; CHP.sayT=0; if(s&&CHP.st==='in') A.murmur(ENZO.pitch,4); chUI(); }
+function chOrder(i){ if(CHP.st!=='in'||CHP.ph!=='menu'||i<0||i>=CHMENU.length) return false; CHP.oi=i; CHP.ph='said'; CHP.ot=0; CHP.salt=CHP.vin=0; CHP.slide=0; CHP.e.nod=1; chSay(CHL.items[i]); chPaper(); chUI(); return true; }
+function chSeason(k){ if(CHP.ph!=='season'||CHP.shk) return false; CHP.shk={k,t:0}; if(k==='salt') A.shaker(); else A.vinegar(); chUI(); return true; }
+function chWrap(){ if(CHP.ph!=='season'||CHP.shk) return false; CHP.ph='wrap'; CHP.ot=0; chSay(CHL.wrap); A.wrap(1); chUI(); return true; }
+function chAnother(){ if(CHP.ph!=='ready') return false; CHP.ph='menu'; CHP.oi=-1; CHP.slide=0; chPaper(); chSay(CHL.again); chUI(); if(CHP.kb) chFocus(); return true; }
+/* what you carry out with you: your parcel in your hand, for as long as it takes to eat it */
+function chCarry(i){ CHP.carry=i; CHP.carryT=0; CHP.ph='menu'; CHP.oi=-1; chPaper(); if(CHP.carryM) CHP.carryM.forEach((m,k)=>{ m.visible=k===(i===4?1:0); }); }
+const chTake=()=>{ if(CHP.ph!=='ready') return false; return wiLeave(CHP); };
+function chOrderStep(dt){ const D=CHD, e=CHP.e; CHP.ot+=dt; const c=CHP.ot;
+  if(CHP.ph==='said'){ e.tx=D.HOME[0]; e.tz=D.HOME[1]; e.tf=0; e.act='rest'; if(c>.9){ CHP.ph='till'; CHP.ot=0; } }
+  else if(CHP.ph==='till'){ e.tx=D.TILLP[0]; e.tz=D.TILLP[1]; e.tf=0; e.act=c>.55?'till':'rest'; if(c>.6&&!CHP.tilled){ CHP.tilled=1; A.till(); } if(c>1.5){ CHP.ph='fry'; CHP.ot=0; CHP.tilled=0; } }
+  else if(CHP.ph==='fry'){ e.tx=D.FRYP[0]; e.tz=D.FRYP[1]; e.tf=Math.PI; e.act=c>.65&&c<2.75?'fry':'rest';
+    CHP.fry=c<.75?0:c<1.1?sstep(.75,1.1,c):c<2.55?1:1-sstep(2.55,2.85,c); if(c>.8&&!CHP.fried){ CHP.fried=1; A.mktFry(.022,0); } if(c>1.45&&CHP.fried===1){ CHP.fried=2; A.mktBasket(.018,0); } if(c>1.95&&CHP.fried===2){ CHP.fried=3; A.mktBasket(.016,0); }
+    if(c>3){ CHP.ph='serve'; CHP.ot=0; CHP.fried=0; } }
+  else if(CHP.ph==='serve'){ e.tx=D.SERVP[0]; e.tz=D.SERVP[1]; e.tf=0; e.act=c>.55?'wrap':'rest'; if(c>.75&&!CHP.laid){ CHP.laid=1; A.poShuffle(.5); chPaper(); } if(c>1.3){ CHP.ph='season'; CHP.ot=0; CHP.laid=0; chSay(CHL.sv); chPaper(); chUI(); } }
+  else if(CHP.ph==='season'){ e.tx=D.SERVP[0]; e.tz=D.SERVP[1]; e.tf=0; e.act='rest'; }
+  else if(CHP.ph==='wrap'){ e.act='wrap'; if(c>1.5&&!CHP.wrapped){ CHP.wrapped=1; A.wrap(.6); chPaper(); } if(c>1.9){ CHP.ph='ready'; CHP.ot=0; CHP.wrapped=0; chSay(CHL.ready); chPaper(); chUI(); if(CHP.kb) chFocus(); } }
+  else if(CHP.ph==='ready'){ e.act='rest'; CHP.slide=Math.min(1,CHP.slide+dt/.5); }
+  else { e.tx=D.HOME[0]; e.tz=D.HOME[1]; e.tf=0; e.act='rest'; }
+  }
+
+/* the salt cellar and the vinegar bottle on the counter (or up over the chips, three shakes, and back), and the paper */
+function chProps(dt){ const D=CHD;
+  const S_=CHP.shk; for(const [k,m,rest,drop] of [['salt',CHP.m.salt,D.SALT,CHP.m.grain],['vin',CHP.m.vin,D.VIN,CHP.m.drop]]){ const on=!!S_&&S_.k===k, u=on?S_.t/1.5:0, ct=D.FL+D.CTOP;
+    const lift=on?sstep(0,.25,u)*(1-sstep(.8,1,u)):0, sh=on&&u>.25&&u<.8?Math.sin((u-.25)/.55*3*TAU)*.035:0, tilt=lift*2.5;
+    const x=lerp(rest[0],D.SERVE[0]+(k==='salt'?-.03:.03),lift), z=lerp(rest[1],D.SERVE[1]+.04,lift), y=ct+lift*.24+sh;
+    m.matrix.copy(CHP.M).multiply(wiM.makeTranslation(x,y,z).multiply(wiM2.makeRotationX(-tilt*(k==='vin'?1:.9)))); m.matrixWorldNeedsUpdate=true;
+    drop.visible=!!on&&u>.3&&u<.85; if(drop.visible){ const fall=((u-.3)*6)%1; drop.matrix.copy(CHP.M).multiply(wiM.makeTranslation(x,y+.05-fall*.12,z+.07)); drop.matrixWorldNeedsUpdate=true; } }
+  if(S_){ S_.t+=dt; if(S_.t>1.5){ if(S_.k==='salt') CHP.salt++; else CHP.vin++; CHP.shk=null; chPaper(); chUI(); } }
+  chPaperPose(); }
+/* Enzo: walking between the till, the fryer and the counter; his hands at whatever he is doing; looking up at you */
+function chPose(dt,t,force){ const e=CHP.e; if(!e) return; const d=e.d, D=CHD, dx=e.tx-e.x, dz=e.tz-e.z, dd=Math.hypot(dx,dz), v=Math.min(dd,1.3*(dt||0));
+  if(dd>.01){ e.x+=dx/dd*v; e.z+=dz/dd*v; e.f=e.f+angWrap(Math.atan2(dx,dz)-e.f)*Math.min(1,(dt||0)*10); e.sp=damp(e.sp,1.3,8,dt||1); }
+  else { e.f=e.f+angWrap(e.tf-e.f)*Math.min(1,(dt||0)*6); e.sp=damp(e.sp,0,10,dt||1); }
+  if(force){ e.x=e.tx; e.z=e.tz; e.f=e.tf; e.sp=0; }
+  e.ph+=(dt||0)*e.sp*4.6; chW(e.x,D.FL,e.z,wiV); wiD(CHP,Math.sin(e.f),0,Math.cos(e.f),wiV3); sT.crossVectors(CHP.up,wiV3).normalize(); Mf.makeBasis(sT,CHP.up,wiV3); e.fig.quaternion.setFromRotationMatrix(Mf); e.fig.position.copy(wiV);
+  e.wave=Math.max(0,e.wave-(dt||0)); animate(e.fig,e.ph,clamp(e.sp/1.3,0,1),e.wave,t,5);
+  /* the hands: at the till's keys, on the basket's handle (lifted and shaken), or folding the paper on the counter */
+  const tt=t||0; let H=null;
+  if(e.act==='till') H=[[-.1,.98+.02*Math.max(0,Math.sin(tt*16)),.34],[.18,.62,.08]];
+  else if(e.act==='fry'){ const s=CHP.fry, sh=CHP.ot>1.3&&CHP.ot<2.3?Math.sin(CHP.ot*22)*.03:0; H=[[-.03,.86+.24*s,.36+sh],[.08,.86+.24*s,.36+sh]]; }
+  else if(e.act==='wrap'){ const a=Math.sin(tt*5.5)*.04; H=[[-.13+a,.98,.34],[.13+a,.98,.34-a]]; }
+  [0,1].forEach(i=>{ const arm=d.arms[i], fa=d.fore[i]; if(i===1&&e.wave>0) return;
+    if(H){ reach(arm,fa,wiV.set(...H[i]),i?LPOLE:RPOLE,.18,.2); } else if(e.sp<.05){ arm.quaternion.slerp(wiQr0,Math.min(1,(dt||1)*6)); fa.quaternion.slerp(wiQr1,Math.min(1,(dt||1)*6)); }
+    else { const k=Math.min(1,(dt||1)*10); arm.rotation.y*=1-k; arm.rotation.z*=1-k; fa.rotation.y*=1-k; fa.rotation.z*=1-k; } });
+  /* the basket follows his hands while he has it, or hangs in the oil */
+  { const s=CHP.fry, b=CHP.m.bask, [bx,bz]=D.BASK, sh=CHP.ph==='fry'&&CHP.ot>1.3&&CHP.ot<2.3?Math.sin(CHP.ot*22)*.03:0;
+    if(b){ b.matrix.copy(CHP.M).multiply(wiM.makeTranslation(bx,D.FL+.8+.26*s,bz+.06*s+sh).multiply(wiM2.makeRotationX(-.25*s))); b.matrixWorldNeedsUpdate=true; } }
+  /* his head: up to you while you are in (or down to his work while he works), a nod now and then, blinking */
+  const work=e.act==='fry'||e.act==='till'||e.act==='wrap', ey=wiL(CHP,CHP.on?CHP.cp:stCam.position,wiV2), hy=Math.atan2(ey.x-e.x,ey.z-e.z)-e.f; e.lk=damp(e.lk,CHP.on&&!work?1:0,4,dt||1);
+  e.nod=Math.max(0,e.nod-(dt||0)*1.6); d.head.rotation.x=lerp(.32,-.05,e.lk)+Math.sin(e.nod*Math.PI)*.22; d.head.rotation.y=clamp(angWrap(hy),-.9,.9)*e.lk*.8;
+  e.blink-=dt||0; const bl=e.blink<.12?.15:1; if(e.blink<0) e.blink=2+Math.random()*3.5; d.eyes.forEach(q=>q.scale.y=bl); e.fig.updateMatrixWorld(true); }
+const wiQr0=new T.Quaternion(), wiQr1=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-.12);
+/* the people who wait: as many as the hour has, idling (a glance up at the menu, a look at a phone, eating) while you are near enough to see */
+function chQueuePose(dt,t){ const n=CHP.q; for(const q of CHP.qf){ const vis=CHP.warm||q.i<n; if(q.f.visible!==vis) q.f.visible=vis; if(!vis||!CHP.on&&!CHP.warm&&CHP.dd>24) continue; const d=q.d, ph=t*.7+q.ph;
+    d.head.rotation.x=q.q.eat?.25+.08*Math.sin(ph*1.3):-.1+.12*Math.sin(ph*.5); d.head.rotation.y=.3*Math.sin(ph*.37);
+    if(q.q.eat){ const k=Math.max(0,Math.sin(ph*1.1)); d.arms[0].rotation.x=-.9-.25*k; d.fore[0].rotation.x=-1.2-.5*k; } else if(q.i===3){ d.arms[0].rotation.x=-.5; d.fore[0].rotation.x=-1.3; d.head.rotation.x=.35; }
+    q.blink-=dt; d.eyes.forEach(e=>e.scale.y=q.blink<.12?.15:1); if(q.blink<0) q.blink=2+Math.random()*3; q.f.updateMatrixWorld(true); } }
+
+/* ---------- the menu over the counter, the buttons, clicks and keys ---------- */
+const chEl=document.createElement('div'); chEl.className='crcafe crchip'; chEl.innerHTML='<div class="crmenu hit" role="group" aria-label="The chipper\'s menu"><span class="crmenu-n ui">Lanzetti\'s</span>'+
+  '<div class="crmenu-s"><span class="crmenu-say"><span class="crmenu-who ui">Enzo</span><span class="ui crchip-t" aria-live="polite"></span></span><span class="crmenu-b"></span></div><div class="crmenu-l"></div></div>';
+el.insertBefore(chEl,$('#crSkip',el)); ['pointerdown','pointerup','click'].forEach(ev=>chEl.addEventListener(ev,e=>{ if(e.target.closest('button')) e.stopPropagation(); }));
+const chMenuEl=$('.crmenu',chEl), chSayEl=$('.crchip-t',chEl), chBar=$('.crmenu-b',chEl), chList=$('.crmenu-l',chEl);
+const chItems=CHMENU.map((q,i)=>{ const b=document.createElement('button'); b.className='crdrink hit'; b.type='button'; b.dataset.cur='Order'; b.innerHTML=`<span class="crdrink-n disp">${q.n}</span><span class="crdrink-k ui">${q.k} · ${q.p}</span>`;
+  b.addEventListener('click',e=>{ e.stopPropagation(); CHP.kb=e.detail===0; chOrder(i); }); chList.appendChild(b); return b; });
+const CHB={salt:wiBtn('crlook','crChSalt','Salt','Salt',kb=>{ CHP.kb=kb; chSeason('salt'); },chBar),vin:wiBtn('crlook','crChVin','Vinegar','Vinegar',kb=>{ CHP.kb=kb; chSeason('vin'); },chBar),
+  wrap:wiBtn('crmore','crChWrap','Wrap','Wrap it up',kb=>{ CHP.kb=kb; chWrap(); },chBar),take:wiBtn('crlook','crChTake','Take it','Take it outside',kb=>{ CHP.kb=kb; chTake(); },chBar),
+  more:wiBtn('crmore','crChMore','Menu','Order another',kb=>{ CHP.kb=kb; chAnother(); },chBar)};
+const chOut=wiBtn('crleave crchout','crChLeave','Leave','Leave the chipper',kb=>{ CHP.kb=kb; wiLeave(CHP); });
+CHP.tag=wiTagMk(CHP,'crwch');
+const chFocus=()=>{ const b=CHP.ph==='menu'?chItems[0]:CHP.ph==='season'?CHB.salt:CHP.ph==='ready'?CHB.take:null; if(b&&!b.hidden) try{ b.focus({preventScroll:true}); }catch(e){} };
+function chUI(){ const inn=CHP.st==='in', ph=CHP.ph, cook=ph==='said'||ph==='till'||ph==='fry'||ph==='serve'||ph==='wrap';
+  chEl.classList.toggle('on',inn); chMenuEl.classList.toggle('said',inn&&!!CHP.said); chMenuEl.classList.toggle('brew',inn&&ph!=='menu'); chOut.hidden=!inn;
+  const want={salt:inn&&ph==='season',vin:inn&&ph==='season',wrap:inn&&ph==='season',take:inn&&ph==='ready',more:inn&&ph==='ready'};
+  for(const k in CHB){ if(CHB[k].hidden===!!want[k]) CHB[k].hidden=!want[k]; } CHB.salt.disabled=CHB.vin.disabled=CHB.wrap.disabled=!!CHP.shk;
+  chItems.forEach((b,i)=>{ b.classList.toggle('mine',i===CHP.oi); b.disabled=cook; }); chOut.textContent=ph==='ready'?'Leave with your chips':'Leave the chipper'; }
+function chPick(e){ const k=CHP.pk; if(!k) return null; const ep=k.enzo; wiM.makeTranslation(0,.75,0).premultiply(CHP.e.fig.matrixWorld); ep.matrixWorld.copy(wiM);
+  return wiPick(CHP,e,[['door',k.door],['salt',CHP.ph==='season'&&k.salt],['vin',CHP.ph==='season'&&k.vin],['paper',CHP.ph==='ready'&&k.paper],['enzo',ep],['menu',k.menu]]); }
+function chClick(k){ if(k==='door') wiLeave(CHP); else if(k==='salt') chSeason('salt'); else if(k==='vin') chSeason('vin'); else if(k==='paper') chTake();
+  else if(k==='enzo'){ if(CHP.ph==='menu'||CHP.ph==='ready'){ chSay(CHL.more[(CHP.chat++)%CHL.more.length]); CHP.e.nod=1; } } else if(k==='menu'&&CHP.ph==='menu') chFocus(); }
+function chKey(e,k,ctl){ if(k==='Escape'){ if(CHP.st==='in'&&!e.repeat){ CHP.kb=true; wiLeave(CHP); } return true; }
+  if(CHP.st!=='in'||e.repeat) return k==='KeyE'||k==='Enter'||k==='Space';
+  if(/^Digit[1-5]$/.test(k)&&CHP.ph==='menu'){ CHP.kb=true; chOrder(+k[5]-1); return true; }
+  if(k==='KeyE'||(k==='Enter'||k==='Space')&&!ctl){ CHP.kb=true; if(CHP.ph==='season') chWrap(); else if(CHP.ph==='ready') chTake(); else if(CHP.ph==='menu') chFocus(); return true; }
+  return false; }
+
+/* ---------- each frame: the shutter by the clock, the queue, Enzo and the order, the fryer's sound, what you carry ---------- */
+function chStep(dt,t){ const live=wiStep(CHP,dt,t), B=CHP; if(!B.g) return; const D=CHD;
+  /* the shutter: down while the shop is shut (and you are not in it), rolling with its motor if you are near enough to hear */
+  const want=chOpen()||B.on?0:1; if(B.sh0===undefined){ B.sh0=1; B.sh=B.shT=want; chShutPose(); } if(want!==B.shT){ B.shT=want; const k=clamp(1-(B.dd-3)/14,0,1); if(B.motor) B.motor.stop(); B.motor=live&&k>0?A.shutterMotor(!want,.6*k):null; B.shK=k; }
+  if(Math.abs(B.sh-B.shT)>1e-4){ const s0=B.sh; B.sh=B.shT>B.sh?Math.min(B.shT,B.sh+dt/2.6):Math.max(B.shT,B.sh-dt/2.6); chShutPose(); if((B.sh===B.shT)&&s0!==B.sh){ if(B.motor){ B.motor.stop(); B.motor=null; A.shutterEnd(!B.shT,B.shK*.6); } } }
+  if(B.m.pane){ const v=!B.on||B.warm; if(B.m.pane.visible!==v) B.m.pane.visible=v; }
+  B.q=chQueue(); const vis=B.on||B.warm; chQueuePose(dt,t);
+  if(vis){ if(B.st==='in') chOrderStep(dt); chProps(dt); chPose(dt,t); }
+  /* the lamps a little brighter by night; the fryer's sound: in here, and by the door while it is open; louder with the basket in */
+  const nt=SKY.night; B.U.uCL.value[0].w=1.05*(1+.12*nt); B.U.uCL.value[1].w=.85*(1+.12*nt);
+  B.fryK=damp(B.fryK,!live||!chOpen()?0:B.st==='in'?.6+.4*B.fry:B.on?.45:B.door>.1?.25:0,2,dt); A.chipFry(B.fryK,B.dd<14&&chOpen());
+  /* what you carry: in your hand while you walk about, until it is eaten */
+  if(B.carry>=0&&!B.on){ B.carryT+=dt; const d=me.userData; d.arms[0].rotation.x=-.55; d.fore[0].rotation.x=-1.15; if(B.carryT>150||FIN.on||CUT.on||WI.some(b=>b!==B&&b.on)||PUB.on||PO.on||CAFE.on||HSI.on||GAR.on){ B.carry=-1; B.carryM.forEach(m=>m.visible=false); } } }
+wiWire(CHP,buildChipper,chStep);
+st._dbg.chipper={C:CHP,CHD,CHMENU,CHL,get err(){ return CHP.err; },open:chOpen,queue:chQueue,go:()=>wiGo(CHP),enter:()=>wiEnter(CHP),leave:()=>wiLeave(CHP),order:chOrder,season:chSeason,wrap:chWrap,take:chTake,another:chAnother,reset:()=>wiReset(CHP),
+  local:(x,z)=>wiXZ(CHP,x,z),world:(x,y,z)=>chW(x,y,z),toLocal:w=>wiL(CHP,w),
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
+  get state(){ const B=CHP; return {st:B.st,on:B.on,ph:B.ph,oi:B.oi,k:+B.k.toFixed(3),vis:!!(B.g&&B.g.visible),me:me.visible,near:stCam.near,fov:+stCam.fov.toFixed(1),door:+B.door.toFixed(2),you:[+B.you.x.toFixed(2),+B.you.z.toFixed(2)],dd:+B.dd.toFixed(2),
+    open:chOpen(),sh:+B.sh.toFixed(2),q:B.q,queue:B.qf.map(q=>q.f.visible),say:B.said,salt:B.salt,vin:B.vin,carry:B.carry,carryVis:!!(B.carryM&&B.carryM.some(m=>m.visible)),
+    paper:{sheet:!!(B.m.sheet&&B.m.sheet.visible),parcel:!!(B.m.parcel&&B.m.parcel.visible),heap:B.m.heaps?B.m.heaps.findIndex(h=>h.visible):-1,salted:!!(B.m.salted&&B.m.salted.visible),vined:!!(B.m.vined&&B.m.vined.visible)},
+    tag:{on:B.tagOn,can:B.tagCan,txt:B.tag.textContent},leave:!chOut.hidden,menu:chEl.classList.contains('on'),btn:Object.keys(CHB).filter(k=>!CHB[k].hidden),mk:+B.mk.toFixed(2),fry:+B.fryK.toFixed(2),enzo:{act:B.e?B.e.act:null,x:B.e?+B.e.x.toFixed(2):0,z:B.e?+B.e.z.toFixed(2):0}}; },
+  /* where on the screen the door, the fascia, Enzo, the paper, the salt and the vinegar are (for a test to tap them) */
+  screen(what){ stCam.updateMatrixWorld(); const D=CHD, ct=D.FL+D.CTOP; let p;
+    if(what==='enzo'&&CHP.e) p=wiV.copy(CHP.e.fig.position).addScaledVector(CHP.up,1.22); else p=chW(...({door:[D.DX,1.1,CHP.on?D.d/2-.1:D.d/2+.04],fascia:[0,2.3,D.d/2+.06],paper:[D.SERVE[0],ct+.04,D.SERVE[1]+.2*CHP.slide],salt:[D.SALT[0],ct+.06,D.SALT[1]],vin:[D.VIN[0],ct+.08,D.VIN[1]],menu:[1.0,D.FL+1.55,-1.18],shut:[0,1.1,D.d/2+.14]}[what]||[D.DX,1.1,D.d/2]),wiV);
+    const q=p.clone().project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
+/* ===================== (the chipper ends here) ===================== */
 })();
