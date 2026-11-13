@@ -428,7 +428,7 @@ function buildTown(){
   // the café
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
-        /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ const g=-sag(tx,tz); cyl(M,'#4e4a45',tx,g,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7+g,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,-sag(tx+s*.55,tz),tz,.17,.45,'cyl8'); }); });   // (down on the ground, which curves away below the café's frame out here)
+        /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ const g=-sag(tx,tz); cyl(M,'#4e4a45',tx,g,tz,.05,RG_TOP-.05,'cyl8'); cyl(M,'#f3ede2',tx,RG_TOP-.05+g,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*RG_SX,-sag(tx+s*RG_SX,tz),tz,.17,RG_STOOL,'cyl8'); }); });   // (down on the ground, which curves away below the café's frame out here; as high as a table and a stool are to the people of the town, whose legs are short: see RG_STOOL)
         } });
     obs(3+REGT.x,-13.4+REGT.z,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
@@ -1457,8 +1457,12 @@ REGS.forEach(r=>Object.assign(r,{guest:true,name:r.first,x:0,z:0,dir:new T.Vecto
 const REG={built:false,vis:true,hov:null,goal:null,turn:0,tt:3.5,M:null,pick:[],cx:0,cz:0,shut:-1e9};
 const rgV=new T.Vector3(), rgW=new T.Vector3(), rgH=new T.Vector3(), rgM=new T.Matrix4(), rgQ=new T.Quaternion(), rgS=new T.Vector3();
 const RG_RP=new T.Vector3(-.5,-.75,-.45).normalize(), RG_LP=new T.Vector3(.5,-.75,-.45).normalize();   // where their elbows go: down, out and back
-const RG_LIFT=-.06, RG_A=.18, RG_B=.19;   // how far they sit down into the stool's top, and how long an upper arm and a forearm are
-function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), TOP=.75-sag(REGT.x,REGT.z);   // (the table is down on the ground, out where it curves away below the café's frame)   // the café's own frame, which its tables were laid out in
+const RG_A=.18, RG_B=.19;   // how long an upper arm and a forearm are
+/* the outside tables and their stools, as a café's are to the people of the town (legs half a metre long: a thigh .22, a shin and
+   its shoe .28), so whoever sits on one sits on it, thighs out over the top and their feet on the ground; how far a stool
+   stands out from its table */
+const RG_STOOL=.3, RG_TOP=.58, RG_SX=.55;
+function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), TOP=RG_TOP-sag(REGT.x,REGT.z);   // (the table is down on the ground, out where it curves away below the café's frame)   // the café's own frame, which its tables were laid out in
   const cf=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(M);
   [REG.cx,REG.cz]=loc(cf(REGT.x,0,REGT.z).normalize());
   /* a cup and its saucer: white china, the coffee in the top */
@@ -1470,24 +1474,31 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
     g.matrix.copy(M).multiply(rgM.compose(rgV.set(px,-sag(px,pz),pz),rgQ.setFromAxisAngle(UPY,yaw),rgS.set(K,K,K))); sc.add(g); g.updateMatrixWorld(true);
     r.g=g; r.inv=g.matrixWorld.clone().invert(); REG.pick.push(g);
     [r.x,r.z]=loc(cf(px,0,pz).normalize()); r.dir.copy(at(r.x,r.z));
-    r.foot=cf(px,.05,pz); r.top=cf(px,1.3*K,pz); r.tag=cf(px,1.48*K,pz);
+    r.foot=cf(px,.05,pz);
     /* sitting: down onto the stool, the knees bent, one foot a little further out than the other */
-    d.body.position.y=RG_LIFT; const lg=s<0?[[-.92,.62],[-.72,.3]]:[[-.76,.36],[-.95,.66]];
+    d.body.position.y=0; const lg=s<0?[[-1.42,1.36],[-1.3,1.18]]:[[-1.3,1.12],[-1.46,1.42]];
     d.legs.forEach((l,i)=>{ l.rotation.set(lg[i][0],0,(i?1:-1)*.05); d.knees[i].rotation.x=lg[i][1]; });
     /* their feet on the ground: perched on a tall stool, each leg comes down from that pose (the thigh lower, the knee opened)
        just as far as it takes for the lowest of its shoe to be on the ground under it, measured on the shoe itself; or, where
        the pose has the shoe in the ground already, up from it (the thigh higher, the knee bent more) as far as it takes */
     const low=l=>{ g.updateMatrixWorld(true); let lo=9; l.traverse(m=>{ if(!m.isMesh) return; const A=m.geometry.attributes.position.array;
       for(let j=0;j<A.length;j+=3){ rgW.fromArray(A,j).applyMatrix4(m.matrixWorld); const L=rgW.length(), [mx,mz]=loc(rgW.divideScalar(L)); lo=Math.min(lo,L-R-kGround(mx,mz)); } }); return lo; };
-    d.legs.forEach((l,i)=>{ const k=d.knees[i], [a0,b0]=lg[i], at_=f=>{ l.rotation.x=a0*f; k.rotation.x=b0*f; return low(l); }; let f0=0, f1=1;
+    const down=()=>d.legs.forEach((l,i)=>{ const k=d.knees[i], [a0,b0]=lg[i], at_=f=>{ l.rotation.x=a0*f; k.rotation.x=b0*f; return low(l); }; let f0=0, f1=1;
       if(at_(1)<=.004){ f0=1; f1=1.6; } if(at_(f1)>.004) for(let n=0;n<20;n++){ const f=(f0+f1)/2; if(at_(f)>.004) f1=f; else f0=f; } at_(f1); });
+    /* down onto the stool: the lowest of them over its top (the seat of the trousers, the backs of the thighs, measured on
+       them) resting on it, not in it; the legs found again for the height, and once more for the thighs as they settle */
+    const sx=REGT.x+s*RG_SX, stl=cf(sx,RG_STOOL-sag(sx,REGT.z),REGT.z), sL=stl.length(), sU=stl.clone().divideScalar(sL), shin=new Set(); d.knees.forEach(k=>k.traverse(m=>shin.add(m)));
+    const seat=()=>{ g.updateMatrixWorld(true); let lo=9; g.traverse(m=>{ if(!m.isMesh||shin.has(m)) return; const A=m.geometry.attributes.position.array;
+      for(let j=0;j<A.length;j+=3){ rgW.fromArray(A,j).applyMatrix4(m.matrixWorld); const h=rgW.dot(sU)-sL; if(rgW.addScaledVector(sU,-rgW.dot(sU)).length()<.17) lo=Math.min(lo,h); } }); return lo; };
+    for(let n=0;n<3;n++){ d.body.position.y+=(.004-seat())/K; down(); }
+    r.lift=d.body.position.y; r.top=cf(px,(1.36+r.lift)*K,pz); r.tag=cf(px,(1.54+r.lift)*K,pz);
     /* the cup on its saucer in front of them, the other hand on the table: in the café's frame, then in their own */
     const tx=REGT.x, tz=REGT.z, ux=px-tx, uz=pz-tz, ul=Math.hypot(ux,uz), wx=ux/ul, wz=uz/ul, rx=-fz, rz=fx;
     const toL=(x,y,z)=>cf(x,y,z).applyMatrix4(r.inv);
     r.rest=toL(tx+wx*.2+rx*.07,TOP,tz+wz*.2+rz*.07); r.lrest=toL(tx+wx*.22-rx*.11,TOP+.035,tz+wz*.22-rz*.11);
     const sau=new T.Mesh(Sg,FIGM); sau.position.copy(r.rest); sau.position.y-=.001; g.add(sau);
     r.cup=new T.Mesh(Cg,FIGM); r.cup.position.copy(r.rest).y+=.009; g.add(r.cup); r.rest.y+=.009;
-    r.hp=new T.Vector3(0,(1.165+RG_LIFT),0); r.mouth=new T.Vector3(-.012,r.hp.y-.15,.2);
+    r.hp=new T.Vector3(0,(1.165+r.lift),0); r.mouth=new T.Vector3(-.012,r.hp.y-.15,.2);
     r.street=cf(REGT.x+s*.4,1.3,7);
     /* solid where they sit; and so is the walking grid round them, which was laid out before they sat down (a little wider
        there than the grid keeps from most things, so a way past keeps off their knees and the stool's foot) */
@@ -1571,9 +1582,9 @@ function regPose(dt,t){ const talking=REGS.includes(TALK.p)?TALK.p:null, near=Ma
       if(s>3.1) r.sip=-1; }
     const cp=r.cup.position.lerpVectors(r.rest,r.mouth,ck); cp.y+=.05*Math.sin(Math.PI*ck); r.cup.rotation.x=-tilt;
     /* the right hand on the cup's handle, the left on the table, or going as they talk */
-    rgH.set(-.05,.029,0).applyAxisAngle(rgV.set(1,0,0),-tilt).add(cp); rgH.y-=RG_LIFT; reach(d.arms[0],d.fore[0],rgH,RG_RP,RG_A,RG_B);
+    rgH.set(-.05,.029,0).applyAxisAngle(rgV.set(1,0,0),-tilt).add(cp); rgH.y-=r.lift; reach(d.arms[0],d.fore[0],rgH,RG_RP,RG_A,RG_B);
     r.gk=damp(r.gk,speak?1:0,speak?3:2,dt); const gk=r.gk;
-    rgH.copy(r.lrest).add(rgV.set(.025*Math.sin(t*2.3+k*2),(.11+.04*Math.sin(t*3.6+k))*gk,(-.08+.02*Math.sin(t*1.9+k))*gk)); rgH.y-=RG_LIFT; reach(d.arms[1],d.fore[1],rgH,RG_LP,RG_A,RG_B);
+    rgH.copy(r.lrest).add(rgV.set(.025*Math.sin(t*2.3+k*2),(.11+.04*Math.sin(t*3.6+k))*gk,(-.08+.02*Math.sin(t*1.9+k))*gk)); rgH.y-=r.lift; reach(d.arms[1],d.fore[1],rgH,RG_LP,RG_A,RG_B);
     /* where they look: at each other, out at the street now and then, and up at you */
     r.attT-=dt; let want=0; if(talking) want=talking===r?1:.7; else if(near<6&&r.attT<0){ want=1; if(r.attT<-1.7) r.attT=5+Math.random()*7; }
     r.att=damp(r.att,want,want>r.att?5:2.5,dt);
@@ -1582,7 +1593,7 @@ function regPose(dt,t){ const talking=REGS.includes(TALK.p)?TALK.p:null, near=Ma
     r.hy=damp(r.hy,lerp(base[0],pl[0],r.att),6,dt); r.hp0=damp(r.hp0,lerp(base[1],pl[1],r.att),6,dt);
     let nod=0; if(r.nod>0){ r.nod+=dt; nod=.11*Math.max(0,Math.sin(TAU*r.nod/.5)); if(r.nod>1) r.nod=0; }
     d.head.rotation.set(r.hp0+nod+(speak?.025*Math.sin(t*6.1+k):0)-.22*tilt,r.hy,speak?.03*Math.sin(t*2.2+k):0);
-    d.body.position.y=RG_LIFT+.003*Math.sin(t*1.6+k*2);
+    d.body.position.y=r.lift+.003*Math.sin(t*1.6+k*2);
     r.blink-=dt; if(r.blink<0) r.blink=2+Math.random()*3.2; d.eyes[0].scale.y=r.blink<.12?.15:1; }); }
 
 /* ---------- the rocket, at the size of a small house: a cream cone with peach fins, and a real hatch ---------- */
@@ -6301,6 +6312,13 @@ const PO={st:'out',on:false,k:0,t:0,M:null,Mi:null,x:0,z:0,up:new T.Vector3(0,1,
   bx:{st:'idle',t:0,go:0},bk:{yaw:0,yawT:0,R:'write',L:'rest',arm:[[0,0,-.12],[0,0,-.12]],wave:0,nod:0,blink:2,look:0,hold:null},at:{}};
 const poV=new T.Vector3(), poV2=new T.Vector3(), poV3=new T.Vector3(), poV4=new T.Vector3(), poM=new T.Matrix4(), poM2=new T.Matrix4(), poQ=new T.Quaternion(), poE=new T.Euler(), poS=new T.Vector3(), poRay=new T.Raycaster(), poNdc=new T.Vector2();
 const poW=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(PO.M);   // a point in the post office's frame, in the world
+/* the pillar box's own frame: it stands on the pavement at the kerb, upright where it is. Out there the ground has curved away
+   most of a quarter metre below the shop's own level, and leans a little, so the shop's frame turned to face along the pavement
+   is stood up on the ground under it (its front kept, its foot on the pavement) */
+function poBoxM(M=PO.M){ if(PO.bxM) return PO.bxM; const B0=sub(M,PW.BOX[0],0,PW.BOX[1],Math.PI/2), up=new T.Vector3().setFromMatrixPosition(B0).normalize(), [wx,wz]=loc(up),
+    fz=new T.Vector3().setFromMatrixColumn(B0,2), fx=new T.Vector3(); fz.addScaledVector(up,-fz.dot(up)).normalize(); fx.crossVectors(up,fz);
+  const B=new T.Matrix4().makeBasis(fx,up,fz).setPosition(up.clone().multiplyScalar(R+kGround(wx,wz))); if(GRD&&GRD.id.has(M)) GRD.id.set(B,GRD.id.get(M)); return PO.bxM=B; }
+const poBW=(y,z=0,o=new T.Vector3())=>o.set(0,y,z).applyMatrix4(poBoxM());   // a point on the pillar box, up it and out to its front, in the world
 const poD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(PO.M);
 const poL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(PO.Mi);
 const poXZ=(x,z)=>loc(poW(x,0,z,poV4).normalize());   // on the town's map
@@ -6346,7 +6364,7 @@ function poHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=PW.w, d=PW.d, h=PW.h, t
   [-1,1].forEach(s=>box(M,G,DX+s*(DW/2+.035),.2,f+.02,.07,DH-.2+.06,.07)); box(M,G,DX,DH,f+.02,DW+.16,.08,.07); box(M,'#bdb6aa',DX,0,f+.32,1.04,.16,.56);
   /* the pillar box at the kerb, its slot to the way along the pavement to the door: a dark plinth, the red body, its cap,
      the slot under a hood, the plate with the collection times, a gold crest */
-  { const B=sub(M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); cyl(B,'#2b2724',0,0,0,.2,.08); cyl(B,PO_RED,0,.08,0,.17,1.0); cyl(B,'#9e2420',0,.08,0,.175,.05); cyl(B,PO_RED,0,1.07,0,.19,.045); put(B,'sph',PO_RED,0,1.11,0,.175,.13,.175); put(B,'sph',PO_RED,0,1.24,0,.035,.03,.035);
+  { const B=poBoxM(M); cyl(B,'#2b2724',0,0,0,.2,.08); cyl(B,PO_RED,0,.08,0,.17,1.0); cyl(B,'#9e2420',0,.08,0,.175,.05); cyl(B,PO_RED,0,1.07,0,.19,.045); put(B,'sph',PO_RED,0,1.11,0,.175,.13,.175); put(B,'sph',PO_RED,0,1.24,0,.035,.03,.035);
     box(B,'#161312',0,.86,.135,.14,.034,.07); box(B,PO_RED,0,.894,.155,.18,.022,.05); box(B,'#f3ede2',0,.6,.158,.11,.1,.03); box(B,'#2a241d',0,.63,.174,.075,.008,.004); box(B,'#2a241d',0,.6,.174,.065,.008,.004);
     box(B,'#d9b45a',0,.98,.16,.05,.05,.03); obsAt(M,PW.BOX[0],PW.BOX[1],.22,1.2); }
   /* the postmistress's bike, leaning on the stall riser: a step-through frame in green, a wicker basket with a parcel in it */
@@ -6408,7 +6426,7 @@ function poPaint(cv){ const c=cv.getContext('2d'), H=cv.height, W0=736, r=seeded
   c.font=`900 ${Hd*.11}px Doto, monospace`; c.fillText('OPEN',X+Wd/2,Hd*.235); c.restore(); }
 /* the door on its hinge (0 shut, up to about a quarter turn open, into the room); the box's flap */
 function poDoorPose(){ const d=PO.m.door; if(!d) return; const [hx,hy,hz]=PO.m.hinge; d.matrix.multiplyMatrices(PO.M,poM.makeTranslation(hx,hy,hz).multiply(poM2.makeRotationY(-PO.door))); d.matrixWorldNeedsUpdate=true; }
-function poFlapPose(){ const m=PO.m.flap; if(!m) return; const B=sub(PO.M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); m.matrix.multiplyMatrices(B,poM.makeTranslation(0,.894,.12).multiply(poM2.makeRotationX(PO.flap*1.2))); m.matrixWorldNeedsUpdate=true; }
+function poFlapPose(){ const m=PO.m.flap; if(!m) return; const B=poBoxM(); m.matrix.multiplyMatrices(B,poM.makeTranslation(0,.894,.12).multiply(poM2.makeRotationX(PO.flap*1.2))); m.matrixWorldNeedsUpdate=true; }
 
 /* ---------- Bríd, the postmistress: the same hand as everyone in town (see figure), in her green cardigan over a cream
    blouse, glasses, rosy cheeks, her grey hair up in a bun; not one of us, so no photo and no page, and she stays behind
@@ -6540,7 +6558,7 @@ function buildPO(){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t
   LAMPS_.forEach((p,i)=>{ poW(p[0],p[1]-.05,p[2],poV); PU.uCL.value[i].set(poV.x,poV.y,poV.z,i<2?1:.9); }); poW(PW.WX,2.35,id-.15,poV); PU.uCL.value[3].set(poV.x,poV.y,poV.z,0);
   /* ---- what a click finds: the shop's front and the pillar box from the street (boxes, never drawn) ---- */
   PO.pick=new T.Mesh(new T.BoxGeometry(w-.1,2.7,.5)); PO.pick.matrixAutoUpdate=false; PO.pick.matrixWorld.copy(M).multiply(poM.makeTranslation(-.12,1.35,d/2+.15));
-  PO.pickBox=new T.Mesh(new T.BoxGeometry(.6,1.35,.6)); PO.pickBox.matrixAutoUpdate=false; PO.pickBox.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BOX[0],.68,PW.BOX[1]));
+  PO.pickBox=new T.Mesh(new T.BoxGeometry(.6,1.35,.6)); PO.pickBox.matrixAutoUpdate=false; PO.pickBox.matrixWorld.copy(poBoxM(M)).multiply(poM.makeTranslation(0,.68,0));
   PO.pickIn=new T.Mesh(new T.BoxGeometry(1.2,1.5,.9)); PO.pickIn.matrixAutoUpdate=false; PO.pickIn.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BK[0],F+.75,cz-.1));
   PO.pickOut=new T.Mesh(new T.BoxGeometry(PW.DW,PW.DH-F,.3)); PO.pickOut.matrixAutoUpdate=false; PO.pickOut.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.DX,(PW.DH+F)/2,id));
   try{ renderer.initTexture&&[PO.btx,PO.ctx].forEach(tx=>renderer.initTexture(tx)); }catch(e){}
@@ -6762,9 +6780,9 @@ function poBoxStep(dt){ const bx=PO.bx, P=player, m=PO.m.bcard;
   if(bx.st==='post'){ const c0=bx.t; bx.t+=dt; const c=bx.t, d_=me.userData, k=sstep(0,.3,c)*(1-sstep(.95,1.3,c));
     d_.arms[0].rotation.x=-1.25*k; d_.fore[0].rotation.x=-.12-.25*k; me.updateMatrixWorld(true);
     /* the card: from your hand to the slot, and in */
-    const slot=poW(PW.BOX[0]+.12,.877,PW.BOX[1],poV2), hand=d_.fore[0].localToWorld(poV3.set(0,-.2,.05)), u=sstep(.25,.75,c);
+    const slot=poBW(.877,.12,poV2), hand=d_.fore[0].localToWorld(poV3.set(0,-.2,.05)), u=sstep(.25,.75,c);
     if(c<.9){ m.visible=c>.12; poV.copy(hand).lerp(slot,u); if(u>.8) poV.addScaledVector(poD(-1,0,0,poV4),(u-.8)*.4);
-      const bm=sub(PO.M,PW.BOX[0],0,PW.BOX[1],Math.PI/2); poQ.setFromRotationMatrix(bm); poM.compose(poV,poQ,poS.set(1,1,1)); m.matrix.copy(poM).multiply(poM2.makeRotationX(-.12)); m.matrixWorldNeedsUpdate=true; } else m.visible=false;
+      const bm=poBoxM(); poQ.setFromRotationMatrix(bm); poM.compose(poV,poQ,poS.set(1,1,1)); m.matrix.copy(poM).multiply(poM2.makeRotationX(-.12)); m.matrixWorldNeedsUpdate=true; } else m.visible=false;
     if(c0<.6&&c>=.6) A.poFlap();
     if(c0<1.3&&c>=1.3){ PO.done=bx.blob; PO.boxed=true; bx.st='idle'; bx.doneT=1.8; A.chime(7,0,.022); } }
   if(bx.doneT>0) bx.doneT-=dt;
@@ -6823,7 +6841,7 @@ function poTags(live){ let on=false, can=false, txt='', bon=false, bcan=false, b
     const nearBox=PO.db<1.15&&(poHas()||PO.bx.doneT>0);
     if(PO.dd<7&&!(nearBox&&PO.db<PO.dd)){ const v=poProj(PW.DX,cport()?1.55:1.98,PW.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=poAtDoor(1.2); txt='Go in';
       if(on) poTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
-    if((poHas()||PO.bx.doneT>0)&&PO.db<7&&PO.bx.st!=='post'||PO.bx.doneT>0){ const v=poProj(PW.BOX[0],1.32,PW.BOX[1]); bon=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; bcan=poAtBox()&&poHas(); btxt=PO.bx.doneT>0?'Posted':'Post your card';
+    if((poHas()||PO.bx.doneT>0)&&PO.db<7&&PO.bx.st!=='post'||PO.bx.doneT>0){ const v=poBW(1.32,0,poV).project(stCam); bon=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; bcan=poAtBox()&&poHas(); btxt=PO.bx.doneT>0?'Posted':'Post your card';
       if(bon) boxTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
   if(txt&&poTag.textContent!==txt) poTag.textContent=txt; if(btxt&&boxTag.textContent!==btxt){ boxTag.textContent=btxt; boxTag.classList.toggle('done',btxt==='Posted'); }
   if(on!==PO.tagOn){ PO.tagOn=on; poTag.classList.toggle('on',on); } if(can!==PO.tagCan){ PO.tagCan=can; poTag.classList.toggle('can',can); }
@@ -6880,7 +6898,7 @@ st._dbg.po={P:PO,PW,BRL,POWHO,get err(){ return PO.err; },go:poGo,enter:poEnter,
     tag:{on:PO.tagOn,can:PO.tagCan,txt:poTag.textContent},btag:{on:PO.btagOn,can:PO.btagCan,txt:boxTag.textContent},leave:!poOut.hidden,post:!poBtn.hidden,mk:+PO.mk.toFixed(2),talk:TALK.p===POWHO?TALK.txt:null,
     clerk:{R:PO.bk.R,L:PO.bk.L,look:+(PO.bk.lk||0).toFixed(2),yaw:+PO.bk.yaw.toFixed(2),wave:+PO.bk.wave.toFixed(2)}}; },
   /* where on the screen the door, the pillar box, Bríd, the counter's card and the sign are (for a test to tap them) */
-  screen(what){ stCam.updateMatrixWorld(); const p=what==='door'?poW(PW.DX,1.1,PO.on?PW.d/2-.1:PW.d/2+.04,poV):what==='box'?poW(PW.BOX[0],.75,PW.BOX[1],poV):what==='clerk'?poW(PW.BK[0],PW.FL+1.2,PW.BK[1],poV):what==='card'?poW(PO.at.card[0],PO.at.top,PO.at.card[1],poV):what==='sign'?poW(-.12,2.3,PW.d/2+.09,poV):poW(PW.DX,1.1,PW.d/2,poV);
+  screen(what){ stCam.updateMatrixWorld(); const p=what==='door'?poW(PW.DX,1.1,PO.on?PW.d/2-.1:PW.d/2+.04,poV):what==='box'?poBW(.75,0,poV):what==='clerk'?poW(PW.BK[0],PW.FL+1.2,PW.BK[1],poV):what==='card'?poW(PO.at.card[0],PO.at.top,PO.at.card[1],poV):what==='sign'?poW(-.12,2.3,PW.d/2+.09,poV):poW(PW.DX,1.1,PW.d/2,poV);
     const q=p.project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
 /* ===================== (the post office ends here) ===================== */
 
@@ -9374,8 +9392,8 @@ const LHI=wiRoom({id:'lh',cls:'inlh',at:'foot',mv:null,ga:0,walk:0,log:0,logOn:f
   figY:(x,z)=>Math.hypot(x,z)<1.15?LHD.FL:Math.abs(x)<=.47&&z<1.47?.33:Math.abs(x)<=.47&&z<1.76?Math.max(.17,wiGround(LHI,x,z)):wiGround(LHI,x,z),   /* (the round plinth; the two steps up to the door as they are built, .94 wide; the ground beside them) */
   stepSnd:(x,z,mx,mz)=>A.step(z<1.76||roadDist(mx,mz)<RW+SW?1:0), sndDoor:o=>A.civDoor(o,true),
   eye:o=>lhEye(o), fov:()=>cport()?76:64, tagText:()=>'Go in', ui:()=>lhUI(), outdoors:()=>LHI.at==='gal'||!!(LHI.mv&&LHI.mv.k==='back'),
-  onEnter(){ LHI.at='foot'; LHI.mv=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; }, onWayIn(){}, onIn(){}, onLeave(){ lhLog(false); }, onOut(){},
-  onReset(){ LHI.at='foot'; LHI.mv=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; lhGdoorPose(); A.lhAir(0,0,0); LHI.air=[0,0,0]; },
+  onEnter(){ LHI.at='foot'; LHI.mv=null; LHI.q=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; }, onWayIn(){}, onIn(){ LHI.hk=null; LHI.held=lhHeld('f'); LHI.out=0; },   /* (the W you walked in on does not take you on up the stair: let go of it first) */ onLeave(){ lhLog(false); }, onOut(){},
+  onReset(){ LHI.at='foot'; LHI.mv=null; LHI.q=null; LHI.log=0; LHI.logOn=false; LHI.gd=LHI.gdT=0; lhGdoorPose(); A.lhAir(0,0,0); LHI.air=[0,0,0]; },
   inside:(dt,t)=>lhInside(dt,t), look:(dx,dy)=>lhLook(dx,dy), label:k=>k==='gdoor'?(LHI.at==='gal'?'Back in':'Step out'):LHLAB[k]||null, pickIn:e=>lhPick(e), click:k=>lhClick(k), key:(e,k,ctl)=>lhKey(e,k,ctl),
   doorPose:()=>lhDoorPose(), cull:on=>{ [LHI.m.door,LHI.m.gdoor].forEach(m=>{ if(m) m.frustumCulled=on; }); }, quiet:()=>{ A.lhAir(0,0,0); LHI.air=[0,0,0]; }});
 const LHLAB={out:'Leave',stair:'Climb',log:'Read',ladder:'Up',down:'Down',hatch:'Down',prev:'Earlier',next:'Later',lens:null};
@@ -9606,15 +9624,23 @@ function lhMove(dt){ const q=LHI.mv, D=LHD; q.t+=dt; const u=clamp(q.t/q.T,0,1),
     else { const k=E.io((u-.78)/.22), a=lerp(0,D.LA,k), r=lerp(.42,D.LSR,k); p=[Math.sin(a)*r,D.FT+D.EY,Math.cos(a)*r]; yaw=lhAng(0,lens,k); pit=lerp(0,-.08,k); }
     if(u>.7&&LHI.gdT){ LHI.gdT=0; LHI.gshut=1; } }
   wiW(LHI,...p,LHI.cp); LHI.yaw=yaw; LHI.pitch=pit; wiDir(LHI,yaw,pit,wiV).add(LHI.cp); LHI.cl.copy(wiV); LHI.cu.copy(LHI.up); me.visible=false;
-  if(u>=1){ LHI.at=q.to; if(q.k==='out') LHI.ga=0; LHI.mv=null; LHI.dragT=0; LHI.held=keys.has('KeyW')||keys.has('ArrowUp')||keys.has('KeyS')||keys.has('ArrowDown')?1:0; lhUI(); } }
+  if(u>=1){ LHI.at=q.to; if(q.k==='out') LHI.ga=0; LHI.mv=null; LHI.dragT=0; LHI.held=lhHeld(LHI.hk); LHI.hk=null; lhUI(); const q_=LHI.q; LHI.q=null; if(q_){ LHI.held=LHI.hk=q_; lhKeyGo(q_); } } }
+/* which of W and S is still down after a move: the way that made it (f, b), or either for a move made by a click or E (1), or none */
+function lhKeyGo(k,a=LHI.at){ if(k==='f') lhGo(a==='foot'?'climb':a==='keep'?'up':a==='lamp'?'out':''); else if(a==='foot') wiLeave(LHI); else lhGo(a==='keep'?'down':a==='lamp'?'hatch':'back'); }
+function lhHeld(k){ const f=keys.has('KeyW')||keys.has('ArrowUp'), b=keys.has('KeyS')||keys.has('ArrowDown'); return k==='f'?(f?'f':0):k==='b'?(b?'b':0):(f||b?1:0); }
 /* inside, at a stop: drag (or the arrows, A and D) to look round; on the gallery you walk round to wherever you look. W (or
    up) goes on up, S (or down) goes back down, or out at the foot */
-function lhInside(dt){ const D=LHD; if(LHI.mv){ lhMove(dt); return; }
+function lhInside(dt){ const D=LHD; if(LHI.mv){ const f=keys.has('KeyW')||keys.has('ArrowUp'), b=keys.has('KeyS')||keys.has('ArrowDown'), up=LHI.mv.k==='climb'||LHI.mv.k==='up'||LHI.mv.k==='out';
+    if(b&&up) LHI.q='b'; else if(f&&!up) LHI.q='f';   /* (S on the way up, or W on the way down: done as soon as you get there, not lost) */ lhMove(dt); return; }
   const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(keys.has('ArrowRight')||keys.has('KeyD')?1:0), fw=keys.has('KeyW')||keys.has('ArrowUp'), bk=keys.has('KeyS')||keys.has('ArrowDown');
   LHI.log=LHI.logOn?Math.min(1,LHI.log+dt/.7):Math.max(0,LHI.log-dt/.6);
   if(!LHI.logOn){ if(kx){ LHI.yaw+=kx*1.6*dt; LHI.dragT=0; }
-    if(!fw&&!bk) LHI.held=0; if((fw||bk)&&!LHI.held){ LHI.out+=dt; if(LHI.out>.3){ LHI.out=0; LHI.held=1; const a=LHI.at;
-        if(fw) lhGo(a==='foot'?'climb':a==='keep'?'up':a==='lamp'?'out':''); else if(a==='foot') wiLeave(LHI); else lhGo(a==='keep'?'down':a==='lamp'?'hatch':'back'); return; } } else LHI.out=0;
+    /* (a key still down from before, the one you walked in on or the one that took you here, counts again once it is let go;
+       the other way goes at once: S taken out or down even with the W you came in on still held) */
+    const h=LHI.held; if(h==='f'&&!fw||h==='b'&&!bk||h===1&&!fw&&!bk) LHI.held=0;
+    const gb=bk&&LHI.held!=='b'&&LHI.held!==1, gf=!gb&&fw&&LHI.held!=='f'&&LHI.held!==1;
+    if(gf||gb){ LHI.out+=dt; if(LHI.out>.3){ LHI.out=0; LHI.held=LHI.hk=gb?'b':'f'; const a=LHI.at;
+        lhKeyGo(gb?'b':'f',a); return; } } else LHI.out=0;
     LHI.dragT+=dt; if(LHI.dragT>3&&LHI.at!=='gal'){ const y0=LHI.at==='foot'?LHI.yaw0:LHI.at==='keep'?wiYawTo(D.KS[0],D.KS[1],D.BOOK[0],D.BOOK[1]):wiYawTo(Math.sin(D.LA)*D.LSR,Math.cos(D.LA)*D.LSR,0,0);
       LHI.yaw=lhAng(LHI.yaw,y0,1-Math.exp(-1.6*dt)); LHI.pitch=damp(LHI.pitch,LHI.at==='keep'?-.7:LHI.at==='foot'?(cport()?.06:.1):-.08,1.6,dt); } }
   if(LHI.at==='gal'){ const d=angWrap(LHI.yaw-Math.PI-LHI.ga), v=clamp(d*2.4,-.85,.85); LHI.ga+=v*dt; LHI.walk+=Math.abs(v*dt)*.9; if(LHI.walk>.5){ LHI.walk=0; A.ironStep(.032); } }
