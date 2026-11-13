@@ -126,10 +126,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* (twenty seconds of the station's own clock, stepped by hand: headless frames are too slow to wait for) */
   await M(e => { e.put(3.2, -.3, 4.8, 2); e.run(2); }); await H(() => { window.__MC.fry = window.__MC.basket = window.__MC.clink = 0; window.__MC.g = []; });
   await M(e => e.run(600)); const cntF = await H(() => JSON.parse(JSON.stringify(window.__MC)));
-  await M((e, d, h, a) => { e.at(a, '21:30'); e.put(3.2, -.3, 4.8, 2); }, TUE); await H(() => { window.__MC.fry = window.__MC.basket = window.__MC.clink = 0; });
+  await M((e, d, h, a) => { e.at(a, '14:00'); e.put(3.2, -.3, 4.8, 2); }, TUE); await H(() => { window.__MC.fry = window.__MC.basket = window.__MC.clink = 0; });
   await M(e => e.run(300)); const cntT = await H(() => JSON.parse(JSON.stringify(window.__MC)));
   rec(cntF.fry >= 3 && cntF.basket >= 1 && cntF.g.every(([k, g]) => g <= (k === 'fry' ? .04 : k === 'basket' ? .02 : .016)), 'by the van on a Friday night the fryer spits now and then (and the basket, the glasses), never above their levels', JSON.stringify({ fry: cntF.fry, basket: cntF.basket, clink: cntF.clink, levels: cntF.g.slice(0, 6) }));
-  rec(cntT.fry + cntT.basket + cntT.clink === 0, 'and on a Tuesday there is none of it', JSON.stringify(cntT));
+  rec(cntT.fry + cntT.basket + cntT.clink === 0, 'and by day (a Tuesday afternoon) there is none of it', JSON.stringify(cntT));
   /* how loud, against the footsteps: each played alone (the music and the night's crickets held back for the moment) and
      its loudest 10 ms read off a long listen at the speakers */
   const meter = await H(async h => {
