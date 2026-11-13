@@ -11,6 +11,11 @@ async function compileQuiet(sc,cam,sets){ try{
     if(sets) intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||hasLight(o)) return;
       for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); }catch(e){} finally{ o.material=m0; } } } }));
     if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)).then(programsReady),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
+/* a world's shaders sent off as it is being built, waited for by nobody: a browser that makes them in the background makes
+   them while the rest of the world is still being put together, so the wait behind the loader is only for those not made by
+   then. They are the very ones the wait sends (each is made once, sooner). Only what is shown is sent: something hidden may
+   yet be changed before it is first drawn (the rain is made dry in the workshop), and would then be made twice */
+function sendShaders(sc,cam){ try{ sc.traverse=sc.traverseVisible; intoTarget(()=>renderer.compile(sc,cam)); renderer.getContext().flush(); }catch(e){} finally{ delete sc.traverse; } }
 /* every shader sent off so far is made (at once, where the browser makes them as they are first drawn with) */
 const programsReady=()=>new Promise(res=>{ const ck=()=>{ let ok=true; try{ ok=renderer.info.programs.every(p=>p.isReady()); }catch(e){} if(ok) res(); else setTimeout(ck,10); }; ck(); });
 /* an object with a light of its own is compiled with the whole scene, not by itself: three would count its light twice

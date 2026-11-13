@@ -212,8 +212,15 @@ const KITS={main:{P:[],N:[],C:[]}}; let KP=KITS.main.P, KN=KITS.main.N, KC=KITS.
 function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; if(GRD) GRD.kit=id; }
 /* a colour named in a string, read once: the same colour every time it is asked for (never handed out to be changed) */
 const C3S=new Map(), C3R=c=>typeof c==='string'?(C3S.get(c)||C3S.set(c,C3(c)).get(c)):C3(c);
+const kPlain=a=>!!a&&a.itemSize===3&&!a.normalized&&!a.isInterleavedBufferAttribute&&!!a.array;   // (an attribute read straight from its array, as getX reads it)
 function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal, v0=KP.length/3; kNM.getNormalMatrix(M); const col=C3R(c); if(GRD){ kT.fromBufferAttribute(p,0).applyMatrix4(M); grdPrim(p.count,M,GRD.geo||'kadd',kT,col); }
-  for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); }
+  /* (each corner placed and its normal turned with the sums written out, in the same order as three's applyMatrix4,
+     applyMatrix3 and normalize: the same numbers, without five calls a corner) */
+  if(kPlain(p)&&kPlain(q)){ const e=M.elements, m=kNM.elements, A=p.array, B=q.array, n=p.count, cr=col.r, cg=col.g, cb=col.b;
+    for(let j=0;j<n*3;j+=3){ const x=A[j], y=A[j+1], z=A[j+2], w=1/(e[3]*x+e[7]*y+e[11]*z+e[15]), nx=B[j], ny=B[j+1], nz=B[j+2],
+        ax=m[0]*nx+m[3]*ny+m[6]*nz, ay=m[1]*nx+m[4]*ny+m[7]*nz, az=m[2]*nx+m[5]*ny+m[8]*nz, s=1/(Math.sqrt(ax*ax+ay*ay+az*az)||1);
+      KP.push((e[0]*x+e[4]*y+e[8]*z+e[12])*w,(e[1]*x+e[5]*y+e[9]*z+e[13])*w,(e[2]*x+e[6]*y+e[10]*z+e[14])*w); KN.push(ax*s,ay*s,az*s); KC.push(cr,cg,cb); } }
+  else for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); }
   kfoot(g,M,v0); if(GRD) GRD.prims[GRD.prims.length-1].f=[KP[v0*3],KP[v0*3+1],KP[v0*3+2]]; }
 /* a flat foot on the ground reaches down to it. The world is round and small, so a slab, a step or a pad laid flat on it stands
    off the ground toward its edges (and more where the ground falls away): the underside of anything flat-bottomed and level
@@ -285,7 +292,23 @@ function roadLift(x,z){ if(!RLG||RLG.n!==ROADS.length) rlIndex(); const L=RLG.m.
     if(r.open&&(i===0&&t<0||i===n-1&&t>1)) continue; const u=clamp(t,0,1); M[L[j]]=Math.min(M[L[j]],Math.hypot(x-a[0]-ex*u,z-a[1]-ez*u)); }
   let lift=0; ROADS.forEach((r,ri)=>{ const hw=r.hw||RW, sw=r.sw||SW, m=M[ri]; if(m<hw) lift=Math.max(lift,ROADH); else if(m<hw+sw) lift=CURB; });
   return lift; }
-function roadDist(x,z){ let m=1e9; for(const r of ROADS) for(let i=0;i<r.length-1;i++){ const a=r[i],b=r[i+1], ex=b[0]-a[0], ez=b[1]-a[1], t=clamp(((x-a[0])*ex+(z-a[1])*ez)/(ex*ex+ez*ez||1),0,1); m=Math.min(m,Math.hypot(x-a[0]-ex*t,z-a[1]-ez*t)); } return m; }
+/* (asked for whatever is laid out clear of the roads as the town is built, and for each step's sound: so it looks only at the
+   stretches of road that can be the nearest to anywhere in the square metre it is asked about, listed the first time that
+   square is asked about. The nearest is always among them, worked out the same way, so it is the same distance to the last
+   digit) */
+const RDQ={n:-1,s:null,c:new Map()};
+function rdSegs(){ let n=0; for(const r of ROADS) n+=Math.max(0,r.length-1); if(n===RDQ.n) return RDQ.s; RDQ.n=n; RDQ.c.clear(); const s=RDQ.s=new Float64Array(n*9); let k=0;
+  for(const r of ROADS) for(let i=0;i<r.length-1;i++,k+=9){ const a=r[i],b=r[i+1], ex=b[0]-a[0], ez=b[1]-a[1];
+    s[k]=a[0]; s[k+1]=a[1]; s[k+2]=ex; s[k+3]=ez; s[k+4]=ex*ex+ez*ez||1; s[k+5]=Math.min(a[0],b[0]); s[k+6]=Math.max(a[0],b[0]); s[k+7]=Math.min(a[1],b[1]); s[k+8]=Math.max(a[1],b[1]); }
+  return s; }
+const rdOne=(s,k,x,z)=>{ const ax=s[k], az=s[k+1], ex=s[k+2], ez=s[k+3], t=clamp(((x-ax)*ex+(z-az)*ez)/s[k+4],0,1); return Math.hypot(x-ax-ex*t,z-az-ez*t); };
+function rdCell(s,i,j){ const n=RDQ.n*9; let up=1e9; for(let k=0;k<n;k+=9) up=Math.min(up,rdOne(s,k,i+.5,j+.5)+.7072);   // (no point of the square is further from the stretch nearest its middle)
+  const L=[]; for(let k=0;k<n;k+=9){ const dx=Math.max(0,s[k+5]-(i+1),i-s[k+6]), dz=Math.max(0,s[k+7]-(j+1),j-s[k+8]); if(Math.sqrt(dx*dx+dz*dz)<=up+1e-6) L.push(k); }
+  return Int32Array.from(L); }
+function roadDist(x,z){ const s=rdSegs(); let m=1e9;
+  if(!(Math.abs(x)<64&&Math.abs(z)<64)){ for(let k=0;k<RDQ.n*9;k+=9) m=Math.min(m,rdOne(s,k,x,z)); return m; }
+  const i=Math.floor(x), j=Math.floor(z), key=(i+64)*128+j+64; let L=RDQ.c.get(key); if(!L) RDQ.c.set(key,L=rdCell(s,i,j));
+  for(let q=0;q<L.length;q++) m=Math.min(m,rdOne(s,L[q],x,z)); return m; }
 let SEGS=[]; // dirt paths [x1,z1,x2,z2,halfwidth]
 function pathDist(x,z){ let m=1e9; for(const s of SEGS){ const ex=s[2]-s[0], ez=s[3]-s[1], t=clamp(((x-s[0])*ex+(z-s[1])*ez)/(ex*ex+ez*ez),0,1); m=Math.min(m,Math.hypot(x-s[0]-ex*t,z-s[1]-ez*t)-s[4]); } return m; }
 function onJetty(x,z){ const [a,b]=JETTY, ex=b[0]-a[0], ez=b[1]-a[1], L=Math.hypot(ex,ez), t=((x-a[0])*ex+(z-a[1])*ez)/(L*L); if(t<-.02||t>1) return false; return Math.abs(((x-a[0])*ez-(z-a[1])*ex)/L)<.62; }
@@ -299,6 +322,11 @@ function laidH(x,z){ for(const c of LAID){ if(Math.hypot(x-c.c[0],z-c.c[1])>c.c[
 function standH(x,z){ if(onJetty(x,z)) return DECK+.08;   /* (the tops of the jetty's boards) */ const pd=onPier(x,z); if(pd!==false) return pd;   /* (the harbour pier's boards: see the pier and the train) */ { const dp=Math.hypot(x-PAD[0],z-PAD[1]); if(dp<2.35) return .1+dp*dp/(2*R); }   /* (the pad is flat and the world is round: its top stands a little higher toward its rim) */ return grid(GH,x,z)+roadLift(x,z)+laidH(x,z); }
 
 /* ---------- signs: painted boards with the dot-matrix type, drawn on a canvas ---------- */
+/* a canvas lettered in Doto is drawn at once, and drawn again when the font comes only if it had not come yet: the page
+   waits for its fonts before Earth is made, so it almost always has, and a second painting (and a second upload of the
+   picture) would be the same picture again */
+function dotoLater(fn){ if(!document.fonts||!document.fonts.load) return; let has=false; try{ has=document.fonts.check('900 40px Doto'); }catch(e){}
+  if(!has) document.fonts.load('900 40px Doto').then(fn).catch(()=>{}); }
 const SIGN_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
   void main(){ nearFade(vW); vec3 n=normalize(vN); gl_FragColor=vec4(toon(texture2D(uMap,vUv).rgb,n,vW),1.); }`;
 function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
@@ -307,7 +335,7 @@ function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); 
     const y=sub?h*.4:h*.53, fit=(t,f)=>{ c.font=`900 ${f}px Doto, monospace`; const m=c.measureText(t).width; return m>w*.86?f*w*.86/m:f; };
     let f1=fit(txt,fs); c.font=`900 ${f1}px Doto, monospace`; c.lineWidth=f1*.07; c.strokeText(txt,w/2,y); c.fillText(txt,w/2,y);
     if(sub){ const f2=fit(sub,h*.15); c.font=`900 ${f2}px Doto, monospace`; c.lineWidth=f2*.06; c.strokeText(sub,w/2,h*.74); c.fillText(sub,w/2,h*.74); } tx.needsUpdate=true; };
-  draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{}); return tx; }
+  draw(); dotoLater(draw); return tx; }
 function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post!==false;
   const px=o.legs?w/2+.04:w*.38;   // legs: posts at the board's ends, clear of words that run its whole width
   if(post){ box(M,'#6d5544',-px,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',px,0,-.04,.08,y+h/2,.08); [-px,0,px].forEach(k=>obsAt(M,k,-.04,.15,y+h/2)); }
@@ -651,11 +679,13 @@ const FIGM=toonMat('#ffffff',{fig:true,vc:true});
 const FG={sph:new T.SphereGeometry(1,14,10).toNonIndexed(), ball:new T.IcosahedronGeometry(1,1), box:new T.BoxGeometry(1,1,1).toNonIndexed(), cone:new T.ConeGeometry(1,1,12).toNonIndexed(),
   limb:new T.CylinderGeometry(1,.78,1,12,1,true).toNonIndexed(), tube:new T.CylinderGeometry(1,1,1,14,1,true).toNonIndexed(), can:new T.CylinderGeometry(1,1,1,14).toNonIndexed(),
   band:new T.TorusGeometry(1,.06,6,26,Math.PI).toNonIndexed()};
-const v3=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), fM=new T.Matrix4(), fNM=new T.Matrix3(), fQ=new T.Quaternion(), fE=new T.Euler(), fT=v3(), fS=v3(), fU=v3(), fW=v3(), fX=v3(1,0,0), fY=v3(0,1,0);
+const v3=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), fM=new T.Matrix4(), fNM=new T.Matrix3(), fQ=new T.Quaternion(), fE=new T.Euler(), fT=v3(), fS=v3(), fX=v3(1,0,0), fY=v3(0,1,0);
 const tint=(c,k)=>C3(c).clone().lerp(C3(k>0?'#ffffff':'#000000'),Math.abs(k));
 function part(){ const P=[],N=[],C=[], o={};
   /* one triangle, turned to face the way its normals point */
-  o.tri=(a,na,b,nb,c,nc,col)=>{ fU.subVectors(b,a).cross(fW.subVectors(c,a)); if(fU.dot(fW.copy(na).add(nb).add(nc))<0){ let t=b; b=c; c=t; t=nb; nb=nc; nc=t; } const k=C3R(col);
+  /* (the turn of b-a to c-a against the normals' sum, written out as subVectors, cross, add and dot work it out) */
+  o.tri=(a,na,b,nb,c,nc,col)=>{ const ux=b.x-a.x, uy=b.y-a.y, uz=b.z-a.z, wx=c.x-a.x, wy=c.y-a.y, wz=c.z-a.z;
+    if((uy*wz-uz*wy)*(na.x+nb.x+nc.x)+(uz*wx-ux*wz)*(na.y+nb.y+nc.y)+(ux*wy-uy*wx)*(na.z+nb.z+nc.z)<0){ let t=b; b=c; c=t; t=nb; nb=nc; nc=t; } const k=C3R(col);
     P.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); N.push(na.x,na.y,na.z,nb.x,nb.y,nb.z,nc.x,nc.y,nc.z); C.push(k.r,k.g,k.b,k.r,k.g,k.b,k.r,k.g,k.b); };
   /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap */
   o.grid=(G,col,wrap)=>{ for(let i=0;i<G.length-1;i++) for(let j=0;j<G[i].length-(wrap?0:1);j++){ const j2=(j+1)%G[i].length, a=G[i][j], b=G[i][j2], c=G[i+1][j2], d=G[i+1][j];
@@ -664,6 +694,11 @@ function part(){ const P=[],N=[],C=[], o={};
   o.grid2=(G,col,wrap)=>{ o.grid(G,col,wrap); o.grid(G.map(r=>r.map(v=>({p:v.p,n:v.n.clone().negate()}))),col,wrap); };
   /* one of the shapes in FG, placed by a matrix; at x,y,z, scaled, turned; or with its own axes laid along a, b and c */
   o.geo=(g,col,M)=>{ const p=g.attributes.position, q=g.attributes.normal, V=[v3(),v3(),v3()], Q=[v3(),v3(),v3()]; fNM.getNormalMatrix(M);
+    if(kPlain(p)&&kPlain(q)){ const e=M.elements, m=fNM.elements, A=p.array, B=q.array;   // (as kadd: the same sums, written out)
+      for(let i=0;i<p.count;i+=3){ for(let k=0;k<3;k++){ const j=(i+k)*3, x=A[j], y=A[j+1], z=A[j+2], w=1/(e[3]*x+e[7]*y+e[11]*z+e[15]), nx=B[j], ny=B[j+1], nz=B[j+2],
+          ax=m[0]*nx+m[3]*ny+m[6]*nz, ay=m[1]*nx+m[4]*ny+m[7]*nz, az=m[2]*nx+m[5]*ny+m[8]*nz, s=1/(Math.sqrt(ax*ax+ay*ay+az*az)||1), v=V[k], u=Q[k];
+          v.x=(e[0]*x+e[4]*y+e[8]*z+e[12])*w; v.y=(e[1]*x+e[5]*y+e[9]*z+e[13])*w; v.z=(e[2]*x+e[6]*y+e[10]*z+e[14])*w; u.x=ax*s; u.y=ay*s; u.z=az*s; }
+        o.tri(V[0],Q[0],V[1],Q[1],V[2],Q[2],col); } return; }
     for(let i=0;i<p.count;i+=3){ for(let k=0;k<3;k++){ V[k].fromBufferAttribute(p,i+k).applyMatrix4(M); Q[k].fromBufferAttribute(q,i+k).applyMatrix3(fNM).normalize(); } o.tri(V[0],Q[0],V[1],Q[1],V[2],Q[2],col); } };
   o.put=(g,col,x,y,z,sx,sy=sx,sz=sx,rx=0,ry=0,rz=0)=>o.geo(g,col,fM.compose(fT.set(x,y,z),fQ.setFromEuler(fE.set(rx,ry,rz,'YXZ')),fS.set(sx,sy,sz)));
   o.along=(g,col,p,a,b,c)=>o.geo(g,col,fM.makeBasis(a,b,c).setPosition(p));
@@ -1237,7 +1272,7 @@ function mktBoards(){ const {W,H}=MKB, cv=document.createElement('canvas'); cv.w
     /* the cart's */
     [x0,y0,w,h]=MKB.cart; c.fillStyle='#fbf6ec'; c.fillRect(x0,y0,w,h); c.fillStyle='#24605c'; c.font=F(fit('CRÊPES · COFFEE',58,w-40)); c.fillText('CRÊPES · COFFEE',x0+w/2,y0+h/2+2);
     tx.needsUpdate=true; };
-  draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{}); return tx; }
+  draw(); dotoLater(draw); return tx; }
 /* a board: a plane w by h at a point in a thing's frame, showing region r of the canvas */
 function mktBoard(list,M,r,x,y,z,w,h,ry=0,rx=0){ const g=new T.PlaneGeometry(w,h), uv=g.attributes.uv;
   for(let i=0;i<uv.count;i++) uv.setXY(i,(r[0]+uv.getX(i)*r[2])/MKB.W,1-(r[1]+r[3])/MKB.H+uv.getY(i)*r[3]/MKB.H);
@@ -1610,7 +1645,7 @@ function rocketName(){ const cv=document.createElement('canvas'); cv.width=1536;
   const draw=()=>{ const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); c.fillStyle='#000'; c.textAlign='center'; c.textBaseline='middle';
     let f=200; c.font=`900 ${f}px Doto, monospace`; const w=c.measureText('ANDRENA').width; if(w>cv.width*.92){ f*=cv.width*.92/w; c.font=`900 ${f}px Doto, monospace`; }
     c.fillText('ANDRENA',cv.width/2,cv.height*.55); tx.needsUpdate=true; };
-  draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+  draw(); dotoLater(draw);
   const y0=2.16, y1=2.41, th=1.1, m=new T.ShaderMaterial({uniforms:Object.assign({uC:{value:C3('#2a241d')},uMap:{value:tx},uCut:{value:1}},LU),vertexShader:TOON_V(true),
     fragmentShader:`uniform vec3 uC; uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
       void main(){ nearFade(vW); if(texture2D(uMap,vUv).a<.5) discard; gl_FragColor=vec4(toon(uC,normalize(vN),vW),1.); }`});
@@ -2214,7 +2249,7 @@ async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot
   /* its board: ICE CREAM in the dot type, as the market's boards are drawn (the same material, so the same shader) */
   { const cv=document.createElement('canvas'); cv.width=512; cv.height=128; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
     const draw=()=>{ const c=cv.getContext('2d'); c.fillStyle='#fbf6ec'; c.fillRect(0,0,512,128); c.fillStyle='#f26d7d'; c.fillRect(0,0,512,12); c.fillRect(0,116,512,12); c.fillStyle='#2f6b5a'; c.textAlign='center'; c.textBaseline='middle'; c.font='900 70px Doto, monospace'; c.fillText('ICE CREAM',256,66); tx.needsUpdate=true; };
-    draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    draw(); dotoLater(draw);
     const sm=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx},uGlow:{value:0},uMk:ICE.u},LU),vertexShader:TOON_V(true),fragmentShader:MKS_F}); sm.userData.inkF=MKT_IF;
     const b=new T.Mesh(new T.PlaneGeometry(.8,.19),sm); b.matrixAutoUpdate=false; b.matrix.copy(ICE.M).multiply(new T.Matrix4().makeTranslation(0,.475,.287)); b.frustumCulled=false; SL.cull.push(b); ICE.g.add(b); }
   { const f=mktFigure({id:'icecream',look:{shirt:'#fbf6ec',crew:true,pants:'#3a3f4a',shoes:'#2b2b2e',skin:'#d9a27e',hair:'wavy',hairC:'#6b4a33',cheeks:true},arm:0,apron:true,hat:true});
@@ -2609,7 +2644,7 @@ function buildCafe(){ if(!CAFE.M||!CAFE_ON) return; const M=CAFE.M, w=CAFE.w, d=
     const gm=add(new T.Mesh(gg,CGLASS),false); gm.layers.set(1); gm.renderOrder=4; }
   /* the board */
   { const cv=document.createElement('canvas'); cv.width=1024; cv.height=640; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; CAFE.bcv=cv; CAFE.btx=tx;
-    const draw=()=>{ cafeBoard(cv,CAFE.hov,CAFE.ph==='brew'||CAFE.ph==='served'?CAFE.dr:-1); tx.needsUpdate=true; }; CAFE.bdraw=draw; draw(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    const draw=()=>{ cafeBoard(cv,CAFE.hov,CAFE.ph==='brew'||CAFE.ph==='served'?CAFE.dr:-1); tx.needsUpdate=true; }; CAFE.bdraw=draw; draw(); dotoLater(draw);
     const b=add(new T.Mesh(new T.PlaneGeometry(1.3,.81),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx}},LU,CU),vertexShader:TOON_V(true),fragmentShader:BOARD_F})));
     b.matrix.copy(sub(M,0,1.95,-id+.07)); b.matrixWorldNeedsUpdate=true; CAFE.m.board=b; }
   /* the door, on its hinge at the left of the opening, with a glass panel; it is lit as the town lights it from outside and
@@ -2970,7 +3005,9 @@ st.render=function(rt){ if(!st.built){ renderer.setRenderTarget(rt); renderer.cl
   for(const m of INK) m.material=m.userData.inkM; stCam.layers.set(0);
   renderer.setRenderTarget(inkRT); renderer.setClearColor(0,0); renderer.clear(); renderer.render(sc,stCam);
   for(const m of INK) m.material=m.userData.col; stCam.layers.enable(1); renderer.setClearColor(0,1);
-  renderer.setRenderTarget(colRT); renderer.clear(); renderer.render(sc,stCam); stCam.layers.set(0);
+  /* (the colour pass draws the town just where the ink pass left it: its matrices were all worked out a moment ago, and nothing
+     has moved since, so they are not worked out again) */
+  sc.matrixWorldAutoUpdate=false; try{ renderer.setRenderTarget(colRT); renderer.clear(); renderer.render(sc,stCam); } finally{ sc.matrixWorldAutoUpdate=true; } stCam.layers.set(0);
   renderer.setRenderTarget(rt); renderer.render(compS,compCam); };
 
 /* ---------- roads: a ribbon with kerbs and pavements, lines painted on ---------- */
@@ -3003,7 +3040,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   ROADS.push(lp.concat([lp[0]]),spur); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
-  buildTown(); await gap(); buildNature(); await gap(); buildPeople(); await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
+  buildTown(); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
@@ -3016,7 +3053,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
   kitTo();
-  registerInk(); st.built=true; };
+  registerInk(); sendShaders(sc,stCam); st.built=true; };
 
 /* ---------- walking on a sphere ---------- */
 const player={u:at(START[0],START[1]),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:START[0],z:START[1]};
@@ -4294,7 +4331,7 @@ function ciXZ(M,lx,lz){ return loc(ciV.set(lx,0,lz).applyMatrix4(M).normalize())
 GEO.pyr4=(()=>{ const g=new T.ConeGeometry(1,1,4,1,true).toNonIndexed(); g.computeVertexNormals(); return g; })();   // a four-sided spire, flat on each side
 /* a picture drawn once on a canvas (again when the lettering's font arrives), lit as the signs are, with their shader */
 function ciCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
-  const go=()=>{ draw(cv.getContext('2d'),w,h); tx.needsUpdate=true; }; go(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{}); return tx; }
+  const go=()=>{ draw(cv.getContext('2d'),w,h); tx.needsUpdate=true; }; go(); dotoLater(go); return tx; }
 const ciTexMat=tx=>new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
 /* flat pictures (plaques, paintings) as quads in one mesh, each placed by a frame and given its part of the texture */
 function ciQuads(list){ const P=[],N=[],U=[]; for(const q of list){ const n=new T.Vector3().setFromMatrixColumn(q.M,2).normalize();
@@ -4823,7 +4860,7 @@ function hiWin(W,tw,th,fr='#f3efe6',sill='#8a6448'){ box(W,HPANE,0,-th/2,.004,tw
 function hiInv(g){ const p=g.attributes.position.array, n=g.attributes.normal.array; for(let i=0;i<p.length;i+=9) for(let k=0;k<3;k++){ let a=p[i+3+k]; p[i+3+k]=p[i+6+k]; p[i+6+k]=a; a=n[i+3+k]; n[i+3+k]=n[i+6+k]; n[i+6+k]=a; } for(let i=0;i<n.length;i++) n[i]=-n[i]; return g; }
 /* a canvas texture, drawn now (again when the lettering's font arrives), sent to the graphics chip at once */
 function hiCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
-  const go=()=>{ draw(cv.getContext('2d'),w,h,cv); tx.needsUpdate=true; }; go(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{});
+  const go=()=>{ draw(cv.getContext('2d'),w,h,cv); tx.needsUpdate=true; }; go(); dotoLater(go);
   try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} return {cv,tx,go}; }
 const hiFont=(px,w=900)=>`${w} ${px}px Doto, ui-monospace, Menlo, monospace`;
 /* a figure in a room's light: every piece of it (but its soft shadow) in the room's material, drawn into the ink as the
@@ -5953,7 +5990,7 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
   { const WX0=.5, WX1=1.62, WY0=F+1.5, WY1=F+2.14; box(M,'#c3c8cb',(WX0+WX1)/2,WY0-.02,-iz+.015,WX1-WX0+.05,WY1-WY0+.04,.025); box(M,'#aeb4b7',(WX0+WX1)/2,WY0-.04,-iz+.05,WX1-WX0-.1,.02,.07);
     ['#2c4f9e','#d0453a','#2a241d'].forEach((c,k)=>put(M,'cyl',c,.7+k*.13,WY0-.012,-iz+.06,.01,.11,.01,0,0,Math.PI/2+k*.1));
     const cv=document.createElement('canvas'); cv.width=1024; cv.height=600; garWhite(cv); const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
-    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ garWhite(cv); tx.needsUpdate=true; }).catch(()=>{});
+    dotoLater(()=>{ garWhite(cv); tx.needsUpdate=true; });
     const m=add(new T.Mesh(new T.PlaneGeometry(WX1-WX0,WY1-WY0),new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx},uSelf:{value:.3}},LU,GU),vertexShader:TOON_V(true),fragmentShader:GBRD_F})));
     m.matrix.copy(sub(M,(WX0+WX1)/2,(WY0+WY1)/2,-iz+.029)); GAR.boards.push(tx); }
   /* ---- the shelves on the left wall: boxes, tins, a model rocket, fins, a radio, rolled-up drawings ---- */
@@ -6381,7 +6418,7 @@ function poHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=PW.w, d=PW.d, h=PW.h, t
     kitTo(); const dm=new T.Mesh(kgeo('podoor'),toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); dm.matrixAutoUpdate=false; sc.add(dm); PO.m.door=dm; PO.m.hinge=[DX+DW/2,.2,f-.04]; }
   /* the glass: the window, and the door's upper panel (on the door), drawn from one painting */
   { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PO.pcv=cv; PO.ptx=tx; poPaint(cv); tx.needsUpdate=true;
-    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ poPaint(cv); tx.needsUpdate=true; }).catch(()=>{});
+    dotoLater(()=>{ poPaint(cv); tx.needsUpdate=true; });
     const pm=paneMat(tx), gw=WW-.04, gh=WH-WS-.04, wg=new T.PlaneGeometry(gw,gh), dg=new T.PlaneGeometry(.5,.62), uv=(g,u0,v0,u1,v1)=>{ const a=g.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(u0,u1,a.getX(i)),lerp(v0,v1,a.getY(i))); };
     uv(wg,0,0,736/1024,1); uv(dg,768/1024,1-340/512,1,1);
     const wm=new T.Mesh(wg,pm); wm.matrixAutoUpdate=false; wm.matrix.copy(sub(M,WX,(WS+WH)/2,f-.035)); sc.add(wm); PO.m.pane=wm;
@@ -6530,7 +6567,7 @@ function buildPO(){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t
   kitTo(); PO.m.room=add(new T.Mesh(kgeo('poin'),mat));
   /* ---- the pictures: the notice board, the poster, the calendar and the counter's sign, painted on one canvas ---- */
   { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const draw=()=>{ poBoards(cv); tx.needsUpdate=true; }; draw();
-    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(draw).catch(()=>{});
+    dotoLater(draw);
     const P=[], N=[], U=[], quad=(a,b,c_,d_,n,u0,v0,u1,v1)=>{ /* (wound to face the room) */ for(const [p,u,v] of [[a,u0,v0],[c_,u1,v1],[b,u1,v0],[a,u0,v0],[d_,u0,v1],[c_,u1,v1]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); U.push(u/1024,1-v/512); } };
     const wallX=(x,z0,z1,y0,y1,s,u0,v0,u1,v1)=>quad(poW(x,y1,z0),poW(x,y1,z1),poW(x,y0,z1),poW(x,y0,z0),poD(s,0,0),u0,v0,u1,v1);
     const wallZ=(z,x0,x1,y0,y1,s,u0,v0,u1,v1)=>quad(poW(x0,y1,z),poW(x1,y1,z),poW(x1,y0,z),poW(x0,y0,z),poD(0,0,s),u0,v0,u1,v1);
@@ -6958,7 +6995,7 @@ const pbBoard=tx=>new T.ShaderMaterial({uniforms:Object.assign({uMap:{value:tx}}
 const pbSignMat=tx=>new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});   // (the signs' own: lit as the street is)
 /* a canvas drawn now and again once the lettering's font has come */
 function pbCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const go=()=>{ draw(cv); tx.needsUpdate=true; }; go();
-  if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{}); return {cv,tx}; }
+  dotoLater(go); return {cv,tx}; }
 
 /* ---------- the building, from the street: as the post office is, a house whose front is a shopfront, but black, with
    the name in gold; a small window by the snug, the door, the big window; the sign on its bracket, the baskets, a bench
@@ -7186,7 +7223,7 @@ function buildPub(){ if(!PUB.M||PUB.g) return; const M=PUB.M, w=PB.w, d=PB.d, t=
     kitTo(); add(new T.Mesh(kgeo('pbfr'),mat)); }
   { const {tx}=pbCanvas(512,512,pbDartboard), bm=new T.Mesh(new T.CircleGeometry(PB.BR,64),pbBoard(tx)); bm.matrix.copy(M).multiply(pbM.makeTranslation(PB.BX,PB.BY,PB.BZ)).multiply(pbM2.makeRotationY(-Math.PI/2)); PUB.m.board=add(bm); PUB.dtx=tx; }
   { const cv=document.createElement('canvas'); cv.width=256; cv.height=320; PUB.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PUB.chtx=tx; pbChalk();
-    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(pbChalk).catch(()=>{});
+    dotoLater(pbChalk);
     const cm=new T.Mesh(new T.PlaneGeometry(.4,.5),pbBoard(tx)); cm.matrix.copy(M).multiply(pbM.makeTranslation(iw-.032,F+1.48,-.2)).multiply(pbM2.makeRotationY(-Math.PI/2)); PUB.m.chalk=add(cm); }
   /* ---- the clock's hands (keeping the time, as the post office's do) ---- */
   { const hm=(L,wd)=>{ kitTo('pbhand'); box(new T.Matrix4(),'#2a241d',0,-.012,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pbhand'),mat)); }; PUB.m.hh=hm(.075,.012); PUB.m.mh=hm(.105,.008); PUB.ck=CK; }
@@ -7642,7 +7679,6 @@ const fsW=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(FS.M);   // a poi
 const fsD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(FS.M);
 const fsL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(FS.Mi);
 const fsXZ=(x,z)=>loc(fsW(x,0,z,fsV4).normalize());   // on the town's map
-const fsGround=(x,z)=>{ const [mx,mz]=fsXZ(x,z); return standH(mx,mz); };   // how high the ground is there
 /* the door is up from half past seven in the morning until nine at night */
 const fsOpenHours=()=>SKY.h>=7.5&&SKY.h<21;
 /* sunshine: the sun well up, and no cloud, rain or fog over it */
@@ -7688,7 +7724,7 @@ function fireHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), cx=FW.cx, w=FW.w, d=FW.
     box(M,'#2a2624',tx,th-1.2,tz,ts-.42,.9,ts-.42); for(const [hx,hz] of [[.3,0],[-.3,0],[0,.3],[0,-.3],[.26,.26],[-.26,-.26]]) cyl(M,'#e9dfc4',tx+hx,th-2.12,tz+hz,.028,.98,'cyl8');   // the dark shaft, and the hoses hung down it
     box(M,'#5a6670',tx,th-.3,tz,ts+.12,.06,ts+.12); put(M,'cone','#4a5660',tx,th-.24+.32,tz,ts*.78,.64,ts*.78,Math.PI/4); cyl(M,'#d9d6cc',tx,th+.36,tz,.015,.7,'cyl8'); box(M,FS_RED,tx+.14,th+.82,tz,.26,.16,.01); }
   /* the name over the front, cut in the stone and painted, in its own canvas */
-  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=192; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const go=()=>{ fsSign(cv); tx.needsUpdate=true; }; go(); if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(go).catch(()=>{});
+  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=192; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const go=()=>{ fsSign(cv); tx.needsUpdate=true; }; go(); dotoLater(go);
     const sm=new T.Mesh(new T.PlaneGeometry(w-.36,.56),new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:tx}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F}));
     sm.matrixAutoUpdate=false; sm.matrix.copy(sub(M,cx,2.47,f+.032)); sm.userData.cast=true; sc.add(sm); FS.m.sign=sm; }
   /* the forecourt: concrete laid on the ground in front and round the side, and KEEP CLEAR in yellow before the bay */
@@ -9558,7 +9594,7 @@ function buildLighthouse(){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M
     kitTo(); B.m.lens=wiAdd(B,new T.Mesh(kgeo('lhlens'),mat)); }
   /* ---- the log, the chart and the clock's dial: one canvas; the book's two pages, the page that turns, the clock's hands ---- */
   { const cv=document.createElement('canvas'); cv.width=1024; cv.height=832; B.logC=cv; B.logTx=new T.CanvasTexture(cv); B.logTx.anisotropy=4; lhLogDraw(); lhChart();
-    if(document.fonts&&document.fonts.load) document.fonts.load('900 40px Doto').then(()=>{ lhLogDraw(); lhChart(); }).catch(()=>{});
+    dotoLater(()=>{ lhLogDraw(); lhChart(); });
     const bm=noSun(wiBoard(B,B.logTx)), uv=(gm,u0,v0,u1,v1)=>{ const a=gm.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(u0/1024,u1/1024,a.getX(i)),lerp(1-v1/832,1-v0/832,a.getY(i))); return gm; };
     [-1,1].forEach(s=>{ const m=new T.Mesh(uv(new T.PlaneGeometry(.17,.23),s<0?0:512,0,s<0?512:1024,640),bm); m.matrix.copy(M).multiply(wiM.makeTranslation(BK[0]+s*.088,tY+.02,BK[1]).multiply(wiM2.makeRotationZ(s*.08)).multiply(wiM2.makeRotationX(-Math.PI/2))); wiAdd(B,m); });
     { const m=new T.Mesh(uv(new T.PlaneGeometry(.3,.18),0,640,320,832),bm), a=2.75, y=D.FK+1.42, r=rin(y)-.035; m.matrix.copy(sub(M,...P(r,a,y),a+Math.PI)); wiAdd(B,m); kitTo('lhfr'); box(sub(M,...P(r+.012,a,y),a+Math.PI),'#5a3e2a',0,-.105,-.012,.33,.21,.02); kitTo(); wiAdd(B,new T.Mesh(kgeo('lhfr'),mat)); }
