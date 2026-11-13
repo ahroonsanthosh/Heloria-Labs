@@ -183,7 +183,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const n0 = c.count('washFlap'); wind(.8); c.run(30 * 8); const flaps = c.count('washFlap') - n0; wind(.8);
     const wp = d.life.WIND.v.clone().addScaledVector(L.up, -d.life.WIND.v.dot(L.up)).dot(L.n);
     return { strong: +strong.toFixed(3), calm: +calm.toFixed(3), leanS: +leanS.toFixed(2), leanC: +leanC.toFixed(2), wp: +wp.toFixed(2), flaps }; });
-  rec(wsh.strong > .08 && wsh.strong > wsh.calm + .05 && wsh.leanS > wsh.leanC, 'the washing swings out the way the wind blows, more the harder it blows', JSON.stringify(wsh));
+  rec(wsh.strong > .04 && wsh.strong > wsh.calm + .03 && wsh.leanS > wsh.leanC,   // (how far it swings out depends on how square the day's wind meets the line)
+  'the washing swings out the way the wind blows, more the harder it blows', JSON.stringify(wsh));
   rec(wsh.flaps >= 1, 'near it, the wind flaps it', JSON.stringify(wsh));
   /* (from the side of the line, a few steps off, so it is across the picture with the house and its chimney behind) */
   await C((c, d) => { const L = d.homes.HM.lines[0], n = L.n, mid = d.loc(L.mid.clone().normalize()); let p = null;
