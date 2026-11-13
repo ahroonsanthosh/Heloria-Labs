@@ -18,8 +18,18 @@ const UPU={value:new T.Vector3(0,1,0)};
 function at(x,z,o=new T.Vector3()){ const r=Math.hypot(x,z); if(r<1e-6) return o.set(0,1,0); const a=r/R, s=Math.sin(a)/r; return o.set(x*s,Math.cos(a),z*s); }
 function loc(d){ const a=Math.acos(clamp(d.y,-1,1)), s=Math.sin(a); if(s<1e-6) return [0,0]; const k=a*R/s; return [d.x*k,d.z*k]; }
 const _up=new T.Vector3(), _n=new T.Vector3(), _e=new T.Vector3(), _Ry=new T.Matrix4(), _S=new T.Vector3();
+/* (under test only, never on the site: which placement each piece of the town's mesh belongs to, the frame it was put in and
+   the calls that made it, so the grounding test can tell one thing from another; see untamed/test/grounding.cjs) */
+const GRD=window.__TEST?{prims:[],stk:new Map(),id:new WeakMap(),gen:new WeakMap(),kit:'main',last:null,cur:null,geo:null,n:0,g:0}:null;
+function grdPrim(nv,M,geo,f,c){ let g=GRD.gen.get(KP); if(!g||KP.length<g.len) GRD.gen.set(KP,g={k:GRD.kit+'#'+(++GRD.g),len:0});
+  const v0=KP.length/3; g.len=KP.length+nv*3; const r=(geo!=='tri'&&GRD.cur)||(M&&GRD.id.get(M))||GRD.last||{n:0}, q=GRD.prims[GRD.prims.length-1];
+  if(geo==='tri'&&q&&q.geo==='tri'&&q.k===g.k&&q.v0+q.nv===v0&&q.n===r.n){ q.nv+=nv; return; }
+  const L=Error.stackTraceLimit; Error.stackTraceLimit=40; const s=String(new Error().stack).split('\n').slice(2).join('\n'); Error.stackTraceLimit=L;
+  let si=GRD.stk.get(s); if(si==null) GRD.stk.set(s,si=GRD.stk.size);
+  GRD.prims.push({k:g.k,v0,nv,n:r.n,s:si,geo,m:M?Array.from(M.elements):null,f:[f.x,f.y,f.z],c:[c.r,c.g,c.b]}); GRD.cur=GRD.geo=null; }
 function frameAt(x,z,yaw=0,lift=0,s=1){ at(x,z,_up); at(x,z+.05,_n).sub(_up); _n.addScaledVector(_up,-_n.dot(_up)).normalize(); _e.crossVectors(_up,_n);
-  const M=new T.Matrix4().makeBasis(_e,_up,_n); M.setPosition(_up.x*(R+lift),_up.y*(R+lift),_up.z*(R+lift)); if(yaw) M.multiply(_Ry.makeRotationY(yaw)); if(s!==1) M.scale(_S.set(s,s,s)); return M; }
+  const M=new T.Matrix4().makeBasis(_e,_up,_n); M.setPosition(_up.x*(R+lift),_up.y*(R+lift),_up.z*(R+lift)); if(yaw) M.multiply(_Ry.makeRotationY(yaw)); if(s!==1) M.scale(_S.set(s,s,s));
+  if(GRD) GRD.id.set(M,GRD.last={n:++GRD.n}); return M; }
 const yawTo=(x,z,tx,tz)=>Math.atan2(tx-x,tz-z); // turns a thing's front toward a point
 /* where the rocket lands, which way its hatch opens, where you stand when you step off, and which way you then look */
 const PAD=[-3.2,-15.6], DOOR=[0,1], START=[-3.2,-12.0];
@@ -199,12 +209,34 @@ const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:
 /* ---------- one big mesh for everything that never moves: houses, roads, trees, fences, the lighthouse ---------- */
 const KITS={main:{P:[],N:[],C:[]}}; let KP=KITS.main.P, KN=KITS.main.N, KC=KITS.main.C; const kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
 /* what goes into the static mesh can be sent to a landmark's own mesh instead, so it can be shown, hidden and grown on its own */
-function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; }
+function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; if(GRD) GRD.kit=id; }
 /* a colour named in a string, read once: the same colour every time it is asked for (never handed out to be changed) */
 const C3S=new Map(), C3R=c=>typeof c==='string'?(C3S.get(c)||C3S.set(c,C3(c)).get(c)):C3(c);
-function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal; kNM.getNormalMatrix(M); const col=C3R(c);
-  for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); } }
-function ktri(a,b,c,n,col){ const C=C3R(col); KP.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); KN.push(n.x,n.y,n.z,n.x,n.y,n.z,n.x,n.y,n.z); KC.push(C.r,C.g,C.b,C.r,C.g,C.b,C.r,C.g,C.b); }
+function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal, v0=KP.length/3; kNM.getNormalMatrix(M); const col=C3R(c); if(GRD){ kT.fromBufferAttribute(p,0).applyMatrix4(M); grdPrim(p.count,M,GRD.geo||'kadd',kT,col); }
+  for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); }
+  kfoot(g,M,v0); if(GRD) GRD.prims[GRD.prims.length-1].f=[KP[v0*3],KP[v0*3+1],KP[v0*3+2]]; }
+/* a flat foot on the ground reaches down to it. The world is round and small, so a slab, a step or a pad laid flat on it stands
+   off the ground toward its edges (and more where the ground falls away): the underside of anything flat-bottomed and level
+   that rests on the ground (the terrain, a road or a pavement) is drawn down to meet it under each of its corners. Only where it
+   stands off: nothing is lifted, nothing else moves. And a covering laid on the ground in a building's flat frame (a yard's
+   tarmac, the chalk lines on it, a mat: under 6 cm thick, lying on the frame's ground) is laid on the round ground instead, as
+   far over it at every point as it was over the frame's (KPUT: the frame a piece is put in, see put) */
+const KFOOT=new WeakMap(), kfU=new T.Vector3(), kfI=new T.Matrix4(); let KPUT=null;
+const kGround=(x,z)=>{ const rd=roadDist(x,z); return grid(GH,x,z)+(rd<RW?ROADH:rd<RW+SW?CURB:0); };   // (the terrain, or the road or the pavement on it)
+function kfoot(g,M,v0){ let f=KFOOT.get(g);
+  if(!f){ const p=g.attributes.position; let lo=1e9; for(let i=0;i<p.count;i++) lo=Math.min(lo,p.getY(i)); let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9; f=[];
+    for(let i=0;i<p.count;i++) if(p.getY(i)<lo+1e-5){ f.push(i); x0=Math.min(x0,p.getX(i)); x1=Math.max(x1,p.getX(i)); z0=Math.min(z0,p.getZ(i)); z1=Math.max(z1,p.getZ(i)); }
+    if(f.length<3||x1-x0<1e-4||z1-z0<1e-4) f=[]; KFOOT.set(g,f); }   // (a flat underside: a box's, a can's, a roof's; not a ball's point)
+  if(!f.length) return; const e=M.elements, k0=(v0+f[0])*3; kfU.set(e[4],e[5],e[6]).normalize(); kT.set(KP[k0],KP[k0+1],KP[k0+2]).normalize(); if(kfU.dot(kT)<.97) return;   // level
+  const C=[]; let lo=1e9; for(const i of f){ const k=(v0+i)*3, L=Math.hypot(KP[k],KP[k+1],KP[k+2]), [mx,mz]=loc(kT.set(KP[k]/L,KP[k+1]/L,KP[k+2]/L)), gh=grid(GH,mx,mz); C.push(L,gh,mx,mz); lo=Math.min(lo,L-R-gh); }
+  if(lo>.15||lo<-.3) return;   // on or near the ground: a corner of it within 15 cm of it (a building's flat frame stands that far off the round world toward its doorstep)
+  const n=g.attributes.position.count;
+  /* a covering, in a building's frame: laid on the round ground */
+  if(KPUT){ kfI.copy(KPUT).invert(); let y0=1e9, y1=-1e9; for(let i=0;i<n;i++){ const k=(v0+i)*3; kT.set(KP[k],KP[k+1],KP[k+2]).applyMatrix4(kfI); y0=Math.min(y0,kT.y); y1=Math.max(y1,kT.y); }
+    if(y1-y0<.06&&y0>-.02&&y0<.04){ for(let i=0;i<n;i++){ const k=(v0+i)*3; kT.set(KP[k],KP[k+1],KP[k+2]); const L=kT.length(), ly=V3.copy(kT).applyMatrix4(kfI).y, [mx,mz]=loc(kT.divideScalar(L)), s=(R+kGround(mx,mz)+ly)/L; KP[k]*=s; KP[k+1]*=s; KP[k+2]*=s; } return; } }
+  /* a foot: its underside down to the ground, where it stands off it */
+  f.forEach((i,j)=>{ const L=C[j*4], gh=Math.max(C[j*4+1],kGround(C[j*4+2],C[j*4+3])), c=L-R-gh; if(c<=.002||c>.6) return; const k=(v0+i)*3, s=(R+gh-.02)/L; KP[k]*=s; KP[k+1]*=s; KP[k+2]*=s; }); }
+function ktri(a,b,c,n,col){ const C=C3R(col); if(GRD) grdPrim(3,null,'tri',a,C); KP.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); KN.push(n.x,n.y,n.z,n.x,n.y,n.z,n.x,n.y,n.z); KC.push(C.r,C.g,C.b,C.r,C.g,C.b,C.r,C.g,C.b); }
 const qA=new T.Vector3(), qB=new T.Vector3();
 function kquad(a,b,c,d,n,col){ qA.subVectors(b,a); qB.subVectors(c,a); if(qA.cross(qB).dot(n)>=0){ ktri(a,b,c,n,col); ktri(a,c,d,n,col); } else { ktri(a,c,b,n,col); ktri(a,d,c,n,col); } }
 const prismG=(()=>{ const A=[-.5,0,-.5],B=[.5,0,-.5],Cc=[0,1,-.5],A2=[-.5,0,.5],B2=[.5,0,.5],C2=[0,1,.5];
@@ -213,10 +245,10 @@ const GEO={box:new T.BoxGeometry(1,1,1).toNonIndexed(), cyl:new T.CylinderGeomet
   cone:new T.ConeGeometry(1,1,18).toNonIndexed(), cone8:new T.ConeGeometry(1,1,9).toNonIndexed(), blob:new T.IcosahedronGeometry(1,1).toNonIndexed(), rock:new T.DodecahedronGeometry(1,0).toNonIndexed(),
   sph:new T.SphereGeometry(1,12,8).toNonIndexed(), prism:prismG};
 const pL=new T.Matrix4(), pM=new T.Matrix4(), pQ=new T.Quaternion(), pE=new T.Euler(), pS=new T.Vector3(), pP=new T.Vector3();
-function put(M,geo,c,x,y,z,sx,sy,sz,ry=0,rx=0,rz=0){ pE.set(rx,ry,rz,'YXZ'); pQ.setFromEuler(pE); pL.compose(pP.set(x,y,z),pQ,pS.set(sx,sy,sz)); kadd(GEO[geo],c,pM.multiplyMatrices(M,pL)); }
+function put(M,geo,c,x,y,z,sx,sy,sz,ry=0,rx=0,rz=0){ pE.set(rx,ry,rz,'YXZ'); pQ.setFromEuler(pE); pL.compose(pP.set(x,y,z),pQ,pS.set(sx,sy,sz)); if(GRD){ GRD.cur=GRD.id.get(M)||null; GRD.geo=geo; } KPUT=M; kadd(GEO[geo],c,pM.multiplyMatrices(M,pL)); KPUT=null; }
 const box=(M,c,x,y,z,w,h,d,ry=0,rx=0,rz=0)=>put(M,'box',c,x,y+h/2,z,w,h,d,ry,rx,rz); // y is the bottom
 const cyl=(M,c,x,y,z,r,h,g='cyl')=>put(M,g,c,x,y+h/2,z,r,h,r);
-const sub=(M,x,y,z,ry=0)=>new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeRotationY(ry).setPosition(x,y,z));
+const sub=(M,x,y,z,ry=0)=>{ const S=new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeRotationY(ry).setPosition(x,y,z)); if(GRD&&GRD.id.has(M)) GRD.id.set(S,GRD.id.get(M)); return S; };
 const OBS=[]; const obs=(x,z,r,h=3)=>OBS.push({x,z,r,h});
 /* an obstacle at a point in a thing's own frame */
 const _oa=new T.Vector3(); function obsAt(M,lx,lz,r,h=1.2){ const [x,z]=loc(_oa.set(lx,0,lz).applyMatrix4(M).normalize()); obs(x,z,r,h); }
@@ -234,7 +266,7 @@ function pathDist(x,z){ let m=1e9; for(const s of SEGS){ const ex=s[2]-s[0], ez=
 function onJetty(x,z){ const [a,b]=JETTY, ex=b[0]-a[0], ez=b[1]-a[1], L=Math.hypot(ex,ez), t=((x-a[0])*ex+(z-a[1])*ez)/(L*L); if(t<-.02||t>1) return false; return Math.abs(((x-a[0])*ez-(z-a[1])*ex)/L)<.62; }
 let DECK=-.5;
 /* where your feet are: on the ground, up on the pavement, or on the boards of the jetty */
-function standH(x,z){ if(onJetty(x,z)) return DECK+.12; const pd=onPier(x,z); if(pd!==false) return pd;   /* (the harbour pier's boards: see the pier and the train) */ if(Math.hypot(x-PAD[0],z-PAD[1])<2.35) return .1; const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
+function standH(x,z){ if(onJetty(x,z)) return DECK+.08;   /* (the tops of the jetty's boards) */ const pd=onPier(x,z); if(pd!==false) return pd;   /* (the harbour pier's boards: see the pier and the train) */ { const dp=Math.hypot(x-PAD[0],z-PAD[1]); if(dp<2.35) return .1+dp*dp/(2*R); }   /* (the pad is flat and the world is round: its top stands a little higher toward its rim) */ const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
 
 /* ---------- signs: painted boards with the dot-matrix type, drawn on a canvas ---------- */
 const SIGN_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
@@ -259,6 +291,9 @@ function windowAt(M,x,y,z,ry,o={}){ const W=sub(M,x,y,z,ry), tr=o.trim||'#f6f1e7
   if(o.flowers){ slBox(W); box(W,'#8a5a3c',0,-.56,.12,.72,.14,.18); for(let k=0;k<4;k++) put(W,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f'][k],-.24+k*.16,-.38,.14,.07,.07,.07); } }
 function door(M,x,z,ry,c,tr){ const D=sub(M,x,0,z,ry); box(D,tr,0,.2,.02,.78,1.26,.06); box(D,c,0,.2,.05,.6,1.12,.05); box(D,'#e7c36a',.2,.75,.09,.05,.05,.04); box(D,'#bdb6aa',0,0,.32,.96,.16,.56); }
 const HOUSES=[];
+/* a house moved off a newer building it stood half inside: the trees and bushes round town were laid out round the ground it
+   stood on, so it is solid there until they are, and then where it is now (see wildClear) */
+const WAS=[];   // (and a lamp, a pole or a crate moved out of something: {obs, xz})
 function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat,plain:true});   // (plain: somebody's home, not a building made for a purpose: see the homes)
   box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(M,o.wall,0,.2,0,w,h-.2,d);
   if(o.flat){ box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3); }
@@ -268,29 +303,37 @@ function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o
   (o.win||[-w*.3,w*.3]).forEach((wx,i)=>windowAt(M,wx,1.42,d/2,0,{flowers:o.flowers&&i===0,trim:tr}));
   if(o.up) (o.win||[-w*.3,w*.3]).concat([o.doorX||0]).forEach(wx=>windowAt(M,wx,h-.85,d/2,0,{trim:tr}));
   windowAt(M,w/2,1.42,0,Math.PI/2,{trim:tr}); windowAt(M,-w/2,1.42,0,-Math.PI/2,{trim:tr});
-  if(o.extra) o.extra(M,w,d,h); obsRect(x,z,yaw,w+.25,d+.25,h+(o.flat?.35:(o.rh||1.3)+.3)); return M; }  // as tall as the ridge
+  if(o.extra) o.extra(M,w,d,h); const oh=h+(o.flat?.35:(o.rh||1.3)+.3);
+  if(o.ground){ const [gx,gz]=o.ground, i0=OBS.length; obsRect(gx,gz,yawTo(gx,gz,0,0),w+.25,d+.25,oh); WAS.push({obs:OBS.slice(i0),to:[x,z,yaw,w+.25,d+.25,oh]}); }   // (see WAS)
+  else obsRect(x,z,yaw,w+.25,d+.25,oh); return M; }  // as tall as the ridge
 const LAMPS=[];
-function lamp(x,z){ const M=frameAt(x,z,0); LAMPS.push({x,z,p:new T.Vector3(0,2.44,.38).applyMatrix4(M),k:0,hot:0}); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
-  box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(x,z,.2,1.2); }
+const topH=(x,z,r)=>Math.max(standH(x,z),standH(x+r,z),standH(x-r,z),standH(x,z+r),standH(x,z-r));   // (the highest of the ground under a round foot)
+function lamp(x,z,g){ const M=frameAt(x,z,0,topH(x,z,.09));   /* (on the pavement where it stands on it, not sunk in it) */ LAMPS.push({x,z,p:new T.Vector3(0,2.44,.38).applyMatrix4(M),k:0,hot:0}); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
+  box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(g?g[0]:x,g?g[1]:z,.2,1.2); if(g) WAS.push({obs:[OBS[OBS.length-1]],xz:[x,z]}); }   // (g: where it stood, see WAS)
 function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
   for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obs(x,z,.6,1); }
 const LEAF=['#4f7f4a','#5f9256','#6fa25f','#7fae66'];
 const TREES=[];
-function tree(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU), th=1.25*s; TREES.push([x,z,s]);
+/* the trees, bushes and rocks, and where each lies in the town's mesh, so that one growing through a building can be moved
+   clear of it once they are all laid out (see wildClear, after the trees) */
+const WILD=[], wildAt=()=>({P:KP,N:KN,k0:KP.length}), wildDone=(w,x,z,kind,s)=>{ w.k1=KP.length; Object.assign(w,{x,z,kind,s,ob:OBS[OBS.length-1]}); WILD.push(w); };
+function tree(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU), th=1.25*s; TREES.push([x,z,s]); w.tr=TREES[TREES.length-1];
   put(M,'cyl8','#7a5a42',0,th/2,0,.12*s,th,.12*s); put(M,'cyl8','#7a5a42',.2*s,th*.82,0,.05*s,.62*s,.05*s,0,0,-.75);
   const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453), lc=LEAF.map(c=>{ const q=C3(c).clone(); q.b+=tk*.012; return q; });   // which colour this tree turns in autumn, hidden in its leaves' blue
   const n=5+Math.floor(rnd()*3); for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0, bs=(k?.48+rnd()*.3:.82)*s; put(M,'blob',lc[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))],Math.cos(a)*rr,th+.45*s+(k?rnd()*.55*s-.1:.2*s),Math.sin(a)*rr,bs,bs*.86,bs); }
-  obs(x,z,.26*s,3.5); }
-function pine(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
-  for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); }
-function bush(x,z,s=1){ const M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); obs(x,z,.42*s,.6); }
-function rock(x,z,s=1,y=0){ const M=frameAt(x,z,rnd()*TAU); put(M,'rock',rnd()<.5?'#a49e94':'#928c83',0,y+.25*s,0,.62*s,.45*s,.55*s,0,rnd(),rnd()); obs(x,z,.5*s,.5*s); }
-function fence(pts,c='#f3ede2'){ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.5)), yaw=Math.atan2(-(z1-z0),x1-x0);
-    for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const t=k/n, fx=x0+(x1-x0)*t, fz=z0+(z1-z0)*t, M=frameAt(fx,fz,yaw); obs(fx,fz,.14,.9); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); }
-    const Mm=frameAt((x0+x1)/2,(z0+z1)/2,yaw); box(Mm,c,0,.32,0,L,.06,.04); box(Mm,c,0,.6,0,L,.06,.04); } }
+  obs(x,z,.26*s,3.5); wildDone(w,x,z,'tree',s); }
+function pine(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
+  for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); wildDone(w,x,z,'pine',s); }
+function bush(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); obs(x,z,.42*s,.6); wildDone(w,x,z,'bush',s); }
+function rock(x,z,s=1,y=0){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'rock',rnd()<.5?'#a49e94':'#928c83',0,y+.25*s,0,.62*s,.45*s,.55*s,0,rnd(),rnd()); obs(x,z,.5*s,.5*s); wildDone(w,x,z,'rock',s); }
+/* (a fence stops at a building's wall: no post or rail of it inside one; its posts are solid where they always were) */
+const inHouse=(x,z,m=0)=>HOUSES.some(H=>{ const p=V3.copy(at(x,z,V3)).multiplyScalar(R).applyMatrix4(_fM.copy(H.M).invert()); return Math.abs(p.x)<H.w/2+.09+m&&Math.abs(p.z)<H.d/2+.09+m; }), _fM=new T.Matrix4();
+function fence(pts,c='#f3ede2'){ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.5)), yaw=Math.atan2(-(z1-z0),x1-x0); let t0=2, t1=-1;
+    for(let k=0;k<=n;k++){ const t=k/n, fx=x0+(x1-x0)*t, fz=z0+(z1-z0)*t, inH=inHouse(fx,fz,.05); if(!inH){ t0=Math.min(t0,t); t1=Math.max(t1,t); } if(k===n&&i<pts.length-2) continue; obs(fx,fz,.14,.9); if(inH) continue; const M=frameAt(fx,fz,yaw); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); }
+    if(t1<=t0) continue; const Lr=(t1-t0)*L, Mm=frameAt(x0+(x1-x0)*(t0+t1)/2,z0+(z1-z0)*(t0+t1)/2,yaw); box(Mm,c,0,.32,0,Lr,.06,.04); box(Mm,c,0,.6,0,Lr,.06,.04); } }
 const POLES=[];
-function pole(x,z,yaw){ const M=frameAt(x,z,yaw); cyl(M,'#7a6352',0,0,0,.1,4.4,'cyl8'); box(M,'#6a5446',0,4.0,0,1.3,.09,.09);
-  [-.55,.55].forEach(s=>cyl(M,'#e7e2d8',s,4.09,0,.03,.1,'cyl8')); POLES.push([-.55,.55].map(s=>new T.Vector3(s,4.18,0).applyMatrix4(M))); obs(x,z,.16,4); }
+function pole(x,z,yaw,g){ const M=frameAt(x,z,yaw,topH(x,z,.1)); cyl(M,'#7a6352',0,0,0,.1,4.4,'cyl8'); box(M,'#6a5446',0,4.0,0,1.3,.09,.09);
+  [-.55,.55].forEach(s=>cyl(M,'#e7e2d8',s,4.09,0,.03,.1,'cyl8')); POLES.push([-.55,.55].map(s=>new T.Vector3(s,4.18,0).applyMatrix4(M))); obs(g?g[0]:x,g?g[1]:z,.16,4); if(g) WAS.push({obs:[OBS[OBS.length-1]],xz:[x,z]}); }
 function wires(){ for(let i=0;i<POLES.length-1;i++){ const A=POLES[i], B=POLES[i+1]; if(A[0].distanceTo(B[0])>9) continue;
   for(let s=0;s<2;s++){ const a=A[s], b=B[s], pts=[]; for(let k=0;k<=10;k++){ const t=k/10; const p=a.clone().lerp(b,t); p.addScaledVector(V.copy(p).normalize(),-.38*4*t*(1-t)); pts.push(p); }
     kadd(new T.TubeGeometry(new T.CatmullRomCurve3(pts),16,.014,4,false).toNonIndexed(),'#3a383b',new T.Matrix4()); } } }
@@ -341,11 +384,12 @@ function buildTown(){
   townHall(13.3,-3.4,yawTo(13.3,-3.4,0,0));   // the east side is civic: the town hall and the school (see them, before the workshop)
   schoolHouse(12.9,7.2,yawTo(12.9,7.2,0,0));
   fireHouse(-10.6,10.4,yawTo(-10.6,10.4,0,0),{});   // the fire station (its door rolls up by day, and there are drills: see the fire station, at the end)
-  H(6.4,-12.6,{wall:'#dfe6ef',roof:'#c8664b',w:3.2,flowers:true});
+  H(7.4,-12,{wall:'#dfe6ef',roof:'#c8664b',w:3.2,flowers:true,ground:[6.4,-12.6]});   // (along its front, clear of the café's side: it stood most of a metre inside it)
   // the workshop: Heloria Labs
   { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); labHouse(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',w:4.8,d:3.2,h:3,   // (its roller shutter opens on the garage: see the workshop, at the end)
       extra:(M,w,d,h)=>{ sign(sub(M,GW.ox,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
-        [[2.9,.7],[3.3,.2],[2.95,-.4]].forEach(([cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,.2,cz,.6,.55,.6,i*.4); obsAt(M,cx,cz,.42,.8); }); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
+        /* (its crates on the ground behind it: they stood in the air in the chipper's wall; solid where they were until the trees are laid out, see WAS) */
+        [[2.9,.7,2.05,-2.05],[3.3,.2,1.35,-2.15],[2.95,-.4,2.1,-2.75]].forEach(([ox,oz,cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,0,cz,.6,.55,.6,i*.4); obsAt(M,ox,oz,.42,.8); const [nx,nz]=loc(_oa.set(cx,0,cz).applyMatrix4(M).normalize()); WAS.push({obs:[OBS[OBS.length-1]],xz:[nx,nz],r:.45}); }); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
         /* Beacon: a mast on the roof that keeps calling out */
         const B=sub(M,1.4,h+.26,-.7), bw=new T.Vector3(1.4,h+.26,-.7).applyMatrix4(M); const mk=MK.be=mark('be',0,0); mk.base.copy(bw); kitTo('be');
         box(B,'#59646a',0,0,0,.7,.08,.7); for(const [lx,lz] of [[-.2,-.2],[.2,-.2],[0,.22]]) put(B,'cyl8','#8c9599',lx*.5,1.5,lz*.5,.035,3,.035,0,lz*.06,-lx*.06);
@@ -354,7 +398,7 @@ function buildTown(){
   // the café
   { const x=3,z=-13.4, yaw=yawTo(x,z,3,-8.9); (CAFE_ON?cafeHouse:house)(x,z,yaw,{wall:'#f2dcb8',roof:'#b65a3e',w:4,d:2.8,h:2.95,win:[-1.25,1.25],
       extra:(M,w,d,h)=>{ for(let k=0;k<9;k++) put(M,'box',k%2?'#fbf6ec':'#e9744f',-1.8+k*.45,1.98,d/2+.48,.45,.04,1,0,.42); sign(sub(M,0,0,d/2+.06),'CAFÉ',{w:1.3,h:.38,y:2.55,post:false});
-        /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ cyl(M,'#4e4a45',tx,0,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,0,tz,.17,.45,'cyl8'); }); });
+        /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ const g=-sag(tx,tz); cyl(M,'#4e4a45',tx,g,tz,.05,.7,'cyl8'); cyl(M,'#f3ede2',tx,.7+g,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*.55,-sag(tx+s*.55,tz),tz,.17,.45,'cyl8'); }); });   // (down on the ground, which curves away below the café's frame out here)
         } });
     obs(3+REGT.x,-13.4+REGT.z,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
   fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
@@ -392,13 +436,14 @@ function buildTown(){
     sign(sub(M,1.2,0,2.1,-.3),'AETOS',{sub:'which drone actually matters',w:1.7,h:.62,y:.95}); obs(x,z,2.1,3); markObs('ae',1.4); SEGS.push([START[0]-1,START[1]-.4,x+1.8,z+.9,.55]); }
   /* the jetty, out from the beach */
   { const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), yaw=Math.atan2(-(b[1]-a[1]),b[0]-a[0]); DECK=Math.max(grid(GH,a[0],a[1]),-.55);
-    for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2);
+    for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2); [-.5,.5].forEach(sd=>{ const [sx,sz]=loc(_oa.set(0,0,sd).applyMatrix4(M).normalize()); if(grid(GH,sx,sz)<DECK-.07) box(M,'#6e5240',0,DECK-.07,sd,.34,.07,.07); });   // (and the two stringers under the boards, post to post, that they lie on, out past the sand)
       if(k%5===0){ [-.55,.55].forEach(s=>cyl(M,'#7a5a42',0,DECK-1.1,s,.07,1.4,'cyl8')); } }
     const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); obsAt(E,0,.5,.16,1.6); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
     SEGS.push([7.4,-7.6,a[0],a[1],.5]); }
   /* street lamps, poles and wires, a signpost */
-  [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8,9.9],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z])=>lamp(x,z));
-  [[-10.6,-7.6],[-11.4,-1],[-10.9,5.4],[-7.4,11.1],[-2.6,12.1]].forEach(([x,z],i,a)=>{ const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2); }); wires();
+  [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z,g])=>lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it)
+  [[-10.6,-7.6],[-11.4,-1],[-10.9,5.4],[-7.4,11.1],[-2.57,11.72,[-2.6,12.1]]].forEach(([x,z,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
+    const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2,g); }); wires();
 }
 /* ---------- grass, trees and rocks around the town ---------- */
 const CLEAR=()=>[AHR,[6.1,11.1],[1.3,-2.7],START];
@@ -422,7 +467,39 @@ function buildNature(){
   const gi=new T.InstancedMesh(blade,gm,NG), M=new T.Matrix4(), Qq=new T.Quaternion(), Y=new T.Quaternion(), Ss=new T.Vector3(), Pp=new T.Vector3(), C=new T.Color(); let k=0;
   for(let i=0;i<NG*4&&k<NG;i++){ const x=(rnd()-.5)*36, z=(rnd()-.5)*36, d=at(x,z); if(isle(d)<.04||!clearAt(x,z,.05)) continue; Qq.setFromUnitVectors(UPY,d); Y.setFromAxisAngle(UPY,rnd()*TAU); Qq.multiply(Y);
     const s=.7+rnd()*.9; Pp.copy(d).multiplyScalar(R); Ss.set(s,s,s); M.compose(Pp,Qq,Ss); gi.setMatrixAt(k,M); C.setRGB(.4+rnd()*.08,.58+rnd()*.08,.33+rnd()*.05); gi.setColorAt(k,C); k++; }
-  gi.count=k; gi.layers.set(1); sc.add(gi); }
+  gi.count=k; gi.layers.set(1); sc.add(gi); wildClear(); }
+/* the wild, clear of the buildings. The trees, bushes and rocks were laid out round the ground of the houses that first stood
+   here, and the town's newer buildings (the town hall, the school, the fire station, the café) are bigger than those were; and
+   the jetty runs out over the stones of the beach. Each that would grow through a building, or up through the jetty's boards,
+   is moved just clear of it, whole, as it is (its place among the others, how it looks and the space it takes are kept, so
+   nothing else round town moves) */
+function wildClear(){ for(const g of WAS){ if(g.xz){ for(const o of g.obs){ o.x=g.xz[0]; o.z=g.xz[1]; } continue; } const i0=OBS.length; obsRect(...g.to); OBS.splice(i0).forEach((o,i)=>{ if(g.obs[i]) Object.assign(g.obs[i],{x:o.x,z:o.z,r:o.r}); }); }   // (the moved house solid where it stands now)
+  const Mi=new T.Matrix4(), v=new T.Vector3(), q=new T.Quaternion(), A=new T.Vector3(), B=new T.Vector3(), [ja,jb]=JETTY;
+  const inside=(H,p,m)=>{ const lx=Math.abs(p.x), lz=Math.abs(p.z), hw=H.w/2+.09+m, hd=H.d/2+.09+m; if(lx>hw||lz>hd||p.y<-.1) return false;
+    return p.y<(H.flat?H.h+.3:H.h+1.35*Math.max(0,1-lz/(H.d/2+.31)))+m; };   // (its walls, and its roof: flat, or pitched front to back)
+  for(const w of WILD){ for(let pass=0;pass<3;pass++){ let to=null;
+      for(const H of HOUSES){ Mi.copy(H.M).invert(); let hit=false, rr=0; const c=at(w.x,w.z,v).multiplyScalar(R).applyMatrix4(Mi), cx=c.x, cz=c.z;
+        for(let k=w.k0;k<w.k1;k+=3){ A.set(w.P[k],w.P[k+1],w.P[k+2]).applyMatrix4(Mi); if(inside(H,A,.05)) hit=true; if(A.y<H.h+1.4) rr=Math.max(rr,Math.hypot(A.x-cx,A.z-cz)); }
+        if(!hit) continue;
+        /* out by the nearer of its sides, as far as the widest of it below the roof's top, and a little more */
+        const ox=(Math.sign(cx)||1)*(H.w/2+.09+rr+.08), oz=(Math.sign(cz)||1)*(H.d/2+.09+rr+.08), dx=Math.abs(ox-cx), dz=Math.abs(oz-cz);
+        for(const [lx,lz] of dx<dz?[[ox,cz],[cx,oz]]:[[cx,oz],[ox,cz]]){ const [nx,nz]=loc(v.set(lx,0,lz).applyMatrix4(H.M).normalize()); if(roadDist(nx,nz)>RW+SW+.1){ to=[nx,nz]; break; } }
+        if(to) break; }
+      /* the jetty: a stone (or anything) under its boards goes out to the side */
+      if(!to){ const ex=jb[0]-ja[0], ez=jb[1]-ja[1], L=Math.hypot(ex,ez), t=((w.x-ja[0])*ex+(w.z-ja[1])*ez)/(L*L), sd=((w.x-ja[0])*ez-(w.z-ja[1])*ex)/L, r=w.kind==='rock'?.55*w.s:.45*w.s;
+        if(t>-.15&&t<1.02&&Math.abs(sd)<.62+r){ const k=(Math.sign(sd)||1)*(.62+r+.08)-sd; to=[w.x+ez/L*k,w.z-ex/L*k]; } }
+      /* a post (a street lamp's, a telegraph pole's, a sign's): a bush or a stone round it goes a step aside */
+      if(!to&&(w.kind==='bush'||w.kind==='rock')) for(const lp of OBS){ if(lp.r>.2||lp.h<1.2||lp===w.ob) continue; const dx=w.x-lp.x, dz=w.z-lp.z, dd=Math.hypot(dx,dz)||1e-3, r=(w.kind==='rock'?.62:.68)*w.s;   // (a post: a lamp's, a pole's, a sign's)
+        if(dd<r+.08){ to=[lp.x+dx/dd*(r+.14),lp.z+dz/dd*(r+.14)]; break; } }
+      /* the landing pad, and whatever was moved out of a building (see WAS): one on it, or in it, goes a step aside */
+      if(!to){ const r=(w.kind==='bush'?.68:w.kind==='rock'?.62:.15)*w.s;
+        for(const [cx,cz,cr] of [[PAD[0],PAD[1],2.35],...WAS.filter(g=>g.xz).map(g=>[g.xz[0],g.xz[1],g.r||.2])]){ const dx=w.x-cx, dz=w.z-cz, dd=Math.hypot(dx,dz)||1e-3; if(dd<cr+r+.04){ to=[cx+dx/dd*(cr+r+.1),cz+dz/dd*(cr+r+.1)]; break; } } }
+      if(!to) break;
+      /* moved over the round world, turning about its middle: every corner and every normal of it */
+      q.setFromUnitVectors(at(w.x,w.z,A),at(to[0],to[1],B));
+      for(let k=w.k0;k<w.k1;k+=3){ v.set(w.P[k],w.P[k+1],w.P[k+2]).applyQuaternion(q); w.P[k]=v.x; w.P[k+1]=v.y; w.P[k+2]=v.z; v.set(w.N[k],w.N[k+1],w.N[k+2]).applyQuaternion(q); w.N[k]=v.x; w.N[k+1]=v.y; w.N[k+2]=v.z; }
+      [w.x,w.z]=to; w.ob.x=to[0]; w.ob.z=to[1]; if(w.tr){ w.tr[0]=to[0]; w.tr[1]=to[1]; }
+      if(GRD){ const g=GRD.gen.get(w.P), Q=new T.Matrix4().makeRotationFromQuaternion(q); if(g) for(const p of GRD.prims) if(p.k===g.k&&p.v0*3>=w.k0&&p.v0*3<w.k1){ p.f=[w.P[p.v0*3],w.P[p.v0*3+1],w.P[p.v0*3+2]]; if(p.m) p.m=Array.from(new T.Matrix4().fromArray(p.m).premultiply(Q).elements); } } } } }
 
 /* ---------- the ground, the sea and the sky ---------- */
 const SEGU={value:Array.from({length:12},()=>new T.Vector4(99,99,99,99))}, SEGW={value:new Float32Array(12)};
@@ -871,7 +948,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   /* he, his amp and his case are solid; so is the walking grid round them, which was laid out before he arrived */
   obsAt(spot.matrix,0,0,.34,1.8); obsAt(spot.matrix,-.5,-.02,.22,.6); obsAt(spot.matrix,.36,.6,.3,.4); DM.obs=OBS.slice(-3);
   /* the lights: a wire from a band round the lamp post to a slim pole of their own, sagging over his spot, bulbs along it */
-  kitTo(); const LP=frameAt(DM.lamp[0],DM.lamp[1],0), PM=frameAt(DM.pole[0],DM.pole[1],0), a0=v3(0,2.32,0).applyMatrix4(LP), a1=v3(0,2.3,0).applyMatrix4(PM);
+  kitTo(); const LP=frameAt(DM.lamp[0],DM.lamp[1],0,standH(...DM.lamp)), PM=frameAt(DM.pole[0],DM.pole[1],0,topH(...DM.pole,.075)), a0=v3(0,2.32,0).applyMatrix4(LP), a1=v3(0,2.3,0).applyMatrix4(PM);
   cyl(LP,'#3c4746',0,2.29,0,.064,.05,'cyl8'); cyl(PM,'#3c4746',0,0,0,.075,.04,'cyl8'); cyl(PM,'#3c4746',0,.04,0,.024,2.28,'cyl8'); put(PM,'sph','#3c4746',0,2.33,0,.034,.034,.034); obs(DM.pole[0],DM.pole[1],.1,2.3); DM.obs.push(OBS[OBS.length-1]);
   const wp=[]; for(let k=0;k<=12;k++){ const t=k/12, p=a0.clone().lerp(a1,t); p.addScaledVector(dmV.copy(p).normalize(),-.36*4*t*(1-t)); wp.push(p); }
   const wire=new T.CatmullRomCurve3(wp); kadd(new T.TubeGeometry(wire,28,.008,4,false).toNonIndexed(),'#2e2c2b',new T.Matrix4());
@@ -1348,7 +1425,7 @@ const REG={built:false,vis:true,hov:null,goal:null,turn:0,tt:3.5,M:null,pick:[],
 const rgV=new T.Vector3(), rgW=new T.Vector3(), rgH=new T.Vector3(), rgM=new T.Matrix4(), rgQ=new T.Quaternion(), rgS=new T.Vector3();
 const RG_RP=new T.Vector3(-.5,-.75,-.45).normalize(), RG_LP=new T.Vector3(.5,-.75,-.45).normalize();   // where their elbows go: down, out and back
 const RG_LIFT=-.06, RG_A=.18, RG_B=.19;   // how far they sit down into the stool's top, and how long an upper arm and a forearm are
-function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), TOP=.75;   // the café's own frame, which its tables were laid out in
+function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), TOP=.75-sag(REGT.x,REGT.z);   // (the table is down on the ground, out where it curves away below the café's frame)   // the café's own frame, which its tables were laid out in
   const cf=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).applyMatrix4(M);
   [REG.cx,REG.cz]=loc(cf(REGT.x,0,REGT.z).normalize());
   /* a cup and its saucer: white china, the coffee in the top */
@@ -1357,13 +1434,17 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
   REGS.forEach((r,k)=>{ const s=r.seat, yaw=-s*(Math.PI/2-.36), fx=Math.sin(yaw), fz=Math.cos(yaw), px=REGT.x+s*.55+fx*.04, pz=REGT.z+fz*.04, K=r.key==='gideon'?1.035:1;
     /* turned toward the table, and a little out to the street; on the front of the stool */
     const g=figure({...QLOOKS[r.key],knee:true}), d=g.userData; g.matrixAutoUpdate=false;
-    g.matrix.copy(M).multiply(rgM.compose(rgV.set(px,0,pz),rgQ.setFromAxisAngle(UPY,yaw),rgS.set(K,K,K))); sc.add(g); g.updateMatrixWorld(true);
+    g.matrix.copy(M).multiply(rgM.compose(rgV.set(px,-sag(px,pz),pz),rgQ.setFromAxisAngle(UPY,yaw),rgS.set(K,K,K))); sc.add(g); g.updateMatrixWorld(true);
     r.g=g; r.inv=g.matrixWorld.clone().invert(); REG.pick.push(g);
     [r.x,r.z]=loc(cf(px,0,pz).normalize()); r.dir.copy(at(r.x,r.z));
     r.foot=cf(px,.05,pz); r.top=cf(px,1.3*K,pz); r.tag=cf(px,1.48*K,pz);
     /* sitting: down onto the stool, the knees bent, one foot a little further out than the other */
     d.body.position.y=RG_LIFT; const lg=s<0?[[-.92,.62],[-.72,.3]]:[[-.76,.36],[-.95,.66]];
     d.legs.forEach((l,i)=>{ l.rotation.set(lg[i][0],0,(i?1:-1)*.05); d.knees[i].rotation.x=lg[i][1]; });
+    /* their feet on the ground: perched on a tall stool, each leg comes down from that pose (the thigh lower, the knee opened)
+       just as far as its shoe takes to reach the ground (see footLow) */
+    d.legs.forEach((l,i)=>{ const k=d.knees[i], [a0,b0]=lg[i], at_=f=>{ l.rotation.x=a0*f; k.rotation.x=b0*f; return RG_LIFT+footLow(l,k); }; let f0=0, f1=1;
+      if(at_(1)>.045) for(let n=0;n<24;n++){ const f=(f0+f1)/2; if(at_(f)>.045) f1=f; else f0=f; } at_(Math.min(f1,1)); });   // (.045: the shoe's toe, turned out and a touch lower than its sole)
     /* the cup on its saucer in front of them, the other hand on the table: in the café's frame, then in their own */
     const tx=REGT.x, tz=REGT.z, ux=px-tx, uz=pz-tz, ul=Math.hypot(ux,uz), wx=ux/ul, wz=uz/ul, rx=-fz, rz=fx;
     const toL=(x,y,z)=>cf(x,y,z).applyMatrix4(r.inv);
@@ -2163,7 +2244,7 @@ function buildSteer(){ if(!PH) return; PH.beam.parent.updateWorldMatrix(true,fal
   const d=drone('#ff5a4a'); d.scale.setScalar(1.7); sc.add(d); const ring=new T.Mesh(new T.TorusGeometry(.42,.025,6,32).rotateX(Math.PI/2),flatMat('#ffd27a')); ring.visible=false; sc.add(ring);
   PHS.lost={g:d,ring,a:pick(.55),r:8.6,pos:new T.Vector3(),from:new T.Vector3(),sa}; phLocal(0,.95,-.15,PHS.home); }
 /* a thing at sea: on the water at its angle and distance from the lamp, bobbing */
-function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+TIDEU.value.x+.02+Math.sin(t*1.4+q.ph)*.03);   // (on the tide: see the coast)
+function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+TIDEU.value.x-.03+Math.sin(t*1.4+q.ph)*.03);   // (on the tide: see the coast; its foot always in the water as it bobs)
   const M=frameAt(...loc(up),q.a+Math.sin(t*.9+q.ph)*.08); M.setPosition(V); M.multiply(Mr.makeRotationZ(Math.sin(t*1.7+q.ph)*.07)); q.g.matrix.copy(M); q.g.matrixWorldNeedsUpdate=true; }
 function seaMid(){ const sa=PHS.lost?PHS.lost.sa:[]; if(!sa.length) return null; let x=0, y=0; for(const a of sa){ x+=Math.cos(a); y+=Math.sin(a); } return Math.atan2(y,x); }
 function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); PHS.aim=seaMid(); } else { PHS.drag=null; PHS.aim=null; A.click(); } }
@@ -2561,7 +2642,7 @@ function cafeDir(yaw,pitch,o){ return cdir(-Math.sin(yaw)*Math.cos(pitch),Math.s
 /* the figure (you) walking in or out: in the café's frame, on the ground, the step or the floor, turning as it goes */
 function cafeFig(dt,t,x,z,sp){ const [ox,oz]=CAFE.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); CAFE.fig=[x,z];
   if(dd>1e-4){ let a=Math.atan2(dx,dz)-CAFE.fh; a=Math.atan2(Math.sin(a),Math.cos(a)); CAFE.fh+=a*Math.min(1,dt*9); }
-  const [mx,mz]=cxz(x,z), y=z>2?standH(mx,mz)-sag(x,z):z>1.44?.16:CFL; cw(x,y,z,cV); const U=cV2.copy(at(mx,mz)); cdir(Math.sin(CAFE.fh),0,Math.cos(CAFE.fh),cV3);
+  const [mx,mz]=cxz(x,z), y=stepY((x,z)=>{ const [ax,az]=cxz(x,z); return z>2?standH(ax,az)-sag(x,z):z>1.44?.16:CFL; },x,z,CAFE.fh,reachOf(CAFE.fph,clamp(sp/2.7,0,1))); cw(x,y,z,cV); const U=cV2.copy(at(mx,mz)); cdir(Math.sin(CAFE.fh),0,Math.cos(CAFE.fh),cV3);
   sT.crossVectors(U,tang(U,cV3,cV3)).normalize(); Mf.makeBasis(sT,U,cV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(cV);
   CAFE.fph+=dt*sp*4.6; animate(me,CAFE.fph,clamp(sp/2.7,0,1),0,t,9); CAFE.fstep+=sp*dt; if(CAFE.fstep>.62){ CAFE.fstep=0; A.step(z>2?(roadDist(mx,mz)<RW+SW?1:0):1); } }
 /* a point along a line of points, a fraction u of the way by length */
@@ -2852,9 +2933,12 @@ function ribbon(pts,closed,hw=RW,sw=SW){ const n=pts.length, side=[];
   const strips=[[-hw-sw,0,-hw-sw,CURB,'#d9d2c4',-1],[-hw-sw,CURB,-hw,CURB,'#d3ccbe',0],[-hw,CURB,-hw,ROADH,'#e6e0d4',1],[-hw,ROADH,hw,ROADH,'#7f878b',0],[hw,ROADH,hw,CURB,'#e6e0d4',-1],[hw,CURB,hw+sw,CURB,'#d3ccbe',0],[hw+sw,CURB,hw+sw,0,'#d9d2c4',1]];
   const segs=closed?n:n-1, nrm=new T.Vector3(); let along=0;
   for(let i=0;i<segs;i++){ const j=(i+1)%n, sl=Math.hypot(pts[j][0]-pts[i][0],pts[j][1]-pts[i][1]);
-    for(const [l0,h0,l1,h1,c,sd] of strips){ const a=P(i,l0,h0), b=P(j,l0,h0), cc=P(j,l1,h1), d=P(i,l1,h1);
-      if(sd===0) nrm.copy(a).normalize(); else nrm.copy(P(i,l0+.05,h0)).sub(P(i,l0,h0)).normalize().multiplyScalar(sd);
-      kquad(a,b,cc,d,nrm,c); }
+    /* (a wide strip is laid in narrower ones across: one flat quad from kerb to kerb would cut under the round world's curve
+       by 3 cm in the middle, under the grass, and leave a car and your feet over it) */
+    for(const [L0,H0,L1,H1,c,sd] of strips){ const n=Math.max(1,Math.ceil(Math.abs(L1-L0)/.4));
+      for(let k=0;k<n;k++){ const l0=L0+(L1-L0)*k/n, l1=L0+(L1-L0)*(k+1)/n, h0=H0+(H1-H0)*k/n, h1=H0+(H1-H0)*(k+1)/n, a=P(i,l0,h0), b=P(j,l0,h0), cc=P(j,l1,h1), d=P(i,l1,h1);
+        if(sd===0) nrm.copy(a).normalize(); else nrm.copy(P(i,l0+.05,h0)).sub(P(i,l0,h0)).normalize().multiplyScalar(sd);
+        kquad(a,b,cc,d,nrm,c); } }
     nrm.copy(P(i,0,0)).normalize();
     if(hw>1&&(along%2.1)<1) kquad(P(i,-.06,ROADH+.006),P(j,-.06,ROADH+.006),P(j,.06,ROADH+.006),P(i,.06,ROADH+.006),nrm,'#f1ecdf');
     for(const s of [-1,1]) kquad(P(i,s*(hw-.26),ROADH+.006),P(j,s*(hw-.26),ROADH+.006),P(j,s*(hw-.18),ROADH+.006),P(i,s*(hw-.18),ROADH+.006),nrm,'#e9e4d8');
@@ -2862,7 +2946,7 @@ function ribbon(pts,closed,hw=RW,sw=SW){ const n=pts.length, side=[];
 function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]-SPUR[0][0],p[1]-(SPUR[0][1]+2)); if(d<bd){ bd=d; bi=i; } });
   const a=lp[(bi-2+lp.length)%lp.length], b=lp[(bi+2)%lp.length], c=lp[bi], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz), ux=tx/L, uz=tz/L, up=at(c[0],c[1]);
   for(let k=-2;k<=2;k++){ const lat=k*.42, x0=c[0]-uz*lat, z0=c[1]+ux*lat; const Pq=(al,dl)=>at(x0+ux*al-uz*dl,z0+uz*al+ux*dl,new T.Vector3()).multiplyScalar(R+ROADH+.008);
-    kquad(Pq(-.9,-.12),Pq(.9,-.12),Pq(.9,.12),Pq(-.9,.12),up,'#f1ecdf'); } }
+    for(let m=0;m<4;m++){ const a0=-.9+m*.45, a1=a0+.45; kquad(Pq(a0,-.12),Pq(a1,-.12),Pq(a1,.12),Pq(a0,.12),up,'#f1ecdf'); } } }   // (in four, so it lies on the road all the way across)
 
 /* ---------- build, in steps so the loader keeps breathing ---------- */
 st.build=async function(){ const gap=nextFrame;   // between the parts: the next frame
@@ -3225,10 +3309,24 @@ st.matSets=[o=>o.userData.inkM,o=>o.layers.isEnabled(2)?o.userData.shdM:null];  
 const Mf=new T.Matrix4(), Qb=new T.Quaternion(), camT=new T.Vector3(), camR=new T.Vector3(), camW=new T.Vector3();
 const sT=new T.Vector3();
 function standOn(g,u,f,h){ sT.crossVectors(u,f).normalize(); Mf.makeBasis(sT,u,f); g.quaternion.setFromRotationMatrix(Mf); g.position.copy(u).multiplyScalar(R+h); }
+/* the feet stay down. A shoe's heel and toe, under the hip in its leg's own frame (see figure): as the legs swing, the body
+   comes down by as much as the lower of the two shoes has risen, so the foot that is down is on the ground at every point of
+   a stride (and the body is highest with the legs together, as anyone's is). Standing, they breathe a little, never off it */
+const SOLE=[[-.5,-.083],[-.5,.133]];
+/* walking in or out over a step: the floor under the shoe's toe, its middle or its heel, whichever is highest (fy: a floor's
+   height at a point in a building's frame; fh: the way the figure faces there), so the foot goes up onto the step as it reaches
+   it rather than into its edge */
+/* the same out in town: the ground (a kerb, a step, the boards) under the shoe's toe, its middle or its heel, whichever is
+   highest, for someone at u facing f (world directions); walking, as far ahead and behind as a stride puts a foot (reach) */
+const fhU=new T.Vector3(), reachOf=(ph,amt)=>.5*Math.sin(.72*amt*Math.abs(Math.sin(ph)));   // (how far ahead and behind the hip a stride has the feet just now)
+function footH(u,f,reach=0){ let h=-9; for(const k of [-.08-reach,0,.13+reach]){ const [x,z]=loc(fhU.copy(u).multiplyScalar(R).addScaledVector(f,k).normalize()); h=Math.max(h,standH(x,z)); } return h; }
+const stepY=(fy,x,z,fh,reach=0)=>{ const sx=Math.sin(fh), sz=Math.cos(fh), a=.13+reach, b=.08+reach; return Math.max(fy(x,z),fy(x+sx*a,z+sz*a),fy(x-sx*b,z-sz*b)); };   // (reach: how far a stride puts a foot ahead or behind)
+function footLow(l,k){ const a=l.rotation.x, ca=Math.cos(a), sa=Math.sin(a), b=k?k.rotation.x:0, cb=Math.cos(b), sb=Math.sin(b); let lo=9;
+  for(const [y0,z0] of SOLE){ const py=y0+.22, y=b?-.22+py*cb-z0*sb:y0, z=b?py*sb+z0*cb:z0; lo=Math.min(lo,l.position.y+l.scale.y*y*ca-l.scale.z*z*sa); } return lo; }
 function animate(fig,walkPh,amt,wave,t,i){ const d=fig.userData, sw=Math.sin(walkPh);
   d.legs[0].rotation.x=sw*.72*amt; d.legs[1].rotation.x=-sw*.72*amt; d.arms[0].rotation.x=-sw*.6*amt; d.arms[1].rotation.x=sw*.6*amt;
   d.fore[0].rotation.x=-.12-Math.max(0,sw)*.4*amt; d.fore[1].rotation.x=-.12-Math.max(0,-sw)*.4*amt;   // the elbow bends as the arm swings forward
-  d.body.position.y=Math.abs(Math.cos(walkPh))*.04*amt+Math.sin(t*2.1+i)*.006; d.body.rotation.y=sw*.08*amt;
+  d.body.position.y=-Math.min(footLow(d.legs[0],d.knees[0]),footLow(d.legs[1],d.knees[1]))-.003+Math.sin(t*2.1+i)*.003; d.body.rotation.y=sw*.08*amt;
   // a wave: the left arm out and up, the forearm upright, waving from the elbow
   const a=d.arms[1], f=d.fore[1];
   if(wave>0){ a.rotation.z=damp(a.rotation.z,1.95,14,.016); a.rotation.x=0; f.rotation.z=damp(f.rotation.z,.95+Math.sin(t*11)*.38,14,.016); }
@@ -3283,7 +3381,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     else { P.stuck=Math.max(0,(P.stuck||0)+(P.speed<.3?dt:-dt*.5));
       if(P.stuck>.7||(Math.hypot(g.x-(P.goalX??g.x),g.z-(P.goalZ??g.z))>1.2)){ P.stuck=0; P.tries=(P.tries||0)+1; if(P.tries>3){ if(dg<6) talkTo(g); else { TALK.goal=null; P.path=null; P.tgt=null; } } else walkTo(g); }
       else if(!P.tgt&&!P.path) TALK.goal=null; } }
-  P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
+  P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,footH(P.u,P.f,reachOf(P.ph,clamp(P.speed/2.7,0,1)))); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);   // (your feet on the kerb or the boards as you reach them; the camera follows P.h, smoothed)
   P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)||onPier(P.x,P.z)!==false?2:rd<RW+SW?1:0); }
   // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
@@ -3400,7 +3498,8 @@ st._dbg={post:PC,steer:{PHS,set:steerSet,step(sec){ for(let i=0;i<sec*10;i++) st
     step(sec){ for(let i=0;i<sec*10;i++) skyUpdate(.1,G.uTime.value+i*.1); },   // the tests run the weather and the lamps on without waiting for slow frames
     get state(){ return {h:+SKY.h.toFixed(2),md:SKY.md,e:+SKY.e.toFixed(1),night:+SKY.night.toFixed(2),dusk:+SKY.dusk.toFixed(2),kind:WX.kind,rain:+WX.rain.toFixed(2),fog:+WX.fog.toFixed(2),bow:+WX.bow.toFixed(2),
       season:+LU.uSeason.value.toFixed(2),snow:LU.uSnow.value,lamps:LAMPS.map(l=>+l.k.toFixed(2)),fx:{fall:!!(FALL&&FALL.visible),flies:!!FLIES,xmas:!!XMAS,pumpkins:PUMPS.length}}; },WX,SKY,LAMPS,get FALL(){ return FALL; }},
-  began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05)};
+  began,get started(){ return started; },RK,DOOR:()=>[DOOR_SHUT,DOOR_OPEN],LU,MK,seen,linesFor,MET,AH,GLN,FIN,startFinale,goTalk,talkTo,navPath,NAV,pickPerson,INST,PJ,marksEnter,openInvite,cut:()=>CUT,skipCut,place:()=>placeAtStart(),player,get people(){return people;},cam:C,OBS,at,loc,openTalk,closeTalk,nextTalk,talk:()=>TALK,get started(){return started;},head:i=>people[i].dir.clone().multiplyScalar(R+standH(people[i].x,people[i].z)+1.05),
+  grd:GRD,standH,get me(){ return me; },BIRDS};   // (grd: the pieces of the town's mesh, under test only; see the grounding test)
 
 /* ---------- the cliff: a bench and a kite ----------
    Out on the east cliff, south of the lighthouse and clear of the town and its landmarks, a bench looks over the sea with a
@@ -3465,6 +3564,7 @@ function buildCliff(){
   const reelG=new T.CylinderGeometry(.03,.03,.085,10).rotateZ(Math.PI/2), reelM=toonMat('#b8834f',{fig:true});
   const inHand=new T.Mesh(reelG,reelM); inHand.position.set(0,-.2,.045); inHand.visible=false; me.userData.fore[0].add(inHand);
   const onGround=new T.Mesh(reelG,reelM); onGround.position.copy(lp(.8,.03,-1)); onGround.quaternion.setFromRotationMatrix(M).multiply(cq0.setFromAxisAngle(UPY,.8)); sc.add(onGround);
+  { const [rx,rz]=loc(V.copy(onGround.position).normalize()); onGround.position.setLength(R+standH(rx,rz)+.028); }   // (down in the grass, where the cliff top falls away)
   /* what a click finds: a box round each (never drawn) */
   const hit=(w,h,d,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w,h,d)); m.applyMatrix4(cm0.copy(M).multiply(new T.Matrix4().makeTranslation(x,y,z))); m.updateMatrixWorld(true); return m; };
   /* where you stand to sit down (on the ground in front, by its left end), and to take the kite (behind it); you fly the kite
@@ -4327,7 +4427,7 @@ function ciRoute(pts){ const p=[pts[0]]; for(const q of pts) if(Math.hypot(q[0]-
   const c=[0]; for(let i=1;i<p.length;i++) c.push(c[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1])); return {p,c,L:c[c.length-1]}; }
 function ciAt(r,s,o){ s=clamp(s,0,r.L); let k=1; while(k<r.c.length-1&&r.c[k]<s) k++; const a=r.p[k-1], b=r.p[k], L=(r.c[k]-r.c[k-1])||1, t=clamp((s-r.c[k-1])/L,0,1);
   o.x=a[0]+(b[0]-a[0])*t; o.z=a[1]+(b[1]-a[1])*t; o.dx=(b[0]-a[0])/L; o.dz=(b[1]-a[1])/L; return o; }
-const CHOMES=[[6.4,-12.6],[-5.8,13.6],[-10.6,10.4]];   // the houses the children come from: south by the café, north by the workshop, north-west
+const CHOMES=[[7.4,-12],[-5.8,13.6],[-10.6,10.4]];   // the houses the children come from: south by the café, north by the workshop, north-west
 function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
   for(let i=0;i<n;i++){ const a=lp[(i-1+n)%n], b=lp[(i+1)%n], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz)||1; let nx=-tz/L, nz=tx/L; if(nx*lp[i][0]+nz*lp[i][1]<0){ nx=-nx; nz=-nz; } ring.push([lp[i][0]+nx*(RW+SW/2),lp[i][1]+nz*(RW+SW/2)]); }
   const near=(x,z)=>{ let bi=0,bd=1e9; ring.forEach((p,i)=>{ const d=Math.hypot(p[0]-x,p[1]-z); if(d<bd){ bd=d; bi=i; } }); return bi; };
@@ -4462,8 +4562,8 @@ function civKids(dt,t){ const M=CIV.school.M, kids=CIV.kids;
     /* where they stand: on the town's ground (the tarmac a little up), turned the way they go */
     at(k.x,k.z,k.u); tang(k.u,at(k.x+k.fx,k.z+k.fz,ciV3),ciV2); if(ciV2.lengthSq()>.5) k.f.copy(ciV2);
     ciV.copy(k.u).multiplyScalar(R).applyMatrix4(CIV.school.Mi); const tar=ciV.x>CY.tar[0]&&ciV.x<CY.tar[1]&&ciV.z>CY.tar[2]&&ciV.z<CY.tar[3];
-    standOn(k.g,k.u,k.f,standH(k.x,k.z)+(tar?.03:0)+k.y);
     const v=k.mode==='route'?k.v:k.mv, run=v>1.4;
+    standOn(k.g,k.u,k.f,footH(k.u,k.f,reachOf(k.ph,clamp(v/(run?1.4:1.1),0,1)))+(tar?.03:0)+k.y);   // (their feet on a kerb as they reach it, as everyone's: see footH)
     if(v>.05){ k.ph+=dt*v*(run?9:7.6); k.stepD+=v*dt; if(k.stepD>(run?.5:.36)){ k.stepD=0; civTap(k,run?1.2:1); } }
     /* you come by: a wave */
     const dP=Math.hypot(player.x-k.x,player.z-k.z); if(dP<2.6&&!k.wt){ k.wave=1.3; k.wt=1; } if(dP>4) k.wt=0; k.wave=Math.max(0,k.wave-dt);
@@ -4796,7 +4896,7 @@ function hiModel(M,o){ const s=o.s, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw), VS=1
   /* the trees, a little larger than they are, so they read */
   for(const [x,z,ts] of TREES){ if(x*x+z*z>R2) continue; const Tm=at_(x,z), k=s*ts*1.15; cyl(Tm,'#7a5a42',0,0,0,.12*k,1.2*k,'cyl8'); put(Tm,'blob',LEAF[Math.abs(Math.round(x*7+z*3))%4],0,1.75*k,0,.8*k,.7*k,.8*k,x); }
   /* every house where it stands, turned as it is: its door and two windows (lit at night) toward its road */
-  const HC=[[-13.3,-3.2,'#f1e2c6','#c8664b'],[-13,3.8,'#cfe0e6','#4f6f8f'],[-5.8,13.6,'#f3d9c4','#9a5340'],[-10.6,10.4,'#e9d3b0','#7d5a8f'],[6.4,-12.6,'#dfe6ef','#c8664b']];
+  const HC=[[-13.3,-3.2,'#f1e2c6','#c8664b'],[-13,3.8,'#cfe0e6','#4f6f8f'],[-5.8,13.6,'#f3d9c4','#9a5340'],[-10.6,10.4,'#e9d3b0','#7d5a8f'],[7.4,-12,'#dfe6ef','#c8664b']];
   for(const Hh of HOUSES){ hiV1.setFromMatrixPosition(Hh.M); const [hx,hz]=loc(hiV2.copy(hiV1).normalize()), [fx,fz]=loc(hiV3.set(0,0,1).applyMatrix4(Hh.M).normalize());
     const dmx=fx-hx, dmz=fz-hz, HM=at_(hx,hz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)), w=Hh.w*s, d=Hh.d*s, h=Hh.h*s;
     let wall='#f3e6cc', roof='#c8664b'; const q=HC.find(q=>Math.hypot(q[0]-hx,q[1]-hz)<.6); if(q){ wall=q[2]; roof=q[3]; }
@@ -5059,7 +5159,7 @@ function hiFloorY(B,x,z){ if(B.id==='hall'){ const f=1.4; if(z<=f+.1) return HH.
 /* you (the figure) walking in or out, in the room's frame */
 function hiFig(B,dt,t,x,z,sp,face){ const [ox,oz]=HSI.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); HSI.fig=[x,z];
   const want=face!=null?face:dd>1e-4?Math.atan2(dx,dz):null; if(want!=null) HSI.fh+=angWrap(want-HSI.fh)*Math.min(1,dt*9);
-  const y=hiFloorY(B,x,z); HSI.fy=HSI.fy==null?y:damp(HSI.fy,y,16,dt); hiP(B.M,x,HSI.fy,z,hiV1); hiD(B.M,Math.sin(HSI.fh),0,Math.cos(HSI.fh),hiV3);
+  const y=stepY((x,z)=>hiFloorY(B,x,z),x,z,HSI.fh,reachOf(HSI.fph,clamp(sp/2.7,0,1))); HSI.fy=HSI.fy==null?y:damp(HSI.fy,y,16,dt); hiP(B.M,x,HSI.fy,z,hiV1); hiD(B.M,Math.sin(HSI.fh),0,Math.cos(HSI.fh),hiV3);
   sT.crossVectors(B.up,hiV3).normalize(); Mf.makeBasis(sT,B.up,hiV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(hiV1);
   HSI.fph+=dt*sp*4.6; animate(me,HSI.fph,clamp(sp/2.7,0,1),0,t,9); HSI.fstep+=sp*dt; if(HSI.fstep>.62){ HSI.fstep=0; if(z<B.D-.05) A.floorStep(.04); else A.step(1); } }
 function hiDoor(B,open){ if(B.door.want===(open?1:0)) return; B.door.want=open?1:0; A.civDoor(open,B.id==='hall'); }
@@ -5889,7 +5989,7 @@ function garFloor(x,z){ if(z<=GZI) return GW.FL; const g=garGroundY(x,z); return
 /* you (the figure) walking in or out, in the workshop's frame: on the pavement, up the ramp, on the garage floor */
 function garFig(dt,t,x,z,sp,face){ const [ox,oz]=GAR.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); GAR.fig=[x,z];
   const want=face!=null?face:dd>1e-4?Math.atan2(dx,dz):null; if(want!=null){ const a=angWrap(want-GAR.fh); GAR.fh+=a*Math.min(1,dt*(face!=null?7:9)); }
-  const [mx,mz]=wsXZ(x,z); wsW(x,garFloor(x,z),z,gV); if(z<GW.d/2) gV2.copy(GAR.up); else at(mx,mz,gV2); wsD(Math.sin(GAR.fh),0,Math.cos(GAR.fh),gV3);
+  const [mx,mz]=wsXZ(x,z); wsW(x,stepY(garFloor,x,z,GAR.fh,reachOf(GAR.fph,clamp(sp/2.7,0,1))),z,gV); if(z<GW.d/2) gV2.copy(GAR.up); else at(mx,mz,gV2); wsD(Math.sin(GAR.fh),0,Math.cos(GAR.fh),gV3);
   sT.crossVectors(gV2,tang(gV2,gV3,gV3)).normalize(); Mf.makeBasis(sT,gV2,gV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(gV);
   GAR.fph+=dt*sp*4.6; animate(me,GAR.fph,clamp(sp/2.7,0,1),0,t,9); GAR.fstep+=sp*dt; if(GAR.fstep>.62){ GAR.fstep=0; A.step(1); } }
 function garEnter(){ if(GAR.on||GAR.shSt!=='open'||garBusy()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
@@ -6462,7 +6562,7 @@ function poGroundY(x,z){ const [mx,mz]=poXZ(x,z); return poL(at(mx,mz,poV3).mult
 /* you (the figure) walking in or out: on the pavement, up the step, on the shop floor */
 function poFig(dt,t,x,z,sp){ const [ox,oz]=PO.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); PO.fig=[x,z];
   if(dd>1e-4){ const a=angWrap(Math.atan2(dx,dz)-PO.fh); PO.fh+=a*Math.min(1,dt*9); }
-  const [mx,mz]=poXZ(x,z), f=PW.d/2, y=z<f-.05?PW.FL:z<f+.6?Math.max(.16,poGroundY(x,z)):poGroundY(x,z); poW(x,y,z,poV); if(z<f) poV2.copy(PO.up); else at(mx,mz,poV2); poD(Math.sin(PO.fh),0,Math.cos(PO.fh),poV3);
+  const [mx,mz]=poXZ(x,z), f=PW.d/2, y=stepY((x,z)=>z<f-.05?PW.FL:z<f+.6?Math.max(.16,poGroundY(x,z)):poGroundY(x,z),x,z,PO.fh,reachOf(PO.fph,clamp(sp/2.7,0,1))); poW(x,y,z,poV); if(z<f) poV2.copy(PO.up); else at(mx,mz,poV2); poD(Math.sin(PO.fh),0,Math.cos(PO.fh),poV3);
   sT.crossVectors(poV2,tang(poV2,poV3,poV3)).normalize(); Mf.makeBasis(sT,poV2,poV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(poV);
   PO.fph+=dt*sp*4.6; animate(me,PO.fph,clamp(sp/2.7,0,1),0,t,9); PO.fstep+=sp*dt; if(PO.fstep>.62){ PO.fstep=0; A.step(z<f?1:roadDist(mx,mz)<RW+SW?1:0); } }
 const PT_IN=3, PT_OUT=2.7;
@@ -7161,7 +7261,7 @@ const pbYawTo=(x,z)=>Math.atan2(-(x-PB.S[0]),-(z-PB.S[1]));
 function pbGroundY(x,z){ const [mx,mz]=pbXZ(x,z); return pbL(at(mx,mz,pbV3).multiplyScalar(R+standH(mx,mz)),pbV3).y; }
 function pbFig(dt,t,x,z,sp){ const [ox,oz]=PUB.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); PUB.fig=[x,z];
   if(dd>1e-4){ const a=angWrap(Math.atan2(dx,dz)-PUB.fh); PUB.fh+=a*Math.min(1,dt*9); }
-  const [mx,mz]=pbXZ(x,z), f=PB.d/2, y=z<f-.05?PB.FL:z<f+.6?Math.max(.16,pbGroundY(x,z)):pbGroundY(x,z); pbW(x,y,z,pbV); if(z<f) pbV2.copy(PUB.up); else at(mx,mz,pbV2); pbD(Math.sin(PUB.fh),0,Math.cos(PUB.fh),pbV3);
+  const [mx,mz]=pbXZ(x,z), f=PB.d/2, y=stepY((x,z)=>z<f-.05?PB.FL:z<f+.6?Math.max(.16,pbGroundY(x,z)):pbGroundY(x,z),x,z,PUB.fh,reachOf(PUB.fph,clamp(sp/2.7,0,1))); pbW(x,y,z,pbV); if(z<f) pbV2.copy(PUB.up); else at(mx,mz,pbV2); pbD(Math.sin(PUB.fh),0,Math.cos(PUB.fh),pbV3);
   sT.crossVectors(pbV2,tang(pbV2,pbV3,pbV3)).normalize(); Mf.makeBasis(sT,pbV2,pbV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(pbV);
   PUB.fph+=dt*sp*4.6; animate(me,PUB.fph,clamp(sp/2.7,0,1),0,t,9); PUB.fstep+=sp*dt; if(PUB.fstep>.62){ PUB.fstep=0; A.step(z<f?2:roadDist(mx,mz)<RW+SW?1:0); } }
 const PB_IN=3, PB_OUT=2.7;
@@ -7448,7 +7548,7 @@ st._dbg.pub={P:PUB,PB,BML,PBWHO,DART_N,get err(){ return PUB.err; },go:pbGo,ente
 /* (its middle is off the old house's a little to one side, and its bay is on the other, so that not one bush or tree round it
    has to move: one stands by the old corner, one in front of where its office now is) */
 const FW={w:3.82,d:3.28,cx:.49,cz:-.34,h:2.9,t:.1,FL:.2,BAY:[-.47,1.6,2.05],PDX:.78,PDW:.68,PDH:1.92,WIN:[1.84,.72],TOW:[1.96,-1.54,.82,6.2],ENG:[-.47,-.36],
-  OUT:[.21,.62,-.7],REST:[[.3,1.08],[-1.18,1.1]],NOZ:[.42,2.36],HELP:[.66,1.74],AIM:-1.62,PITCH:1.46,SPEED:6.6,BELL:[.78,3.36],APRON:[-1.6,.72,1.28,2.78],KEEP:2.42};
+  OUT:[.21,.62,-.7],REST:[[.08,1.24],[-.98,1.24]],NOZ:[.42,2.36],HELP:[.66,1.74],AIM:-1.62,PITCH:1.46,SPEED:6.6,BELL:[.78,3.36],APRON:[-1.6,.72,1.28,2.78],KEEP:2.42};
 const FS_RED='#c4302b', FS_BRICK='#b4563f', FS_STONE='#e6dcc6';
 const FS={M:null,Mi:null,x:0,z:0,hy:0,up:new T.Vector3(0,1,0),c0:new T.Vector3(),warm:true,err:null,obs0:[],obs:[],m:{},g:null,
   /* the door: how far up (0 down, 1 up), which way it is going, its motor's sound */
@@ -7481,7 +7581,7 @@ function fireHouse(x,z,yaw,o){ const M=frameAt(x,z,yaw), cx=FW.cx, w=FW.w, d=FW.
   /* the side and back windows, white-framed, as the town's are */
   windowAt(M,cx+w/2,1.5,cz+.5,Math.PI/2,{trim:'#f3efe6'}); windowAt(M,cx-w/2,1.5,cz+.6,-Math.PI/2,{trim:'#f3efe6'}); windowAt(M,cx-w/2,1.5,cz-.9,-Math.PI/2,{trim:'#f3efe6'}); windowAt(M,1.1,1.5,b,Math.PI,{trim:'#f3efe6'});
   /* stone: a plinth course, quoins at the corners, the band over the front with the name, a cornice, the parapet's coping */
-  box(M,ST_,cx,FW.FL,f+.005,w+.02,.18,.03); for(const s of [-1,1]) for(let k=0;k<8;k++){ const y=FW.FL+.18+k*.32; box(M,ST_,cx+s*(w/2-(k%2?.11:.16)),y,f+.006,k%2?.22:.32,.28,.03); box(M,ST_,cx+s*(w/2+.006),y,f-(k%2?.11:.16),.03,.28,k%2?.22:.32); }
+  { const xa=cx-w/2-.01, xb=cx+w/2+.01, ba=x0-.12, bb=x1+.12; box(M,ST_,(xa+ba)/2,FW.FL,f+.005,ba-xa,.18,.03); box(M,ST_,(bb+xb)/2,FW.FL,f+.005,xb-bb,.18,.03); }   /* (either side of the bay, not across it) */ for(const s of [-1,1]) for(let k=0;k<8;k++){ const y=FW.FL+.18+k*.32; box(M,ST_,cx+s*(w/2-(k%2?.11:.16)),y,f+.006,k%2?.22:.32,.28,.03); box(M,ST_,cx+s*(w/2+.006),y,f-(k%2?.11:.16),.03,.28,k%2?.22:.32); }
   box(M,ST_,cx,2.12,f+.01,w,.7,.04); box(M,'#d2c6ae',cx,2.1,f+.03,w+.04,.05,.06); box(M,'#d2c6ae',cx,2.8,f+.03,w+.06,.06,.08);
   box(M,BR,cx,h,cz,w,.32,d); box(M,ST_,cx,h+.32,cz,w+.1,.06,d+.1);   // the roof, behind its parapet and coping
   /* the bay: its stone surround, the drum's box over it, the guides; inside, a cream wall and a grey floor */
@@ -7907,8 +8007,10 @@ function tlWalk(w,dt,t){ if(!w.on) return; let sp=0;
         if(me&&w.wait>1.5&&!w.side){ const px=-dz/L, pz=dx/L, sg=((player.x-w.x)*px+(player.z-w.z)*pz)>0?-1:1, sx=w.x+px*sg*.8, sz=w.z+pz*sg*.8; if(tlFree(sx,sz,.2)){ w.route.splice(w.ri,0,{x:sx,z:sz,h:q.h}); w.side=1; w.wait=0; } } }
       else { w.wait=0; w.fx=damp(w.fx,dx/L,10,dt); w.fz=damp(w.fz,dz/L,10,dt); w.x=nx; w.z=nz; } } }
   /* (a point's h: how far over the ground there, up a step or the town hall's stairs) */
-  const q=w.route&&w.ri<w.route.length?w.route[w.ri]:null, hh=standH(w.x,w.z)+(q&&q.h!=null?q.h:0); w.hy=w.hy==null?hh:damp(w.hy,hh,9,dt);
-  w.v=damp(w.v,sp,8,dt); at(w.x,w.z,w.u); tang(w.u,at(w.x+w.fx,w.z+w.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) w.f.copy(tlV2); standOn(w.g,w.u,w.f,w.hy);
+  /* (on plain ground its feet on whatever is under them, a kerb as it reaches it; up the town hall's stairs, smoothed) */
+  const q=w.route&&w.ri<w.route.length?w.route[w.ri]:null, up=!!(q&&q.h!=null);
+  w.v=damp(w.v,sp,8,dt); at(w.x,w.z,w.u); tang(w.u,at(w.x+w.fx,w.z+w.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) w.f.copy(tlV2);
+  const hh=up?standH(w.x,w.z)+q.h:footH(w.u,w.f,reachOf(w.ph,clamp(w.v/1.05,0,1))); w.hy=w.hy==null||!up?hh:damp(w.hy,hh,9,dt); standOn(w.g,w.u,w.f,w.hy);
   w.ph+=dt*w.v*4.6; animate(w.g,w.ph,clamp(w.v/1.05,0,1),0,t,w.key.length); w.d.knees.forEach(k=>{ k.rotation.x=0; });
   /* carrying: a parcel held in both arms, or the milk in one hand */
   const D=w.d; if(w.carryOn&&w.key==='post'){ D.arms.forEach(a=>{ a.rotation.x=-.85; a.rotation.z=0; }); D.fore.forEach(f=>{ f.rotation.x=-.75; f.rotation.z=0; }); }
@@ -8002,7 +8104,9 @@ function tlBuildCars(){
     const cr=tlPart(B=>{ B.put(FG.box,'#9aa0a3',0,0,0,.16,.008,.09); [-1,1].forEach(s=>B.put(FG.box,'#9aa0a3',s*.08,.07,0,.008,.14,.008)); B.put(FG.box,'#9aa0a3',0,.14,0,.16,.008,.008);
       [-.04,.04].forEach(x=>{ B.put(FG.can,'#f6f4ee',x,.06,0,.03,.11,.03); B.put(FG.can,'#d9b45a',x,.12,0,.031,.012,.031); }); });
     cr.position.set(0,-.31,.02); c.walker.d.fore[0].add(cr); c.walker.carry=cr; cr.visible=false; }
-  TLA.kei=TL.cars[0]; TLA.bike=TL.cars[1]; TLA.bus=TL.cars[2]; TLA.post=TL.cars[3]; TLA.milk=TL.cars[4]; }
+  TLA.kei=TL.cars[0]; TLA.bike=TL.cars[1]; TLA.bus=TL.cars[2]; TLA.post=TL.cars[3]; TLA.milk=TL.cars[4];
+  /* the road falls away round the world ahead of a vehicle and behind it: each axle a little down, so its wheels are on it */
+  for(const c of TL.cars) for(const a of c.axles) a.position.y-=a.position.z*a.position.z/(2*R); }
 
 /* ---------- where each stops: the bus stop by the square (on the inner kerb: the bus goes round the other way), outside the
    town hall, the post office and the café (at the kerb, a little along from the door, clear of Diarmuid and the
@@ -8015,12 +8119,12 @@ function tlStops(){ const q=o=>tlNear(o.x,o.z), H=CIV.hall&&CIV.hall.M, PM=PO.M,
   if(CM){ const f=CAFE.d/2; TLP.cafe=q({x:CAFE.x-2.6,z:CAFE.z+3.2}).s; TLP.cafeWay=[tlB(CM,0,f+.85),tlB(CM,0,f+.5,.16),tlB(CM,0,f+.02,.16)]; }
   TLP.rest=q({x:-.6,z:10.9}).s;
   /* the milk: the house by the café, the café, the house by the workshop (the houses the children come from that are still houses) */
-  TLP.milk=[]; for(const [hx,hz] of [[6.4,-12.6],[3,-13.4],[-5.8,13.6]]){ const Hh=HOUSES.find(H_=>{ const [px,pz]=loc(tlV.setFromMatrixPosition(H_.M).normalize()); return Math.hypot(px-hx,pz-hz)<.3; }); if(!Hh) continue;
+  TLP.milk=[]; for(const [hx,hz] of [[7.4,-12],[3,-13.4],[-5.8,13.6]]){ const Hh=HOUSES.find(H_=>{ const [px,pz]=loc(tlV.setFromMatrixPosition(H_.M).normalize()); return Math.hypot(px-hx,pz-hz)<.3; }); if(!Hh) continue;
     const f=Hh.d/2, dx=Hh.dx||0, step=tlB(Hh.M,dx,f+.5,.16), front=tlB(Hh.M,dx,f+1.0), bot=tlB(Hh.M,dx+.28,f+.42,.16);
     TLP.milk.push({s:q(front).s-.3,step,front,bot,M:Hh.M,dx,f,cafe:hx===3}); }
   TLP.milk.sort((a,b)=>a.s-b.s); }
 /* a stop's place for a vehicle: up to the kerb, its middle at s */
-const tlParkLat=c=>c.dir*(RW+.02-c.hw);
+const tlParkLat=c=>c.dir*(RW-.04-c.hw);   // (its tyres just short of the kerb, not in it)
 /* the next place it stops at, going round (null: just round again) */
 function tlNext(c){ const h=SKY.h;
   if(c.id==='bus') return {s:TLP.bus,lat:tlParkLat(c),why:'stop'};
@@ -8067,8 +8171,12 @@ function tlDrive(c,dt,t){ const L=TLR.L; let want=0, lw=c.mode==='stop'&&c.via?c
   const dl=clamp(c.latW-c.lat,-.7*dt,.7*dt); c.lat+=dl; c.yaw=damp(c.yaw||0,clamp(c.dir*(dl/Math.max(dt,1e-3))/Math.max(c.v,.7),-.35,.35),6,dt);
   c.odo=(c.odo||0)+c.v*dt; if(c.odo>TLR.L*.92){ c.odo=0; c.laps++; } }
 /* placed on the road: its frame, its turning wheels, its solid circles, a little bob as it goes */
-function tlPlaceCar(c,dt,t){ const q=tlAt(c.s,c.lat,TLB_), gh=standH(q.x,q.z); c.x=q.x; c.z=q.z; c.h=c.h==null||dt>.5?gh:damp(c.h,gh,12,dt);
-  at(q.x,q.z,tlU); tlF.set(q.dx*c.dir,0,q.dz*c.dir); at(q.x+tlF.x,q.z+tlF.z,tlV3); tang(tlU,tlV3,tlV2); standOn(c.g,tlU,tlV2,c.h+(c.v>.2?.004*Math.sin(t*9+c.len):0)); if(c.yaw) c.g.rotateY(c.yaw);
+function tlPlaceCar(c,dt,t){ const q=tlAt(c.s,c.lat,TLB_); c.x=q.x; c.z=q.z;
+  /* its wheels on whatever is under them, each side (the road, or up on the kerb where it pulls in): its height between the two,
+     and a lean, so neither side's wheels hang in the air or sink into the pavement */
+  const tw=c.hw*.9, wa=tlAt(c.s,c.lat+tw,{}), wb=tlAt(c.s,c.lat-tw,{}), ha=standH(wa.x,wa.z), hb=standH(wb.x,wb.z), gh=(ha+hb)/2, rl=c.dir*(ha-hb)/(2*tw);
+  c.h=c.h==null||dt>.5?gh:damp(c.h,gh,12,dt); c.roll=c.roll==null||dt>.5?rl:damp(c.roll,rl,12,dt);
+  at(q.x,q.z,tlU); tlF.set(q.dx*c.dir,0,q.dz*c.dir); at(q.x+tlF.x,q.z+tlF.z,tlV3); tang(tlU,tlV3,tlV2); standOn(c.g,tlU,tlV2,c.h+(c.v>.2?.004*Math.sin(t*9+c.len):0)); if(c.yaw) c.g.rotateY(c.yaw); if(c.roll) c.g.rotateZ(c.roll);
   for(const a of c.axles) a.rotation.x+=c.v*dt/(c.wr||.18); if(c.crank) c.crank.rotation.x+=c.v*dt/.23*.6;
   for(const o of c.obs){ const p=tlAt(c.s+c.dir*o.along,c.lat,TLB_); o.x=p.x; o.z=p.z; }
   if(c.lamps) c.lamps.visible=SKY.night>.3&&c.run&&c.on; }
@@ -8481,7 +8589,8 @@ async function buildTownLife(gap){ tlRoadInit(); tlStops(); tlBuildCars(); await
     const o={x:q.x,z:q.z,r:.1,h:2}; OBS.push(o); slNav(o,true);
     /* the box on the road, yellow, where it stops */
     const up=at(tlAt(TLP.bus,0,{}).x,tlAt(TLP.bus,0,{}).z), Pq=(al,lt)=>{ const r=tlAt(TLP.bus+al,lt,{}); return at(r.x,r.z,new T.Vector3()).multiplyScalar(R+ROADH+.007); }, L0=c.hl+.25, la=c.dir*.3, lb=c.dir*(RW-.06);
-    for(const [a0,a1,l0,l1] of [[-L0,L0,lb-.04,lb+.04],[-L0,L0,la-.04,la+.04],[-L0,-L0+.08,la,lb],[L0-.08,L0,la,lb]]) kquad(Pq(a0,l0),Pq(a1,l0),Pq(a1,l1),Pq(a0,l1),up,'#e9c34a'); }
+    for(const [a0,a1,l0,l1] of [[-L0,L0,lb-.04,lb+.04],[-L0,L0,la-.04,la+.04],[-L0,-L0+.08,la,lb],[L0-.08,L0,la,lb]]){ const n=Math.ceil(Math.abs(a1-a0)/.4), m=Math.ceil(Math.abs(l1-l0)/.4);   // (in short pieces, so the long lines lie on the road all along)
+      for(let p=0;p<n;p++) for(let q=0;q<m;q++){ const A0=a0+(a1-a0)*p/n, A1=a0+(a1-a0)*(p+1)/n, B0=l0+(l1-l0)*q/m, B1=l0+(l1-l0)*(q+1)/m; kquad(Pq(A0,B0),Pq(A1,B0),Pq(A1,B1),Pq(A0,B1),up,'#e9c34a'); } } }
   /* the milk on the doorsteps: two bottles each, put down when the milkman has been */
   TL.bottles=TLP.milk.map(m=>{ const b=tlPart(B=>[-.05,.05].forEach(x=>{ B.put(FG.can,'#f6f4ee',x,.065,0,.03,.13,.03); B.put(FG.can,'#d9b45a',x,.135,0,.031,.012,.031); }));
     b.matrixAutoUpdate=false; b.matrix.copy(frameAt(m.bot.x,m.bot.z,0,standH(m.bot.x,m.bot.z)+.16)); b.visible=false; sc.add(b); return {m:b,on:false}; });
@@ -8647,7 +8756,7 @@ function btMesh(o){ const B=part(), Z=new T.Vector3(), Q=new T.Quaternion(), S3=
   B.put(FG.can,'#e8c33a',0,.09,-.33,.1,.24,.085); B.put(FG.sph,'#d9a27e',0,.29,-.33,.075); B.put(FG.can,'#e8c33a',0,.35,-.33,.115,.014,.115); B.put(FG.sph,'#e8c33a',0,.37,-.33,.07,.05,.07);
   [-1,1].forEach(s=>B.put(FG.box,'#e8c33a',s*.1,.1,-.27,.04,.17,.04,-.7));
   const m=B.mesh(); m.position.y=.12; m.userData.dyn=true; return m; }
-function btPlan(){ const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), ux=(b[0]-a[0])/L, uz=(b[1]-a[1])/L, nx=-uz, nz=ux, px=a[0]+ux*L*.72, pz=a[1]+uz*L*.72;
+function btPlan(){ const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), ux=(b[0]-a[0])/L, uz=(b[1]-a[1])/L, nx=-uz, nz=ux, px=a[0]+ux*L*.88, pz=a[1]+uz*L*.88;   // (tied up out along it, their hulls clear of the beach at low water)
   /* east of the jetty, out to the east to fish below the cliff (in the view from the swing); west of it, out to the south-west */
   [[1,[[17.8,-21],[19.9,-18.4],[19.7,-15.9],[18,-15.6],[16.4,-17.6]],2,{hull:'#c8483a',band:'#f4efe6',inner:'#e9e2d4',cabin:true}],
    [-1,[[12,-23.4],[9.4,-22.9],[7.7,-21.3],[8.6,-19.8],[10.9,-20.3]],2,{hull:'#3f6fa0',band:'#f2ead6',inner:'#e9e2d4',cabin:false}]].forEach(([sd,way,fi,look],k)=>{
@@ -9056,7 +9165,7 @@ const wiGround=(B,x,z)=>{ const [mx,mz]=wiXZ(B,x,z); return wiL(B,at(mx,mz,wiV3)
 /* you, walking in or out: your figure on the building's floor (or its steps), turning the way you go, a step at each stride */
 function wiFig(B,dt,t,x,z,sp){ const [ox,oz]=B.fig, dx=x-ox, dz=z-oz, dd=Math.hypot(dx,dz); B.fig=[x,z];
   if(dd>1e-4){ const a=angWrap(Math.atan2(dx,dz)-B.fh); B.fh+=a*Math.min(1,dt*9); }
-  const [mx,mz]=wiXZ(B,x,z), y=B.figY(x,z); wiW(B,x,y,z,wiV); if(z<B.F0) wiV2.copy(B.up); else at(mx,mz,wiV2); wiD(B,Math.sin(B.fh),0,Math.cos(B.fh),wiV3);
+  const [mx,mz]=wiXZ(B,x,z), y=stepY(B.figY,x,z,B.fh,reachOf(B.fph,clamp(sp/2.7,0,1))); wiW(B,x,y,z,wiV); if(z<B.F0) wiV2.copy(B.up); else at(mx,mz,wiV2); wiD(B,Math.sin(B.fh),0,Math.cos(B.fh),wiV3);
   sT.crossVectors(wiV2,tang(wiV2,wiV3,wiV3)).normalize(); Mf.makeBasis(sT,wiV2,wiV3); me.quaternion.setFromRotationMatrix(Mf); me.position.copy(wiV);
   B.fph+=dt*sp*4.6; animate(me,B.fph,clamp(sp/2.7,0,1),0,t,9); B.fstep+=sp*dt; if(B.fstep>.62){ B.fstep=0; B.stepSnd(x,z,mx,mz); } }
 function wiEnter(B){ if(B.on||B.busy()||!B.open()) return false; const P=player; closeTalk(); TALK.goal=null; C.guide=null; P.path=null; P.tgt=null; P.speed=0; stickOff(); down=null; look=null;
@@ -9982,7 +10091,7 @@ function prDeck(){ const [dx,dz]=PR.d, [ex,ez]=PR.e, R0=PR.R0, Hc=PR.Hc, o={}, o
   prAt(PR.sHalt,.5,o); prAt(PR.sHalt-PR.len-.1,.5,o2); { const a=[o.x,o.z]; for(let k=0;k<4;k++){ const s0=PR.sHalt-k*(PR.len+.1)/4, s1=PR.sHalt-(k+1)*(PR.len+.1)/4; prAt(s0,.5,o); prAt(s1,.5,o2); prBeam([o.x,o.z],[o2.x,o2.z],y+.001,y+.001,.06,.004,'#f1ecdf'); } }
   for(let s=PR.sHalt-.1;s>PR.sHalt-PR.len-.1;s-=1.2) for(const off of [.5,1.35]){ prAt(s,off,o); prPile(o.x,o.z,y-.05,.05); }
   /* the pier: boards across it, piles under its edges, from its root out to the head */
-  for(let a=0;a<PR.deckL+.01;a+=.2){ const p0=pt(R0,a,-.7), p1=pt(R0,a,.7); prBeam(p0,p1,y-.025,y-.025,.18,.05,Math.round(a*5)%2?'#b48a5c':'#a77e52'); }
+  for(let a=-.4;a<PR.deckL+.01;a+=.2){ const p0=pt(R0,a,-.7), p1=pt(R0,a,.7); prBeam(p0,p1,y-.025,y-.025,.18,.05,Math.round(a*5)%2?'#b48a5c':'#a77e52'); }
   for(let a=.2;a<PR.deckL;a+=.8) for(const b of [-.65,.65]){ const p=pt(R0,a,b); prPile(p[0],p[1],y-.05); }
   /* the head: boards across, piles round its edge and in the middle */
   for(let a=-PR.headL/2;a<PR.headL/2+.01;a+=.2){ prBeam(pt(Hc,a,-PR.headW/2),pt(Hc,a,PR.headW/2),y-.025,y-.025,.18,.05,Math.round(a*5)%2?'#b48a5c':'#a77e52'); }
@@ -10003,7 +10112,7 @@ function prDeck(){ const [dx,dz]=PR.d, [ex,ez]=PR.e, R0=PR.R0, Hc=PR.Hc, o={}, o
   for(const b of [-.55,.55]){ const p=pt(Hc,.55,b), M=frameAt(p[0],p[1],yaw,y); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
     for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obsAt(M,-.38,0,.3,1); obsAt(M,.38,0,.3,1); }   // (the square's benches, on the boards)
   /* the lifebuoy on its post at the root, and the halt's sign on the platform, facing the line */
-  { const p=pt(R0,.35,-.95), M=frameAt(p[0],p[1],yaw+Math.PI/2); box(M,'#e9e2d4',0,Math.max(-.6,grid(GH,p[0],p[1])),0,.07,y+1.1-Math.max(-.6,grid(GH,p[0],p[1])),.07);
+  { const p=pt(R0,.35,-.95), M=frameAt(p[0],p[1],yaw+Math.PI/2); box(M,'#e9e2d4',0,Math.max(-1.7,grid(GH,p[0],p[1])),0,.07,y+1.1-Math.max(-1.7,grid(GH,p[0],p[1])),.07);   // (down to the seabed, as a pile: it hung in the air over the water)
     const tor=new T.TorusGeometry(.17,.045,6,18).toNonIndexed(); kadd(tor,'#ef6a3a',prM.copy(M).multiply(prM2.makeTranslation(0,y+.8,.07)));
     for(let k=0;k<4;k++){ const a=k/4*TAU+.4; box(M,'#f4efe6',Math.cos(a)*.17,y+.8+Math.sin(a)*.17-.03,.07,.07,.06,.1,0,0,a); } }
   { prAt(PR.sHalt-PR.len/2,1.25,o); const M=frameAt(o.x,o.z,o.yaw+Math.PI/2,y); sign(M,'HARBOUR HALT',{sub:'STAD AN CHUAIN',w:1.3,h:.46,y:1.05,legs:true}); }
@@ -10022,7 +10131,7 @@ function prFisher(){ const [dx,dz]=PR.d, p=[PR.Hc[0]+dx*1.02-PR.e[0]*.75,PR.Hc[1
   const rod=part(); rod.put(FG.can,'#3a3a3c',0,.8,0,.012,1.6,.012); rod.put(FG.can,'#2a2a2c',0,.12,0,.022,.24,.022); rod.put(FG.can,'#9aa3ab',.03,.22,0,.03,.04,.03,0,0,Math.PI/2);
   const rm=rod.mesh(); const rg=new T.Group(); rg.add(rm); f.add(rg); rg.position.set(0,.66,.22); rg.rotation.x=.95;
   const ln=part(); ln.put(FG.can,'#e9e2d4',0,-.5,0,.004,1,.004); const lm=ln.mesh(); sc.add(lm); lm.userData.dyn=true;
-  const bk=frameAt(p[0]-PR.e[0]*.4,p[1]-PR.e[1]*.4,yaw); cyl(bk,'#5f7f99',0,PR.deck,0,.11,.2); cyl(bk,'#4b6a83',0,PR.deck+.19,0,.115,.02);   // his bucket
+  const bk=frameAt(p[0]-PR.e[0]*.4-PR.d[0]*.3,p[1]-PR.e[1]*.4-PR.d[1]*.3,yaw);   /* (a step back along the pier, clear of the lamp post's foot) */ cyl(bk,'#5f7f99',0,PR.deck,0,.11,.2); cyl(bk,'#4b6a83',0,PR.deck+.19,0,.115,.02);   // his bucket
   OBS.push({x:p[0],z:p[1],r:.3,h:1}); PRM.fisher={g:f,x:p[0],z:p[1],yaw,rod:rg,line:lm,t:0,lift:0,next:14}; }
 
 /* ---------- the train: an engine and two carriages, each a mesh of its own in the people's material ---------- */
