@@ -1013,6 +1013,75 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+d); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+d+.02); }
       if(Math.random()<.35*k){ const t=t0+Math.random()*.1, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='lowpass'; b.frequency.value=520; b.Q.value=.8;
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*k*.6,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.07); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+.1); } },
+    /* ---------- town life on Earth: the traffic, the animals, the football, the ducks, puddles and doors. Each is short and
+       soft and made live, a tone or a narrow band of noise to the left or right (p), about as loud as a footstep at most. The
+       engines alone go on: one quiet voice for each vehicle while it runs, its level set every frame (0 lets it go). Never a
+       voice. g is how loud (the station has already made it softer with distance) ---------- */
+    /* an engine. kind 0: the bus's diesel, low and slow; 1: a small van's petrol, a little higher; 2: the milk float's motor,
+       a soft electric whine. v how loud (0 to 1: how near, and whether it runs), r how hard it works (0 idling, 1 pulling away) */
+    engine(id,v=0,kind=1,r=0,p=0){ if(!ctx) return; const E=n.eng||(n.eng=new Map()); let e=E.get(id);
+      const free=()=>{ const t=ctx.currentTime; for(const o of [e.o1,e.o2,e.s]) try{ o.stop(t+.05); }catch(err){} const a=e.a; setTimeout(()=>{ try{ a.disconnect(); }catch(err){} },200); E.delete(id); };
+      if(e&&e.c!==ctx){ E.delete(id); e=null; }   // (the sound was made again from scratch: a new voice)
+      if(v<0){ if(e){ e.a.gain.cancelScheduledValues(ctx.currentTime); e.a.gain.setTargetAtTime(0,ctx.currentTime,.05); free(); } return; }   // (let go at once: leaving Earth)
+      v=on&&!muted?clamp(v,0,1):0;
+      if(!e){ if(v<=0) return; const t0=ctx.currentTime, a=ctx.createGain(), lp=ctx.createBiquadFilter(), o1=ctx.createOscillator(), o2=ctx.createOscillator(), g2=ctx.createGain(), s=shot(), bp=ctx.createBiquadFilter(), gn=ctx.createGain();
+        const pn=ctx.createStereoPanner?ctx.createStereoPanner():null; a.gain.value=0; lp.type='lowpass'; lp.Q.value=.7; bp.type='bandpass'; bp.Q.value=1.3;
+        o1.type=kind===2?'sine':'sawtooth'; o2.type=kind===2?'triangle':'square'; g2.gain.value=kind===2?.3:.16; gn.gain.value=kind===2?.06:.3;
+        o1.connect(lp); o2.connect(g2); g2.connect(lp); s.connect(bp); bp.connect(gn); gn.connect(lp); lp.connect(a); if(pn){ a.connect(pn); pn.connect(comp); } else a.connect(comp);
+        o1.start(t0); o2.start(t0); s.start(t0,Math.random()*8); e={a,lp,bp,pn,o1,o2,s,kind,c:ctx,off:null}; E.set(id,e); }
+      const k=e.kind, f=k===0?46+14*r:k===1?64+28*r:380+240*r;
+      set(e.o1.frequency,f,.3); set(e.o2.frequency,f*(k===2?2.01:1.5),.3); set(e.lp.frequency,k===2?1700:240+300*r,.3); set(e.bp.frequency,k===2?2300:480+320*r,.3); if(e.pn) set(e.pn.pan,clamp(p,-1,1)*.7,.15);
+      set(e.a.gain,v*(k===0?.01:k===1?.008:.005),.25);
+      /* silent a while: the voice is let go (made again when it is next wanted) */
+      if(v>0) e.off=null; else if(e.off===null) e.off=ctx.currentTime; else if(ctx.currentTime-e.off>1.5) free(); },
+    /* the bike's bell: two quick bright strikes of a small domed bell, the second a touch softer */
+    bell(g=.02,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), f=2350*vr(.02); [0,.16].forEach((dl,j)=>[[1,1,.55],[2.62,.38,.3],[4.3,.16,.16],[5.9,.07,.1]].forEach(([m,a,dd])=>ciT(d,f*m,dd,g*a*(j?.8:1),'sine',0,dl,.002))); },
+    /* the bus's door: a short hiss of air, then the leaves folding back with a soft clunk (shutting: the clunk, then the hiss) */
+    busDoor(g=.02,p=0,open=true){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.05);
+      if(open){ ciN(d,.34,g*.8,5000*v,2600,'highpass',.7,0,.02); ciT(d,150*v,.09,g*.8,'sine',95,.3); ciN(d,.05,g*.5,1400*v,700,'bandpass',1.5,.3); }
+      else { ciT(d,135*v,.1,g*.9,'sine',82,0); ciN(d,.05,g*.6,1200*v,600,'bandpass',1.5); ciN(d,.26,g*.55,4800*v,2400,'highpass',.7,.12,.02); } },
+    /* milk bottles in their carrier: two or three glassy clinks a little apart, and the wire's tick */
+    bottles(g=.015,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p);
+      for(let k=0,n0=2+Math.floor(Math.random()*2);k<n0;k++){ const dl=k*(.07+Math.random()*.06), f=(2900+Math.random()*700)*vr(.03), a=g*(1-k*.2);
+        ciT(d,f,.16,a,'sine',0,dl,.001); ciT(d,f*1.52,.09,a*.45,'sine',0,dl,.001); ciN(d,.015,a*.35,6200,4800,'bandpass',3,dl,.001); } },
+    /* a cat purring: a soft low rattle, the breath in and out of it rising and falling over a second and a half */
+    purr(g=.01,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), t0=ctx.currentTime, s=shot(), b=ctx.createBiquadFilter(), am=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain(), a=ctx.createGain();
+      b.type='bandpass'; b.frequency.value=190*vr(.06); b.Q.value=1.1; lfo.frequency.value=24+Math.random()*3; lg.gain.value=.5; am.gain.value=.5; lfo.connect(lg); lg.connect(am.gain);
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.35); a.gain.linearRampToValueAtTime(g*.55,t0+.7); a.gain.linearRampToValueAtTime(g*.9,t0+1.05); a.gain.linearRampToValueAtTime(0,t0+1.5);
+      s.connect(b); b.connect(am); am.connect(a); a.connect(d); s.start(t0,Math.random()*8); s.stop(t0+1.55); lfo.start(t0); lfo.stop(t0+1.55); },
+    /* a gull: two or three calls, each a quick rise and a long fall (kee-ow), high and thin, from wherever it is */
+    gull(g=.01,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), f0=1300+Math.random()*250; let t=ctx.currentTime+.02;
+      for(let k=0,n0=2+Math.floor(Math.random()*2);k<n0;k++){ const o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), dur=.26+Math.random()*.1, f=f0*(1-k*.04), gg=g*(1-k*.15);
+        o.type='triangle'; o.frequency.setValueAtTime(f*.84,t); o.frequency.linearRampToValueAtTime(f*1.1,t+.05); o.frequency.exponentialRampToValueAtTime(f*.64,t+dur);
+        b.type='bandpass'; b.frequency.value=f*1.6; b.Q.value=1.6; a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.025); a.gain.setValueAtTime(gg*.8,t+dur*.5); a.gain.exponentialRampToValueAtTime(.0001,t+dur);
+        o.connect(b); b.connect(a); a.connect(d); o.start(t); o.stop(t+dur+.03); t+=dur+.06+Math.random()*.08; } },
+    /* a dog's paws: four soft pads, quick */
+    paws(g=.01,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); for(let k=0;k<4;k++) ciN(d,.03,g*(.6+Math.random()*.4),900+Math.random()*700,500,'bandpass',1.4,k*.075+Math.random()*.02,.002); },
+    /* one soft woof: a short low bark, its pitch falling, round and muffled */
+    woof(g=.018,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.06), t0=ctx.currentTime, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain();
+      o.type='sawtooth'; o.frequency.setValueAtTime(250*v,t0); o.frequency.exponentialRampToValueAtTime(150*v,t0+.16); b.type='lowpass'; b.frequency.value=850; b.Q.value=2;
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.012); a.gain.exponentialRampToValueAtTime(.0001,t0+.2); o.connect(b); b.connect(a); a.connect(d); o.start(t0); o.stop(t0+.25);
+      ciN(d,.07,g*.45,700*v,300,'bandpass',1.2,0,.004); },
+    /* pigeons going up: wing-claps, a quick dry flurry that slows as they climb */
+    wings(g=.018,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); let t=0; for(let k=0;k<9;k++){ ciN(d,.035,g*(1-k*.08),1500+Math.random()*900,700,'bandpass',.9,t,.002); t+=.045+k*.012+Math.random()*.02; } },
+    /* the football kicked: a firm low thump and the slap of the boot */
+    kick(g=.03,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.06); ciT(d,150*v,.12,g,'sine',75,0,.002); ciN(d,.04,g*.7,1300*v,600,'bandpass',1.3,0,.001); },
+    /* a duck: a short nasal quack or two */
+    quack(g=.012,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); let t=ctx.currentTime+.01;
+      for(let k=0,n0=1+Math.floor(Math.random()*2.4);k<n0;k++){ const o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), f=(330+Math.random()*60)*(1-k*.05), dur=.13+Math.random()*.05;
+        o.type='sawtooth'; o.frequency.setValueAtTime(f,t); o.frequency.exponentialRampToValueAtTime(f*.78,t+dur); b.type='bandpass'; b.frequency.value=1150; b.Q.value=3;
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g,t+.01); a.gain.exponentialRampToValueAtTime(.0001,t+dur); o.connect(b); b.connect(a); a.connect(d); o.start(t); o.stop(t+dur+.03); t+=dur+.05; } },
+    /* a foot (or a wheel) through a puddle: a wet slap and a few drops falling back (k: how big) */
+    splash(g=.018,p=0,k=1){ if(!on||muted||!ctx) return; const d=ciDst(p); ciN(d,.16+.1*k,g,2600,900,'bandpass',.8,0,.003); ciN(d,.08,g*.5,600,300,'lowpass',.8,0,.003);
+      for(let i=0,n0=3+Math.round(2*k);i<n0;i++) ciT(d,900+Math.random()*1300,.04,g*.25,'sine',1600+Math.random()*900,.08+Math.random()*.25,.002); },
+    /* a door as someone goes in or out: its hinge creaking as it swings open, or the soft knock and the latch as it shuts
+       (heavy: lower and slower, the town hall's) */
+    doorCreak(g=.012,p=0,open=true,heavy=false){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.08), lo=heavy?.78:1, t0=ctx.currentTime+.03;
+      if(open){ ciN(d,.03,g*1.4,3300*v*lo,2200,'bandpass',2.5,0,.002); const o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), l=ctx.createOscillator(), lg=ctx.createGain(), dur=(heavy?.8:.6)+Math.random()*.2;
+        o.type='sawtooth'; o.frequency.setValueAtTime(64*v*lo,t0); o.frequency.linearRampToValueAtTime(96*v*lo,t0+dur*.45); o.frequency.linearRampToValueAtTime(70*v*lo,t0+dur); l.frequency.value=13+Math.random()*6; lg.gain.value=14*lo; l.connect(lg); lg.connect(o.frequency);
+        b.type='bandpass'; b.frequency.value=1250*lo; b.Q.value=6; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.08); a.gain.setValueAtTime(g*.8,t0+dur*.6); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+        o.connect(b); b.connect(a); a.connect(d); o.start(t0); l.start(t0); o.stop(t0+dur+.05); l.stop(t0+dur+.05); }
+      else { ciT(d,100*v*lo,.2,g*.75,'sine',60*v,0,.004); ciN(d,.1,g*.5,560*lo,140,'lowpass',.9,0,.004); ciN(d,.025,g*.6,3600*v,2400,'bandpass',2.5,.09,.002); } },
     /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
        As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
        plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */

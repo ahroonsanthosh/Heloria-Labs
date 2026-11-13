@@ -7759,4 +7759,790 @@ st._dbg.fire={FS,FW,FSU,get err(){ return FS.err; },drill:fsDrill,reset:fsReset,
     else if(what==='sign') p=fsW(0,2.47,FW.cz+FW.d/2+.04,fsV); else if(what==='land') p=fsLand(fsV); else if(what==='bow') p=fsV.copy(FSU.uBowC.value).addScaledVector(FS.up,1.2); else p=fsW(FW.PDX,1.1,FW.cz+FW.d/2,fsV);
     const q=p.clone().project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
 /* ===================== (the fire station ends here) ===================== */
+/* ===================== town life: traffic on the loop, animals, football in the square, a duck pond, puddles, creaking doors =====================
+   The town goes about its day round you: a few of everything, and calm.
+   - On the loop road (traffic keeps to the left, as at home): a little yellow kei van whose driver parks outside the town
+     hall now and then and goes in; a bike, its rider ringing the bell if you are in its way, who leans it at the kerb by the
+     café and goes in for a coffee; a small bus going round the other way, which stops at its stop by the square, opens its
+     door and pulls away again; the post's red van, which stops outside the post office while the driver carries a parcel
+     in (and waits outside the workshop between rounds); and, from half past five to eight in the morning by the visitor's
+     clock, the milk float, humming from house to house, its milkman leaving two bottles on each doorstep. Each slows for you
+     (or anyone) in the road and stops well short; a slower one, or one parked, is passed when nothing is coming; none of
+     them parks between you and whoever you are walking over to or talking with. They are solid while they are out, so
+     nobody walks through one. Late at night they are parked and quiet, and the bus starts again in the morning.
+   - Animals: a ginger cat asleep on the café's windowsill, who wakes and stretches as you come by, purrs if you stay, and
+     now and then walks to the other end of the sill; gulls on the lighthouse's rail and drifting over the coast, calling
+     now and then; a collie who trots over, follows you about for a while and then wanders off home; pigeons
+     in the square, who flap up when you run at them and settle again a little way off.
+   - A football in the square: walk into it and it rolls away over the curve of the world, bouncing; outside school hours on
+     a weekday, or at the weekend, in the daytime and the dry, two of the school's children come out and kick it back.
+   - A duck pond on the grass by the loop, between the workshop and Ogive: ducks paddle about on it; tap or click the water
+     and you throw them bread, and they paddle over for it.
+   - After rain the pavements and the paths hold puddles that splash as you walk through them (and under the wheels),
+     drying away over a few minutes; and the doors of the café, the post office and the town hall creak open and shut as
+     their people go in and out, as the school's does for its children.
+   All of it is made with the town and hidden until it is wanted, in the town's own materials and kit (the birds, the
+   bread, the splashes and the puddles are instanced: one draw for each kind), drawn once behind the loader with the rest of
+   Earth, so nothing new is made when any of it comes out. st._dbg.town has what the tests need. */
+const TL={clk:0,warm:true,ok:false,err:null,h0:null,d0:null,cars:[],feet:[],kids:[],road:[],cat:null,dog:null,ball:null,pond:null,pud:[],wet:0,crumbs:[],drops:[],rings:[],
+  n:{},seen:{},doors:{cafe:{t:0},po:{t:0},hall:{t:0}},schK:0,schQ:0,hiSt:'out',stepWas:0,top:null,tap:null,hov:false,throwT:0,last:null,clear:{min:99,who:null},S:{}};
+const tlV=new T.Vector3(), tlV2=new T.Vector3(), tlV3=new T.Vector3(), tlV4=new T.Vector3(), tlU=new T.Vector3(), tlF=new T.Vector3(), tlM=new T.Matrix4(), tlM2=new T.Matrix4(), tlM3=new T.Matrix4(),
+  tlQ=new T.Quaternion(), tlE=new T.Euler(), tlP=new T.Vector3(), tlSc=new T.Vector3(), TLZ=new T.Matrix4().makeScale(0,0,0), tlRay=new T.Raycaster(), tlNdc=new T.Vector2(), tlC=new T.Color();
+const tlRnd=seeded(77);
+/* (vehicles: the figures' program, but cut away between the camera and you as the houses are; their glass, the orb's) */
+const TLVM=toonMat('#ffffff',{vc:true}), TLGL=toonMat('#cfe2ea',{op:.32}), TLHL=flatMat('#fff2c4'), TLTL=flatMat('#ff6a52');
+
+/* ---------- the loop's middle line, by arc length: where s metres round it is, which way it runs, and its left (out of the
+   loop, for traffic going round the way it was laid out, which keeps to the outer lane; the other way keeps to the inner) ---------- */
+const TLR={p:null,c:null,L:1,n:0};
+function tlRoadInit(){ const p=ROADS[0].slice(0,-1), c=[0]; for(let i=1;i<=p.length;i++){ const a=p[i-1], b=p[i%p.length]; c.push(c[i-1]+Math.hypot(b[0]-a[0],b[1]-a[1])); } TLR.p=p; TLR.c=c; TLR.L=c[p.length]; TLR.n=p.length; }
+const tlWrap=s=>((s%TLR.L)+TLR.L)%TLR.L;
+function tlAt(s,lat,o){ s=tlWrap(s); const p=TLR.p, c=TLR.c, n=TLR.n; let lo=0, hi=n; while(hi-lo>1){ const m=(lo+hi)>>1; if(c[m]<=s) lo=m; else hi=m; }
+  const a=p[lo], b=p[(lo+1)%n], L=(c[lo+1]-c[lo])||1, t=(s-c[lo])/L, dx=(b[0]-a[0])/L, dz=(b[1]-a[1])/L;
+  o.x=a[0]+(b[0]-a[0])*t+dz*lat; o.z=a[1]+(b[1]-a[1])*t-dx*lat; o.dx=dx; o.dz=dz; return o; }
+/* the nearest point of the loop's middle to (x, z): how far round (s) and how far out from it (lat, + out of the loop) */
+function tlNear(x,z,o={}){ const p=TLR.p, n=TLR.n; let bi=0, bd=1e9; for(let i=0;i<n;i++){ const d=(p[i][0]-x)**2+(p[i][1]-z)**2; if(d<bd){ bd=d; bi=i; } }
+  o.d=1e9; for(const i of [(bi-1+n)%n,bi]){ const a=p[i], b=p[(i+1)%n], ex=b[0]-a[0], ez=b[1]-a[1], L2=ex*ex+ez*ez||1, L=Math.sqrt(L2), t=clamp(((x-a[0])*ex+(z-a[1])*ez)/L2,0,1), qx=a[0]+ex*t, qz=a[1]+ez*t, d=Math.hypot(x-qx,z-qz);
+    if(d<o.d){ o.d=d; o.s=TLR.c[i]+t*L; o.lat=((x-qx)*ez-(z-qz)*ex)/L; } } return o; }
+/* how far ahead s is, going round the way c goes */
+const tlAhead=(c,s)=>((s-c.s)*c.dir%TLR.L+TLR.L)%TLR.L;
+const TLA={}, TLB_={};
+
+/* ---------- small things every part uses: how loud a thing is from where you stand, whether it is on the screen, free ground ---------- */
+const tlEar=(x,z,far=22)=>{ const d=Math.hypot(player.x-x,player.z-z); return clamp(1-d/far,0,1)**2; };
+const tlIn=()=>CAFE.on||GAR.on||PO.on||HSI.on||PUB.on;
+const tlQuiet=()=>TL.warm||CUT.on||FIN.on||S.st!==st||S.mode!=='station';
+/* a short sound from (x, z): softer with distance, muffled indoors, a little softer while someone talks; counted for the tests */
+function tlSay(fn,g,x,z,far=22,...rest){ TL.n[fn]=(TL.n[fn]||0)+1; if(tlQuiet()) return 0; const k=tlEar(x,z,far)*(tlIn()?.35:1)*(TALK.p?.6:1); if(k<.004||!A[fn]) return 0; const gg=g*k; A[fn](gg,civPan(x,z),...rest); TL.n[fn+'G']=Math.max(TL.n[fn+'G']||0,gg); return gg; }
+/* on the screen (or near enough the camera to be seen at once): things appear and go only where they are not */
+function tlSeen(x,z,h=.6){ if(S.st!==st||!st.built) return false; at(x,z,tlV).multiplyScalar(R+standH(x,z)+h); if(tlV.distanceTo(stCam.position)<4) return true; if(tlV.distanceTo(stCam.position)>26) return false;
+  stCam.updateMatrixWorld(); tlV.project(stCam); return tlV.z<1&&Math.abs(tlV.x)<1.08&&Math.abs(tlV.y)<1.08; }
+function tlFree(x,z,r,skip){ if(!walkable(x,z)) return false; for(const o of OBS){ if(o===skip||o.tl) continue; if(Math.hypot(x-o.x,z-o.z)<o.r+r) return false; }
+  if(MKT.solid) for(const o of MKT.obs) if(Math.hypot(x-o.x,z-o.z)<o.r0+r) return false; return true; }
+/* a thing of its own in the solids (a vehicle, a walker, the dog, a child), so you, the three of us and the ball go round it */
+function tlSolid(o,on){ const i=OBS.indexOf(o); if(on&&i<0) OBS.push(o); else if(!on&&i>=0) OBS.splice(i,1); }
+/* who is in the road (or near it), in the road's terms: you, the three of us, the walkers, the children, the dog, the school's children */
+function tlWho(){ const L=TL.road; L.length=0; const add=(x,z,r,me)=>{ const q=tlNear(x,z); if(Math.abs(q.lat)<RW+.9) L.push({x,z,r,s:q.s,lat:q.lat,me}); };
+  add(player.x,player.z,.32,true); for(const p of people) add(p.x,p.z,.36); for(const w of TL.feet) if(w.on) add(w.x,w.z,.28); for(const k of TL.kids) if(k.on) add(k.x,k.z,.24);
+  if(TL.dog&&TL.dog.on) add(TL.dog.x,TL.dog.z,.32); for(const k of CIV.kids) if(k.vis) add(k.x,k.z,.24);
+  for(const c of TL.cars) if(c.on) L.push({s:c.s,lat:c.lat,car:c}); }
+/* the way to whoever you are talking to or walking over to: kept clear (see the children, civCorr) */
+const tlCorr=()=>civCorr();
+const tlInCorr=(x,z,m=.8)=>{ const c=TL.corr; return !!c&&civSeg(x,z,c)<m; };
+
+/* ---------- the shared bits: the birds, the bread, the splashes. One instanced mesh of the town's toon material (Kríos's bars'
+   program), each part a slot with a colour of its own; a bit not in use is put away at nothing ---------- */
+const TLB={m:null,n:0,cols:[]};
+const tlSlots=(n,cols)=>{ const i0=TLB.n; for(let k=0;k<n;k++) TLB.cols.push(cols[k%cols.length]); TLB.n+=n; return i0; };
+const tlPM=new T.Matrix4(), tlPQ=new T.Quaternion(), tlPE=new T.Euler(), tlPP=new T.Vector3(), tlPS=new T.Vector3();
+/* a part in a frame F: at (x, y, z) in it, turned (YXZ), scaled */
+function tlBit(i,F,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0){ tlPM.compose(tlPP.set(x,y,z),tlPQ.setFromEuler(tlPE.set(rx,ry,rz,'YXZ')),tlPS.set(sx,sy,sz)); TLB.m.setMatrixAt(i,tlM3.multiplyMatrices(F,tlPM)); }
+/* a wing: hinged at the shoulder (sx, sy, sz), raised by a, its middle at off along it */
+function tlWing(i,F,sx,sy,sz,a,off,w,h,d){ tlPM.compose(tlPP.set(sx,sy,sz),tlPQ.setFromEuler(tlPE.set(0,0,a,'YXZ')),tlPS.set(1,1,1)); tlM3.multiplyMatrices(F,tlPM);
+  tlPM.compose(tlPP.set(off,0,0),tlPQ.identity(),tlPS.set(w,h,d)); TLB.m.setMatrixAt(i,tlM3.multiply(tlPM)); }
+const tlOff=i=>TLB.m.setMatrixAt(i,TLZ), tlOffD=i=>TLD.m.setMatrixAt(i,TLZ);
+/* the frame of a thing at a point (world), its up and the way it faces; rolled by bank */
+function tlFrame(F,p,up,fw,bank=0){ tlF.copy(fw).addScaledVector(up,-up.dot(fw)).normalize(); tlV4.crossVectors(up,tlF).normalize(); F.makeBasis(tlV4,up,tlF).setPosition(p);
+  if(bank) F.multiply(tlM2.makeRotationZ(bank)); return F; }
+
+/* ---------- people of the town: the figure everyone in town is made with. A walker walks a way of points ({x, z, h}: h over
+   the ground there, or the ground itself), waiting for you rather than walking into you or across the way to whoever you
+   are going to talk to; a driver at the wheel is one mesh, the figure merged, sitting ---------- */
+const TL_LOOK={hall:{shirt:'#d9a441',funnel:.5,zip:'#6b5a3a',under:'#f1ead8',pants:'#3d4350',shoes:'#2b2b2e',skin:'#e0b08f',hair:'bun',hairC:'#5a3a28',glasses:'#2a2420',mouth:'smile',cheeks:true},
+  bike:{shirt:'#4f7d5a',crew:true,under:'#e9e4d6',pants:'#2f3640',shoes:'#e8e2d6',skin:'#b07a55',hair:'curly',hairC:'#1b1411',mouth:'grin',knee:true},
+  post:{shirt:'#c8483a',short:true,polo:'#a83a2f',pants:'#2f3137',shoes:'#2b2b2e',skin:'#f0c9a8',hair:'textured',hairC:'#8a5a32',mouth:'smile'},
+  milk:{shirt:'#f4f1ea',crew:true,under:'#7fa0c8',pants:'#3a3f4a',shoes:'#2b2b2e',skin:'#e8b898',hair:'short',hairC:'#9a958c',stubble:'#8a8378',mouth:'smile'},
+  bus:{shirt:'#2f4f6f',crew:true,under:'#e9e4d6',pants:'#2f3137',shoes:'#2b2b2e',skin:'#c68e62',hair:'short',hairC:'#2a1d16',mous:true},
+  rider:{shirt:'#b05a7a',funnel:.45,zip:'#e0d8cc',pants:'#3d4350',shoes:'#2b2b2e',skin:'#f1c9a5',hair:'wavy',hairC:'#c9a26a'}};
+/* a driver (or a passenger), sitting: the figure with its knees bent and its hands out to the wheel, merged into one mesh */
+function tlBust(look,mat=TLVM,s=.86){ const g=figure(Object.assign({},look,{knee:true})), d=g.userData; d.legs.forEach(l=>{ l.rotation.x=-1.45; }); d.knees.forEach(k=>{ k.rotation.x=1.5; });
+  d.arms.forEach(a=>{ a.rotation.x=-1.0; }); d.fore.forEach(f=>{ f.rotation.x=-.45; }); g.updateMatrixWorld(true); const L=[];
+  g.traverse(m=>{ if(m.isMesh&&m.material===FIGM) L.push([m.geometry,m.matrixWorld.clone()]); }); const m=new T.Mesh(mktMerge(L),mat); m.scale.setScalar(s); return m; }
+function tlFoot(key){ const g=figure(TL_LOOK[key]), d=g.userData; g.visible=false; sc.add(g);
+  const w={key,g,d,x:0,z:0,u:new T.Vector3(0,1,0),f:new T.Vector3(0,0,1),fx:0,fz:1,v:0,ph:0,step:0,route:null,ri:0,on:false,h:0,ob:{x:0,z:0,r:.26,h:1.5,tl:true},carry:null,carryOn:false,arrive:null,wait:0,t:0};
+  TL.feet.push(w); return w; }
+function tlShow(w,on){ if(w.on===on) return; w.on=on; w.g.visible=on||TL.warm; tlSolid(w.ob,on&&!TL.warm); if(!on) w.route=null; }
+/* sets off along pts; arrive() when there */
+function tlGo(w,pts,arrive){ w.route=pts; w.ri=0; w.arrive=arrive||null; w.h0=w.h; }
+/* a way on the ground from (x0, z0) to (x1, z1): straight if it is clear, else round things on the walking grid */
+function tlWay(x0,z0,x1,z1){ if(navClear(x0,z0,x1,z1)) return [{x:x1,z:z1}]; const p=navPath(x0,z0,x1,z1,1.2); return (p||[]).map(([x,z])=>({x,z})).concat([{x:x1,z:z1}]); }
+function tlWalk(w,dt,t){ if(!w.on) return; let sp=0;
+  if(w.route&&w.ri<w.route.length){ const q=w.route[w.ri], dx=q.x-w.x, dz=q.z-w.z, L=Math.hypot(dx,dz);
+    if(L<.06){ if(q.go){ const g=q.go; q.go=null; g(); } w.ri++; w.side=0; if(w.ri>=w.route.length){ w.route=null; const f=w.arrive; w.arrive=null; if(f) f(w); } }
+    else { sp=1.05; const k=Math.min(L,sp*dt), nx=w.x+dx/L*k, nz=w.z+dz/L*k;
+      /* never into you, nor across the way to whoever you are talking to or walking over to, nor in front of a vehicle on the move */
+      const me=Math.hypot(nx-player.x,nz-player.z)<.62, Ct=TL.corrT, block=me||(Ct&&civSeg(nx,nz,Ct)<.7&&civSeg(w.x,w.z,Ct)>=.7)||TL.cars.some(c=>c.on&&c.v>.05&&c.obs.some(o=>Math.hypot(nx-o.x,nz-o.z)<o.r+.3));
+      if(block){ sp=0; w.wait+=dt;
+        /* you standing in the way a while: a step round you, on the side away from you */
+        if(me&&w.wait>1.5&&!w.side){ const px=-dz/L, pz=dx/L, sg=((player.x-w.x)*px+(player.z-w.z)*pz)>0?-1:1, sx=w.x+px*sg*.8, sz=w.z+pz*sg*.8; if(tlFree(sx,sz,.2)){ w.route.splice(w.ri,0,{x:sx,z:sz,h:q.h}); w.side=1; w.wait=0; } } }
+      else { w.wait=0; w.fx=damp(w.fx,dx/L,10,dt); w.fz=damp(w.fz,dz/L,10,dt); w.x=nx; w.z=nz; } } }
+  /* (a point's h: how far over the ground there, up a step or the town hall's stairs) */
+  const q=w.route&&w.ri<w.route.length?w.route[w.ri]:null, hh=standH(w.x,w.z)+(q&&q.h!=null?q.h:0); w.hy=w.hy==null?hh:damp(w.hy,hh,9,dt);
+  w.v=damp(w.v,sp,8,dt); at(w.x,w.z,w.u); tang(w.u,at(w.x+w.fx,w.z+w.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) w.f.copy(tlV2); standOn(w.g,w.u,w.f,w.hy);
+  w.ph+=dt*w.v*4.6; animate(w.g,w.ph,clamp(w.v/1.05,0,1),0,t,w.key.length); w.d.knees.forEach(k=>{ k.rotation.x=0; });
+  /* carrying: a parcel held in both arms, or the milk in one hand */
+  const D=w.d; if(w.carryOn&&w.key==='post'){ D.arms.forEach(a=>{ a.rotation.x=-.85; a.rotation.z=0; }); D.fore.forEach(f=>{ f.rotation.x=-.75; f.rotation.z=0; }); }
+  if(w.carryOn&&w.key==='milk'){ D.arms[0].rotation.x=.06*Math.sin(w.ph); D.fore[0].rotation.x=-.08; }
+  if(w.carry) w.carry.visible=w.carryOn||TL.warm;
+  w.step+=w.v*dt; if(w.step>.55){ w.step=0; tlSay('kidStep',.04,w.x,w.z,10); tlSplashAt(w.x,w.z,.4); }
+  w.ob.x=w.x; w.ob.z=w.z; }
+/* a place in a building's frame (lx, lz, h over its ground) on the town's map */
+const tlB=(M,lx,lz,h=null)=>{ const [x,z]=loc(tlV.set(lx,0,lz).applyMatrix4(M).normalize()); return {x,z,h}; };
+
+/* ---------- the vehicles: each a body of the figures' kind of parts (x to its left, y up, z forward), its axles (which turn),
+   its glass, its lamps (lit at night), a driver, a soft shadow; solid as a row of circles along it ---------- */
+function tlPart(fn,mat=TLVM){ const B=part(); fn(B); const m=B.mesh(); m.material=mat; return m; }
+function tlRod(B,c,a,b,r){ const A_=v3(...a), B_=v3(...b), L=A_.distanceTo(B_), d=v3().subVectors(B_,A_).normalize(), s=v3().crossVectors(d,Math.abs(d.y)<.9?fY:fX).normalize().multiplyScalar(r), q=v3().crossVectors(d,s).normalize().multiplyScalar(r);
+  B.along(FG.can,c,A_.clone().add(B_).multiplyScalar(.5),s,d.multiplyScalar(L),q); }
+/* an axle: a wheel each side (tyre, hub and a spoke to see it turn), at its own origin so it turns about it */
+function tlAxle(r,w,x,tyre='#2a2826',hub='#c9cdca'){ return tlPart(B=>{ for(const s of [-1,1]){ B.put(FG.can,tyre,s*x,0,0,r,w,r,0,0,Math.PI/2); B.put(FG.can,hub,s*(x+w*.5),0,0,r*.55,.012,r*.55,0,0,Math.PI/2); B.put(FG.box,'#6d7276',s*(x+w*.5+.008),r*.25,0,.01,r*.42,.035); } }); }
+function tlCar(o){ const g=new T.Group(); g.visible=false; sc.add(g); const c=Object.assign({g,s:0,v:0,lat:0,latW:0,h:ROADH,mode:'drive',t:0,stopAt:null,obs:[],axles:[],on:false,pass:null,wait:0,laps:0,run:true,lamps:null,hold:0,bell:0,via:null},o);
+  c.hw=c.wid/2; c.hl=c.len/2; c.lane=c.dir*.6; c.lat=c.latW=c.lane;
+  const nC=Math.max(1,Math.round(c.len/c.wid)), r=c.hw+.05; for(let k=0;k<nC;k++) c.obs.push({x:0,z:0,r,h:c.ht,tl:true,along:nC===1?0:(k/(nC-1)*2-1)*(c.hl-r)});
+  const sh=new T.Mesh(SHG,SHM); sh.scale.set(c.wid*1.25,1,c.len*1.08); sh.position.y=.02-ROADH; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
+  TL.cars.push(c); return c; }
+function tlCarShow(c,on){ if(c.on===on) return; c.on=on; c.g.visible=on||TL.warm; for(const o of c.obs) tlSolid(o,on&&!TL.warm); }
+/* lamps: the head and tail lamps as flat lit panes over the painted ones, shown at night while it runs */
+function tlLamps(c,head,tail){ const g=new T.Group(); const mk=(pts,mat)=>{ const m=tlPart(B=>{ for(const [x,y,z,w,h] of pts) B.put(FG.box,'#ffffff',x,y,z,w,h,.012); },mat); m.userData.noInk=true; g.add(m); };
+  mk(head,TLHL); mk(tail,TLTL); g.visible=false; c.g.add(g); c.lamps=g; }
+function tlBuildCars(){
+  /* the kei van: a small cab-over box, buttercup and cream, its driver on the right */
+  { const c=tlCar({id:'kei',kind:1,dir:1,len:1.7,wid:.86,ht:1.45,vmax:2.2}), Y='#e9c46a', W='#f6f1e6', K='#3a3c3e', GL0='#4f636c';
+    c.g.add(tlPart(B=>{ B.put(FG.box,Y,0,.45,0,.86,.5,1.7); B.put(FG.box,W,0,.725,0,.865,.05,1.705); B.put(FG.box,W,0,1.4,0,.86,.08,1.7);
+      B.put(FG.box,Y,0,1.06,-.42,.86,.66,.86); [-1,1].forEach(s=>{ B.put(FG.box,W,s*.4,1.06,.81,.06,.66,.07); B.put(FG.box,W,s*.4,1.06,.03,.06,.66,.07); B.put(FG.box,K,s*.47,1.0,.74,.08,.07,.04);
+        B.put(FG.box,'#fbf6e8',s*.29,.5,.86,.16,.1,.02); B.put(FG.box,'#d14b3f',s*.36,.5,-.86,.1,.12,.02); B.put(FG.box,W,s*.432,.48,0,.006,.06,1.55); });
+      B.put(FG.box,K,0,.27,.87,.88,.1,.06); B.put(FG.box,K,0,.27,-.87,.88,.1,.06); B.put(FG.box,K,0,.56,.865,.3,.12,.01); B.put(FG.box,W,0,1.06,.84,.74,.08,.04);
+      B.put(FG.box,K,0,.76,.66,.8,.1,.2); [-.2,.2].forEach(x=>{ B.put(FG.box,'#5a4a40',x,.56,.25,.3,.18,.3); B.put(FG.box,'#5a4a40',x,.86,.08,.3,.44,.07); });
+      B.put(FG.box,GL0,0,1.06,-.86,.6,.3,.012); }));
+    const gl=tlPart(B=>{ B.put(FG.box,'#ffffff',0,1.04,.845,.74,.52,.01); [-1,1].forEach(s=>B.put(FG.box,'#ffffff',s*.425,1.04,.42,.01,.52,.72)); },TLGL); gl.userData.noInk=true; c.g.add(gl);
+    const sw=tlPart(B=>B.put(FG.can,K,0,0,0,.09,.02,.09)); sw.position.set(-.2,.88,.55); sw.rotation.x=-1.0; c.g.add(sw);
+    for(const z of [-.55,.55]){ const a=tlAxle(.17,.1,.38); a.position.set(0,.17,z); c.g.add(a); c.axles.push(a); }
+    c.bust=tlBust(TL_LOOK.hall); c.bust.position.set(-.2,.6-.5*.86,.22); c.g.add(c.bust);
+    tlLamps(c,[[.29,.5,.875,.16,.1],[-.29,.5,.875,.16,.1]],[[.36,.5,-.875,.1,.12],[-.36,.5,-.875,.1,.12]]); c.wr=.17; c.walker=tlFoot('hall'); }
+  /* the bike: a step-through in teal with a basket; its rider pedals (the figure itself, sitting) */
+  { const c=tlCar({id:'bike',kind:-1,dir:1,len:1.22,wid:.3,ht:1.3,vmax:1.6}), F='#3f7d8a';
+    c.g.add(tlPart(B=>{ const bb=[0,.23,0], ra=[0,.23,-.38], hd=[0,.66,.27];
+      tlRod(B,F,bb,ra,.016); tlRod(B,F,[0,.6,-.1],ra,.013); tlRod(B,F,bb,[0,.6,-.1],.018); tlRod(B,F,bb,[0,.52,.22],.02); tlRod(B,F,[0,.52,.22],hd,.02); tlRod(B,F,hd,[0,.23,.38],.016);
+      tlRod(B,'#2a2624',hd,[0,.82,.24],.016); tlRod(B,'#2a2624',[-.2,.84,.2],[.2,.84,.2],.014); B.put(FG.box,'#5b3d2c',0,.62,-.1,.08,.04,.15);
+      B.put(FG.box,'#b8894f',0,.6,.42,.22,.12,.18); B.put(FG.box,'#9e7442',0,.665,.42,.23,.012,.19); B.put(FG.box,'#2a2624',0,.42,-.38,.12,.015,.28); }));
+    for(const z of [-.38,.38]){ const a=tlPart(B=>{ B.put(FG.can,'#2a2826',0,0,0,.23,.035,.23,0,0,Math.PI/2); B.put(FG.can,'#d8dcd9',0,0,0,.2,.02,.2,0,0,Math.PI/2); B.put(FG.box,'#9aa0a3',0,0,0,.012,.4,.012); B.put(FG.box,'#9aa0a3',0,0,0,.012,.012,.4); });
+      a.position.set(0,.23,z); c.g.add(a); c.axles.push(a); }
+    const ck=tlPart(B=>{ B.put(FG.box,'#4a4f53',.05,0,0,.012,.18,.02); B.put(FG.box,'#4a4f53',-.05,0,0,.012,.18,.02); B.put(FG.box,'#2a2624',.08,.09,0,.06,.015,.04); B.put(FG.box,'#2a2624',-.08,-.09,0,.06,.015,.04); });
+    ck.position.set(0,.23,0); c.g.add(ck); c.crank=ck; c.wr=.23; c.walker=tlFoot('bike'); c.rider=true; }
+  /* the bus: teal below, cream above, a red band; windows down both sides, its door at the front on the kerb side (folding
+     leaves on hinges, a dark doorway behind), the driver on the right, a passenger in the middle */
+  { const c=tlCar({id:'bus',kind:0,dir:-1,len:2.9,wid:1.0,ht:1.75,vmax:1.9}), TE='#2f6f8f', CR='#f1ead8', RD='#c8483a', K='#3a3c3e';
+    c.g.add(tlPart(B=>{ B.put(FG.box,TE,0,.45,0,1.0,.5,2.9); B.put(FG.box,RD,0,.73,0,1.008,.06,2.908); B.put(FG.box,CR,0,1.5,0,1.0,.24,2.9); B.put(FG.box,'#e9e2d0',0,1.66,0,.96,.08,2.85);
+      for(let k=0;k<7;k++){ const z=-1.42+k*.47; [-1,1].forEach(s=>{ if(s>0&&z>.8) return; B.put(FG.box,CR,s*.475,1.07,z,.05,.62,.06); }); }
+      [-1,1].forEach(s=>{ B.put(FG.box,CR,s*.475,1.07,1.43,.05,.62,.06); B.put(FG.box,'#fbf6e8',s*.33,.48,1.452,.16,.1,.012); B.put(FG.box,'#d14b3f',s*.4,.52,-1.452,.1,.14,.012); B.put(FG.box,K,s*.54,1.12,1.32,.08,.1,.04); });
+      B.put(FG.box,CR,0,1.06,-1.43,.9,.62,.04); B.put(FG.box,K,0,.28,1.465,1.02,.1,.04); B.put(FG.box,K,0,.28,-1.465,1.02,.1,.04); B.put(FG.box,'#2a241d',0,1.45,1.455,.62,.13,.01); B.put(FG.box,'#f2c14e',0,1.45,1.46,.4,.05,.006);
+      B.put(FG.box,'#3a3532',.501,.82,1.1,.006,1.1,.44); B.put(FG.box,'#bdb6aa',.38,.27,1.1,.2,.04,.44);
+      B.put(FG.box,K,-.25,.76,1.25,.42,.12,.24); B.put(FG.box,'#5a4a40',-.25,.62,.98,.32,.16,.3); B.put(FG.box,'#5a4a40',-.25,.88,.85,.32,.42,.06);
+      for(const z of [-1.0,-.4,.2]) [-.25,.25].forEach(x=>{ B.put(FG.box,'#7a4a4a',x,.62,z,.36,.14,.3); B.put(FG.box,'#7a4a4a',x,.86,z-.14,.36,.38,.06); }); }));
+    const gl=tlPart(B=>{ B.put(FG.box,'#ffffff',0,1.07,1.452,.9,.6,.01); [-1,1].forEach(s=>B.put(FG.box,'#ffffff',s*.48,1.07,s>0?-.35:0,.01,.58,s>0?2.1:2.8)); },TLGL); gl.userData.noInk=true; c.g.add(gl);
+    c.leaves=[[.88,1],[1.32,-1]].map(([z,s])=>{ const L=new T.Group(); L.position.set(.505,.25,z); const m=tlPart(B=>{ B.put(FG.box,CR,0,.56,s*.11,.03,1.12,.22); B.put(FG.box,TE,0,.2,s*.11,.032,.4,.2); }); L.add(m);
+      const lg=tlPart(B=>B.put(FG.box,'#ffffff',.002,.82,s*.11,.034,.5,.16),TLGL); lg.userData.noInk=true; L.add(lg); c.g.add(L); return {g:L,s}; });
+    for(const z of [-1.0,1.0]){ const a=tlAxle(.2,.12,.44); a.position.set(0,.2,z); c.g.add(a); c.axles.push(a); }
+    c.bust=tlBust(TL_LOOK.bus); c.bust.position.set(-.25,.68-.5*.86,1.0); c.g.add(c.bust);
+    const ps=tlBust(TL_LOOK.rider); ps.position.set(.25,.68-.5*.86,-.4); c.g.add(ps); c.pass1=ps;
+    tlLamps(c,[[.33,.48,1.462,.16,.1],[-.33,.48,1.462,.16,.1],[0,1.45,1.462,.6,.12]],[[.4,.52,-1.462,.1,.14],[-.4,.52,-1.462,.1,.14]]); c.wr=.2; c.door=0; }
+  /* the post's van: red, a cream band, a cab in front and the box behind, two doors at the back that open for the parcels */
+  { const c=tlCar({id:'post',kind:1,dir:1,len:1.9,wid:.9,ht:1.55,vmax:2.2}), RD='#c8483a', CR='#f1ead8', K='#3a3c3e';
+    c.g.add(tlPart(B=>{ B.put(FG.box,RD,0,.47,0,.9,.54,1.9); B.put(FG.box,CR,0,.8,0,.905,.07,1.905); B.put(FG.box,RD,0,1.13,-.38,.9,.76,1.14); B.put(FG.box,RD,0,1.47,.2,.9,.06,.92);
+      [-1,1].forEach(s=>{ B.put(FG.box,RD,s*.42,1.13,.9,.06,.6,.06); B.put(FG.box,'#fbf6e8',s*.3,.52,.955,.16,.1,.012); B.put(FG.box,'#d14b3f',s*.38,.55,-.955,.1,.14,.012); B.put(FG.box,K,s*.49,1.05,.8,.08,.07,.04); B.put(FG.box,'#f2c14e',s*.452,1.18,-.4,.006,.18,.18); });
+      B.put(FG.box,K,0,.28,.96,.92,.1,.05); B.put(FG.box,K,0,.28,-.96,.92,.1,.05); B.put(FG.box,'#3a3532',0,.86,-.951,.82,1.12,.006);
+      B.put(FG.box,K,0,.84,.75,.82,.1,.2); [-.21,.21].forEach(x=>{ B.put(FG.box,'#5a4a40',x,.62,.4,.3,.18,.3); B.put(FG.box,'#5a4a40',x,.92,.22,.3,.44,.07); }); }));
+    const gl=tlPart(B=>{ B.put(FG.box,'#ffffff',0,1.13,.93,.78,.54,.01); [-1,1].forEach(s=>B.put(FG.box,'#ffffff',s*.448,1.13,.52,.01,.54,.7)); },TLGL); gl.userData.noInk=true; c.g.add(gl);
+    c.leaves=[-1,1].map(s=>{ const L=new T.Group(); L.position.set(s*.45,0,-.955); L.add(tlPart(B=>{ B.put(FG.box,RD,-s*.225,.88,-.01,.45,1.18,.03); B.put(FG.box,CR,-s*.225,.8,-.026,.45,.07,.006); B.put(FG.box,K,-s*.4,.9,-.03,.03,.1,.02); })); c.g.add(L); return {g:L,s}; });
+    for(const z of [-.62,.62]){ const a=tlAxle(.18,.1,.4); a.position.set(0,.18,z); c.g.add(a); c.axles.push(a); }
+    c.bust=tlBust(TL_LOOK.post); c.bust.position.set(-.21,.68-.5*.86,.4); c.g.add(c.bust);
+    const pc=tlPart(B=>{ B.put(FG.box,'#b98b58',0,0,0,.22,.16,.18); B.put(FG.box,'#efe7d6',0,.081,0,.225,.004,.03); B.put(FG.box,'#f6f1e7',.04,.082,.05,.08,.003,.05); });
+    tlLamps(c,[[.3,.52,.962,.16,.1],[-.3,.52,.962,.16,.1]],[[.38,.55,-.962,.1,.14],[-.38,.55,-.962,.1,.14]]); c.wr=.18; c.walker=tlFoot('post'); c.walker.carry=pc; c.walker.d.body.add(pc); pc.position.set(0,.84,.24); pc.visible=false; c.rear=0; }
+  /* the milk float: white with a green band, a little open cab, crates of bottles on the back under a canopy, an amber lamp
+     on the roof. It comes and goes with a dissolve, as the market does (the market's own material, so no new program) */
+  { const u={value:1}, mat=mktMat(u), c=tlCar({id:'milk',kind:2,dir:1,len:1.85,wid:.84,ht:1.4,vmax:1.3,u,mat}), W='#f4f1ea', GN='#3f7d5a', K='#3a3c3e';
+    c.g.add(tlPart(B=>{ B.put(FG.box,W,0,.36,0,.84,.3,1.85); B.put(FG.box,GN,0,.46,0,.846,.07,1.856); B.put(FG.box,W,0,.9,.38,.84,.78,.04); B.put(FG.box,W,0,1.33,.64,.86,.06,.58); B.put(FG.box,W,0,.62,.84,.84,.22,.12);
+      [-1,1].forEach(s=>{ B.put(FG.box,W,s*.41,.92,.9,.05,.82,.05); B.put(FG.box,'#fbf6e8',s*.28,.55,.905,.14,.08,.012); B.put(FG.box,'#d14b3f',s*.36,.42,-.93,.08,.08,.012); [-.9,.32].forEach(z=>B.put(FG.box,W,s*.4,.92,z,.04,.82,.04)); });
+      B.put(FG.box,W,0,1.33,-.29,.86,.05,1.3); B.put(FG.can,'#e9a04a',0,1.4,.66,.04,.08,.04); B.put(FG.box,'#5a4a40',0,.62,.6,.5,.16,.26);
+      for(const x of [-.2,.2]) for(const z of [-.75,-.35,.05]){ B.put(FG.box,GN,x,.6,z,.36,.18,.36); for(const bx of [-.09,.09]) for(const bz of [-.09,.09]){ B.put(FG.can,'#f6f4ee',x+bx,.74,z+bz,.035,.12,.035); B.put(FG.can,'#d9b45a',x+bx,.81,z+bz,.036,.012,.036); } } },mat));
+    const gl=tlPart(B=>B.put(FG.box,'#ffffff',0,.98,.9,.72,.56,.01),TLGL); gl.userData.noInk=true; c.g.add(gl);
+    for(const z of [-.6,.6]){ const a=tlAxle(.16,.09,.38); a.material=mat; a.position.set(0,.16,z); c.g.add(a); c.axles.push(a); }
+    c.bust=tlBust(TL_LOOK.milk,mat); c.bust.position.set(-.18,.62-.5*.86,.6); c.g.add(c.bust);
+    tlLamps(c,[[.28,.55,.912,.14,.08],[-.28,.55,.912,.14,.08]],[[.36,.42,-.937,.08,.08],[-.36,.42,-.937,.08,.08]]); c.wr=.16; c.walker=tlFoot('milk');
+    const cr=tlPart(B=>{ B.put(FG.box,'#9aa0a3',0,0,0,.16,.008,.09); [-1,1].forEach(s=>B.put(FG.box,'#9aa0a3',s*.08,.07,0,.008,.14,.008)); B.put(FG.box,'#9aa0a3',0,.14,0,.16,.008,.008);
+      [-.04,.04].forEach(x=>{ B.put(FG.can,'#f6f4ee',x,.06,0,.03,.11,.03); B.put(FG.can,'#d9b45a',x,.12,0,.031,.012,.031); }); });
+    cr.position.set(0,-.31,.02); c.walker.d.fore[0].add(cr); c.walker.carry=cr; cr.visible=false; }
+  TLA.kei=TL.cars[0]; TLA.bike=TL.cars[1]; TLA.bus=TL.cars[2]; TLA.post=TL.cars[3]; TLA.milk=TL.cars[4]; }
+
+/* ---------- where each stops: the bus stop by the square (on the inner kerb: the bus goes round the other way), outside the
+   town hall, the post office and the café (at the kerb, a little along from the door, clear of Diarmuid and the
+   tables), the workshop, and the three doorsteps the milk goes to. Found on the loop as it was laid out ---------- */
+const TLP={};
+function tlStops(){ const q=o=>tlNear(o.x,o.z), H=CIV.hall&&CIV.hall.M, PM=PO.M, CM=CAFE.M;
+  TLP.bus=q({x:-9.05,z:-1.9}).s;
+  if(H){ const out=tlB(H,0,2.75); TLP.hall=q(out).s; TLP.hallWay=[tlB(H,0,2.75),tlB(H,0,2.32,.14),tlB(H,0,1.62,.42),tlB(H,0,1.0,.425)]; }
+  if(PM){ const f=PW.d/2; TLP.po=q(tlB(PM,PW.DX,f+.6)).s; TLP.poWay=[tlB(PM,PW.DX,f+.55,.16),tlB(PM,PW.DX,f+.02,.16)]; }
+  if(CM){ const f=CAFE.d/2; TLP.cafe=q({x:CAFE.x-2.6,z:CAFE.z+3.2}).s; TLP.cafeWay=[tlB(CM,0,f+.85),tlB(CM,0,f+.5,.16),tlB(CM,0,f+.02,.16)]; }
+  TLP.rest=q({x:-.6,z:10.9}).s;
+  /* the milk: the house by the café, the café, the house by the workshop (the houses the children come from that are still houses) */
+  TLP.milk=[]; for(const [hx,hz] of [[6.4,-12.6],[3,-13.4],[-5.8,13.6]]){ const Hh=HOUSES.find(H_=>{ const [px,pz]=loc(tlV.setFromMatrixPosition(H_.M).normalize()); return Math.hypot(px-hx,pz-hz)<.3; }); if(!Hh) continue;
+    const f=Hh.d/2, dx=Hh.dx||0, step=tlB(Hh.M,dx,f+.5,.16), front=tlB(Hh.M,dx,f+1.0), bot=tlB(Hh.M,dx+.28,f+.42,.16);
+    TLP.milk.push({s:q(front).s-.3,step,front,bot,M:Hh.M,dx,f,cafe:hx===3}); }
+  TLP.milk.sort((a,b)=>a.s-b.s); }
+/* a stop's place for a vehicle: up to the kerb, its middle at s */
+const tlParkLat=c=>c.dir*(RW+.02-c.hw);
+/* the next place it stops at, going round (null: just round again) */
+function tlNext(c){ const h=SKY.h;
+  if(c.id==='bus') return {s:TLP.bus,lat:tlParkLat(c),why:'stop'};
+  if(c.id==='kei'&&TLP.hall!=null) return c.laps>=(c.want??1)||tlNight()?{s:TLP.hall-.5,lat:tlParkLat(c),why:'hall'}:null;
+  if(c.id==='bike'&&TLP.cafe!=null) return c.laps>=(c.want??1)||tlNight()?{s:TLP.cafe,lat:c.dir*(RW+.22),why:'cafe'}:null;
+  if(c.id==='post'&&TLP.po!=null){ const off=h<8||h>=19; return off||c.next==='rest'?{s:TLP.rest,lat:tlParkLat(c),why:'rest'}:{s:TLP.po+.2,lat:tlParkLat(c),why:'po'}; }
+  if(c.id==='milk'){ const m=TLP.milk[c.k??0]; return m?{s:m.s,lat:tlParkLat(c),why:'milk',m}:{s:null,why:'away'}; }
+  return null; }
+const tlNight=()=>SKY.h>=23||SKY.h<6.5;
+
+/* ---------- each vehicle, each frame ---------- */
+/* what is in the way ahead: how far it can go before it must stop, and what it is (the band across the road each takes) */
+function tlGap(c){ let gap=99, by=null; const L=TLR.L, lo=Math.min(c.lat,c.latW)-c.hw-.16, hi=Math.max(c.lat,c.latW)+c.hw+.16;
+  for(const b of TL.road){ if(b.car===c) continue; let al=((b.s-c.s)*c.dir%L+L)%L; if(al>L/2) al-=L; const ext=b.car?b.car.hl:b.r; if(al<-(c.hl+ext)||al>c.hl+9+ext) continue;
+    const bl=b.car?b.car.lat-b.car.hw:b.lat-b.r, bh=b.car?b.car.lat+b.car.hw:b.lat+b.r, clo=b.car?Math.min(c.lat,c.latW)-c.hw-.03:lo, chi=b.car?Math.max(c.lat,c.latW)+c.hw+.03:hi;
+    if(bh<clo||bl>chi) continue; if(b.car&&b.car.dir!==c.dir&&al<-.2) continue;
+    const g=al-c.hl-ext; if(g<gap){ gap=g; by=b; } } return [gap,by]; }
+/* nothing coming the other way for a good stretch: room to pass */
+function tlClearPass(c){ for(const o of TL.cars){ if(o===c||!o.on||o.dir===c.dir) continue; let al=((o.s-c.s)*c.dir%TLR.L+TLR.L)%TLR.L; if(al>TLR.L/2) al-=TLR.L; if(al>-2&&al<15) return false; } return true; }
+/* stopping here would stand in the way of you and whoever you are walking to (or on the way you are walking): go round again */
+function tlInWay(c,s,lat){ const P=player, Cc=TALK.p||TALK.goal?TL.corr:null, pts=[-c.hl,0,c.hl].map(a=>tlAt(s+c.dir*a,lat,{}));
+  if(Cc&&pts.some(p=>civSeg(p.x,p.z,Cc)<c.hw+.6)) return true;
+  if(P.path){ let a=[P.x,P.z]; for(const b of P.path){ const sg=[a[0],a[1],b[0],b[1]]; if(pts.some(p=>civSeg(p.x,p.z,sg)<c.hw+.7)) return true; a=b; } }
+  return pts.some(p=>Math.hypot(P.x-p.x,P.z-p.z)<c.hw+.6); }
+function tlDrive(c,dt,t){ const L=TLR.L; let want=0, lw=c.mode==='stop'&&c.via?c.via.lat:c.lane;
+  if(c.mode==='drive'){ want=c.vmax;
+    /* (a stop just left is behind it: the next is looked for once it is a little way off) */
+    c.hold=Math.max(0,(c.hold||0)-c.v*dt); if((c.stopAt===undefined||c.stopAt===null)&&c.hold<=0){ const nx=tlNext(c); c.via=nx; c.stopAt=nx&&nx.s!=null?tlWrap(nx.s):null; c.prevD=null; }
+    /* there: at it, or just gone over it (a stop just left, or set behind it, is the next time round) */
+    if(c.stopAt!=null){ const d=tlAhead(c,c.stopAt), over=c.prevD!=null&&c.prevD<1.5&&d>L-1.5; c.prevD=d;
+      if(d<.06||over){ if(tlInWay(c,c.stopAt,c.via.lat)){ c.stopAt=null; c.laps=0; c.skip=(c.skip||0)+1; } else { c.mode='stop'; c.t=0; c.v=0; c.s=c.stopAt; c.pass=null; lw=c.via.lat; tlArrive(c); } }
+      else { if(d<5) lw=c.via.lat; want=Math.min(want,Math.max(.22,Math.sqrt(2.2*Math.max(0,d-.04)))); } } }
+  else if(c.mode==='stop'){ c.t+=dt; if(tlAtStop(c,dt,t)){ c.mode='drive'; c.stopAt=null; lw=c.lane; c.laps=0; c.hold=1.5; } }
+  /* passing something stopped or slow: out toward the middle of the road until it is behind (this comes before the kerb) */
+  if(c.pass&&c.mode==='drive'){ const p=c.pass, side=c.dir*(p.lat*c.dir-p.hw-.1-c.hw); lw=c.dir>0?Math.min(c.lane,side):Math.max(c.lane,side); }
+  c.latW=lw;
+  /* in the way: slow, and stop well short; behind something stopped or slow, pass it when nothing is coming */
+  const [gap,by]=tlGap(c); if(c.mode==='drive') want=Math.min(want,Math.max(0,(gap-1.15)*1.25));
+  if(c.mode==='drive'&&by&&by.car&&by.car.dir===c.dir&&gap<3.5&&!c.pass&&(by.car.mode!=='drive'||by.car.v<c.vmax*.65)){ c.wait+=dt; if(c.wait>1&&tlClearPass(c)){ c.pass=by.car; c.wait=0; } } else if(!c.pass) c.wait=0;
+  if(c.pass){ const p=c.pass, ah=tlAhead(c,p.s); if(ah>L/2&&L-ah>p.hl+c.hl+.7||!p.on) c.pass=null; else if(by&&by.car&&by.car.dir!==c.dir&&ah<L/2) c.pass=null; }   // (by, or something coming: back in)
+  if(by&&by.me&&gap<4&&c.v>.3&&c.id==='bike'&&c.bell<=0){ c.bell=6; tlSay('bell',.016,c.x,c.z,18); }
+  c.bell-=dt;
+  c.v=want<c.v?Math.max(want,c.v-6*dt):Math.min(want,c.v+1.1*dt); c.s=tlWrap(c.s+c.dir*c.v*dt);
+  const dl=clamp(c.latW-c.lat,-.7*dt,.7*dt); c.lat+=dl; c.yaw=damp(c.yaw||0,clamp(c.dir*(dl/Math.max(dt,1e-3))/Math.max(c.v,.7),-.35,.35),6,dt);
+  c.odo=(c.odo||0)+c.v*dt; if(c.odo>TLR.L*.92){ c.odo=0; c.laps++; } }
+/* placed on the road: its frame, its turning wheels, its solid circles, a little bob as it goes */
+function tlPlaceCar(c,dt,t){ const q=tlAt(c.s,c.lat,TLB_), gh=standH(q.x,q.z); c.x=q.x; c.z=q.z; c.h=c.h==null||dt>.5?gh:damp(c.h,gh,12,dt);
+  at(q.x,q.z,tlU); tlF.set(q.dx*c.dir,0,q.dz*c.dir); at(q.x+tlF.x,q.z+tlF.z,tlV3); tang(tlU,tlV3,tlV2); standOn(c.g,tlU,tlV2,c.h+(c.v>.2?.004*Math.sin(t*9+c.len):0)); if(c.yaw) c.g.rotateY(c.yaw);
+  for(const a of c.axles) a.rotation.x+=c.v*dt/(c.wr||.18); if(c.crank) c.crank.rotation.x+=c.v*dt/.23*.6;
+  for(const o of c.obs){ const p=tlAt(c.s+c.dir*o.along,c.lat,TLB_); o.x=p.x; o.z=p.z; }
+  if(c.lamps) c.lamps.visible=SKY.night>.3&&c.run&&c.on; }
+function tlArrive(c){ const w=c.via&&c.via.why; c.t=0;
+  if(c.id==='bus'){ c.lay=tlNight()?1e9:14+tlRnd()*20; }   // (waiting for its time: calm, not a bus a minute)
+  if(c.id==='milk'){ c.stage=0; }
+  if(w==='hall'||w==='po'||w==='cafe'||w==='rest'){ c.stage=0; } }
+/* at a stop: what each does there; true when it sets off again */
+function tlAtStop(c,dt,t){ const w=c.walker, T_=c.t, why=c.via&&c.via.why;
+  if(c.id==='bus'){ const open=T_>.6&&T_<6; if(open!==c.doorOpen){ c.doorOpen=open; tlSay('busDoor',.024,c.x,c.z,20,open); } c.run=!tlNight()||T_<2;
+    if(tlNight()){ c.lay=1e9; return false; } if(c.lay>1e8) c.lay=T_+4+tlRnd()*4;
+    return !open&&T_>Math.max(c.lay,6.6); }
+  if(why==='rest'){ c.run=T_<1; const h=SKY.h; if(h>=8&&h<19&&T_>(c.restT||(c.restT=40+tlRnd()*40))){ c.restT=0; c.next='po'; return true; } return false; }
+  /* the driver (or the rider) gets out at the kerb, goes in at the door, and comes back */
+  if(c.stage===0){ c.run=T_<.8; if(T_>1.1){ const s=c.dir*(c.hw+.32), p=tlAt(c.s,c.lat+s,TLB_); w.x=p.x; w.z=p.z; w.fx=p.dx*c.dir; w.fz=p.dz*c.dir; w.hy=null; tlShow(w,true);
+      if(c.bust) c.bust.visible=false; if(c.rider) c.ride=false; c.stage=1;
+      if(why==='po'){ c.stage=10; const r=tlAt(c.s-c.dir*(c.hl+.32),c.lat+c.dir*(c.hw*.3),TLB_); tlGo(w,[{x:r.x,z:r.z}],()=>{ c.stage=11; c.t2=0; }); }
+      else if(why==='milk') c.stage=20; else tlToDoor(c); } return false; }
+  if(c.stage===10||c.stage===11){ if(c.stage===11){ c.t2+=dt; if(c.t2>.3&&!c.rearOpen){ c.rearOpen=true; tlSay('doorCreak',.02,c.x,c.z,16,false); } if(c.t2>1.1){ w.carryOn=true; } if(c.t2>1.6){ c.rearOpen=false; tlSay('doorCreak',.02,c.x,c.z,16,false); c.stage=1; tlToDoor(c); } } return false; }
+  if(c.stage>=20&&c.stage<30) return tlMilkStop(c,dt);
+  if(c.stage===2){ c.t2=(c.t2||0)+dt; if(c.t2>c.stay){ c.t2=0; if(tlNight()&&why!=='po') return false; tlFromDoor(c); } return false; }
+  if(c.stage===4){ c.t2=(c.t2||0)+dt; if(c.t2>.5){ c.t2=0; c.stage=5; c.run=true; } return false; }
+  if(c.stage===5){ c.t2=(c.t2||0)+dt; if(c.t2>.6){ c.t2=0; c.stage=0; if(why==='po') c.next='rest'; else { c.want=1+Math.floor(tlRnd()*2); } return true; } return false; }
+  return false; }
+/* the walk in: to the pavement, the door, which opens as they come up to it, and in (out of sight); the door shuts behind */
+function tlToDoor(c){ const w=c.walker, why=c.via.why, way=why==='hall'?TLP.hallWay:why==='po'?TLP.poWay:TLP.cafeWay, door=why;
+  const pv=tlAt(c.s,c.dir*(RW+SW*.55),{}), pts=[{x:pv.x,z:pv.z},...tlWay(pv.x,pv.z,way[0].x,way[0].z).slice(0,-1),...way.map(p=>({...p}))];
+  const k=pts.length-way.length; pts[k+(why==='hall'?1:0)].go=()=>tlDoor(door,true,w);
+  tlGo(w,pts,()=>{ tlShow(w,false); w.carryOn=false; tlDoor(door,false,w); c.stage=2; c.t2=0; c.stay=why==='po'?7+tlRnd()*4:why==='hall'?30+tlRnd()*30:40+tlRnd()*40; }); }
+function tlFromDoor(c){ const w=c.walker, why=c.via.why, way=(why==='hall'?TLP.hallWay:why==='po'?TLP.poWay:TLP.cafeWay).slice().reverse(), door=why, p0=way[0];
+  w.x=p0.x; w.z=p0.z; w.hy=null; const pv=tlAt(c.s,c.dir*(RW+SW*.55),{}), kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),{});
+  tlDoor(door,true,w); tlShow(w,true); const back=way.slice(1).map(p=>({...p})); back[0].go=()=>tlDoor(door,false,w);
+  tlGo(w,[...back,...tlWay(back[back.length-1].x,back[back.length-1].z,pv.x,pv.z),{x:kb.x,z:kb.z}],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; if(c.rider) c.ride=true; c.stage=4; c.t2=0; });
+  c.stage=3; }
+/* the milkman: the bottles from the back, up to the step, down on it (clink), and back */
+function tlMilkStop(c,dt){ const w=c.walker, m=c.via.m;
+  if(c.stage===20){ w.carryOn=true; tlSay('bottles',.013,c.x,c.z,14); const pv=tlAt(c.s,c.dir*(RW+SW*.55),TLB_);
+    tlGo(w,[{x:pv.x,z:pv.z},...tlWay(pv.x,pv.z,m.front.x,m.front.z),{...m.step}],()=>{ c.stage=21; c.t2=0; }); c.stage=19; return false; }
+  if(c.stage===21){ c.t2+=dt; if(c.t2>.5&&w.carryOn){ w.carryOn=false; const b=TL.bottles[TLP.milk.indexOf(m)]; if(b){ b.on=true; b.m.visible=true; } tlSay('bottles',.016,w.x,w.z,14); TL.n.left=(TL.n.left||0)+1; }
+    if(c.t2>1.0){ const kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),TLB_); tlGo(w,[m.front,...tlWay(m.front.x,m.front.z,kb.x,kb.z)],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; c.stage=22; c.t2=0; }); c.stage=19; } return false; }
+  if(c.stage===22){ c.t2+=dt; if(c.t2>.6){ c.k=(c.k||0)+1; c.stage=0; return true; } }
+  return false; }
+
+/* ---------- the doors: the café's, the post office's and the town hall's own doors swung by their own springs, only while you
+   are not using them; a creak as each opens and a knock as it shuts. The school's opens for its children: it creaks too ---------- */
+function tlDoor(id,open,who){ const D=TL.doors[id]; let ok=false, x=0, z=0;
+  if(id==='cafe'&&CAFE.M&&CAFE.st==='out'&&!CAFE.on&&CAFE.k<.001){ CAFE.doorT=open?1:0; ok=true; [x,z]=[CAFE.x,CAFE.z]; }
+  if(id==='po'&&PO.M&&PO.st==='out'&&!PO.on&&PO.k<.001){ PO.doorT=open?1:0; ok=true; [x,z]=[PO.x,PO.z]; }
+  if(id==='hall'&&HSI.ok&&HSI.st==='out'&&HSI.hall){ HSI.hall.door.want=open?1:0; ok=true; const p=tlB(HSI.hall.M,0,1.4); x=p.x; z=p.z; }
+  if(!ok){ D.log=(D.log||0); return; }
+  if(open){ D.open=(D.open||0)+1; tlSay('doorCreak',.03,x,z,18,true,id==='hall'); } else { D.shutT=.55; D.x=x; D.z=z; } }
+function tlDoors(dt){ for(const id in TL.doors){ const D=TL.doors[id]; if(D.shutT>0){ D.shutT-=dt; if(D.shutT<=0){ D.shut=(D.shut||0)+1; tlSay('doorCreak',.03,D.x,D.z,18,false,id==='hall'); } } }
+  if(CAFE.M) TL.seen.cafeDoor=Math.max(TL.seen.cafeDoor||0,CAFE.st==='out'?CAFE.door:0); if(PO.M) TL.seen.poDoor=Math.max(TL.seen.poDoor||0,PO.st==='out'?PO.door:0); if(HSI.ok&&HSI.st==='out') TL.seen.hallDoor=Math.max(TL.seen.hallDoor||0,HSI.hall.door.a);
+  /* the school's: its children open it (see the school); the creak and the knock, unless it is you going in or out */
+  if(CIV.ok){ const k=CIV.doorK, S0=CIV.school, mine=HSI.st!=='out'||TL.schQ>0; if(HSI.st!==TL.hiSt){ TL.hiSt=HSI.st; TL.schQ=2; } TL.schQ=Math.max(0,TL.schQ-dt);
+    if(!mine&&k>.06&&TL.schK<=.06){ TL.doors.school=TL.doors.school||{}; TL.doors.school.open=(TL.doors.school.open||0)+1; tlSay('doorCreak',.026,S0.x,S0.z,18,true,false); }
+    if(!mine&&k<.04&&TL.schK>=.04){ TL.doors.school=TL.doors.school||{}; TL.doors.school.shut=(TL.doors.school.shut||0)+1; tlSay('doorCreak',.026,S0.x,S0.z,18,false,false); }
+    TL.schK=k; } }
+/* the rider on the bike: on the saddle, hands on the bars, each foot on its pedal as they go round (each leg bent to reach) */
+function tlRide(c,t){ const w=c.walker; if(!c.ride||!c.on){ if(!w.on&&!TL.warm) w.g.visible=false; return; } w.g.visible=true;
+  c.g.updateMatrix(); w.g.position.set(0,.12,-.12).applyMatrix4(c.g.matrix); w.g.quaternion.copy(c.g.quaternion); const D=w.d, th=c.crank.rotation.x;
+  [-1,1].forEach((s,i)=>{ const py=.11-s*.09*Math.cos(th), pz=.12-s*.09*Math.sin(th), dy=py-.5, dz=pz, d=clamp(Math.hypot(dy,dz),.1,.49), a=.22, b=.28, ph=Math.atan2(dz,-dy);
+    const be=Math.acos(clamp((a*a+d*d-b*b)/(2*a*d),-1,1)), ga=Math.PI-Math.acos(clamp((a*a+b*b-d*d)/(2*a*b),-1,1)); D.legs[i].rotation.set(-(ph+be),0,0); if(D.knees[i]) D.knees[i].rotation.x=ga; });
+  D.arms.forEach(a=>{ a.rotation.set(-1.05,0,0); }); D.fore.forEach(f=>{ f.rotation.set(-.3,0,0); }); D.body.position.y=.004*Math.sin(th*2); D.body.rotation.set(0,0,0); D.head.rotation.set(.05,.15*Math.sin(t*.4),0);
+  w.x=c.x; w.z=c.z; }
+/* the milk float's morning: from half past five it comes into town where you cannot see it (dissolving in, as the market
+   does), goes from doorstep to doorstep, and after the last (or at eight) drives on and is gone */
+function tlMilkLife(c,dt){ const h=SKY.h, win=h>=5.5&&h<8, U=c.u;
+  if(!c.on){ if(!win||c.done) return false; const k=c.k??0; if(k>=TLP.milk.length){ c.done=true; return false; }
+    let s0=TLP.milk[k].s-7; for(let j=0;j<10;j++){ const q=tlAt(s0,c.lane,{}); if(!tlSeen(q.x,q.z)) break; s0-=2.5; }
+    c.s=tlWrap(s0); c.lat=c.latW=c.lane; c.v=0; c.mode='drive'; c.stopAt=null; c.leaving=false; U.value=0; c.fade=1; tlCarShow(c,true); if(c.bust) c.bust.visible=true; TL.n.milkIn=(TL.n.milkIn||0)+1; }
+  if(c.fade>0){ U.value=Math.min(1,U.value+dt/1.6); if(U.value>=1) c.fade=0; }
+  if(c.mode==='drive'&&((c.k??0)>=TLP.milk.length||!win)&&!c.leaving){ c.leaving=true; c.lt=0; }
+  if(c.leaving&&c.mode==='drive'&&c.fade===0){ c.lt+=dt; if(c.lt>3&&(!tlSeen(c.x,c.z)||c.lt>9)) c.fade=-1; }
+  if(c.fade<0){ U.value=Math.max(0,U.value-dt/1.6); if(U.value<=0){ tlCarShow(c,false); c.fade=0; c.leaving=false; c.done=true; A.engine('milk',-1); return false; } }
+  c.g.children.forEach(o=>{ if(o.material===TLGL) o.visible=U.value>.98; if(o.material===SHM) o.visible=U.value>.5; });
+  return true; }
+/* each vehicle, each frame: drive, stand on the road, turn the wheels, open and shut its doors, sound its engine */
+function tlCars(dt,t){ tlWho();
+  for(const c of TL.cars){ if(c.id==='milk'&&!tlMilkLife(c,dt)) continue; if(!c.on) continue;
+    tlDrive(c,dt,t); tlPlaceCar(c,dt,t); if(c.id==='bike') tlRide(c,t);
+    if(c.id==='milk'&&c.lamps) c.lamps.visible=c.lamps.visible&&c.u.value>.98;
+    if(c.id==='bus'){ c.door=damp(c.door,c.doorOpen?1:0,c.doorOpen?6:8,dt); for(const L of c.leaves) L.g.rotation.y=-L.s*1.3*c.door; TL.seen.busDoor=Math.max(TL.seen.busDoor||0,c.door); }
+    if(c.id==='post'){ c.rear=damp(c.rear,c.rearOpen?1:0,6,dt); for(const L of c.leaves) L.g.rotation.y=-L.s*1.7*c.rear; TL.seen.rear=Math.max(TL.seen.rear||0,c.rear); }
+    if(c.v>.6) tlSplashAt(c.x,c.z,1.1,c.hw+.1);
+    if(c.kind>=0){ const k=c.run&&!tlQuiet()?tlEar(c.x,c.z,20)*(tlIn()?.3:1)*(TALK.p?.7:1)*(c.u?c.u.value:1):0; A.engine(c.id,k,c.kind,clamp(c.v/c.vmax+(c.v<c.vmax*.9&&c.mode==='drive'?.25:0),0,1),k>0?civPan(c.x,c.z):0); TL.seen['eng'+c.id]=Math.max(TL.seen['eng'+c.id]||0,k); } } }
+const tlCarsQuiet=()=>{ for(const c of TL.cars) if(c.kind>=0) A.engine(c.id,-1); };
+
+/* ---------- the cat on the café's windowsill (the right-hand window): ginger with a white chest and paws, asleep curled up;
+   it wakes as you come by, sits up, has a long stretch and looks at you, purring while you stay; then it curls up again.
+   Now and then it gets up and walks along to the other end of the sill. In the café's frame: the sill's top, its middle ---------- */
+const CAT={g:null,parts:null,x:.12,face:Math.PI/2,st:'sleep',t:0,cool:0,walkT:40,purrT:0,away:0,to:0,ph:0,P:null,wx:0,wz:0,stretches:0,walks:0,wakes:0,look:0,blink:3};
+const CAT_SILL=[1.25,1.06,1.46];
+/* the poses: where the body, the head, the legs and the tail are; each is eased into */
+const CATP={sleep:{by:.045,bp:0,sy:.78,sz:.86,hy:.035,hz:.105,hp:.55,hw:1.0,hr:.35,eye:0,fy:.02,fz:.06,fr:-1.5,ry:.02,rz:-.06,rr:-1.5,lv:.25,t1:.05,ty1:1.1,t2:.0,ty2:1.0,t3:0,ty3:.9},
+  sit:{by:.08,bp:-.62,sy:1,sz:1,hy:.2,hz:.075,hp:.05,hw:0,hr:0,eye:1,fy:.09,fz:.075,fr:0,ry:.035,rz:-.06,rr:-1.35,lv:.85,t1:.05,ty1:.95,t2:0,ty2:.6,t3:0,ty3:.4},
+  stand:{by:.1,bp:0,sy:1,sz:1,hy:.15,hz:.15,hp:.12,hw:0,hr:0,eye:1,fy:.075,fz:.085,fr:0,ry:.075,rz:-.085,rr:0,lv:1,t1:-1.15,ty1:0,t2:.55,ty2:0,t3:.35,ty3:0},
+  stretch:{by:.065,bp:.36,sy:1,sz:1.04,hy:.065,hz:.19,hp:-.25,hw:0,hr:0,eye:.35,fy:.03,fz:.11,fr:-1.3,ry:.1,rz:-.08,rr:.12,lv:1,t1:-1.45,ty1:0,t2:-.1,ty2:0,t3:0,ty3:0}};
+function tlBuildCat(){ const GI='#e08d4a', GD='#c06f35', WH='#f6ecdc', g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g); const mk=fn=>tlPart(fn,FIGM);
+  const body=mk(B=>{ B.put(FG.sph,GI,0,0,0,.062,.058,.13); B.put(FG.sph,WH,0,-.012,.085,.044,.042,.05); for(const z of [-.06,-.01,.04]) B.put(FG.sph,GD,0,.042,z,.045,.016,.014); }); g.add(body);
+  const head=new T.Group(); g.add(head); head.add(mk(B=>{ B.put(FG.sph,GI,0,0,0,.052,.047,.048); B.put(FG.sph,WH,0,-.016,.035,.027,.021,.021); B.put(FG.sph,'#e79a9a',0,-.005,.054,.008,.006,.005);
+    [-1,1].forEach(s=>{ B.put(FG.cone,GI,s*.028,.048,-.004,.017,.034,.011,0,0,-s*.25); B.put(FG.cone,'#f0b6a0',s*.028,.046,.002,.01,.022,.004,0,0,-s*.25); B.put(FG.sph,GD,s*.02,.03,.015,.012,.006,.01); }); }));
+  const eyes=mk(B=>[-1,1].forEach(s=>B.put(FG.sph,'#2b2a24',s*.021,.006,.041,.008,.009,.005))); head.add(eyes);
+  const tg=[]; let par=g; for(let k=0;k<3;k++){ const q=new T.Group(); par.add(q); q.position.set(0,0,k?-.068:-.12); q.add(mk(B=>B.put(FG.sph,k===2?GD:GI,0,0,-.034,.017,.017,.04))); tg.push(q); par=q; }
+  const legs=[[1,1],[-1,1],[1,-1],[-1,-1]].map(([s,f])=>{ const q=new T.Group(); g.add(q); q.add(mk(B=>{ B.put(FG.can,GI,0,-.045,0,.016,.09,.016); B.put(FG.sph,WH,0,-.09,.006,.018,.012,.022); })); return {g:q,s,f}; });
+  const sh=new T.Mesh(SHG,SHM); sh.scale.set(.22,1,.34); sh.position.y=.004; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
+  CAT.g=g; CAT.parts={body,head,eyes,tail:tg,legs}; CAT.P=Object.assign({},CATP.sleep); }
+function tlCatPose(P,t){ const p=CAT.parts, br=CAT.st==='sleep'?1+.035*Math.sin(t*1.7):1;
+  p.body.position.set(0,P.by,0); p.body.rotation.set(P.bp,0,0); p.body.scale.set(1,P.sy*br,P.sz);
+  p.head.position.set(0,P.hy,P.hz); p.head.rotation.set(P.hp,P.hw+CAT.look,P.hr); p.eyes.scale.y=Math.max(.12,P.eye*(CAT.blink<0?.15:1));
+  const tw=CAT.st==='sit'?.12*Math.sin(t*1.3):0; [[P.t1,P.ty1+tw],[P.t2,P.ty2],[P.t3,P.ty3]].forEach(([x,y],k)=>p.tail[k].rotation.set(x,y,0)); p.tail[0].position.set(0,P.by*.6,-.12);
+  const wk=CAT.st==='walk'?Math.sin(CAT.ph):0; p.legs.forEach(L=>{ const fr=L.f>0; L.g.position.set(L.s*(fr?.032:.036),fr?P.fy:P.ry,fr?P.fz:P.rz); L.g.rotation.set((fr?P.fr:P.rr)+wk*.5*L.s*L.f,0,0); L.g.scale.setScalar(P.lv); }); }
+function tlCat(dt,t){ if(!CAT.g||!CAFE.M) return; const P=player, near=TL.warm||!!CAFE.c0&&stCam.position.distanceTo(CAFE.c0)<30; CAT.g.visible=near; if(!near&&!TL.force) return;
+  tlV.set(CAT_SILL[0]+CAT.x,CAT_SILL[1],CAT_SILL[2]).applyMatrix4(CAFE.M); [CAT.wx,CAT.wz]=loc(tlV.normalize()); const d=Math.hypot(P.x-CAT.wx,P.z-CAT.wz), by=d<3.4&&!tlIn();
+  CAT.t+=dt; CAT.cool-=dt; CAT.walkT-=dt; CAT.blink-=dt; if(CAT.blink<-.12) CAT.blink=2.5+Math.random()*3;
+  let want='sleep', face=CAT.face;
+  if(CAT.st==='sleep'){ if(by&&CAT.cool<=0){ CAT.st='wake'; CAT.t=0; CAT.wakes++; } else if(CAT.walkT<=0){ CAT.st='walk'; CAT.t=0; CAT.to=CAT.x>0?-.3:.3; CAT.walks++; } }
+  if(CAT.st==='wake'){ want='sit'; face=0; if(CAT.t>1.0){ CAT.st='stretch'; CAT.t=0; CAT.stretches++; } }
+  else if(CAT.st==='stretch'){ want='stretch'; face=CAT.x>0?-Math.PI/2:Math.PI/2; if(CAT.t>1.7){ CAT.st='sit'; CAT.t=0; } }
+  else if(CAT.st==='sit'){ want='sit'; face=0; CAT.away=d>4.5?CAT.away+dt:0; if(CAT.away>5){ CAT.st='curl'; CAT.t=0; } else if(CAT.walkT<=0){ CAT.st='walk'; CAT.t=0; CAT.to=CAT.x>0?-.3:.3; CAT.walks++; }
+    if(d<2.4&&!tlIn()){ CAT.purrT-=dt; if(CAT.purrT<=0){ CAT.purrT=1.55; tlSay('purr',.03,CAT.wx,CAT.wz,4); } } }
+  else if(CAT.st==='walk'){ want='stand'; const dir=Math.sign(CAT.to-CAT.x)||1; face=dir>0?Math.PI/2:-Math.PI/2; if(CAT.t>.7){ CAT.x+=dir*Math.min(Math.abs(CAT.to-CAT.x),.2*dt); CAT.ph+=dt*9; }
+    if(Math.abs(CAT.to-CAT.x)<.005){ CAT.st=by?'sit':'curl'; CAT.t=0; CAT.walkT=45+Math.random()*50; } }
+  else if(CAT.st==='curl'){ want='sleep'; face=CAT.x>0?-Math.PI/2:Math.PI/2; if(CAT.t>1.2){ CAT.st='sleep'; CAT.t=0; CAT.cool=10; } }
+  /* (looking at you while it sits) */
+  if(CAT.st==='sit'&&d<6&&CAFE.Mi){ tlV2.copy(P.u).multiplyScalar(R+P.h+.6).applyMatrix4(CAFE.Mi); CAT.look=damp(CAT.look,clamp(Math.atan2(tlV2.x-(CAT_SILL[0]+CAT.x),tlV2.z-CAT_SILL[2]),-.9,.9),3,dt); } else CAT.look=damp(CAT.look,0,3,dt);
+  CAT.face+=angWrap(face-CAT.face)*Math.min(1,dt*3); const tp=CATP[want]; for(const k in tp) CAT.P[k]=damp(CAT.P[k],tp[k],want==='stretch'?3.2:4,dt); tlCatPose(CAT.P,t);
+  CAT.g.matrix.copy(CAFE.M).multiply(tlM.makeTranslation(CAT_SILL[0]+CAT.x,CAT_SILL[1],CAT_SILL[2])).multiply(tlM2.makeRotationY(CAT.face)); CAT.g.matrixWorldNeedsUpdate=true; }
+
+/* ---------- the gulls: three on the lighthouse's rail, five out over the coast, gliding round and flapping now and then;
+   one calls every so often (the nearest, if any is near enough to hear). At night only the three on the rail, quiet ---------- */
+const GUL={b:[],call:6,i0:0,calls:0}, TLGM=new T.Matrix4();
+const GU_FLY=[[15.3,4.3,4.5,8.2],[17.2,-5,5,7.2],[11.5,-16.5,4,6.6],[2,18.4,5,7.6],[-17.5,6.5,4.5,7]];
+function tlGulls(dt,t){ if(!PH) return; const M=TLGM, night=SKY.night>.55;
+  GUL.b.forEach((g,j)=>{ const i0=GUL.i0+j*8;
+    if(g.perch){ tlV.set(Math.cos(g.a)*.86,5.29,Math.sin(g.a)*.86).applyMatrix4(PH.M); tlU.copy(tlV).normalize(); tlV2.set(Math.cos(g.a),0,Math.sin(g.a)).transformDirection(PH.M);
+      if(Math.sin(t*.3+j*2)>.92) tlV2.applyAxisAngle(tlU,.5*Math.sin(t*3+j)); tlFrame(M,tlV,tlU,tlV2); [g.x,g.z]=loc(tlU); tlGullBits(i0,M,0,true); return; }
+    if(night){ for(let k=0;k<8;k++) tlOff(i0+k); return; }
+    g.a+=g.w*dt; const x=g.cx+Math.cos(g.a)*g.r+Math.sin(t*.05+j)*1.5, z=g.cz+Math.sin(g.a)*g.r+Math.cos(t*.04+j)*1.5; g.x=x; g.z=z;
+    at(x,z,tlU); tlV.copy(tlU).multiplyScalar(R+g.h+.4*Math.sin(t*.5+j)); at(x-Math.sin(g.a)*Math.sign(g.w),z+Math.cos(g.a)*Math.sign(g.w),tlV3); tlV2.subVectors(tlV3,tlU);
+    const fl=((t+j*2.3)%7)<1.6?.55*Math.sin(t*11+j):.1; tlFrame(M,tlV,tlU,tlV2,-Math.sign(g.w)*.32); tlGullBits(i0,M,fl,false); });
+  GUL.call-=dt; if(GUL.call<=0){ GUL.call=6+Math.random()*9; if(!night){ let best=null, bd=30; for(const g of GUL.b){ const d=Math.hypot(player.x-g.x,player.z-g.z); if(d<bd){ bd=d; best=g; } } if(best){ GUL.calls++; tlSay('gull',.028,best.x,best.z,32); } } } }
+function tlGullBits(i,F,fl,fold){ tlBit(i,F,0,0,0,.05,.045,.12); tlBit(i+1,F,0,.045,.1,.036,.034,.04); tlBit(i+2,F,0,.04,.145,.009,.008,.03); tlBit(i+7,F,0,.008,-.13,.035,.007,.045);
+  if(fold){ tlBit(i+3,F,.043,.018,-.02,.022,.026,.1); tlBit(i+4,F,-.043,.018,-.02,.022,.026,.1); tlBit(i+5,F,.02,.024,-.13,.016,.012,.05); tlBit(i+6,F,-.02,.024,-.13,.016,.012,.05); }
+  else { tlWing(i+3,F,.04,.02,0,fl,.15,.15,.008,.055); tlWing(i+4,F,-.04,.02,0,-fl,-.15,.15,.008,.055); tlWing(i+5,F,.04,.02,0,fl,.33,.055,.007,.033); tlWing(i+6,F,-.04,.02,0,-fl,-.33,.055,.007,.033); } }
+
+/* ---------- the pigeons in the square, east of Kríos: pecking about and walking a step or two; run at them (or kick the ball
+   through them, or let the dog at them) and they clap up into the air, wheel round and settle again a little way off.
+   They go to roost on the town hall at dusk and come back down in the morning ---------- */
+const PG={b:[],i0:0,Z:[3.7,.7],R:2.2,claps:0,ups:0,home:[13.3,-3.4]};
+function tlPigeonSpot(avoid){ for(let k=0;k<30;k++){ const a=tlRnd()*TAU, r=Math.sqrt(tlRnd())*PG.R, x=PG.Z[0]+Math.cos(a)*r, z=PG.Z[1]+Math.sin(a)*r;
+    if(!tlFree(x,z,.12)||people.some(p=>Math.hypot(p.x-x,p.z-z)<1.3)||(avoid&&Math.hypot(avoid[0]-x,avoid[1]-z)<3)||Math.hypot(player.x-x,player.z-z)<2) continue; return [x,z]; } return [PG.Z[0]+(tlRnd()-.5),PG.Z[1]+(tlRnd()-.5)]; }
+function tlPigeonFly(p,to,away,T_=4.5){ const [x1,z1]=to, ax=away?away[0]:0, az=away?away[1]:0; p.st='fly'; p.t=0; p.T=T_*(.85+tlRnd()*.3);
+  p.fl=[[p.x,p.z,p.h||0],[p.x+ax*1.6+(tlRnd()-.5),p.z+az*1.6+(tlRnd()-.5),2.2+tlRnd()],[x1+(tlRnd()-.5)*3,z1+(tlRnd()-.5)*3,2.4+tlRnd()],[x1,z1,to[2]||0]]; }
+function tlPigeons(dt,t){ const P=player, night=SKY.night>.45, M=new T.Matrix4();
+  /* what scares them: you on the move toward them, the ball going fast, the dog running */
+  const B=TL.ball, bs=B&&Math.hypot(B.vx,B.vz)>2?[B.x,B.z]:null, D=TL.dog, ds=D&&D.on&&D.v>1.4?[D.x,D.z]:null; let up=0;
+  for(const p of PG.b){ const i0=PG.i0+p.j*6;
+    if(p.st==='gone'){ for(let k=0;k<6;k++) tlOff(i0+k); if(!night&&!TL.warm){ p.x=PG.home[0]; p.z=PG.home[1]; p.h=4; tlPigeonFly(p,tlPigeonSpot()); p.t=-p.j*.3; } continue; }
+    if(p.st==='ground'){ p.cool-=dt;
+      if(night){ tlPigeonFly(p,[PG.home[0],PG.home[1],4],null,5); p.roost=true; continue; }
+      const dx=p.x-P.x, dz=p.z-P.z, d=Math.hypot(dx,dz); let go=false;
+      if(P.speed>1.4&&d<2.6&&(dx*P.f.x+dz*P.f.z)>-.2*d) go=true; if(bs&&Math.hypot(p.x-bs[0],p.z-bs[1])<1.3) go=true; if(ds&&Math.hypot(p.x-ds[0],p.z-ds[1])<1.4) go=true;
+      if(go&&p.cool<=0){ const l=Math.max(d,.01); tlPigeonFly(p,tlPigeonSpot([P.x,P.z]),[dx/l,dz/l]); up++; continue; }
+      /* pecking, a few steps, pecking */
+      p.t-=dt; if(p.t<=0){ if(tlRnd()<.5){ p.peck=1.2+tlRnd()*1.5; p.t=p.peck; } else { const a=tlRnd()*TAU, tx=p.x+Math.cos(a)*.5, tz=p.z+Math.sin(a)*.5; if(tlFree(tx,tz,.1)&&Math.hypot(tx-PG.Z[0],tz-PG.Z[1])<PG.R+.6){ p.tx=tx; p.tz=tz; } p.t=2+tlRnd()*2; } }
+      let mv=0; if(p.tx!=null){ const ex=p.tx-p.x, ez=p.tz-p.z, L=Math.hypot(ex,ez); if(L<.03) p.tx=null; else { const k=Math.min(L,.28*dt); p.x+=ex/L*k; p.z+=ez/L*k; p.a=Math.atan2(ex,ez); mv=1; } }
+      p.peck=Math.max(0,(p.peck||0)-dt); const pk=p.peck>0&&!mv?Math.max(0,Math.sin(t*9+p.j)):0, bob=mv?.012*Math.sin(t*14+p.j):0;
+      at(p.x,p.z,tlU); tlV.copy(tlU).multiplyScalar(R+standH(p.x,p.z)); at(p.x+Math.sin(p.a),p.z+Math.cos(p.a),tlV3); tlV2.subVectors(tlV3,tlU); tlFrame(M,tlV,tlU,tlV2);
+      tlPigeonBits(i0,M,0,true,pk,bob); continue; }
+    /* in the air: along a curve up, round and down, the wings clapping as they go up and as they land, gliding between */
+    p.t+=dt; if(p.t<0){ for(let k=0;k<6;k++) tlOff(i0+k); continue; } const u=clamp(p.t/p.T,0,1), q=p.fl, w=[(1-u)**3,3*u*(1-u)**2,3*u*u*(1-u),u**3];
+    const x=q[0][0]*w[0]+q[1][0]*w[1]+q[2][0]*w[2]+q[3][0]*w[3], z=q[0][1]*w[0]+q[1][1]*w[1]+q[2][1]*w[2]+q[3][1]*w[3], h=q[0][2]*w[0]+q[1][2]*w[1]+q[2][2]*w[2]+q[3][2]*w[3];
+    const vx=x-p.x, vz=z-p.z; if(Math.hypot(vx,vz)>1e-4) p.a=Math.atan2(vx,vz); p.x=x; p.z=z; p.h=h;
+    at(x,z,tlU); tlV.copy(tlU).multiplyScalar(R+standH(x,z)+h); at(x+Math.sin(p.a),z+Math.cos(p.a),tlV3); tlV2.subVectors(tlV3,tlU); tlFrame(M,tlV,tlU,tlV2);
+    tlPigeonBits(i0,M,u<.3||u>.82?.75*Math.sin(t*26+p.j):.15,u>.97,0,0);
+    if(u>=1){ if(p.roost){ p.st='gone'; p.roost=false; } else { p.st='ground'; p.h=0; p.cool=2.5; p.t=1; } } }
+  if(up){ PG.claps++; PG.ups+=up; tlSay('wings',.034,P.x,P.z,12); } }
+function tlPigeonBits(i,F,fl,fold,pk,bob){ tlBit(i,F,0,.045+bob,0,.042,.038,.07); tlBit(i+1,F,0,.088+bob-pk*.045,.055+pk*.03,.025,.025,.028); tlBit(i+5,F,0,.048+bob,-.075,.022,.006,.042,-.2);
+  if(fold){ tlBit(i+2,F,.034,.056+bob,-.012,.016,.022,.056); tlBit(i+3,F,-.034,.056+bob,-.012,.016,.022,.056); } else { tlWing(i+2,F,.03,.056,0,fl,.085,.085,.006,.036); tlWing(i+3,F,-.03,.056,0,-fl,-.085,.085,.006,.036); }
+  tlBit(i+4,F,0,.072+bob-pk*.03,.04+pk*.02,.022,.018,.02); }
+
+/* ---------- the duck pond: an oval of water on the grass by the loop (between the workshop and Ogive), stones round its
+   edge, reeds at one end and lily pads; five ducks paddling, two drakes and three ducks. Tap or click the water and you throw
+   them bread: it arcs out from your hand, lands with a ring, and they paddle over and eat it. At night they sleep ---------- */
+const POND={x:4.5,z:13.25,a:.12,rx:1.3,rz:.95,y:0,water:null,ducks:[],i0:0};
+const pondW=(lx,lz)=>[POND.x+lx*Math.cos(POND.a)-lz*Math.sin(POND.a),POND.z+lx*Math.sin(POND.a)+lz*Math.cos(POND.a)];
+const pondL=(x,z)=>{ const dx=x-POND.x, dz=z-POND.z; return [dx*Math.cos(POND.a)+dz*Math.sin(POND.a),-dx*Math.sin(POND.a)+dz*Math.cos(POND.a)]; };
+const pondIn=(lx,lz,k=1)=>(lx/(POND.rx*k))**2+(lz/(POND.rz*k))**2<1;
+function tlBuildPond(){ POND.y=standH(POND.x,POND.z); const ring=(k,lift)=>{ const o=[]; for(let i=0;i<40;i++){ const a=i/40*TAU, [x,z]=pondW(Math.cos(a)*POND.rx*k,Math.sin(a)*POND.rz*k); o.push(at(x,z,new T.Vector3()).multiplyScalar(R+Math.max(POND.y,standH(x,z))+lift)); } return o; };
+  /* the water: rings in from the edge, pale at the edge and deeper in the middle, lying on the curve of the world */
+  kitTo('tlwater'); const ks=[1,.82,.6,.35], cs=['#8cc3cf','#6fadc2','#5b9db8','#4f92ae'], rings=ks.map(k=>ring(k,.03)), mid=at(POND.x,POND.z,new T.Vector3()).multiplyScalar(R+POND.y+.03), up=mid.clone().normalize();
+  for(let r=0;r<ks.length;r++) for(let i=0;i<40;i++){ const a=rings[r][i], b=rings[r][(i+1)%40]; if(r<ks.length-1){ const c=rings[r+1][(i+1)%40], d=rings[r+1][i]; kquad(a,b,c,d,up,cs[r]); } else ktri(a,b,mid,up,cs[r]); }
+  kitTo(); const wm=new T.Mesh(kgeo('tlwater'),toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true})); wm.frustumCulled=false; sc.add(wm); POND.water=wm; POND.wy=mid.length()-R; delete KITS.tlwater;
+  /* the edge: a ring of flat stones; reeds at the west end, a few lily pads with a flower */
+  kitTo('tl'); const br=seeded(91);
+  for(let i=0;i<34;i++){ const a=i/34*TAU+br()*.08, [x,z]=pondW(Math.cos(a)*(POND.rx+.06),Math.sin(a)*(POND.rz+.06)), M=frameAt(x,z,br()*TAU,standH(x,z)); put(M,'rock',br()<.5?'#a49e94':'#b5ada2',0,.015,0,.11+br()*.05,.05+br()*.03,.09+br()*.04,0,br()*.4,br()*.4); }
+  for(let i=0;i<14;i++){ const a=Math.PI+(br()-.5)*1.3, rr=.82+br()*.22, [x,z]=pondW(Math.cos(a)*POND.rx*rr,Math.sin(a)*POND.rz*rr), M=frameAt(x,z,br()*TAU,POND.y);
+    put(M,'cone8',br()<.5?'#5f9256':'#6fa25f',0,.25,0,.025,.5+br()*.25,.025,0,(br()-.5)*.2,(br()-.5)*.2); if(i%3===0) put(M,'cyl8','#7a5a42',0,.62,0,.02,.12,.02); }
+  for(const [lx,lz,s] of [[.5,.35,.12],[.75,-.2,.1],[.2,-.45,.11],[-.15,.4,.09]]){ const [x,z]=pondW(lx,lz), M=frameAt(x,z,br()*TAU,POND.wy+.004); put(M,'cyl','#4f7f4a',0,0,0,s,.008,s); if(s>.1) put(M,'sph','#f4c6d4',0,.02,0,.03,.022,.03); }
+  kitTo();
+  /* solid: you walk round it, as everyone does (and its ground goes off the walking grid) */
+  for(const [lx,r] of [[-.62,.82],[0,.98],[.62,.82]]){ const [x,z]=pondW(lx,0), o={x,z,r,h:.3}; OBS.push(o); slNav(o,true); }
+  /* no grass growing in the water */
+  const gr=sc.children.find(o=>o.isInstancedMesh&&o.material&&o.material.uniforms&&o.material.uniforms.uHoleOn&&o.material.uniforms.uTime&&o.count>100);
+  if(gr){ let n=0; for(let i=0;i<gr.count;i++){ gr.getMatrixAt(i,tlM); tlV.setFromMatrixPosition(tlM); const [x,z]=loc(tlV.normalize()), [lx,lz]=pondL(x,z); if(pondIn(lx,lz,1.12)){ gr.setMatrixAt(i,TLZ); n++; } } if(n) gr.instanceMatrix.needsUpdate=true; } }
+function tlDucks(dt,t){ const night=SKY.night>.55, food=TL.crumbs.filter(c=>c.st==='water'), M=new T.Matrix4();
+  for(const d of POND.ducks){ const i0=POND.i0+d.j*4;
+    if(night) d.v=damp(d.v,0,2,dt);
+    else if(food.length){ let best=null, bd=9; for(const c of food){ const e=Math.hypot(c.lx-d.lx,c.lz-d.lz); if(e<bd){ bd=e; best=c; } } d.tx=best.lx; d.tz=best.lz; d.v=damp(d.v,.42,3,dt);
+      if(bd<.08){ best.st='off'; TL.n.eaten=(TL.n.eaten||0)+1; if(TL.clk-(TL.qAt??-9)>.8){ TL.qAt=TL.clk; tlSay('quack',.03,d.x,d.z,16); } } }
+    else { d.t-=dt; if(d.t<=0||Math.hypot(d.tx-d.lx,d.tz-d.lz)<.05){ d.t=5+tlRnd()*6; for(let k=0;k<10;k++){ const lx=(tlRnd()*2-1)*POND.rx*.7, lz=(tlRnd()*2-1)*POND.rz*.7; if(pondIn(lx,lz,.72)){ d.tx=lx; d.tz=lz; break; } } } d.v=damp(d.v,.11,2,dt); }
+    const want=Math.atan2(d.tx-d.lx,d.tz-d.lz); d.a+=clamp(angWrap(want-d.a),-2.2*dt,2.2*dt); const go=d.v*Math.max(0,Math.cos(angWrap(want-d.a)));
+    let nx=d.lx+Math.sin(d.a)*go*dt, nz=d.lz+Math.cos(d.a)*go*dt; for(const e of POND.ducks){ if(e===d) continue; const sx=nx-e.lx, sz=nz-e.lz, l=Math.hypot(sx,sz); if(l<.17&&l>1e-4){ nx+=sx/l*(.17-l)*.5; nz+=sz/l*(.17-l)*.5; } }
+    if(pondIn(nx,nz,.86)){ d.lx=nx; d.lz=nz; } else d.t=0;
+    const [x,z]=pondW(d.lx,d.lz); d.x=x; d.z=z; at(x,z,tlU); tlV.copy(tlU).multiplyScalar(R+POND.wy+.008*Math.sin(t*2+d.j));
+    const [fx,fz]=pondW(d.lx+Math.sin(d.a),d.lz+Math.cos(d.a)); at(fx,fz,tlV3); tlV2.subVectors(tlV3,tlU); tlFrame(M,tlV,tlU,tlV2,.04*Math.sin(t*1.3+d.j));
+    const sl=night?1:0; tlBit(i0,M,0,.028,0,.05,.034,.085); tlBit(i0+1,M,0,lerp(.075,.05,sl),lerp(.065,0,sl),.028,.028,.03); tlBit(i0+2,M,0,lerp(.07,.048,sl),lerp(.1,.035,sl),.018,.007,.028); tlBit(i0+3,M,0,.045,-.085,.02,.012,.03,-.5); }
+  TL.qT=(TL.qT??8)-dt; if(TL.qT<=0){ TL.qT=9+tlRnd()*12; if(!night&&Math.hypot(player.x-POND.x,player.z-POND.z)<14){ const d=POND.ducks[Math.floor(tlRnd()*POND.ducks.length)]; tlSay('quack',.022,d.x,d.z,16); } } }
+/* bread: a few crumbs from your hand to where you tapped, on an arc; each lands with a ring and floats until a duck has it */
+function tlFeed(x,z){ const P=player; if(TL.crumbs.some(c=>c.st==='air')) return false; TL.n.bread=(TL.n.bread||0)+1; TL.throwT=.5;
+  const h0=new T.Vector3().copy(P.u).multiplyScalar(R+P.h+1.0).addScaledVector(P.f,.25), [cx,cz]=pondL(x,z), dist=Math.hypot(P.x-x,P.z-z); let k=0;
+  for(const c of TL.crumbs){ if(c.st!=='off'||k>=3) continue; let lx=cx+(tlRnd()-.5)*.3, lz=cz+(tlRnd()-.5)*.3; if(!pondIn(lx,lz,.85)){ lx*=.75; lz*=.75; } const [wx,wz]=pondW(lx,lz);
+    Object.assign(c,{st:'air',t:-k*.06,T:.5+dist*.05,lx,lz,x:wx,z:wz,p0:h0.clone(),p1:at(wx,wz,new T.Vector3()).multiplyScalar(R+POND.wy+.006),arc:.45+dist*.1,life:40}); k++; }
+  /* you turn to the pond to throw */
+  tang(P.u,at(x,z,tlV2),tlV3); if(tlV3.lengthSq()>.5) P.f.copy(tlV3); return true; }
+function tlCrumbs(dt,t){ for(const c of TL.crumbs){ const i=c.i;
+    if(c.st==='air'){ c.t+=dt; if(c.t<0){ tlOffD(i); continue; } const u=clamp(c.t/c.T,0,1); tlV.copy(c.p0).lerp(c.p1,u); tlV.addScaledVector(tlU.copy(tlV).normalize(),Math.sin(Math.PI*u)*c.arc); tlPM.compose(tlV,tlPQ.identity(),tlPS.set(.022,.016,.02)); TLD.m.setMatrixAt(i,tlPM);
+      if(u>=1){ c.st='water'; tlRing(c.x,c.z,POND.wy+.004,.25); tlSay('splash',.006,c.x,c.z,10,.2); } continue; }
+    if(c.st==='water'){ c.life-=dt; if(c.life<=0){ c.st='off'; tlOffD(i); continue; } tlV.copy(c.p1).addScaledVector(tlU.copy(c.p1).normalize(),.004*Math.sin(t*2+i)); tlPM.compose(tlV,tlPQ.identity(),tlPS.set(.024,.008,.022)); TLD.m.setMatrixAt(i,tlPM); continue; }
+    tlOffD(i); } }
+
+/* ---------- puddles after rain: on the pavements, the road's edges and the square's paths; they come with the rain and dry away
+   over a few minutes after it, each at its own pace; a foot, a paw or a wheel through one splashes (drops and a ring) ---------- */
+const PUD={m:null,list:[]};
+function tlBuildPuddles(){ const L=TLR.L, pr=seeded(19), cand=[];
+  for(let k=0;k<16;k++){ const s=(k+.3)/16*L, lat=[1.75,-1.7,.95,-.92][k%4]*(1+(pr()-.5)*.08), q=tlAt(s,lat,{}); cand.push([q.x,q.z,.32+pr()*.2]); }
+  for(const [x,z] of [[0,-4.4],[-4.6,.05],[5.4,.1],[.05,5.6]]) cand.push([x,z,.3+pr()*.15]);
+  for(const [x,z,r] of cand){ if(!tlFree(x,z,r*.6)||people.some(p=>Math.hypot(p.x-x,p.z-z)<1.5)||Math.hypot(DM.x-x,DM.z-z)<1.2||REGS.some(q=>Math.hypot(q.x-x,q.z-z)<1)) continue;
+    PUD.list.push({x,z,r,a:pr()*TAU,sx:1+(pr()-.5)*.5,th:pr()*.55,k:0,h:standH(x,z)}); }
+  const g=new T.CircleGeometry(1,14), p=g.attributes.position; for(let i=1;i<p.count;i++){ const a=Math.atan2(p.getY(i),p.getX(i)), r=1+.16*Math.sin(a*3+.7)+.1*Math.sin(a*5+2.1); p.setXY(i,p.getX(i)*r,p.getY(i)*r); } g.rotateX(-Math.PI/2);
+  const m=new T.InstancedMesh(g,toonMat('#ffffff',{fresh:true}),Math.max(1,PUD.list.length)); m.layers.set(1); m.frustumCulled=false; m.userData.noInk=true; for(let i=0;i<m.count;i++){ m.setMatrixAt(i,TLZ); m.setColorAt(i,tlC.setRGB(.6,.72,.8)); } sc.add(m); PUD.m=m; }
+function tlPuddles(dt){ const wet=WX.rain>.25&&!WX.snow, snowy=SL.snow>.25||WX.snow; if(!TL.wetSet) TL.wet=wet?Math.min(1,TL.wet+dt/25):Math.max(0,TL.wet-dt/300); const w=snowy?0:TL.wet;
+  let any=false; PUD.list.forEach((q,i)=>{ const k=TL.warm?1:sstep(q.th,q.th+.35,w); q.k=k; if(k<.01){ PUD.m.setMatrixAt(i,TLZ); return; } any=true; at(q.x,q.z,tlU); tlV.copy(tlU).multiplyScalar(R+q.h+.006);
+    tlFrame(tlM,tlV,tlU,tlV2.set(Math.sin(q.a),0,Math.cos(q.a))); tlM.multiply(tlM2.makeScale(q.r*k*q.sx,1,q.r*k)); PUD.m.setMatrixAt(i,tlM); });
+  PUD.m.instanceMatrix.needsUpdate=true; PUD.m.visible=any||TL.warm;
+  /* the colour of the sky in them, now and then */
+  TL.colT=(TL.colT||0)-dt; if(any&&TL.colT<=0){ TL.colT=2; const c=LU.uSky.value; for(let i=0;i<PUD.list.length;i++) PUD.m.setColorAt(i,tlC.setRGB(c.r*.82+.1,c.g*.82+.1,c.b*.85+.12)); PUD.m.instanceColor.needsUpdate=true; } }
+/* (x, z) in a puddle wet enough to splash: a splash, how big (k); within r of its edge counts for a wheel */
+function tlSplashAt(x,z,k=1,r=0){ for(const q of PUD.list){ if(q.k<.3) continue; if(Math.hypot(q.x-x,q.z-z)<q.r*q.k+r){ const now=TL.clk; if(now-(q.last??-9)<.25) return false; q.last=now; tlSplash(x,z,q.h,k); return true; } } return false; }
+function tlSplash(x,z,h,k=1){ TL.n.splashes=(TL.n.splashes||0)+1; at(x,z,tlU); const p=new T.Vector3().copy(tlU).multiplyScalar(R+h+.02);
+  for(let n=0,m=Math.round(4+4*k);n<m;n++){ const d=TL.drops.find(q=>q.t>=q.life); if(!d) break; const a=tlRnd()*TAU; tlV2.set(Math.cos(a),0,Math.sin(a)); tlV2.addScaledVector(tlU,-tlU.dot(tlV2)).normalize();
+    d.p.copy(p); d.v.copy(tlV2).multiplyScalar((.4+tlRnd()*.6)*(.6+.5*k)).addScaledVector(tlU,(1+tlRnd()*1.2)*(.7+.4*k)); d.t=0; d.life=.45+tlRnd()*.25; }
+  tlRing(x,z,h+.012,.18+.12*k); tlSay('splash',.024*Math.min(1.3,.6+.5*k),x,z,14,k); }
+function tlRing(x,z,h,r1){ const q=TL.rings.find(q=>q.t>=q.life)||TL.rings[0]; at(x,z,q.u); q.p.copy(q.u).multiplyScalar(R+h); q.t=0; q.life=.9; q.r1=r1; }
+function tlDrops(dt){ for(const d of TL.drops){ if(d.t>=d.life){ tlOffD(d.i); continue; } d.t+=dt; tlU.copy(d.p).normalize(); d.v.addScaledVector(tlU,-7*dt); d.p.addScaledVector(d.v,dt);
+    const s=.013*(1-d.t/d.life*.5); tlPM.compose(d.p,tlPQ.identity(),tlPS.set(s,s*1.3,s)); TLD.m.setMatrixAt(d.i,tlPM); }
+  const RM_=TL.ringM; if(!RM_) return; let any=false; TL.rings.forEach((q,i)=>{ if(q.t>=q.life){ RM_.setMatrixAt(i,TLZ); return; } any=true; q.t+=dt; const u=q.t/q.life, r=lerp(.04,q.r1,E.o(u))*(u>.85?1-(u-.85)/.15:1);
+    tlFrame(tlM,q.p,q.u,tlV2.set(0,0,1)); tlM.multiply(tlM2.makeScale(r,r,r)); RM_.setMatrixAt(i,tlM); }); RM_.instanceMatrix.needsUpdate=true; RM_.visible=any||TL.warm; }
+/* a way of going for anything on its feet: toward (tx, tz) at up to sp, round whatever is solid, never into you (keep), nor
+   into the way to whoever you are talking to; it turns the way it goes. How far it still has to go */
+function tlMove(o,tx,tz,sp,dt,keep=.62){ const dx=tx-o.x, dz=tz-o.z, L=Math.hypot(dx,dz); o.v=damp(o.v,L<.04?0:sp,6,dt); if(L<.04||o.v<.01) return L;
+  const st_=Math.min(L,o.v*dt), dP=Math.hypot(o.x-player.x,o.z-player.z);
+  const step=(ux,uz)=>{ let nx=o.x+ux*st_, nz=o.z+uz*st_;
+    for(const b of OBS){ if(b===o.ob) continue; const ex=nx-b.x, ez=nz-b.z, d=Math.hypot(ex,ez), m=b.r+o.ob.r+.04; if(d<m&&d>1e-4){ nx=b.x+ex/d*m; nz=b.z+ez/d*m; } }
+    const e=Math.hypot(nx-player.x,nz-player.z); if(e<keep&&e<dP-1e-4||(tlInCorr(nx,nz,.75)&&!tlInCorr(o.x,o.z,.75))||!walkable(nx,nz)) return null; return [nx,nz]; };
+  /* straight on if that gets it on its way; else round whatever is in the way (you, or something solid it would only press
+     against): a little to one side, then square to it, whichever gets it furthest */
+  let r=null, best=-1e9; for(const a of [0,.9,-.9,1.6,-1.6]){ const c=Math.cos(a), s=Math.sin(a), q=step((dx*c-dz*s)/L,(dx*s+dz*c)/L); if(!q) continue;
+    const gain=L-Math.hypot(tx-q[0],tz-q[1]); if(gain>best+1e-6){ best=gain; r=q; } if(gain>st_*.35) break; }
+  if(!r||best<=-st_*.5){ o.v=0; return L; } const [nx,nz]=r, mx=nx-o.x, mz=nz-o.z, ml=Math.hypot(mx,mz); if(ml>1e-5){ o.fx=damp(o.fx,mx/ml,10,dt); o.fz=damp(o.fz,mz/ml,10,dt); } o.x=nx; o.z=nz; o.ob.x=nx; o.ob.z=nz; return L; }
+/* which way a thing faces on the town's map */
+function tlMapDir(u,f){ const [x0,z0]=loc(u), [x1,z1]=loc(tlV4.copy(u).addScaledVector(f,.05).normalize()), l=Math.hypot(x1-x0,z1-z0)||1; return [(x1-x0)/l,(z1-z0)/l]; }
+
+/* ---------- the dog: a collie who lives on a patch of grass in town. It noses about near home or lies down; when you come by it trots
+   over (one soft woof), follows you about for half a minute or so, a little behind you and to the side (behind you, out of
+   the way, while you talk to someone), sits when you stop, and then wanders off home ---------- */
+const DOG={g:null,parts:null,x:-3.7,z:12.0,fx:0,fz:1,u:new T.Vector3(0,1,0),f:new T.Vector3(0,0,1),v:0,ph:0,st:'home',t:0,cool:4,home:[-3.7,12.0],tx:0,tz:0,path:null,pathT:0,on:false,wag:0,woofs:0,follows:0,pawT:0,lie:0,sit:0,
+  ob:{x:0,z:0,r:.28,h:.5,tl:true}};
+function tlBuildDog(){ const BK='#2a2624', WH='#f3efe6', g=new T.Group(); g.visible=false; sc.add(g); const mk=fn=>tlPart(fn,FIGM);
+  const body=mk(B=>{ B.put(FG.sph,BK,0,0,0,.1,.1,.22); B.put(FG.sph,WH,0,-.03,.15,.075,.075,.08); B.put(FG.sph,WH,0,.02,.19,.085,.07,.05); B.put(FG.sph,WH,0,-.06,.02,.06,.04,.14); });
+  body.position.set(0,.27,0); g.add(body);
+  const head=new T.Group(); head.position.set(0,.37,.22); g.add(head);
+  head.add(mk(B=>{ B.put(FG.sph,BK,0,0,0,.075,.07,.075); B.put(FG.sph,WH,0,-.02,.08,.04,.035,.065); B.put(FG.sph,BK,0,-.008,.14,.016,.013,.012); B.put(FG.sph,WH,0,.03,.05,.015,.04,.03);
+    [-1,1].forEach(s=>{ B.put(FG.cone,BK,s*.045,.07,-.01,.025,.06,.015,0,0,-s*.35); B.put(FG.box,BK,s*.055,.098,.004,.025,.02,.012,.5,0,-s*.35); B.put(FG.sph,'#2b2a24',s*.03,.02,.06,.01,.011,.006); }); }));
+  const tail=new T.Group(); tail.position.set(0,.33,-.2); g.add(tail); tail.add(mk(B=>{ B.put(FG.sph,BK,0,0,-.08,.025,.025,.09,-.6); B.put(FG.sph,WH,0,-.05,-.16,.022,.022,.03,-.6); }));
+  const legs=[[1,1],[-1,1],[1,-1],[-1,-1]].map(([s,f])=>{ const q=new T.Group(); q.position.set(s*.055,.22,f*.14); q.add(mk(B=>{ B.put(FG.can,BK,0,-.09,0,.026,.18,.026); B.put(FG.sph,WH,0,-.19,.01,.03,.02,.035); })); g.add(q); return {g:q,s,f}; });
+  const sh=new T.Mesh(SHG,SHM); sh.scale.set(.32,1,.55); sh.position.y=.02; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
+  DOG.g=g; DOG.parts={body,head,tail,legs};
+  /* its home: the most open of a few patches of grass by the workshop and in the square (what grows round them is less on
+     a phone, so it is chosen here, not fixed) */
+  const room=([x,z])=>walkable(x,z)?Math.min(...OBS.map(o=>Math.hypot(x-o.x,z-o.z)-o.r),Math.abs(tlNear(x,z).lat)-RW-SW):-9;
+  DOG.home=[[-3.7,12.0],[-4.3,11.7],[-3.4,12.5],[2.6,11.9],[-3.2,5.3],[3.3,-5.0],[-5.1,-3.6]].reduce((a,b)=>room(b)>room(a)+.25?b:a); [DOG.x,DOG.z]=DOG.home; }
+/* where it wants to be while it follows you: a little behind you and to the side; while you talk, behind you, out of the way */
+function tlDogGoal(){ const P=player, [fx,fz]=tlMapDir(P.u,P.f); let bx=P.x-fx*1.15+fz*.55, bz=P.z-fz*1.15-fx*.55;
+  const q=TALK.p||TALK.goal; if(q){ const dx=q.x-P.x, dz=q.z-P.z, l=Math.hypot(dx,dz)||1; bx=P.x-dx/l*1.35; bz=P.z-dz/l*1.35; } return [bx,bz]; }
+function tlDog(dt,t){ const D=DOG, P=player; if(!D.g) return; const d=Math.hypot(P.x-D.x,P.z-D.z), busy=tlIn()||FIN.on||CUT.on||TL.warm; D.t+=dt; D.cool-=dt;
+  let tx=D.x, tz=D.z, sp=0, sit=0, lie=0;
+  if(D.st==='home'){ D.pathT-=dt; if(D.pathT<=0){ D.pathT=6+tlRnd()*7; D.rest=tlRnd()<.4; const a=tlRnd()*TAU, r=tlRnd()*1.6; D.tx=D.home[0]+Math.cos(a)*r; D.tz=D.home[1]+Math.sin(a)*r; if(!tlFree(D.tx,D.tz,.3)){ D.tx=D.home[0]; D.tz=D.home[1]; } }
+    tx=D.tx; tz=D.tz; sp=.55; if(Math.hypot(tx-D.x,tz-D.z)<.1&&D.rest) lie=1;
+    if(d<7.5&&D.cool<=0&&!busy&&!TALK.p&&SKY.night<.6){ D.st='come'; D.t=0; D.path=null; } }
+  else if(D.st==='come'){ tx=P.x; tz=P.z; sp=2.3; if(d<1.45){ D.st='follow'; D.t=0; D.dur=24+tlRnd()*14; D.follows++; D.woofs++; D.wag=2.5; tlSay('woof',.024,D.x,D.z,14); } if(d>16||busy||D.t>20){ D.st='leave'; D.t=0; } }
+  else if(D.st==='follow'){ [tx,tz]=tlDogGoal(); const dg=Math.hypot(tx-D.x,tz-D.z); sp=dg>.3?clamp(dg*1.7,.4,P.speed>3?4.3:2.9):0; if(sp===0&&P.speed<.2) sit=1; D.wag=Math.max(D.wag,P.speed<.2?.8:.4);
+    if(D.t>D.dur||d>14||busy){ D.st='leave'; D.t=0; D.path=null; } }
+  else if(D.st==='leave'){ tx=D.home[0]; tz=D.home[1]; sp=1.0; if(Math.hypot(tx-D.x,tz-D.z)<.35){ D.st='home'; D.t=0; D.cool=40+tlRnd()*40; D.pathT=0; } }
+  /* round houses and the pond: on the walking grid, if the way is not clear */
+  let wx=tx, wz=tz; const far=Math.hypot(tx-D.x,tz-D.z); if(far>1.3&&!navClear(D.x,D.z,tx,tz)){ D.pathT2=(D.pathT2||0)-dt; if(D.pathT2<=0||!D.path){ D.pathT2=1; D.path=navPath(D.x,D.z,tx,tz,1.2); }
+    if(D.path&&D.path.length){ if(Math.hypot(D.path[0][0]-D.x,D.path[0][1]-D.z)<.35&&D.path.length>1) D.path.shift(); [wx,wz]=D.path[0]; } } else D.path=null;
+  tlMove(D,wx,wz,sp,dt,.75);
+  if(sp===0&&D.st==='follow'){ const ex=P.x-D.x, ez=P.z-D.z, l=Math.hypot(ex,ez)||1; D.fx=damp(D.fx,ex/l,4,dt); D.fz=damp(D.fz,ez/l,4,dt); }
+  D.sit=damp(D.sit,sit,5,dt); D.lie=damp(D.lie,lie,3,dt); D.wag=Math.max(0,D.wag-dt*.3);
+  at(D.x,D.z,D.u); tang(D.u,at(D.x+D.fx,D.z+D.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) D.f.copy(tlV2); standOn(D.g,D.u,D.f,standH(D.x,D.z));
+  /* its legs: a walk or a trot, the diagonal pairs together; sitting, its back legs fold; lying down, all of it does */
+  D.ph+=dt*D.v*(D.v>1?8.5:6.5); const p=D.parts, amp=.55*Math.min(1,D.v/1.1)*(1-D.lie), s_=D.sit, l_=D.lie;
+  p.legs.forEach(L=>{ const sw=Math.sin(D.ph+(L.s*L.f>0?0:Math.PI))*amp; L.g.rotation.x=L.f>0?sw-1.35*l_:sw-1.25*s_-1.4*l_; L.g.position.y=.22-(L.f<0?.08*s_:0)-.1*l_; });
+  p.body.position.y=.27-.05*s_-.13*l_+(D.v>1?.012*Math.abs(Math.sin(D.ph)):0); p.body.rotation.x=-.42*s_; p.head.position.y=.37+.03*s_-.16*l_; p.head.position.z=.22-.03*s_; p.head.rotation.set(-.15*s_+.25*l_,.3*Math.sin(t*.7)*(1-s_)*(D.st==='home'?1:0),0);
+  p.tail.position.y=.33-.12*s_-.13*l_; p.tail.rotation.set(-.35*Math.min(1,D.wag+.2)+.5*l_,Math.sin(t*15)*.5*Math.min(1,D.wag),0);
+  if(D.v>.6&&d<9){ D.pawT-=dt; if(D.pawT<=0){ D.pawT=.5; tlSay('paws',.03,D.x,D.z,9); } } if(D.v>.5) tlSplashAt(D.x,D.z,.5); }
+
+/* ---------- the football in the square, west of Kríos: walk into it and it is kicked the way you are going (harder if you
+   run), rolling over the curve of the world and bouncing; it rebounds off whatever is solid, and off the kerb of the road
+   round the square, so it stays in the square. Left far off, it is put back when nobody is looking ---------- */
+const BALL={m:null,sh:null,x:-3.6,z:-.6,h:0,vx:0,vz:0,vh:0,r:.11,home:[-3.6,-.6],q:new T.Quaternion(),kicks:0,kidKicks:0,bounces:0,last:null,lastT:-9,away:0};
+function tlBuildBall(){ const m=tlPart(B=>{ B.put(FG.ball,'#f6f4ee',0,0,0,BALL.r); const ico=new T.IcosahedronGeometry(1,0), p=ico.attributes.position;
+    for(let i=0;i<Math.min(12,p.count);i++){ const v=v3(p.getX(i),p.getY(i),p.getZ(i)).normalize(); B.along(FG.sph,'#2a2826',v.clone().multiplyScalar(BALL.r*.93),v3().crossVectors(v,Math.abs(v.y)<.9?fY:fX).normalize().multiplyScalar(.04),v.clone().multiplyScalar(.012),v3().crossVectors(v,v3().crossVectors(v,Math.abs(v.y)<.9?fY:fX)).normalize().multiplyScalar(.04)); } });
+  m.visible=false; sc.add(m); BALL.m=m; const sh=new T.Mesh(SHG,SHM); sh.scale.set(.28,1,.28); sh.renderOrder=1; sh.layers.set(1); sh.visible=false; sc.add(sh); BALL.sh=sh; }
+function tlBall(dt,t){ const B=BALL, P=player; if(!B.m) return; const n=Math.ceil(dt/.017), h=dt/n;
+  for(let i=0;i<n;i++){ /* you: walking into it kicks it on, the way you go; standing, it bounces off you */
+    const dx=B.x-P.x, dz=B.z-P.z, d=Math.hypot(dx,dz);
+    if(d<.34+B.r&&B.h<.3&&P.speed>.25&&!TALK.p&&!tlIn()){ const [fx,fz]=tlMapDir(P.u,P.f), tw=(dx*fx+dz*fz)/Math.max(d,1e-3), now=TL.clk;
+      if(tw>.15&&now-B.lastT>.3){ const sp=clamp(P.speed*1.35+.55,.9,6.2), ux=lerp(fx,dx/Math.max(d,1e-3),.35), uz=lerp(fz,dz/Math.max(d,1e-3),.35), l=Math.hypot(ux,uz)||1;
+        B.vx=ux/l*sp; B.vz=uz/l*sp; B.vh=P.speed>3.2?2.3:sp>2.2?1.0:.25; B.h=Math.max(B.h,.005); B.last='me'; B.lastT=now; B.kicks++; tlSay('kick',.03*clamp(sp/4,.45,1.1),B.x,B.z,16); } }
+    if(d<.3+B.r&&d>1e-4){ const m=.3+B.r; B.x=P.x+dx/d*m; B.z=P.z+dz/d*m; const vn=(B.vx*dx+B.vz*dz)/d; if(vn<0){ B.vx-=1.5*vn*dx/d; B.vz-=1.5*vn*dz/d; } }
+    /* in the air it falls and bounces; on the ground it rolls and slows */
+    B.vh-=9.8*h; B.h+=B.vh*h; if(B.h<=0){ B.h=0; if(B.vh<-.9){ const vi=-B.vh; B.vh=vi*.46; B.bounces++; tlSay('ballBounce',.035*clamp(vi/3,.3,1),B.x,B.z,14); } else B.vh=0; }
+    const fr=Math.exp(-(B.h>0?.06:.85)*h); B.vx*=fr; B.vz*=fr; if(B.h===0&&Math.hypot(B.vx,B.vz)<.04){ B.vx=B.vz=0; }
+    let nx=B.x+B.vx*h, nz=B.z+B.vz*h;
+    for(const o of OBS){ if(o.h<B.h+.05) continue; const ex=nx-o.x, ez=nz-o.z, dd=Math.hypot(ex,ez), m=o.r+B.r; if(dd<m&&dd>1e-4){ const ux=ex/dd, uz=ez/dd, vn=B.vx*ux+B.vz*uz; nx=o.x+ux*m; nz=o.z+uz*m;
+        if(vn<0){ B.vx-=1.55*vn*ux; B.vz-=1.55*vn*uz; if(-vn>1.2) tlSay('ballBounce',.02*clamp(-vn/3,.3,1),nx,nz,12); } } }
+    /* the kerb: back into the square (or out of the road, whichever side it is on) */
+    const q=tlNear(nx,nz), side=Math.sign(q.lat)||-1, lim=RW+.12; if(Math.abs(q.lat)<lim){ const r=tlAt(q.s,0,TLB_), ox=r.dz*side, oz=-r.dx*side; nx+=ox*(lim-Math.abs(q.lat)); nz+=oz*(lim-Math.abs(q.lat)); const vn=B.vx*ox+B.vz*oz; if(vn<0){ B.vx-=1.5*vn*ox; B.vz-=1.5*vn*oz; if(-vn>1) tlSay('ballBounce',.018,nx,nz,12); } }
+    if(!walkable(nx,nz)){ B.vx*=-.5; B.vz*=-.5; nx=B.x; nz=B.z; }
+    /* rolling: it turns about the line across the way it goes */
+    const sp=Math.hypot(nx-B.x,nz-B.z); if(sp>1e-5){ at(B.x,B.z,tlU); tlV2.set(nx-B.x,0,nz-B.z).normalize(); tlV3.crossVectors(tlU,tlV2).normalize(); B.q.premultiply(tlPQ.setFromAxisAngle(tlV3,sp/B.r)); }
+    B.x=nx; B.z=nz; B.top=Math.max(B.top||0,B.h); }
+  /* left far from the square: back home when nobody is looking */
+  const far=Math.hypot(B.x-B.home[0],B.z-B.home[1])>9&&Math.hypot(B.vx,B.vz)<.2; B.away=far&&!tlSeen(B.x,B.z)?B.away+dt:0; if(B.away>3){ tlBallHome(); }
+  const gh=standH(B.x,B.z); at(B.x,B.z,tlU); B.m.position.copy(tlU).multiplyScalar(R+gh+B.r+B.h); B.m.quaternion.copy(B.q); B.m.visible=true;
+  B.sh.position.copy(tlU).multiplyScalar(R+gh+.02); B.sh.quaternion.setFromUnitVectors(UPY,tlU); const ss=.28/(1+B.h*1.5); B.sh.scale.set(ss,1,ss); B.sh.visible=true; }
+function tlBallHome(){ const B=BALL; [B.x,B.z]=B.home; B.h=B.vx=B.vz=B.vh=0; B.away=0; B.last=null; }
+
+/* ---------- the children: two of the school's six, in their own clothes, out to play in the square outside school hours on a
+   weekday (from half past three), or at the weekend, in the daylight and the dry. They come in from the pavement where
+   nobody is looking, each to a spot either side of the ball, and kick it about: the nearer runs to it, round behind it and
+   kicks it to the other; kick it to them and they kick it back to you. They keep out of your way and out of the way to
+   whoever you are talking to ---------- */
+const KID_SPOT=[[-5.3,.9],[-2.25,-1.35]], KID_PLAY=[-3.6,-.3];
+function tlKid(i,j){ const k=civKid(i); const o={k,g:k.g,d:k.d,i,j,x:0,z:0,u:new T.Vector3(0,1,0),f:new T.Vector3(0,0,1),fx:0,fz:1,v:0,ph:i,st:'off',kickT:0,kick:0,stepD:0,on:false,cool:0,wave:0,wt:0,
+  ob:{x:0,z:0,r:.22,h:.9,tl:true},spot:KID_SPOT[j],sx:0,sz:0}; TL.kids.push(o); return o; }
+function tlKidShow(k,on){ if(k.on===on) return; k.on=on; k.g.visible=on||TL.warm; tlSolid(k.ob,on&&!TL.warm); }
+function tlKidsOn(){ const h=SKY.h, wd=civSchoolDay(); return !FIN.on&&SKY.night<.3&&WX.rain<.3&&(wd?h>=CT.end+.05&&h<20.5:h>=9.5&&h<20.5); }
+function tlKids(dt,t){ const on=tlKidsOn(), B=BALL, P=player, play=TL.kids.filter(k=>k.on&&k.st==='play');
+  let chaser=null, cd=1e9; for(const k of play){ const e=Math.hypot(B.x-k.x,B.z-k.z); if(e<cd){ cd=e; chaser=k; } }
+  for(const k of TL.kids){ k.cool-=dt; k.kickT-=dt; k.kick=Math.max(0,k.kick-dt);
+    if(k.st==='off'){ if(on&&k.cool<=0&&!tlSeen(k.sx,k.sz)){ k.x=k.sx; k.z=k.sz; k.ob.x=k.x; k.ob.z=k.z; k.st='in'; tlKidShow(k,true); } else continue; }
+    if(!on&&k.st!=='out'){ k.st='out'; }
+    let tx=k.spot[0], tz=k.spot[1], sp=1.15, look=null;
+    if(k.st==='in'){ if(Math.hypot(tx-k.x,tz-k.z)<.2) k.st='play'; }
+    else if(k.st==='out'){ tx=k.sx; tz=k.sz; if(Math.hypot(tx-k.x,tz-k.z)<.2){ sp=0; if(!tlSeen(k.x,k.z)){ k.st='off'; tlKidShow(k,false); k.cool=6; continue; } } }
+    else { look=[B.x,B.z]; const bv=Math.hypot(B.vx,B.vz), inA=Math.hypot(B.x-KID_PLAY[0],B.z-KID_PLAY[1])<6.5;
+      if(k===chaser&&inA&&bv<2.4&&B.h<.35&&k.kickT<=0){ const other=TL.kids.find(q=>q!==k&&q.on), meNear=B.last==='me'&&Math.hypot(P.x-B.x,P.z-B.z)<9&&!TALK.p&&!tlIn();
+        let gx, gz; if(meNear){ const [fx,fz]=tlMapDir(P.u,P.f); gx=P.x+fx*.8; gz=P.z+fz*.8; } else if(other){ gx=other.st==='play'?other.x:other.spot[0]; gz=other.st==='play'?other.z:other.spot[1]; } else { gx=k.spot[0]; gz=k.spot[1]; }
+        const ex=gx-B.x, ez=gz-B.z, el=Math.hypot(ex,ez)||1, ux=ex/el, uz=ez/el; tx=B.x-ux*.3; tz=B.z-uz*.3; sp=2.1;
+        if(Math.hypot(tx-k.x,tz-k.z)<.2||Math.hypot(B.x-k.x,B.z-k.z)<.42&&((B.x-k.x)*ux+(B.z-k.z)*uz)>0){ const v0=clamp(el*.92+.35,1.4,4.8); B.vx=ux*v0; B.vz=uz*v0; B.vh=el>5?1.6:.3; B.h=Math.max(B.h,.005); B.last=k; B.lastT=TL.clk; B.kidKicks++;
+          k.kickT=1.4; k.kick=.35; tlSay('kick',.024,B.x,B.z,16); } }
+      else if(Math.hypot(tx-k.x,tz-k.z)<.25) sp=0; }
+    tlMove(k,tx,tz,sp,dt,.55); if(k.v<.05&&look){ const ex=look[0]-k.x, ez=look[1]-k.z, l=Math.hypot(ex,ez)||1; k.fx=damp(k.fx,ex/l,5,dt); k.fz=damp(k.fz,ez/l,5,dt); }
+    at(k.x,k.z,k.u); tang(k.u,at(k.x+k.fx,k.z+k.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) k.f.copy(tlV2); standOn(k.g,k.u,k.f,standH(k.x,k.z));
+    const dP=Math.hypot(P.x-k.x,P.z-k.z); if(dP<2.6&&!k.wt){ k.wave=1.2; k.wt=1; } if(dP>4) k.wt=0; k.wave=Math.max(0,k.wave-dt);
+    const run=k.v>1.4; k.ph+=dt*k.v*(run?9:7.6); animate(k.g,k.ph,clamp(k.v/(run?1.4:1.1),0,1),k.wave,t,k.i+11); k.d.legs.forEach(l=>{ l.rotation.z=0; });
+    if(k.kick>0){ const s=Math.sin(Math.PI*(1-k.kick/.35)); k.d.legs[1].rotation.x=-1.15*s; k.d.arms[0].rotation.x=.6*s; k.d.arms[1].rotation.x=-.5*s; }
+    k.stepD+=k.v*dt; if(k.stepD>(run?.5:.36)){ k.stepD=0; tlSay('kidStep',.05,k.x,k.z,10); } } }
+
+/* ---------- building it all, after the town and everything in it is made ---------- */
+const TLD={m:null};
+async function buildTownLife(gap){ tlRoadInit(); tlStops(); tlBuildCars(); await gap();
+  /* the shared bits: the gulls (eight parts each), the pigeons (six), the ducks (four) */
+  GUL.i0=tlSlots(8*8,[]); for(let j=0;j<8;j++) ['#f4f3ef','#f7f6f2','#e8b83a','#cdd3d8','#cdd3d8','#2f3236','#2f3236','#eeeeea'].forEach((c,k)=>{ TLB.cols[GUL.i0+j*8+k]=c; });
+  PG.i0=tlSlots(12*6,[]); for(let j=0;j<12;j++) [j%4?'#8f96a3':'#9c8f86','#68707c',j%3?'#a7adb7':'#b9b3ab','#a7adb7','#4f7d6e','#5d6470'].forEach((c,k)=>{ TLB.cols[PG.i0+j*6+k]=c; });
+  POND.i0=tlSlots(5*4,[]); for(let j=0;j<5;j++) (j<2?['#d6d0c4','#2f6b4a','#e3c24a','#3a3a3c']:['#9a7955','#8a6a48','#d88a3a','#7d6248']).forEach((c,k)=>{ TLB.cols[POND.i0+j*4+k]=c; });
+  { const m=new T.InstancedMesh(new T.SphereGeometry(1,10,7),toonMat('#ffffff',{fresh:true}),TLB.n); m.frustumCulled=false; for(let i=0;i<TLB.n;i++){ m.setMatrixAt(i,TLZ); m.setColorAt(i,tlC.setStyle(TLB.cols[i]||'#ffffff',T.LinearSRGBColorSpace)); } sc.add(m); TLB.m=m; }
+  /* the bread and the drops of a splash: their own (never inked: too small for a line round them) */
+  { const n=9+24, m=new T.InstancedMesh(new T.SphereGeometry(1,8,6),toonMat('#ffffff',{fresh:true}),n); m.layers.set(1); m.frustumCulled=false;
+    for(let i=0;i<n;i++){ m.setMatrixAt(i,TLZ); m.setColorAt(i,tlC.setStyle(i<9?'#e8d2a0':'#dcebf2',T.LinearSRGBColorSpace)); } sc.add(m); TLD.m=m;
+    TL.crumbs=Array.from({length:9},(_,i)=>({i,st:'off'})); TL.drops=Array.from({length:24},(_,i)=>({i:9+i,t:1,life:0,p:new T.Vector3(),v:new T.Vector3()})); }
+  { const g=new T.TorusGeometry(1,.045,4,28).rotateX(Math.PI/2), m=new T.InstancedMesh(g,toonMat('#ffffff',{fresh:true}),10); m.layers.set(1); m.frustumCulled=false; m.userData.noInk=true;
+    for(let i=0;i<10;i++){ m.setMatrixAt(i,TLZ); m.setColorAt(i,tlC.setRGB(.88,.95,.97)); } sc.add(m); TL.ringM=m; TL.rings=Array.from({length:10},()=>({t:1,life:0,p:new T.Vector3(),u:new T.Vector3(0,1,0),r1:.2})); }
+  GUL.b=[.5,1.75,3.6].map(a=>({perch:true,a,x:0,z:0})).concat(GU_FLY.map(([cx,cz,r,h],j)=>({perch:false,cx,cz,r,h,a:j*1.3,w:(.28+j*.03)*(j%2?-1:1),x:cx,z:cz})));
+  PG.b=Array.from({length:12},(_,j)=>({j,st:'ground',x:0,z:0,h:0,a:tlRnd()*TAU,t:tlRnd()*2,cool:0,peck:0,tx:null,fl:null}));
+  tlBuildCat(); tlBuildDog(); await gap();
+  tlKid(1,0); tlKid(4,1); for(const k of TL.kids){ const q=tlNear(-9.1,.6); const p=tlAt(q.s,-(RW+SW*.55),{}); k.sx=p.x+(k.j?.5:-.3); k.sz=p.z+(k.j?-.6:.4); } await gap();
+  tlBuildPond(); POND.ducks=Array.from({length:5},(_,j)=>({j,lx:(j-2)*.3,lz:(j%2-.5)*.4,a:j,v:0,tx:0,tz:0,t:0,x:0,z:0}));
+  tlBuildPuddles(); tlBuildBall();
+  /* the bus stop: a pole at the back of the pavement with its sign and timetable; the box painted on the road */
+  kitTo('tl'); { const c=TLA.bus, s=TLP.bus+c.dir*1.55, q=tlAt(s,c.dir*(RW+SW-.2),{}), M=frameAt(q.x,q.z,Math.atan2(q.dx,q.dz),standH(q.x,q.z));
+    cyl(M,'#43504f',0,0,0,.035,2.02,'cyl8'); put(M,'cyl','#2f6f8f',0,1.86,0,.2,.03,.2,Math.PI/2,0,0); put(M,'cyl','#f1ead8',0,1.86,0,.17,.035,.17,Math.PI/2,0,0); box(M,'#f2c14e',0,1.11,.02,.2,.28,.05); box(M,'#2a241d',0,1.12,.05,.14,.2,.01);
+    const sm=ciTexMat(ciCanvas(256,256,(cx,W,H)=>{ cx.fillStyle='#f1ead8'; cx.fillRect(0,0,W,H); cx.fillStyle='#2f6f8f'; cx.beginPath(); cx.arc(W/2,H/2,W/2-4,0,TAU); cx.fill(); cx.fillStyle='#f1ead8'; cx.beginPath(); cx.arc(W/2,H/2,W/2-26,0,TAU); cx.fill();
+      cx.fillStyle='#2f6f8f'; cx.textAlign='center'; cx.textBaseline='middle'; cx.font='900 74px Doto, monospace'; cx.fillText('BUS',W/2,H/2+4); }));
+    [1,-1].forEach(sd=>{ const pl=new T.Mesh(new T.CircleGeometry(.165,28),sm); pl.matrixAutoUpdate=false; pl.matrix.copy(M).multiply(tlM.makeTranslation(0,1.86,sd*.019)).multiply(tlM2.makeRotationY(sd>0?0:Math.PI)); sc.add(pl); TL.signs=(TL.signs||[]).concat(pl); });
+    const o={x:q.x,z:q.z,r:.1,h:2}; OBS.push(o); slNav(o,true);
+    /* the box on the road, yellow, where it stops */
+    const up=at(tlAt(TLP.bus,0,{}).x,tlAt(TLP.bus,0,{}).z), Pq=(al,lt)=>{ const r=tlAt(TLP.bus+al,lt,{}); return at(r.x,r.z,new T.Vector3()).multiplyScalar(R+ROADH+.007); }, L0=c.hl+.25, la=c.dir*.3, lb=c.dir*(RW-.06);
+    for(const [a0,a1,l0,l1] of [[-L0,L0,lb-.04,lb+.04],[-L0,L0,la-.04,la+.04],[-L0,-L0+.08,la,lb],[L0-.08,L0,la,lb]]) kquad(Pq(a0,l0),Pq(a1,l0),Pq(a1,l1),Pq(a0,l1),up,'#e9c34a'); }
+  /* the milk on the doorsteps: two bottles each, put down when the milkman has been */
+  TL.bottles=TLP.milk.map(m=>{ const b=tlPart(B=>[-.05,.05].forEach(x=>{ B.put(FG.can,'#f6f4ee',x,.065,0,.03,.13,.03); B.put(FG.can,'#d9b45a',x,.135,0,.031,.012,.031); }));
+    b.matrixAutoUpdate=false; b.matrix.copy(frameAt(m.bot.x,m.bot.z,0,standH(m.bot.x,m.bot.z)+.16)); b.visible=false; sc.add(b); return {m:b,on:false}; });
+  kitTo(); { const k=KITS.tl; if(k&&k.P.length){ const g=kgeo('tl'), km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; const m=new T.Mesh(g,km); m.frustumCulled=false; m.userData.cast=true; sc.add(m); TL.kit=m; } delete KITS.tl; }
+  /* into the ink pass and the sun's shadow, as the rest of the town (they were made after it was registered) */
+  const roots=[...TL.cars.map(c=>c.g),...TL.feet.map(w=>w.g),...TL.kids.map(k=>k.g),CAT.g,DOG.g,BALL.m,TLB.m,POND.water,TL.kit,...(TL.signs||[]),...TL.bottles.map(b=>b.m)].filter(Boolean);
+  for(const r of roots) r.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
+    o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,o.material.userData.shdF||SHD_F,T.DoubleSide); if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); });
+  TL.roots=roots.concat([TLD.m,TL.ringM,PUD.m,BALL.sh]); PF.figs&&PF.figs.push(...TL.feet.map(w=>w.g),...TL.kids.map(k=>k.g));
+  TL.ok=true; tlWarm(true); baked=false; }
+/* behind the loader: everything drawn the once wherever it is (so its shaders are made with Earth's), then put away */
+function tlWarm(on){ for(const r of TL.roots||[]) r.traverse(o=>{ if(o.isMesh||o.isGroup) o.frustumCulled=!on&&!(o.isInstancedMesh||o===POND.water||o===TL.kit); });
+  for(const r of TL.roots||[]) if(on) r.visible=true;
+  for(const c of TL.cars){ if(c.u) c.u.value=on?1:c.u.value; if(c.lamps) c.lamps.visible=on; c.g.traverse(o=>{ if(o.isMesh) o.visible=true; }); }
+  for(const w of TL.feet){ if(w.carry) w.carry.visible=on; } TL.bottles.forEach(b=>{ b.m.visible=on||b.on; });
+  if(!on){ for(const c of TL.cars) c.g.visible=c.on; for(const w of TL.feet) w.g.visible=w.on; for(const k of TL.kids) k.g.visible=k.on; DOG.g.visible=DOG.on; } }
+/* everything where it should be at this time of day: on arriving, and whenever the clock is set (the tests do) */
+function tlPlace(){ const h=SKY.h, night=tlNight(), P=player; TL.h0=h; TL.d0=civDay(); const L=TLR.L, me=tlNear(P.x,P.z).s;
+  for(const w of TL.feet){ tlShow(w,false); w.carryOn=false; }
+  const park=(c,why,s,stage)=>{ c.s=tlWrap(s); c.via={s:c.s,lat:why==='cafe'?c.dir*(RW+.22):tlParkLat(c),why}; c.stopAt=c.s; c.lat=c.latW=c.via.lat; c.mode='stop'; c.v=0; c.t=9; c.stage=stage; c.t2=0; c.stay=4+tlRnd()*6; c.run=false; c.doorOpen=false; c.door=0; c.rear=0; c.rearOpen=false; c.pass=null;
+    if(c.bust) c.bust.visible=stage!==2; if(c.rider) c.ride=stage!==2; };
+  const drive=(c,s)=>{ c.s=tlWrap(s); c.lat=c.latW=c.lane; c.mode='drive'; c.v=c.vmax*.8; c.stopAt=null; c.via=null; c.laps=0; c.want=1; c.odo=0; c.run=true; c.stage=0; c.pass=null; if(c.bust) c.bust.visible=true; if(c.rider) c.ride=true; c.door=0; c.doorOpen=false; c.rear=0; c.rearOpen=false; };
+  for(const c of TL.cars) tlCarShow(c,false);
+  const s0=me+L/2;
+  { const c=TLA.bus; park(c,'stop',TLP.bus,0); c.lay=night?1e9:2+tlRnd()*6; c.t=6.7; c.run=!night; tlCarShow(c,true); }
+  { const c=TLA.kei; if(night&&TLP.hall!=null) park(c,'hall',TLP.hall-.5,2); else drive(c,s0-6); tlCarShow(c,true); }
+  { const c=TLA.bike; if((night||h>=22||h<7)&&TLP.cafe!=null) park(c,'cafe',TLP.cafe,2); else drive(c,s0+8); tlCarShow(c,true); }
+  { const c=TLA.post; if((h<8||h>=19)&&TLP.rest!=null) park(c,'rest',TLP.rest,0); else { drive(c,s0+20); c.next='po'; } tlCarShow(c,true); }
+  { const c=TLA.milk; c.done=false; c.leaving=false; c.fade=0; const n=TLP.milk.length, f=clamp((h-5.5)/2.5,0,1); c.k=h>=5.5&&h<8?Math.min(n-1,Math.floor(f*n)):n; c.mode='drive';
+    TL.bottles.forEach((b,i)=>{ b.on=h>=5.5&&h<10&&(i<c.k||h>=8); b.m.visible=b.on; }); if(!(h>=5.5&&h<8)) c.done=true; }
+  for(const c of TL.cars){ if(c.on) tlPlaceCar(c,1,0); for(const o of c.obs) tlSolid(o,c.on); }
+  /* the children: out at their spots if it is their time, else off */
+  for(const k of TL.kids){ tlKidShow(k,false); k.st='off'; k.cool=0; if(tlKidsOn()){ [k.x,k.z]=k.spot; k.ob.x=k.x; k.ob.z=k.z; k.st='play'; tlKidShow(k,true); } }
+  DOG.st='home'; [DOG.x,DOG.z]=DOG.home; DOG.ob.x=DOG.x; DOG.ob.z=DOG.z; DOG.cool=6; DOG.path=null; DOG.on=true; DOG.g.visible=true; tlSolid(DOG.ob,true);
+  for(const p of PG.b){ if(SKY.night>.45){ p.st='gone'; } else { [p.x,p.z]=tlPigeonSpot(); p.st='ground'; p.h=0; p.cool=0; } }
+  CAT.st='sleep'; CAT.t=0; CAT.cool=0; CAT.P=Object.assign({},CATP.sleep);
+  tlBallHome(); for(const c of TL.crumbs) c.st='off'; for(const d of TL.drops) d.t=d.life=1; TL.wet=WX.rain>.25&&!WX.snow?1:TL.wet; }
+function tlEnter(){ TL.h0=null; TL.throwT=0; }
+
+/* ---------- each frame: after the town has moved you and placed its camera ---------- */
+function tlStep(dt,t){ if(!TL.ok) return; dt=Math.min(dt,.05); TL.clk=(TL.clk||0)+dt;
+  if(TL.warm){ if(S.ready&&S.st===st&&S.mode==='station'){ TL.warm=false; tlWarm(false); tlPlace(); } else { tlWarm(true); return; } }
+  const jump=TL.h0===null||(Math.abs(SKY.h-TL.h0)>.05&&Math.abs(SKY.h-TL.h0)<23.9)||TL.d0!==civDay(); if(jump) tlPlace(); TL.h0=SKY.h;
+  TL.corr=tlCorr(); TL.corrT=TALK.p||TALK.goal?TL.corr:null;
+  tlCars(dt,t); for(const w of TL.feet) if(w.on) tlWalk(w,dt,t); tlDoors(dt);
+  tlCat(dt,t); tlGulls(dt,t); tlPigeons(dt,t); tlDucks(dt,t); tlCrumbs(dt,t); tlDog(dt,t); tlKids(dt,t); tlBall(dt,t); tlPuddles(dt); tlDrops(dt);
+  TLB.m.instanceMatrix.needsUpdate=true; TLD.m.instanceMatrix.needsUpdate=true;
+  /* the bottles are taken in by mid-morning (when nobody is looking) */
+  if(SKY.h>=10||SKY.h<5.5) TL.bottles.forEach(b=>{ if(b.on){ const p=tlV.setFromMatrixPosition(b.m.matrix), [x,z]=loc(p.normalize()); if(!tlSeen(x,z)){ b.on=false; b.m.visible=false; } } });
+  /* your feet through a puddle */
+  const P=player; if(P.speed>.5) tlSplashAt(P.x,P.z,P.speed>3?1.2:.8,.08);
+  /* throwing the bread: your right arm over */
+  if(TL.throwT>0){ TL.throwT-=dt; const k=Math.sin(Math.PI*clamp(1-TL.throwT/.5,0,1)), D=me.userData; D.arms[0].rotation.x=-2.3*k; D.fore[0].rotation.x=-.3-.5*k; }
+  /* (for the tests: how near any of it ever comes to you, past its own edge) */
+  let mn=99, who=null; for(const c of TL.cars) if(c.on) for(const o of c.obs){ const e=Math.hypot(P.x-o.x,P.z-o.z)-o.r; if(e<mn){ mn=e; who=c.id; } }
+  for(const w of TL.feet) if(w.on){ const e=Math.hypot(P.x-w.x,P.z-w.z)-w.ob.r; if(e<mn){ mn=e; who=w.key; } } for(const k of TL.kids) if(k.on){ const e=Math.hypot(P.x-k.x,P.z-k.z)-k.ob.r; if(e<mn){ mn=e; who='kid'; } }
+  if(DOG.on){ const e=Math.hypot(P.x-DOG.x,P.z-DOG.z)-DOG.ob.r; if(e<mn){ mn=e; who='dog'; } } if(TL.clearSkip>0) TL.clearSkip--; else if(mn<TL.clear.min){ TL.clear.min=mn; TL.clear.who=who; }
+  /* (pointing at the pond: the cursor said so; walked away from it without moving the mouse, it stops saying so) */
+  if(TL.hov&&(Math.hypot(P.x-POND.x,P.z-POND.z)>16||!tlFreeUI())){ TL.hov=false; const ce=$('#cur'); if(ce&&!hov&&!DM.hov) ce.classList.remove('big'); }
+  /* a view from above (the tests' picture of the pond) */
+  if(TL.top){ st.camP.copy(TL.top.p); st.camL.copy(TL.top.l); S.stSnap=true; } }
+
+/* ---------- a tap or a click on the pond's water throws the ducks some bread; pointing at it says so ---------- */
+const tlFreeUI=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&!PHS.on&&!PC.on&&GLN.t<0&&CL.st==='idle';
+function tlPondPick(e){ if(!POND.water||Math.hypot(player.x-POND.x,player.z-POND.z)>16) return null; tlNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); tlRay.setFromCamera(tlNdc,stCam);
+  const h=tlRay.intersectObject(POND.water,false)[0]; return h?loc(tlV.copy(h.point).normalize()):null; }
+{ const op=st.onPointer; st.onPointer=function(e){ TL.tap=TL.ok&&tlFreeUI()?{id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,talk:!!TALK.p}:null; return op.call(this,e); }; }
+addEventListener('pointermove',e=>{ const tp=TL.tap; if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>10) tp.moved=true;
+  if(e.pointerType!=='mouse'||!TL.ok||S.st!==st||S.mode!=='station'||down) return; const on=!hov&&!DM.hov&&tlFreeUI()&&!!tlPondPick(e);
+  if(on!==TL.hov){ TL.hov=on; const ce=$('#cur'), ct=$('#curT'); if(ce&&ct){ if(on){ ct.textContent='Feed the ducks'; ce.classList.add('big'); } else if(!hov&&!DM.hov) ce.classList.remove('big'); } } },{passive:true});
+addEventListener('pointerup',e=>{ const tp=TL.tap; TL.tap=null; if(!tp||tp.id!==e.pointerId||tp.moved||tp.talk||!TL.ok||!tlFreeUI()||TALK.p) return; if(pickPerson(e)) return; const p=tlPondPick(e); if(p) tlFeed(p[0],p[1]); });
+
+/* built after everything else in the town; stepped after the town has moved you and placed its camera; put back with it */
+{ const b=st.build, up=st.update, en=st.enter, ex=st.exit;
+  st.build=async function(){ await b.apply(this,arguments); await nextFrame(); try{ await buildTownLife(()=>st.pace?st.pace():nextFrame()); }catch(err){ TL.err=String(err&&err.stack||err); console.warn('town life',err); kitTo(); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TL.ok){ try{ tlStep(dt,t); }catch(err){ if(!TL.err){ TL.err=String(err&&err.stack||err); console.error('town life',err); } } } return r; };
+  st.enter=function(){ const r=en.apply(this,arguments); if(TL.ok) tlEnter(); return r; };
+  st.exit=function(){ if(TL.ok){ tlCarsQuiet(); TL.h0=null; } return ex.apply(this,arguments); }; }
+st._dbg.town={TL,TLA,TLP,TLR,CAT,GUL,PG,POND,DOG,BALL,PUD,get err(){ return TL.err; },place:tlPlace,near:(x,z)=>tlNear(x,z,{}),at:(s,lat)=>tlAt(s,lat,{}),feed:tlFeed,pondL,pondW,
+  run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; G.uTime.value+=1/fps; st.update(1/fps,S.t); } },
+  /* where on the screen a point of the town is (x, z, how high) */
+  screen(x,z,h=0){ stCam.updateMatrixWorld(); const q=at(x,z,new T.Vector3()).multiplyScalar(R+standH(x,z)+h).project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; },
+  /* the camera at (px, pz) ph up, looking at (lx, lz) lh up (null: back to the town's own) */
+  view(px,pz,ph,lx,lz,lh){ if(px==null){ TL.top=null; return; } TL.top={p:at(px,pz,new T.Vector3()).multiplyScalar(R+standH(px,pz)+ph),l:at(lx,lz,new T.Vector3()).multiplyScalar(R+standH(lx,lz)+lh)}; },
+  wet(v){ TL.wetSet=v!=null; if(v!=null) TL.wet=v; },
+  get state(){ const r=x=>+(+x).toFixed(2); return {err:TL.err,cars:TL.cars.map(c=>({id:c.id,on:c.on,mode:c.mode,why:c.via&&c.via.why,stage:c.stage,s:r(c.s),v:r(c.v),lat:r(c.lat),x:r(c.x||0),z:r(c.z||0),run:c.run,u:c.u?r(c.u.value):1,k:c.k,pass:!!c.pass,door:r(c.door||0)})),
+    feet:TL.feet.map(w=>({key:w.key,on:w.on,x:r(w.x),z:r(w.z),carry:w.carryOn})),doors:JSON.parse(JSON.stringify(TL.doors)),seen:{...TL.seen},n:{...TL.n},clear:{...TL.clear,min:r(TL.clear.min)},
+    cat:{st:CAT.st,x:r(CAT.x),wakes:CAT.wakes,stretches:CAT.stretches,walks:CAT.walks,vis:!!(CAT.g&&CAT.g.visible)},gulls:{perched:GUL.b.filter(g=>g.perch).length,calls:GUL.calls,fly:GUL.b.filter(g=>!g.perch).map(g=>[r(g.x),r(g.z)])},
+    pigeons:{ground:PG.b.filter(p=>p.st==='ground').length,fly:PG.b.filter(p=>p.st==='fly').length,gone:PG.b.filter(p=>p.st==='gone').length,claps:PG.claps,ups:PG.ups},
+    ducks:POND.ducks.map(d=>[r(d.lx),r(d.lz)]),crumbs:TL.crumbs.map(c=>c.st),dog:{st:DOG.st,x:r(DOG.x),z:r(DOG.z),follows:DOG.follows,woofs:DOG.woofs,d:r(Math.hypot(player.x-DOG.x,player.z-DOG.z))},
+    ball:{x:r(BALL.x),z:r(BALL.z),h:r(BALL.h),v:r(Math.hypot(BALL.vx,BALL.vz)),kicks:BALL.kicks,kidKicks:BALL.kidKicks,bounces:BALL.bounces},kids:TL.kids.map(k=>({on:k.on,st:k.st,x:r(k.x),z:r(k.z)})),
+    wet:r(TL.wet),puddles:PUD.list.length,wetPuddles:PUD.list.filter(q=>q.k>.3).length,bottles:TL.bottles.map(b=>b.on),stops:{bus:r(TLP.bus),hall:r(TLP.hall),po:r(TLP.po),cafe:r(TLP.cafe),milk:TLP.milk.length}}; }};
+/* ===================== (town life ends here) ===================== */
 })();
