@@ -19,6 +19,7 @@ const show=(sel,on)=>{ $(sel).classList.toggle('off',!on); if(typeof curReset===
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const angDiff=(a,b)=>{let d=(a-b)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return d;};
+const store={get(k,d){try{const v=localStorage.getItem('heloria.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('heloria.'+k,JSON.stringify(v))}catch(e){}}};   // small things kept between visits (the best darts score)
 const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
 
 /* ---------- sound: a generative score, not beeps ---------- */
