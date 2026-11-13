@@ -723,7 +723,7 @@ const A=(()=>{
     /* how far into his piece and into the solo the recordings are now (seconds, -1 when not sounding), and what he plays,
        so his hands can keep time with what you hear */
     buskAt(){ const p=r=>{ const a=r.els[r.cur]; return a&&a._on&&!a.paused?a.currentTime:-1; }; return {loop:p(BUSK),solo:p(SOLO),score:BKS,done:BK.done}; },
-    /* ---------- the market in the square on Friday nights (see the market on Earth). Only short sounds, made live, each a
+    /* ---------- the market in the square every night (see the market on Earth). Only short sounds, made live, each a
        few clicks or a ring: no bed of noise under the town, and nothing like voices. g is the level (already eased for how
        far off it is), p where it is, left to right ---------- */
     /* the fryer spitting: a handful of tiny dry crackles over half a second, each a different brightness */

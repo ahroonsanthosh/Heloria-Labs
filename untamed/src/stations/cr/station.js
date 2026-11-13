@@ -1025,8 +1025,8 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
   d.head.rotation.set(lerp(.36+.05*nod,lpt,DM.att)+nodK,lerp(.32,ly,DM.att),lerp(.05*sway,0,DM.att)); d.body.rotation.y+=clamp(ly*.2,-.2,.2)*DM.att;
   DM.blink-=dt; if(DM.blink<0) DM.blink=2+Math.random()*3; d.eyes[0].scale.y=DM.blink<.12?.15:1; }
 
-/* ---------- the market: Friday nights in the square ----------
-   On a Friday from six in the evening until two in the morning (the visitor's own clock, as the sky is), the square fills
+/* ---------- the market: every night in the square ----------
+   Every evening from six until two in the morning (the visitor's own clock, as the sky is), the square fills
    up: festoons of warm bulbs on four poles across it, a chipper van and a crêpe and coffee cart, a few people queuing,
    eating at a high table and reading the boards, and outside the café Diarmuid has his big amp out. Any other time there
    is none of it. It is all built with the town and kept hidden; when the clock crosses into or out of market hours it
@@ -1037,7 +1037,7 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
    while the market is up. */
 const MKT={k:0,e:0,want:0,warm:true,snap:true,solid:false,wet:0,dark:0,glow:0,u:{value:0},obs:[],cells:[],g:null,figs:[],fry:1.5,bsk:5,clk:3,
   OPEN:18,SHUT:2,VAN:[4.8,2.05],CART:[-4.3,1.75],TABLE:[-1.5,5.0],POLES:[[2.1,3.9],[-2.1,3.9],[-2.0,-4.3],[2.0,-4.3]],FADE:7};
-const mkRnd=seeded(31), mktOpen=()=>(SKY.dow===5&&SKY.h>=MKT.OPEN)||(SKY.dow===6&&SKY.h<MKT.SHUT);
+const mkRnd=seeded(31), mktOpen=()=>SKY.h>=MKT.OPEN||SKY.h<MKT.SHUT;
 /* fading in and out: a dissolve, the same in the colour and in the ink, so a stall's outline comes and goes with it */
 const MK_DIS=`uniform float uMk; void mkFade(){ if(uMk<.999&&uMk<fract(52.9829189*fract(dot(gl_FragCoord.xy+vec2(23.,7.),vec2(.06711056,.00583715))))) discard; }`;
 const MKT_F=TOON_F.replace('void main(){',MK_DIS+'\n  void main(){ mkFade();'), MKT_IF=INK_F.replace('void main(){',MK_DIS+'\n void main(){ mkFade();');
@@ -2852,7 +2852,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
   buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
   buildRegulars();   // Gideon and Owen at their table outside it (the same)
-  await buildMarket(gap); await gap();   // the Friday night market in the square, kept hidden on other nights (after Diarmuid, whose big amp is in it)
+  await buildMarket(gap); await gap();   // the night market in the square, kept hidden by day (after Diarmuid, whose big amp is in it)
   await buildSkyLife(gap); await gap();   // the sky alive: flags, frost, blooms, the ice cream cart, breath and smoke, petals and leaves (after the market, whose materials it shares)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};
   kitM.uniforms.uLeaf=WIND.leaf; kitM.userData.inkF=KIT_IF; kitM.userData.shdF=KIT_SF;   // the trees in the wind, and bare in winter (see the sky alive)   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
@@ -3348,7 +3348,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   if(BE) BE.lt.visible=(t/1.6)%1<.3;
   buskUpdate(dt,t);   // Diarmuid: his guitar, his hands, his lights
   regUpdate(dt,t);   // Gideon and Owen at the café
-  mktUpdate(dt,t);   // the market in the square, on a Friday night
+  mktUpdate(dt,t);   // the market in the square, every night
   slWorld(dt,t);   // the sky alive: flags, breath and smoke, petals and leaves, leaf piles, the ice cream cart, frost and blooms
   if(KR){ const u=(t/3.4)%2, w=u<1?sstep(.86,1,u):1-sstep(1.86,2,u); KRC.copy(KRY).lerp(KRT,w);   // you speak, then the buyer answers
     for(let k=0;k<28;k++){ const a=k/28*TAU, hh=.12+.32*Math.abs(Math.sin(a*3+t*4.2)*Math.sin(t*1.7+k*.4)); Qb.setFromAxisAngle(UPY,-a); Mf.compose(V.set(Math.cos(a)*.33,0,Math.sin(a)*.33),Qb,V2.set(1,hh,1)); KR.bars.setMatrixAt(k,Mf); KR.bars.setColorAt(k,KRC); }
@@ -4559,7 +4559,7 @@ function hiLines(who){ const h=SKY.h, late=h>=20||h<7;
   if(who===HCLERK) return [late?'We\'re shut, officially. Come in anyway, I\'m only filing.':'Hello there, welcome to the town hall. I\'m Séamus, the clerk.',
     'The clock up top keeps your time, not mine. It strikes the hour, and softly at night.',
     'That\'s the whole town on the table. Tap anything on it and I\'ll send you there.',
-    'Market\'s on Fridays in the square, six till two. Sign the book on your way out?'];
+    'Market\'s on every night in the square, six till two. Sign the book on your way out?'];
   const ph=civPhase(h);
   return [late?'Working late, as ever. Come in.':ph==='yard'?'Hello! They\'re all out at break. A bit of quiet.':ph==='home'||ph==='off'?'Hello! They\'ve all gone home. Just me and the marking.':'Oh, hello! Come in, come in. I\'m Ms Kavanagh.',
     'We\'re doing rockets this week. The one on the science table really goes up.',
@@ -4579,7 +4579,7 @@ function hiPlaces(){ const out=[]; for(const id in INST){ const q=INST[id]; let 
   return out; }
 function hiCardOf(id){ const c=CARD[id]; return c?{n:c[0],k:c[1],t:c[2],href:c[3],l:c[4]}:HCARD[id]?{n:HCARD[id][0],k:HCARD[id][1],t:HCARD[id][2]}:null; }
 /* the noticeboard's notes: where each is pinned (on its sheet, 0 to 1 across and down), its paper, and what it says */
-const HNOTES=[{x:.05,y:.06,w:.5,h:.4,r:-.04,c:'#f6e27a',h1:'FRIDAY MARKET',t:'Fridays, 18:00 to 02:00, in the square. Food, music and lights; Diarmuid plays.'},
+const HNOTES=[{x:.05,y:.06,w:.5,h:.4,r:-.04,c:'#f6e27a',h1:'NIGHT MARKET',t:'Every night, 18:00 to 02:00, in the square. Food, music and lights; Diarmuid plays.'},
   {x:.57,y:.08,w:.38,h:.36,r:.05,c:'#fbf8f0',h1:'TEST FIRES',t:'At the workshop, whenever the shutter is up: press the big red button. Mind the smoke alarm.'},
   {x:.08,y:.52,w:.46,h:.4,r:.03,c:'#bfe0f2',h1:'SCHOOL HOURS',t:'Weekdays, 08:50 to 15:00. Out to play at 11:00 and at 13:00. Go slowly past the gate.'},
   {x:.58,y:.55,w:.36,h:.34,r:-.06,c:'#f6c6d0',h1:'KITE TO BORROW',t:'On the cliff, by the bench. Bring it back when the wind drops.'}];
@@ -6697,7 +6697,7 @@ st._dbg.po={P:PO,PW,BRL,POWHO,get err(){ return PO.err; },go:poGo,enter:poEnter,
    Inside is a small Irish pub: the bar with its taps and the bottles on the back bar, Tadhg behind it polishing a glass
    (he looks up and says hello; a tap on him, or Enter, and he has a word), a snug by the small window, a fire in the
    grate, photographs on the walls and the club's jersey framed, and in the corner three chairs with a fiddle, a bodhrán
-   and a whistle left on them. On a Friday market night (the market's own hours) three of them sit in and play a jig of
+   and a whistle left on them. On a Friday market night (a Friday evening into the small hours, the market's own hours) three of them sit in and play a jig of
    their own, softly; near the door you hear it from the street.
    And the dartboard: Play darts (E, or a tap on the board) and you are at the line, the board in front of you. Aim with
    the mouse or a finger (your hand is never quite still, so it takes a little skill) and throw with a click, a tap (or
@@ -6729,8 +6729,9 @@ const pbD=(x,y,z,o=new T.Vector3())=>o.set(x,y,z).transformDirection(PUB.M);
 const pbL=(w,o=new T.Vector3())=>o.copy(w).applyMatrix4(PUB.Mi);
 const pbXZ=(x,z)=>loc(pbW(x,0,z,pbV4).normalize());   // on the town's map
 const pbTf=(Mx,x,y,z,ry=0,rx=0,rz=0)=>new T.Matrix4().multiplyMatrices(Mx,new T.Matrix4().compose(pbS.set(x,y,z),pbQ.setFromEuler(pbE.set(rx,ry,rz,'YXZ')),new T.Vector3(1,1,1)));
-/* the night of the session: the market's own hours (a Friday evening into the small hours of Saturday) */
-const pbSession=()=>mktOpen();
+/* the night of the session: Fridays only, in the market's hours (a Friday evening into the small hours of Saturday);
+   the market itself is on every night, the session stays a Friday thing */
+const pbSession=()=>(SKY.dow===5&&SKY.h>=MKT.OPEN)||(SKY.dow===6&&SKY.h<MKT.SHUT);
 
 /* ---------- the light in there: the café's shaders again, with this room's four lamps: two over the bar, the fire (it
    flickers), and the lamp over the dartboard ---------- */

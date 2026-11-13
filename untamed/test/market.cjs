@@ -1,6 +1,6 @@
-/* The market in the square on Earth: on a Friday from six in the evening until two in the morning (the visitor's clock)
+/* The market in the square on Earth: every night from six in the evening until two in the morning (the visitor's clock)
    there are festoons over the square, a chipper van and a crêpe and coffee cart, a few people about, and Diarmuid has his
-   big amp out; on any other day, and on a Friday morning, there is none of it. It fades in and out as the clock crosses
+   big amp out; by day there is none of it. It fades in and out as the clock crosses
    the hour, it never blocks the paths across the square or the way to anyone you talk to, no new shader is made when it
    appears, and its sounds are short, soft and in line with the footsteps.
    node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/market.cjs --out <dir> [--mobile] [--meter]
@@ -30,18 +30,20 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
      phone held upright (too narrow for both stalls at once) turned a little toward the chipper van */
   const look = async () => { await M((e, d, h, m) => { e.put(.35, -7.4, m ? 2.6 : -.2, 2); e.run(40); }, mobile); await frames(4); await wait(1200); };
 
-  /* ---------- no market on a Tuesday night, nor on a Friday morning ---------- */
-  const tue = await M((e, d, h, a) => e.at(a, '21:30'), TUE);
-  rec(!tue.open && !tue.vis && tue.e === 0 && !tue.solid && tue.inOBS === 0 && !tue.amp && tue.figs.every(f => !f.vis), 'no market on a Tuesday night', JSON.stringify(tue));
+  /* ---------- no market by day: a Tuesday afternoon, a Friday morning ---------- */
+  const tue = await M((e, d, h, a) => e.at(a, '14:00'), TUE);
+  rec(!tue.open && !tue.vis && tue.e === 0 && !tue.solid && tue.inOBS === 0 && !tue.amp && tue.figs.every(f => !f.vis), 'no market on a Tuesday afternoon', JSON.stringify(tue));
   const tueLv = await M(e => +window.__heloria.ST.cr._dbg.busk.level(window.__heloria.ST.cr._dbg.busk.DM.x + 11.5, window.__heloria.ST.cr._dbg.busk.DM.z).toFixed(3));
-  await look(); const progTue = await H(h => h.renderer.info.programs.length); await shot(pre + 'market-tuesday-night');
+  await look(); const progTue = await H(h => h.renderer.info.programs.length); await shot(pre + 'market-tuesday-afternoon');
   const morn = await M((e, d, h, a) => e.at(a, '10:00'), FRI);
   rec(!morn.open && !morn.vis && morn.e === 0 && !morn.solid && !morn.amp, 'no market on a Friday morning', JSON.stringify({ open: morn.open, vis: morn.vis, e: morn.e, dow: morn.dow }));
-  const thu = await M((e, d, h, a) => e.at(a, '23:00'), '2026-11-12'), sat = await M((e, d, h, a) => e.at(a, '03:00'), SAT);
-  rec(!thu.open && !thu.vis && !sat.open && !sat.vis, 'nor late on a Thursday, nor after two on Saturday morning', JSON.stringify([thu.open, sat.open]));
+  const thu = await M((e, d, h, a) => e.at(a, '17:00'), '2026-11-12'), sat = await M((e, d, h, a) => e.at(a, '03:00'), SAT);
+  rec(!thu.open && !thu.vis && !sat.open && !sat.vis, 'nor before six on a Thursday, nor after two in the morning', JSON.stringify([thu.open, sat.open]));
+  const tueN = await M((e, d, h, a) => e.at(a, '21:30'), TUE), monN = await M((e, d, h, a) => e.at(a, '01:00'), '2026-11-09');
+  rec(tueN.open && tueN.vis && monN.open, 'and it is on every night, a Tuesday and the small hours of a Monday too', JSON.stringify([tueN.open, tueN.e, monN.open]));
 
   /* ---------- Friday 21:30: festoons lit, stalls up, people about, Diarmuid's big amp ---------- */
-  await M((e, d, h, a) => e.at(a, '21:30'), TUE); await look(); await frames(4);
+  await M((e, d, h, a) => e.at(a, '14:00'), TUE); await look(); await frames(4);
   const progTue2 = await H(h => h.renderer.info.programs.length);
   const fri = await M((e, d, h, a) => e.at(a, '21:30'), FRI);
   await look(); await frames(6); await wait(800);
@@ -57,8 +59,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     out.people = M.figs.filter(f => on(f.g.position.clone().addScaledVector(f.dir, 1))).length; out.calls = h.renderer.info.render.calls; return out; });
   rec(mobile ? seen.van && seen.bulbs > 20 && seen.people >= 3 : seen.van && seen.cart && seen.bulbs > 20 && seen.people >= 5, 'walking into the square, the stalls, the festoons and the people are in view', JSON.stringify(seen));
   await shot(pre + 'market-friday-night');
-  /* (between the two looks at the same spot, Tuesday night then Friday night, only the market differs) */
-  rec(progFri === progTue2, 'no new shader is made when the market appears (all made ahead)', 'programs: Tuesday first look ' + progTue + ', again ' + progTue2 + ', Friday ' + progFri);
+  /* (between the two looks at the same spot, Tuesday afternoon then Friday night, only the market and the light differ) */
+  rec(progFri === progTue2, 'no new shader is made when the market appears (all made ahead)', 'programs: Tuesday afternoon first look ' + progTue + ', again ' + progTue2 + ', Friday ' + progFri);
   const lv = await M(e => { const b = window.__heloria.ST.cr._dbg.busk; return { far: +b.level(b.DM.x + 11.5, b.DM.z).toFixed(3), near: +b.level(b.DM.x + 1.5, b.DM.z).toFixed(3) }; });
   rec(lv.far > .005 && tueLv === 0 && lv.near <= 1, 'on a market night his big amp carries further (heard at eleven and a half metres), never louder than full', JSON.stringify({ friday: lv, tuesday: tueLv }));
   /* a closer look at him on the night */
