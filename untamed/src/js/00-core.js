@@ -1158,6 +1158,16 @@ const A=(()=>{
     /* the washing in the wind: two to four soft, muffled flaps of cloth, quicker the harder it blows (k from 0 to 1) */
     washFlap(g=.03,p=0,k=.5){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const d=ciDst(p), n=2+Math.round(k*2), sp=.11-.03*k;
       for(let i=0;i<n;i++) ciN(d,.07,g*(1-i*.18)*vr(.15),(300+240*k)*vr(.12),220,'bandpass',1.1,i*sp*(.85+Math.random()*.3),.006); },
+    /* ---------- the coast train on Earth: its wheels over the rail joints, its whistle, its brakes. As the coast's, short
+       and soft, low and dark, never louder than a footstep; g how loud, p left or right ---------- */
+    /* the wheels over a rail joint: a pair of dull knocks, the second a beat behind (gap: how far apart, quicker the faster) */
+    railClack(g=.03,p=0,gap=.14){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.08), b=clamp(gap,.05,.3);
+      [0,b].forEach((dl,i)=>{ ciT(d,(i?205:225)*v,.06,g*(i?.8:1),'triangle',120*v,dl,.002); ciN(d,.035,g*.4,900*v,500,'bandpass',1.6,dl,.002); }); },
+    /* the little engine's whistle: two soft notes of the town's key, a breath of steam under them */
+    trainWhistle(g=.02,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.01);
+      [[587.33,0,.42],[783.99,.36,.62]].forEach(([f,dl,du])=>{ ciT(d,f*v,du,g,'sine',0,dl,.05); ciT(d,f*2*v,du*.8,g*.18,'sine',0,dl,.05); }); ciN(d,.95,g*.25,1100,700,'bandpass',.8,0,.08); },
+    /* the brakes going on: a low hiss of air let out, and the faint whine of the shoes on the wheels sliding down */
+    trainBrakes(g=.025,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.06); ciN(d,1.1,g*.7,700*v,380,'lowpass',.7,0,.12); ciT(d,620*v,.9,g*.22,'sine',430*v,.05,.1); },
     /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
        As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
        plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */

@@ -234,7 +234,7 @@ function pathDist(x,z){ let m=1e9; for(const s of SEGS){ const ex=s[2]-s[0], ez=
 function onJetty(x,z){ const [a,b]=JETTY, ex=b[0]-a[0], ez=b[1]-a[1], L=Math.hypot(ex,ez), t=((x-a[0])*ex+(z-a[1])*ez)/(L*L); if(t<-.02||t>1) return false; return Math.abs(((x-a[0])*ez-(z-a[1])*ex)/L)<.62; }
 let DECK=-.5;
 /* where your feet are: on the ground, up on the pavement, or on the boards of the jetty */
-function standH(x,z){ if(onJetty(x,z)) return DECK+.12; if(Math.hypot(x-PAD[0],z-PAD[1])<2.35) return .1; const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
+function standH(x,z){ if(onJetty(x,z)) return DECK+.12; const pd=onPier(x,z); if(pd!==false) return pd;   /* (the harbour pier's boards: see the pier and the train) */ if(Math.hypot(x-PAD[0],z-PAD[1])<2.35) return .1; const g=grid(GH,x,z), rd=roadDist(x,z); return g+(rd<RW?ROADH:rd<RW+SW?CURB:0); }
 
 /* ---------- signs: painted boards with the dot-matrix type, drawn on a canvas ---------- */
 const SIGN_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
@@ -2878,7 +2878,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   buildRegulars();   // Gideon and Owen at their table outside it (the same)
   await buildMarket(gap); await gap();   // the night market in the square, kept hidden by day (after Diarmuid, whose big amp is in it)
   await buildSkyLife(gap); await gap();   // the sky alive: flags, frost, blooms, the ice cream cart, breath and smoke, petals and leaves (after the market, whose materials it shares)
-  buildCoast(); buildHomes(); await gap();   // the coast's boats, seal and swing, and the homes' washing lines (see them, at the end: their rocks, posts and branch go into the town's mesh)
+  buildCoast(); buildHomes(); buildPier(); await gap();   // the coast's boats, seal and swing, and the homes' washing lines (see them, at the end: their rocks, posts and branch go into the town's mesh)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};
   kitM.uniforms.uLeaf=WIND.leaf; kitM.userData.inkF=KIT_IF; kitM.userData.shdF=KIT_SF;   // the trees in the wind, and bare in winter (see the sky alive)   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -2904,9 +2904,9 @@ function rigLimit(px,pz,u,f,pitch,D){ const cp=Math.cos(pitch), tp=Math.tan(pitc
 function rot(f,u,a){ V.crossVectors(u,f); return f.multiplyScalar(Math.cos(a)).addScaledVector(V,Math.sin(a)).normalize(); }
 function walk(P,dist){ const th=dist/R, c=Math.cos(th), s=Math.sin(th); V.copy(P.u); P.u.multiplyScalar(c).addScaledVector(P.f,s).normalize(); P.f.multiplyScalar(c).addScaledVector(V,-s); P.f.addScaledVector(P.u,-P.u.dot(P.f)).normalize(); }
 const tang=(u,to,o)=>o.copy(to).addScaledVector(u,-u.dot(to)).normalize();
-function walkable(x,z){ if(onJetty(x,z)) return true; const h=grid(GH,x,z); if(h>-.04) return true; return grid(GB,x,z)>.45&&h>-.72; }
+function walkable(x,z){ if(onJetty(x,z)||onPier(x,z)!==false) return true; const h=grid(GH,x,z); if(h>-.04) return true; return grid(GB,x,z)>.45&&h>-.72; }
 /* ---------- finding the way: a grid over the town, so walking over to someone goes round houses, fences and the water ---------- */
-const NAV={S:.4,O:-23,N:0,free:null};
+const NAV={S:.4,O:-25.4,N:0,free:null};   // (out to -25.4: the same cells as ever, and a few more at the edge, so the path finder reaches the end of the harbour pier)
 function buildNav(){ const S=NAV.S, N=NAV.N=Math.ceil(-2*NAV.O/S)+1, f=NAV.free=new Uint8Array(N*N), fixed=OBS.filter(o=>!people.some(p=>p.ob===o));
   for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const x=NAV.O+i*S, z=NAV.O+j*S; let ok=walkable(x,z);
     if(ok) for(const o of fixed){ const dx=x-o.x, dz=z-o.z, m=o.r+.3; if(dx*dx+dz*dz<m*m){ ok=false; break; } }
@@ -3273,7 +3273,7 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
       if(P.stuck>.7||(Math.hypot(g.x-(P.goalX??g.x),g.z-(P.goalZ??g.z))>1.2)){ P.stuck=0; P.tries=(P.tries||0)+1; if(P.tries>3){ if(dg<6) talkTo(g); else { TALK.goal=null; P.path=null; P.tgt=null; } } else walkTo(g); }
       else if(!P.tgt&&!P.path) TALK.goal=null; } }
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,P.h); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);
-  P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)?2:rd<RW+SW?1:0); }
+  P.step+=P.speed*dt; if(P.step>.62){ P.step=0; const rd=roadDist(P.x,P.z); A.step(onJetty(P.x,P.z)||onPier(P.x,P.z)!==false?2:rd<RW+SW?1:0); }
   // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
   if(P.speed>.3&&C.dragT>2.5&&!TALK.p){ const sg=Math.sign(V.crossVectors(C.f,P.f).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(P.f),-1,1));
@@ -7829,7 +7829,7 @@ const TLA={}, TLB_={};
 
 /* ---------- small things every part uses: how loud a thing is from where you stand, whether it is on the screen, free ground ---------- */
 const tlEar=(x,z,far=22)=>{ const d=Math.hypot(player.x-x,player.z-z); return clamp(1-d/far,0,1)**2; };
-const tlIn=()=>CAFE.on||GAR.on||PO.on||HSI.on||PUB.on;
+const tlIn=()=>CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||LHI.on||CHP.on;
 const tlQuiet=()=>TL.warm||CUT.on||FIN.on||S.st!==st||S.mode!=='station';
 /* a short sound from (x, z): softer with distance, muffled indoors, a little softer while someone talks; counted for the tests */
 function tlSay(fn,g,x,z,far=22,...rest){ TL.n[fn]=(TL.n[fn]||0)+1; if(tlQuiet()) return 0; const k=tlEar(x,z,far)*(tlIn()?.35:1)*(TALK.p?.6:1); if(k<.004||!A[fn]) return 0; const gg=g*k; A[fn](gg,civPan(x,z),...rest); TL.n[fn+'G']=Math.max(TL.n[fn+'G']||0,gg); return gg; }
@@ -8534,7 +8534,7 @@ function tlStep(dt,t){ if(!TL.ok) return; dt=Math.min(dt,.05); TL.clk=(TL.clk||0
   if(TL.top){ st.camP.copy(TL.top.p); st.camL.copy(TL.top.l); S.stSnap=true; } }
 
 /* ---------- a tap or a click on the pond's water throws the ducks some bread; pointing at it says so ---------- */
-const tlFreeUI=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&!PHS.on&&!PC.on&&GLN.t<0&&CL.st==='idle';
+const tlFreeUI=()=>S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&!LHI.on&&!CHP.on&&!PHS.on&&!PC.on&&GLN.t<0&&CL.st==='idle';
 function tlPondPick(e){ if(!POND.water||Math.hypot(player.x-POND.x,player.z-POND.z)>16) return null; tlNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); tlRay.setFromCamera(tlNdc,stCam);
   const h=tlRay.intersectObject(POND.water,false)[0]; return h?loc(tlV.copy(h.point).normalize()):null; }
 { const op=st.onPointer; st.onPointer=function(e){ TL.tap=TL.ok&&tlFreeUI()?{id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,talk:!!TALK.p}:null; return op.call(this,e); }; }
@@ -8594,7 +8594,7 @@ const coV=new T.Vector3(), coV2=new T.Vector3(), coV3=new T.Vector3(), coM=new T
 const cpF=new T.Vector3(), cpR=new T.Vector3(), cpD=new T.Vector3();
 function coPan(p){ cpF.subVectors(st.camL,st.camP).normalize(); cpR.crossVectors(cpF,UPU.value).normalize(); return clamp(cpD.subVectors(p,st.camP).normalize().dot(cpR),-1,1)*.8; }
 const coFar=(x,z)=>Math.hypot(player.x-x,player.z-z);
-const coQuiet=()=>!!(TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||S.mode!=='station'||S.st!==st||!S.ready);
+const coQuiet=()=>!!(TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||LHI.on||CHP.on||S.mode!=='station'||S.st!==st||!S.ready);
 
 /* ---------- rocks in the shallows: just under the sea's mean, so out at low water and under at high; and the seal's rock ---------- */
 /* where none go: by the jetty and the boats' way in and out of it, by the seal's rock, and along the west beach */
@@ -8629,6 +8629,7 @@ function btMesh(o){ const B=part(), Z=new T.Vector3(), Q=new T.Quaternion(), S3=
   for(const [ph,len] of [[0,.82],[Math.PI,.5]]){ M4.compose(Z,Q,S3.set(.32,.27,len)); B.geo(bowl(ph,Math.PI/2,Math.PI/2+.4),o.band,M4); B.geo(bowl(ph,Math.PI/2+.4,Math.PI),o.hull,M4);
     const gi=bowl(ph,Math.PI/2,Math.PI), nA=gi.attributes.normal; for(let i=0;i<nA.count;i++) nA.setXYZ(i,-nA.getX(i),-nA.getY(i),-nA.getZ(i)); B.geo(gi,o.inner,M4.compose(Z,Q,S3.set(.29,.24,len-.03))); }
   B.put(FG.box,'#b48a5c',0,-.07,.12,.56,.035,.1); B.put(FG.box,'#b48a5c',0,-.07,-.24,.56,.035,.1);
+  if(o.row){ [-1,1].forEach(s=>B.put(FG.box,'#b48a5c',s*.2,.02,-.05,.03,.025,.95,0,s*.12)); const m=B.mesh(); m.position.y=.12; m.userData.dyn=true; return m; }   // (a rowing boat: its oars shipped, nobody in it)
   B.put(FG.box,'#2e3236',0,.03,-.55,.12,.17,.15); B.put(FG.box,'#e4ded0',0,.12,-.55,.13,.04,.16); B.put(FG.box,'#2e3236',0,-.16,-.6,.045,.28,.05);
   if(o.cabin){ B.put(FG.box,'#f2ede3',0,.12,.18,.36,.32,.3); B.put(FG.box,'#45535e',0,.2,.18,.37,.07,.31); B.put(FG.box,o.hull,0,.3,.18,.42,.035,.36); }
   else { B.put(FG.can,'#5a4636',0,.38,.34,.018,.84,.018); B.put(FG.box,'#f2d26b',.07,.72,.34,.13,.06,.01); }
@@ -8752,7 +8753,7 @@ function buildSwing(){ const p=swPlace(); if(!p){ SWG.err='no tree for the swing
 /* the swing's pose for an angle: the group turned about the bough, and the seat's frame for whoever sits on it */
 const swQ=new T.Quaternion();
 function swPose(phi){ SWM.g.matrix.copy(SWM.Mh).multiply(coM.makeRotationX(-phi)); SWM.g.matrixWorldNeedsUpdate=true; }
-function swFree(){ return !!SWM&&!FIN.on&&!CUT.on&&!TALK.p&&GLN.t<0&&CL.st==='idle'&&CL.k==='home'&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on; }
+function swFree(){ return !!SWM&&!FIN.on&&!CUT.on&&!TALK.p&&GLN.t<0&&CL.st==='idle'&&CL.k==='home'&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on&&!LHI.on&&!CHP.on; }
 function swGo(){ if(!swFree()||(SWG.st!=='idle'&&SWG.st!=='go')) return; const P=player, [ax,az]=SWM.stand;
   if(Math.hypot(P.x-ax,P.z-az)<.45){ began(); swSit(); return; }
   const path=Math.hypot(P.x-ax,P.z-az)>2.2||!navClear(P.x,P.z,ax,az)?navPath(P.x,P.z,ax,az,1.3):null; P.path=(path||[]).concat([[ax,az]]); P.tgt=null; P.stuck=0; TALK.goal=null; C.guide=null; SWG.stuck=0; SWG.st='go'; began(); A.tick(); }
@@ -8820,7 +8821,7 @@ function swPick(e){ if(!SWM) return false; swNdc.set(e.clientX/innerWidth*2-1,-(
   const g=swRay.ray.intersectSphere(clBall,coV)?swRay.ray.origin.distanceTo(coV):1e9; swHits.length=0; SWM.hit.raycast(swRay,swHits); return swHits.some(h=>h.distance<g); }
 /* sitting, a touch only stands you up; the station's own handler (and the bench's) go on as they did otherwise */
 { const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&(SWG.st==='sat'||SWG.st==='sit')){ swStand(); SWG.tap=null; return; }
-    SWG.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,skip:!!TALK.p||CL.st!=='idle'||CL.k!=='home'||PHS.on||CAFE.on||PO.on||GAR.on||HSI.on||PUB.on}; return op.call(this,e); }; }
+    SWG.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,skip:!!TALK.p||CL.st!=='idle'||CL.k!=='home'||PHS.on||CAFE.on||PO.on||GAR.on||HSI.on||PUB.on||LHI.on||CHP.on}; return op.call(this,e); }; }
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return; const tp=SWG.tap; if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(e.pointerType==='mouse'?13:8)) tp.moved=true;
   if(e.pointerType==='mouse'&&!down&&!look&&!CL.drag) swHover(e); },{passive:true});
 addEventListener('pointerup',e=>{ const tp=SWG.tap; if(!tp||e.pointerId!==tp.id) return; SWG.tap=null; if(S.st!==st||S.mode!=='station'||CUT.on||FIN.on||tp.moved||tp.skip||TALK.p||TALK.goal) return;
@@ -8840,8 +8841,8 @@ addEventListener('wheel',()=>{ if(S.st===st&&S.mode==='station'&&(SWG.st==='sat'
 /* ---------- the sea at the tide line: a wave running up and back every few seconds wherever you are by the water ---------- */
 const CO={waveT:3,wd:99};
 function coWaves(dt){ CO.waveT-=dt; if(CO.waveT>0) return; CO.waveT=2.6+Math.random()*2.6; const P=player, sea=WATER+TD.h; let best=99, bx=0, bz=0;
-  for(const r of [.6,1.2,2,3,4.2,5.6]){ for(let k=0;k<12;k++){ const a=k/12*TAU, x=P.x+Math.cos(a)*r, z=P.z+Math.sin(a)*r; if(onJetty(x,z)) continue; if(grid(GH,x,z)<sea-.02){ best=r; bx=x; bz=z; break; } } if(best<99) break; }
-  if(onJetty(P.x,P.z)){ best=Math.min(best,.8); bx=P.x; bz=P.z; } CO.wd=best;
+  for(const r of [.6,1.2,2,3,4.2,5.6]){ for(let k=0;k<12;k++){ const a=k/12*TAU, x=P.x+Math.cos(a)*r, z=P.z+Math.sin(a)*r; if(onJetty(x,z)||onPier(x,z)!==false) continue; if(grid(GH,x,z)<sea-.02){ best=r; bx=x; bz=z; break; } } if(best<99) break; }
+  if(onJetty(P.x,P.z)||onPier(P.x,P.z)!==false){ best=Math.min(best,.8); bx=P.x; bz=P.z; } CO.wd=best;
   if(best<6&&!coQuiet()) A.seaWash&&A.seaWash(.05*(1-best/6.6)*(.65+.35*Math.min(1,WIND.e)),coPan(at(bx,bz,coV).multiplyScalar(R+sea))); }
 
 /* ---------- built with the town (before its mesh is made: the rocks and the bough go into it), stepped after it ---------- */
@@ -9884,4 +9885,249 @@ st._dbg.chipper={C:CHP,CHD,CHMENU,CHL,get err(){ return CHP.err; },open:chOpen,q
     if(what==='enzo'&&CHP.e) p=wiV.copy(CHP.e.fig.position).addScaledVector(CHP.up,1.22); else p=chW(...({door:[D.DX,1.1,CHP.on?D.d/2-.1:D.d/2+.04],fascia:[0,2.3,D.d/2+.06],paper:[D.SERVE[0],ct+.04,D.SERVE[1]+.2*CHP.slide],salt:[D.SALT[0],ct+.06,D.SALT[1]],vin:[D.VIN[0],ct+.08,D.VIN[1]],menu:[1.0,D.FL+1.55,-1.18],shut:[0,1.1,D.d/2+.14]}[what]||[D.DX,1.1,D.d/2]),wiV);
     const q=p.clone().project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; }};
 /* ===================== (the chipper ends here) ===================== */
+/* ===================== the harbour pier and the coast train =====================
+   Out from the long west beach, below the pub, a timber pier on piles runs out to sea: a deck of boards with rails along
+   it, a square head at the end with two benches looking out, lamps that are lit at night, a lifebuoy by the steps, a
+   rowing boat tied up at the head, and by day a man sitting on the edge of the head with his rod out. You can walk out to
+   the end (your steps on it are boards, not stone). The piles stand in the sea, weed dark below the high water mark, and
+   the tide rises and falls round them.
+   Along the top of the beach, on a low timber trestle, runs the coast train: a little green engine and two carriages,
+   from the end of the line at the south to the end of the line at the north and back, stopping each way at the Harbour
+   Halt, whose platform runs along the line beside the pier. It comes by every three minutes or so, the first time
+   within a minute of your coming down to Earth: it whistles as it comes in, slows with a hiss of its brakes, stands a few
+   seconds, and pulls away, its wheels knocking over the rail joints; at night its windows are lit. You cross the line to
+   the pier at the crossing by the halt (anywhere else the trestle stands in the way), and the train never runs through
+   anyone: with someone on the crossing it stops short, gives a toot, and waits until they are off it. It is solid
+   while it stands or runs, so nobody walks through it either.
+   The pier, the trestle, the rails and the halt are the town's own kit; the train, the boat and the man fishing are a few
+   meshes each in the people's material, and the lamps and the lit windows in the one that draws the lamps on the drones,
+   so nothing new is compiled. (The pub's and the fire station's plots, up the slope behind, are not touched) */
+PF.n+=16;   // (the engine's steam shares the sky alive's puffs: room for it)
+/* the line along the top of the beach, south to north, on the town's map (its middle; the rails are a half metre apart) */
+const TR_PTS=[[-18.6,-8.8],[-18.85,-8],[-19.1,-7],[-19.3,-6],[-19.55,-5],[-19.95,-4.2],[-20.35,-3.4],[-20.65,-2.6],[-20.8,-1.6],[-20.75,-.6],[-20.4,.2],[-20.05,1],
+  [-19.8,1.8],[-19.72,2.6],[-19.68,3.4],[-19.6,4.2],[-19.48,5],[-19.32,5.8],[-19.02,6.6],[-18.6,7.25],[-18.1,7.8]];
+const TRK=btRoute(TR_PTS);
+/* heights: the rails' top, the pier's deck; the train's length from its north end (the engine) to its south end, and its
+   vehicles (each from and to, measured back from the north end); how fast it goes, picks up and slows */
+const PR={rail:-.1,deck:-.08,gauge:.5,len:3.84,veh:[[0,1.1,'loco'],[1.22,2.47,'car'],[2.59,3.84,'car']],VMAX:2,ACC:.6,DEC:.8,EVERY:180,FIRST:42,DWELL:6,
+  sC:0,C:null,nS:null,d:null,R0:null,Hc:null,e:null,caps:[]};
+const prV=new T.Vector3(), prV2=new T.Vector3(), prV3=new T.Vector3(), prM=new T.Matrix4(), prM2=new T.Matrix4(), prQ=new T.Quaternion(), prS=new T.Vector3(), prO={x:0,z:0,yaw:0};
+/* a point a distance s along the line and off it (to the sea side, +) */
+function prAt(s,off,o){ btAt(TRK,s,o); const tx=Math.sin(o.yaw), tz=Math.cos(o.yaw); o.x+=-tz*off; o.z+=tx*off; o.tx=tx; o.tz=tz; return o; }
+/* the crossing: where the line passes closest to the pier's foot; the way out to sea from it; the pier's way out (west by
+   south), its root and its head; and across the pier (to the south side, where the boat is) */
+{ let bi=0, bd=1e9; TRK.P.forEach((p,i)=>{ const d=Math.hypot(p[0]+20.8,p[1]+1.55); if(d<bd){ bd=d; bi=i; } }); PR.sC=TRK.L[bi];
+  const c=prAt(PR.sC,0,{}); PR.C=[c.x,c.z]; PR.nS=[-c.tz,c.tx]; const dl=Math.hypot(3.2,1); PR.d=[-3.2/dl,-1/dl]; PR.e=[-PR.d[1],PR.d[0]];
+  if(PR.e[1]>0){ PR.e[0]=-PR.e[0]; PR.e[1]=-PR.e[1]; }
+  PR.R0=[PR.C[0]+PR.nS[0]*1.05,PR.C[1]+PR.nS[1]*1.05]; PR.deckL=1.8; PR.headL=2.2; PR.headW=2.6;
+  PR.Hc=[PR.R0[0]+PR.d[0]*(PR.deckL+PR.headL/2),PR.R0[1]+PR.d[1]*(PR.deckL+PR.headL/2)];
+  PR.sHalt=PR.sC-1.05; PR.sMin=.3+PR.len; PR.sMax=TRK.len-.3;   // (the halt: the engine stops a step short of the crossing, so it is never in the way of it)
+  /* where you can stand, each a stretch with a half width and the height of its boards: the crossing, the platform (in three
+     stretches along the curve of the line), the pier, its head */
+  const P_=(s,off)=>{ const o=prAt(s,off,{}); return [o.x,o.z]; }, cap=(a,b,r,h)=>PR.caps.push({a,b,r,h});
+  cap(P_(PR.sC,-.6),P_(PR.sC,.6),.55,PR.rail);
+  for(let k=0;k<3;k++) cap(P_(PR.sHalt-.35-k*1.1,.92),P_(PR.sHalt-.35-(k+1)*1.1,.92),.3,PR.deck);
+  cap(PR.R0,[PR.R0[0]+PR.d[0]*PR.deckL,PR.R0[1]+PR.d[1]*PR.deckL],.5,PR.deck);
+  cap([PR.Hc[0]-PR.d[0]*.12,PR.Hc[1]-PR.d[1]*.12],[PR.Hc[0]+PR.d[0]*.12,PR.Hc[1]+PR.d[1]*.12],.96,PR.deck); onPier.caps=PR.caps; }
+/* on the boards (of the pier, the halt or the crossing): the height to stand at, or false. (The town's own walking asks it,
+   so it is a function the whole town can see, and it answers only once the stretches are laid out, above) */
+function onPier(x,z){ const C_=onPier.caps; if(!C_) return false;
+  for(const c of C_){ const ex=c.b[0]-c.a[0], ez=c.b[1]-c.a[1], L2=ex*ex+ez*ez||1, t=clamp(((x-c.a[0])*ex+(z-c.a[1])*ez)/L2,0,1); if(Math.hypot(x-c.a[0]-ex*t,z-c.a[1]-ez*t)<c.r) return c.h; } return false; }
+const prPt=(x,z,y)=>at(x,z,new T.Vector3()).multiplyScalar(R+y);
+/* a beam of the kit from one point to another (a box of section w by h, its height y over the ground's zero at both ends) */
+function prBeam(a,b,y0,y1,w,h,col){ const A_=prPt(a[0],a[1],y0), B_=prPt(b[0],b[1],y1), ax=prV.subVectors(B_,A_), l=ax.length(); if(l<1e-4) return; ax.normalize();
+  const up=prV2.copy(A_).add(B_).normalize(), side=prV3.crossVectors(up,ax).normalize(), up2=new T.Vector3().crossVectors(ax,side);
+  prM.makeBasis(side,up2,ax).setPosition(A_.clone().add(B_).multiplyScalar(.5)); prM.multiply(prM2.makeScale(w,h,l)); kadd(GEO.box,col,prM); }
+/* a pile from the sea bed (or the sand) up to y: dark with weed below the high water mark, timber above */
+function prPile(x,z,y,r=.06){ const g=Math.max(-1.7,grid(GH,x,z)), hw=WATER+TD.amp, M=frameAt(x,z,0); PRM.piles.push([+g.toFixed(3),+y.toFixed(3)]);
+  if(g<hw){ cyl(M,'#3d4a33',0,g-.1,0,r*1.05,hw-g+.1,'cyl8'); cyl(M,'#7a5a42',0,hw,0,r,y-hw,'cyl8'); } else cyl(M,'#7a5a42',0,g-.1,0,r,y-g+.1,'cyl8'); }
+const PRM={lamps:[],lampM:null,winM:null,headM:null,train:[],piles:[],fisher:null,boat:null,o0:0,err:null};
+function buildPier(){ try{ const o0=OBS.length; kitTo(); prTrack(); prDeck(); prTrain(); prFisher(); for(const o of OBS.slice(o0)) if(!o.tr) slNav(o,true); PRM.o0=o0; }
+  catch(err){ PRM.err=String(err&&err.stack||err); console.warn('pier',err); } }
+
+/* ---------- the line: sleepers on two beams on short piles, the rails, a buffer stop at each end, the crossing's boards;
+   and solid all along (so you cross only at the crossing) ---------- */
+function prTrack(){ const step=.42, n=Math.floor(TRK.len/step), o={}, o2={};
+  for(let k=0;k<=n;k++){ const s=k*step+.1; if(s>TRK.len-.05) break; prAt(s,0,o); const M=frameAt(o.x,o.z,o.yaw);
+    box(M,k%3?'#5b4636':'#4e3c2e',0,PR.rail-.08,0,.92,.05,.16);   // a sleeper
+    if(k%3===0) for(const sd of [-1,1]){ prAt(s,sd*.3,o2); prPile(o2.x,o2.z,PR.rail-.17,.05); }
+    if(Math.abs(s-PR.sC)>1.3){ const ob={x:o.x,z:o.z,r:.42,h:.5}; OBS.push(ob); } }
+  for(const sd of [-1,1]){ prAt(PR.sC+sd*1.12,0,o); OBS.push({x:o.x,z:o.z,r:.42,h:.5}); }   // (either side of the crossing, just so: you stand on the crossing only within its boards)
+  /* the rails and the beams under the sleepers, piece by piece along the curve */
+  for(let k=0;k<n;k++){ const s0=k*step+.1, s1=Math.min(TRK.len-.05,s0+step); if(s1<=s0) break;
+    for(const [off,y,w,h,col] of [[-.25,PR.rail-.03,.04,.03,'#8f969a'],[.25,PR.rail-.03,.04,.03,'#8f969a'],[-.3,PR.rail-.13,.08,.1,'#6b5242'],[.3,PR.rail-.13,.08,.1,'#6b5242']]){
+      prAt(s0,off,o); prAt(s1,off,o2); prBeam([o.x,o.z],[o2.x,o2.z],y,y,w,h,col); } }
+  /* the buffer stops: a red and white beam across on two posts */
+  for(const [s,f] of [[.12,1],[TRK.len-.12,-1]]){ prAt(s,0,o); const M=frameAt(o.x,o.z,o.yaw); [-.3,.3].forEach(x=>box(M,'#3a3a3c',x,PR.rail-.2,0,.08,.55,.08));
+    for(let k=0;k<4;k++) box(M,k%2?'#f4efe6':'#c4302b',-.375+k*.25,PR.rail+.18,0,.25,.14,.1); OBS.push({x:o.x,z:o.z,r:.45,h:.6}); }
+  /* the crossing: boards between the rails and either side, flush with them */
+  for(const off of [-.5,-.36,-.12,0,.12,.36,.5]){ prAt(PR.sC-.55,off,o); prAt(PR.sC+.55,off,o2); prBeam([o.x,o.z],[o2.x,o2.z],PR.rail-.015,PR.rail-.015,.13,.03,'#a77e52'); } }
+
+/* ---------- the halt's platform, the pier and its head: boards on piles, rails, benches, lamps, the lifebuoy, the sign ---------- */
+function prDeck(){ const [dx,dz]=PR.d, [ex,ez]=PR.e, R0=PR.R0, Hc=PR.Hc, o={}, o2={}, y=PR.deck, yaw=Math.atan2(dx,dz);
+  const pt=(base,a,b)=>[base[0]+dx*a+ex*b,base[1]+dz*a+ez*b];
+  /* the platform: boards across, along the line's sea side, with a white line along its edge */
+  for(let s=PR.sHalt;s>PR.sHalt-PR.len-.15;s-=.2){ prAt(s,.45,o); prAt(s,1.4,o2); prBeam([o.x,o.z],[o2.x,o2.z],y-.025,y-.025,.18,.05,(Math.round(s*5)%2)?'#b48a5c':'#a77e52'); }
+  prAt(PR.sHalt,.5,o); prAt(PR.sHalt-PR.len-.1,.5,o2); { const a=[o.x,o.z]; for(let k=0;k<4;k++){ const s0=PR.sHalt-k*(PR.len+.1)/4, s1=PR.sHalt-(k+1)*(PR.len+.1)/4; prAt(s0,.5,o); prAt(s1,.5,o2); prBeam([o.x,o.z],[o2.x,o2.z],y+.001,y+.001,.06,.004,'#f1ecdf'); } }
+  for(let s=PR.sHalt-.1;s>PR.sHalt-PR.len-.1;s-=1.2) for(const off of [.5,1.35]){ prAt(s,off,o); prPile(o.x,o.z,y-.05,.05); }
+  /* the pier: boards across it, piles under its edges, from its root out to the head */
+  for(let a=0;a<PR.deckL+.01;a+=.2){ const p0=pt(R0,a,-.7), p1=pt(R0,a,.7); prBeam(p0,p1,y-.025,y-.025,.18,.05,Math.round(a*5)%2?'#b48a5c':'#a77e52'); }
+  for(let a=.2;a<PR.deckL;a+=.8) for(const b of [-.65,.65]){ const p=pt(R0,a,b); prPile(p[0],p[1],y-.05); }
+  /* the head: boards across, piles round its edge and in the middle */
+  for(let a=-PR.headL/2;a<PR.headL/2+.01;a+=.2){ prBeam(pt(Hc,a,-PR.headW/2),pt(Hc,a,PR.headW/2),y-.025,y-.025,.18,.05,Math.round(a*5)%2?'#b48a5c':'#a77e52'); }
+  for(const a of [-1.1,0,1.1]) for(const b of [-1.2,0,1.2]){ const p=pt(Hc,a,b); prPile(p[0],p[1],y-.05,.07); }
+  /* rails: posts with a top rail and a middle one, along both sides of the pier and round the head, open at the far end where
+     the man fishes, and at the steps down to the boat on the south side */
+  const rail=(p0,p1,posts=true)=>{ const L=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]), n=Math.max(1,Math.round(L/.5));
+    if(posts) for(let k=0;k<=n;k++){ const t=k/n, x=p0[0]+(p1[0]-p0[0])*t, z=p0[1]+(p1[1]-p0[1])*t; box(frameAt(x,z,yaw),'#e9e2d4',0,y,0,.05,.78,.05); if(walkable(x,z)&&onPier(x,z)===false) OBS.push({x,z,r:.12,h:.9}); }
+    prBeam(p0,p1,y+.76,y+.76,.05,.05,'#f4efe6'); prBeam(p0,p1,y+.42,y+.42,.04,.04,'#e9e2d4'); };
+  rail(pt(R0,.15,-.7),pt(R0,PR.deckL,-.7)); rail(pt(R0,.15,.7),pt(R0,PR.deckL,.7));
+  rail(pt(Hc,-PR.headL/2,-PR.headW/2),pt(Hc,-PR.headL/2,-.7)); rail(pt(Hc,-PR.headL/2,.7),pt(Hc,-PR.headL/2,PR.headW/2));
+  rail(pt(Hc,-PR.headL/2,-PR.headW/2),pt(Hc,PR.headL/2,-PR.headW/2));
+  rail(pt(Hc,-PR.headL/2,PR.headW/2),pt(Hc,.1,PR.headW/2)); rail(pt(Hc,.8,PR.headW/2),pt(Hc,PR.headL/2,PR.headW/2));
+  rail(pt(Hc,PR.headL/2,PR.headW/2),pt(Hc,PR.headL/2,.1));
+  /* steps down to the boat: a short ladder over the south side */
+  { const p=pt(Hc,.45,PR.headW/2+.05), M=frameAt(p[0],p[1],yaw); [-.18,.18].forEach(x=>box(M,'#7a5a42',x,WATER-.5,0,.04,y-WATER+.5,.04)); for(let k=0;k<4;k++) box(M,'#8a6a4e',0,y-.2-k*.22,0,.36,.03,.05); }
+  /* two benches on the head, looking out to sea (solid as two round ends, as the cliff's is) */
+  for(const b of [-.55,.55]){ const p=pt(Hc,.55,b), M=frameAt(p[0],p[1],yaw,y); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
+    for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obsAt(M,-.38,0,.3,1); obsAt(M,.38,0,.3,1); }   // (the square's benches, on the boards)
+  /* the lifebuoy on its post at the root, and the halt's sign on the platform, facing the line */
+  { const p=pt(R0,.35,-.95), M=frameAt(p[0],p[1],yaw+Math.PI/2); box(M,'#e9e2d4',0,Math.max(-.6,grid(GH,p[0],p[1])),0,.07,y+1.1-Math.max(-.6,grid(GH,p[0],p[1])),.07);
+    const tor=new T.TorusGeometry(.17,.045,6,18).toNonIndexed(); kadd(tor,'#ef6a3a',prM.copy(M).multiply(prM2.makeTranslation(0,y+.8,.07)));
+    for(let k=0;k<4;k++){ const a=k/4*TAU+.4; box(M,'#f4efe6',Math.cos(a)*.17,y+.8+Math.sin(a)*.17-.03,.07,.07,.06,.1,0,0,a); } }
+  { prAt(PR.sHalt-PR.len/2,1.25,o); const M=frameAt(o.x,o.z,o.yaw+Math.PI/2,y); sign(M,'HARBOUR HALT',{sub:'STAD AN CHUAIN',w:1.3,h:.46,y:1.05,legs:true}); }
+  /* lamps: on posts at the root, halfway out and at the head's two outer corners, and on the platform; their glass lights at night */
+  const heads=[];
+  for(const p of [pt(R0,.2,.62),pt(R0,1.4,-.62),pt(Hc,1.1,-1.18),pt(Hc,1.1,1.18),(prAt(PR.sHalt-.4,1.3,o),[o.x,o.z])]){ const M=frameAt(p[0],p[1],yaw); cyl(M,'#43504f',0,y,0,.04,1.55,'cyl8'); box(M,'#43504f',0,y+1.5,0,.18,.04,.05);
+    heads.push(prPt(p[0],p[1],y+1.42)); PRM.lamps.push(p); }
+  { const gs=heads.map(h=>new T.SphereGeometry(.075,10,8).scale(1,.85,1).translate(h.x,h.y,h.z)); const m=new T.Mesh(mergeG(gs),flatMat('#f1ead2')); m.userData.dyn=true; sc.add(m); PRM.lampM=m; }
+  /* the rowing boat, tied up at the head's south side, on the tide */
+  { const b=new T.Group(); b.matrixAutoUpdate=false; b.add(btMesh({hull:'#2f7f6a',band:'#f4efe6',inner:'#e9e2d4',row:true})); sc.add(b); const p=pt(Hc,.2,PR.headW/2+.55); PRM.boat={g:b,x:p[0],z:p[1],yaw}; } }
+
+/* ---------- the man fishing off the end, by day: sitting on the edge, his rod out over the water, its line down into it ---------- */
+function prFisher(){ const [dx,dz]=PR.d, p=[PR.Hc[0]+dx*1.02-PR.e[0]*.75,PR.Hc[1]+dz*1.02-PR.e[1]*.75], yaw=Math.atan2(dx,dz);
+  const f=figure({shirt:'#3d5a73',crew:true,pants:'#5a5048',shoes:'#2b2b2e',sole:'#1e1e20',skin:'#e0b090',hair:'short',hairC:'#6b5a4a',build:1.05,knee:true}); sc.add(f);
+  const hat=part(); hat.put(FG.sph,'#c8483a',0,.1,-.01,.16,.1,.165); hat.put(FG.sph,'#f4efe6',0,.2,-.01,.045); f.userData.head.add(hat.mesh());
+  const rod=part(); rod.put(FG.can,'#3a3a3c',0,.8,0,.012,1.6,.012); rod.put(FG.can,'#2a2a2c',0,.12,0,.022,.24,.022); rod.put(FG.can,'#9aa3ab',.03,.22,0,.03,.04,.03,0,0,Math.PI/2);
+  const rm=rod.mesh(); const rg=new T.Group(); rg.add(rm); f.add(rg); rg.position.set(0,.66,.22); rg.rotation.x=.95;
+  const ln=part(); ln.put(FG.can,'#e9e2d4',0,-.5,0,.004,1,.004); const lm=ln.mesh(); sc.add(lm); lm.userData.dyn=true;
+  const bk=frameAt(p[0]-PR.e[0]*.4,p[1]-PR.e[1]*.4,yaw); cyl(bk,'#5f7f99',0,PR.deck,0,.11,.2); cyl(bk,'#4b6a83',0,PR.deck+.19,0,.115,.02);   // his bucket
+  OBS.push({x:p[0],z:p[1],r:.3,h:1}); PRM.fisher={g:f,x:p[0],z:p[1],yaw,rod:rg,line:lm,t:0,lift:0,next:14}; }
+
+/* ---------- the train: an engine and two carriages, each a mesh of its own in the people's material ---------- */
+function prTrain(){ const winGs=[];
+  for(const [a,b,kind] of PR.veh){ const L=b-a, B=part(), wins=[], g=new T.Group(); g.matrixAutoUpdate=false;
+    /* the frame and its wheels, three a side on the engine, two pairs on a carriage */
+    B.put(FG.box,'#2f3336',0,.13,0,.6,.08,L-.04); const wz=kind==='loco'?[-.32,0,.32]:[-L/2+.22,-L/2+.42,L/2-.42,L/2-.22];
+    for(const z of wz) for(const sx of [-1,1]){ B.put(FG.can,'#3a3a3c',sx*.27,.09,z,.085,.04,.085,0,0,Math.PI/2); B.put(FG.can,'#c4302b',sx*.295,.09,z,.03,.012,.03,0,0,Math.PI/2); }
+    for(const z of [-L/2+.02,L/2-.02]){ B.put(FG.box,'#c4302b',0,.17,z,.62,.07,.04); for(const sx of [-1,1]) B.put(FG.can,'#2a2a2c',sx*.2,.17,z+(z>0?.04:-.04),.035,.06,.035,Math.PI/2); }
+    if(kind==='loco'){ const G='#2f6b4f', G2='#255a41';
+      B.put(FG.can,G,0,.42,.12,.21,.68,.21,Math.PI/2); B.put(FG.can,'#2a2a2c',0,.42,.47,.215,.05,.215,Math.PI/2); B.put(FG.can,'#c9a24a',0,.42,-.05,.215,.03,.215,Math.PI/2);
+      B.put(FG.can,'#2a2a2c',0,.72,.34,.055,.2,.055); B.put(FG.can,'#2a2a2c',0,.83,.34,.075,.03,.075); B.put(FG.sph,'#c9a24a',0,.64,.08,.07,.07,.07);
+      B.put(FG.box,G,0,.17,-.36,.62,.6,.4); B.put(FG.box,'#2a2a2c',0,.78,-.36,.7,.04,.48); B.put(FG.box,G2,0,.17,-.36,.63,.12,.41);
+      for(const sx of [-1,1]) B.put(FG.box,'#45535e',sx*.312,.5,-.36,.01,.17,.22);
+      B.put(FG.box,'#45535e',0,.5,-.155,.36,.18,.01);
+      B.put(FG.can,'#e8c33a',0,.36,-.36,.1,.2,.09); B.put(FG.sph,'#d9a27e',0,.55,-.36,.065); B.put(FG.can,'#2f3a4a',0,.6,-.36,.07,.03,.07); B.put(FG.box,'#2f3a4a',0,.59,-.3,.08,.012,.06);   // the driver, in his cap
+      B.put(FG.box,'#2a2a2c',0,.28,.58,.5,.05,.05); B.put(FG.box,'#2a2a2c',0,.42,.54,.11,.11,.06); wins.push([0,.42,.575,.08,.08,.01]); }   // (a step at the front, and its lamp)
+    else { const C1='#efe3c6', C2='#8e2a24';
+      B.put(FG.box,C2,0,.17,0,.66,.2,L-.06); B.put(FG.box,C1,0,.37,0,.66,.32,L-.06); B.put(FG.box,C2,0,.69,0,.68,.03,L-.04);
+      B.put(FG.can,'#6b6f72',0,.73,0,.33,L,.12,Math.PI/2); B.put(FG.box,'#6b6f72',0,.72,0,.7,.03,L);
+      const nW=3, pw=(L-.3)/nW; for(let k=0;k<nW;k++){ const z=-L/2+.15+pw*(k+.5); for(const sx of [-1,1]){ B.put(FG.box,'#45535e',sx*.331,.42,z,.01,.2,pw-.08); wins.push([sx*.343,.42,z,.006,.2,pw-.08]); } }
+      for(const z of [-L/2+.03,L/2-.03]) B.put(FG.box,'#45535e',0,.42,z,.3,.2,.01); }
+    const m=B.mesh(); m.userData.dyn=true; g.add(m); sc.add(g);
+    /* its windows' light, at night: a pane a little outside each window, in the lamps' material */
+    const wg=wins.map(([x,y,z,sx,sy,sz])=>new T.BoxGeometry(sx||.01,sy,sz).toNonIndexed().translate(x,y,z)), wm=new T.Mesh(mergeG(wg),kind==='loco'?flatMat('#fff6d8'):PRM.winM||(PRM.winM=flatMat('#ffd9a0')));
+    wm.userData.dyn=true; wm.visible=false; g.add(wm); if(kind==='loco') PRM.headM=wm;
+    const ob=[{x:0,z:0,r:.42,h:1,tr:true},{x:0,z:0,r:.42,h:1,tr:true}]; ob.forEach(o=>OBS.push(o));
+    PRM.train.push({g,m,wm,a,b,L,kind,ob}); } }
+
+/* ---------- the train's comings and goings ---------- */
+/* st: end (standing at the end of the line), run (on its way), halt (at the platform). sN: how far along the line its north
+   end (the engine) is; v its speed; dir which way it goes (+1 north); to: where it is going; next: when it should next be at
+   the halt (on its own clock), dep: when it leaves the end to be there then */
+const TR={clk:0,st:'end',sN:0,v:0,dir:1,to:0,next:42,dep:0,dwell:0,stops:0,arrive:[],waits:0,blocked:false,held:false,whistled:false,braked:false,dist:0,clacks:0,puffT:0,t0:0,minGap:99,warm:true};
+/* how long a run of D metres takes: up to speed, along, and slowing to a stop (a moment more for the last few centimetres) */
+function trRun(D){ const v=PR.VMAX, a=PR.ACC, b=PR.DEC, dA=v*v/(2*a), dB=v*v/(2*b); if(D>dA+dB) return v/a+v/b+(D-dA-dB)/v+.8; const vp=Math.sqrt(2*D*a*b/(a+b)); return vp/a+vp/b+.8; }
+function trPlan(){ TR.dep=TR.next-trRun(Math.abs(PR.sHalt-TR.sN)); }
+/* someone on the crossing (or right at its edge): you, the three of us, the dog, a walker */
+function trCrossing(){ const [cx,cz]=PR.C, [nx,nz]=PR.nS, a0=[cx-nx*1.15,cz-nz*1.15], ex=nx*2.3, ez=nz*2.3, L2=ex*ex+ez*ez;
+  const near=(x,z)=>{ const t=clamp(((x-a0[0])*ex+(z-a0[1])*ez)/L2,0,1); return Math.hypot(x-a0[0]-ex*t,z-a0[1]-ez*t)<1; };
+  if(near(player.x,player.z)) return 'you'; for(const p of people) if(near(p.x,p.z)) return p.first; if(DOG.on&&near(DOG.x,DOG.z)) return 'dog';
+  for(const w of TL.feet) if(w.on&&near(w.x,w.z)) return 'walker'; return null; }
+const trPan=(x,z)=>civPan(x,z);
+function trSay(fn,g,x,z,...rest){ TR.n=TR.n||{}; TR.n[fn]=(TR.n[fn]||0)+1; if(coQuiet()) return; const d=Math.hypot(player.x-x,player.z-z), k=clamp(1-d/24,0,1)**2; if(k<.004||!A[fn]) return; A[fn](g*k,trPan(x,z),...rest); }
+function trUpdate(dt){ const T_=TR; T_.clk+=dt; let tgt=T_.to;
+  if(T_.st==='end'){ T_.v=0; if(T_.clk>=T_.dep){ T_.st='run'; T_.to=PR.sHalt; T_.whistled=T_.braked=false; } }
+  else if(T_.st==='halt'){ T_.v=0; T_.dwell-=dt; if(T_.dwell<=0){ T_.st='run'; T_.to=T_.dir>0?PR.sMax:PR.sMin; T_.whistled=T_.braked=false; trSay('trainWhistle',.016,...trMid()); } }
+  if(T_.st==='run'){ tgt=T_.to;
+    /* stopping short of the crossing for whoever is on it: before the engine (going north) or the last carriage (going south)
+       gets to it */
+    const who=trCrossing(), lead=T_.dir>0?T_.sN:T_.sN-PR.len; T_.blocked=false;
+    if(who&&(T_.dir>0?lead<PR.sC-.95:lead>PR.sC+.95)){ const stop=T_.dir>0?PR.sC-1:PR.sC+1+PR.len; if(T_.dir>0?stop<tgt:stop>tgt){ tgt=stop; T_.blocked=who; } }
+    const dist=Math.max(0,(tgt-T_.sN)*T_.dir), vd=Math.min(PR.VMAX,Math.sqrt(2*PR.DEC*Math.max(0,dist-.01)));
+    T_.v=T_.v<vd?Math.min(vd,T_.v+PR.ACC*dt):vd; const ds=Math.min(dist,T_.v*dt); T_.sN+=T_.dir*ds; T_.dist+=ds;
+    /* the whistle as it comes in to the halt, the brakes as it slows; a toot for whoever is on the crossing */
+    if(T_.to===PR.sHalt&&!T_.blocked){ if(!T_.whistled&&dist<T_.v*T_.v/(2*PR.DEC)+1.4){ T_.whistled=true; trSay('trainWhistle',.02,...trMid()); } if(!T_.braked&&dist<1.2&&T_.v<1.4&&T_.v>.2){ T_.braked=true; trSay('trainBrakes',.024,...trMid()); } }
+    if(T_.blocked){ if(!T_.held&&T_.v<.05){ T_.held=true; T_.waits++; trSay('trainWhistle',.014,...trMid()); } } else T_.held=false;
+    if(T_.dist>1.2){ T_.dist-=1.2; T_.clacks++; trSay('railClack',.03,...trMid(),.5/Math.max(.4,T_.v)); }
+    if(dist<.012&&T_.v<.06&&!T_.blocked){ T_.v=0; T_.sN=T_.to;
+      if(T_.to===PR.sHalt){ T_.st='halt'; T_.dwell=PR.DWELL; T_.stops++; T_.arrive.push(+T_.clk.toFixed(1)); }
+      else { T_.st='end'; T_.dir=-T_.dir; T_.next+=PR.EVERY; trPlan(); } } }
+  /* the people and the train never in each other: how near anyone has come to it (for the tests) */
+  trPlace(); }
+const trMid=()=>{ prAt(TR.sN-PR.len/2,0,prO); return [prO.x,prO.z]; };
+/* each vehicle on the rails: its middle, turned along the chord between its two ends, rocking a little as it runs */
+const trA={}, trB={};
+function trPlace(){ const t=G.uTime.value, run=Math.min(1,TR.v/PR.VMAX);
+  for(const c of PRM.train){ const sF=TR.sN-c.a, sB=TR.sN-c.b; prAt(sF,0,trA); prAt(sB,0,trB); const mx=(trA.x+trB.x)/2, mz=(trA.z+trB.z)/2, yaw=Math.atan2(trA.x-trB.x,trA.z-trB.z);
+    const M=frameAt(mx,mz,yaw,PR.rail); M.multiply(prM.makeRotationZ(.012*run*Math.sin(t*7+c.a*3))); c.g.matrix.copy(M); c.g.matrixWorldNeedsUpdate=true;
+    for(let k=0;k<2;k++){ prAt(TR.sN-c.a-c.L*(.25+.5*k),0,trA); c.ob[k].x=trA.x; c.ob[k].z=trA.z; } }
+  for(const c of PRM.train) for(const o of c.ob) TR.minGap=Math.min(TR.minGap,Math.hypot(player.x-o.x,player.z-o.z)-o.r); }
+
+/* ---------- each frame: the train, its steam, its lit windows; the lamps; the boat on the tide; the man fishing ---------- */
+function prUpdate(dt,t){ if(!PRM.train.length) return; trUpdate(dt); const warm=SL.warmNow, dk=warm?1:1-sstep(-4,5,SKY.e), cam=st.camP;
+  /* steam from the chimney: puffs while it runs, a wisp while it stands */
+  TR.puffT-=dt; if(TR.puffT<=0){ const lo=PRM.train[0]; TR.puffT=TR.v>.2?.32:1.3; prV.set(0,.88,.34).applyMatrix4(lo.g.matrix);
+    if(prV.distanceToSquared(cam)<34*34) pfAdd(prV,prV2.copy(prV).normalize().multiplyScalar(.35+.2*Math.min(1,TR.v)),TR.v>.2?1.6:2.2,.07,.32,TR.v>.2?.42:.25,1); }
+  /* lamps, the carriages' windows and the engine's lamp: lit as it gets dark */
+  const lm=PRM.lampM.material.uniforms.uC.value; lm.setRGB(lerp(.94,1,dk),lerp(.91,.86,dk),lerp(.82,.55,dk));
+  for(const c of PRM.train) c.wm.visible=warm||dk>.05; if(PRM.winM) PRM.winM.uniforms.uC.value.setRGB(lerp(.45,1,dk),lerp(.42,.8,dk),lerp(.38,.5,dk));
+  /* the rowing boat, rising and falling with the tide and rocking on the swell */
+  { const b=PRM.boat, M=frameAt(b.x,b.z,b.yaw,WATER+TD.h+.02*Math.sin(t*1.2)-.03); M.multiply(prM.makeRotationZ(.06*Math.sin(t*.9+1))).multiply(prM2.makeRotationX(.03*Math.sin(t*1.3))); b.g.matrix.copy(M); b.g.matrixWorldNeedsUpdate=true; }
+  /* the man fishing: there from seven in the morning to half eight at night; now and then he lifts his rod and lets it down */
+  { const F=PRM.fisher, on=warm||(SKY.h>=7&&SKY.h<20.5); F.g.visible=on; F.line.visible=on; if(on){ F.t+=dt; F.next-=dt; if(F.next<=0){ F.next=16+Math.random()*24; F.lift=1; } F.lift=Math.max(0,F.lift-dt*.35);
+    const d=F.g.userData, u=at(F.x,F.z); standOn(F.g,u,tang(u,at(F.x+PR.d[0],F.z+PR.d[1]),prV3),PR.deck-.43);
+    for(let i=0;i<2;i++){ d.legs[i].rotation.x=-1.45+.05*Math.sin(t*1.1+i*2); d.knees[i].rotation.x=1.35+.12*Math.sin(t*.8+i*1.7); d.arms[i].rotation.x=-.95; d.arms[i].rotation.z=i?.18:-.18; d.fore[i].rotation.x=-.55; }
+    const lift=Math.sin(Math.min(1,1-F.lift)*Math.PI)*.35*(F.lift>0?1:0); F.rod.rotation.x=.95-lift+.02*Math.sin(t*1.7); d.head.rotation.set(.18,.12*Math.sin(t*.21),0);
+    F.g.updateMatrixWorld(true); const tip=prV.set(0,1.6,0).applyMatrix4(F.rod.children[0].matrixWorld), wy=R+WATER+TD.h, len=tip.length()-wy;
+    F.line.position.copy(tip); F.line.quaternion.setFromUnitVectors(UPY,prV2.copy(tip).normalize()); F.line.scale.set(1,Math.max(.05,len),1); } } }
+
+/* ---------- the way to the pier: the town grows a little differently on a phone (more bushes and rocks), and there the shore
+   behind the pub can be closed in by them on the walking grid, though there is room to walk between them. As the cliff's
+   way in (see clWay), a search over the same cells allowed nearer the stones and bushes (16 cm clear: walking past only
+   nudges you; the fences still close their gaps), from the end of the pier to the nearest ground the town can already
+   reach, opens the cells along that one way. Done last, once everything solid in the town is made ---------- */
+function prWay(){ const n=NAV.N, F=NAV.free; if(!F) return 0; const id=(i,j)=>j*n+i, inn=(i,j)=>i>=0&&j>=0&&i<n&&j<n, free=(i,j)=>inn(i,j)&&F[id(i,j)]===1, [cx,cz]=PR.C;
+  const town=new Uint8Array(n*n), q=[navNear(...navIJ(0,-4))]; town[id(...q[0])]=1;
+  while(q.length){ const [i,j]=q.pop(); for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ const a=i+di, b=j+dj; if((!di&&!dj)||!free(a,b)||town[id(a,b)]||(di&&dj&&(!free(i+di,j)||!free(i,j+dj)))) continue; town[id(a,b)]=1; q.push([a,b]); } }
+  let s=navIJ(...PR.Hc); if(!free(...s)) s=navNear(...s); if(!s||town[id(...s)]) return 0;
+  const near=OBS.filter(o=>!o.tr&&Math.hypot(o.x-cx,o.z-cz)<16), loose=new Map(), ok=(i,j)=>{ if(!inn(i,j)) return false; if(F[id(i,j)]) return true; const k=id(i,j); if(loose.has(k)) return loose.get(k);
+    const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let v=Math.hypot(x-cx,z-cz)<12&&walkable(x,z); if(v) for(const o of near){ const dx=x-o.x, dz=z-o.z, m=o.r+.16; if(dx*dx+dz*dz<m*m){ v=false; break; } } loose.set(k,v); return v; };
+  const from=new Map([[id(...s),-1]]), qq=[s]; let end=null;
+  for(let h=0;h<qq.length&&!end;h++){ const [i,j]=qq[h]; for(let dj=-1;dj<=1&&!end;dj++) for(let di=-1;di<=1&&!end;di++){ const a=i+di, b=j+dj, k=id(a,b);
+    if((!di&&!dj)||from.has(k)||!ok(a,b)||(di&&dj&&(!ok(i+di,j)||!ok(i,j+dj)))) continue; from.set(k,id(i,j)); if(town[k]) end=k; else qq.push([a,b]); } }
+  let opened=0; for(let k=end, p=end==null?-1:from.get(end); k!=null&&k>=0; k=p, p=k>=0?from.get(k):-1){ if(!F[k]) opened++; F[k]=1; if(p>=0){ const i=k%n, j=(k-i)/n, i2=p%n, j2=(p-i2)/n; if(i!==i2&&j!==j2){ F[id(i,j2)]=1; F[id(i2,j)]=1; } } }
+  PRM.opened=opened; return opened; }
+
+/* ---------- built with the town (before its mesh is made), stepped after it; the train's first pass soon after you arrive ---------- */
+{ const b=st.build; st.build=async function(){ await b.apply(this,arguments); try{ prWay(); }catch(err){ PRM.err=String(err&&err.stack||err); } }; }
+{ const up=st.update, en=st.enter;
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&!PRM.err) prUpdate(dt,t); return r; };
+  st.enter=function(){ const r=en.apply(this,arguments); if(TR.st==='end'){ TR.next=TR.clk+PR.FIRST; trPlan(); } TR.t0=TR.clk; return r; }; }
+TR.sN=PR.sMin; trPlan();
+st._dbg.pier={PR,TR,TRK,PRM,onPier,trCrossing,trPlan,trRun,prAt,
+  step(sec,dt=.05){ for(let i=0;i<sec/dt;i++) trUpdate(dt); },
+  get state(){ return {st:TR.st,sN:+TR.sN.toFixed(2),v:+TR.v.toFixed(2),dir:TR.dir,next:+TR.next.toFixed(1),dep:+TR.dep.toFixed(1),clk:+TR.clk.toFixed(1),since:+(TR.clk-TR.t0).toFixed(1),stops:TR.stops,arrive:TR.arrive.slice(-4),
+    waits:TR.waits,blocked:TR.blocked,minGap:+TR.minGap.toFixed(2),clacks:TR.clacks,sHalt:+PR.sHalt.toFixed(2),sC:+PR.sC.toFixed(2),len:+TRK.len.toFixed(2),sounds:TR.n||{},opened:PRM.opened||0,err:PRM.err}; }};
+/* ===================== (the pier and the train end here) ===================== */
 })();

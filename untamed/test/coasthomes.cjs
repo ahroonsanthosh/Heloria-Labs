@@ -43,7 +43,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return { rocks: co.rocks, boats: co.boats.length, seal: !!d.coast.SEAL.g, swing: !!M, err: d.coast.SWG.err || hm.err, homes: hm.homes.length, wins: hm.homes.map(x => x.wins), chim: hm.homes.every(x => x.chim), lines: hm.lines.length,
       bench: M ? +Math.hypot(M.seat[0] - d.cliff.F.x, M.seat[1] - d.cliff.F.z).toFixed(1) : 0, toSwing: M ? !!d.navPath(-3.2, -12, M.stand[0], M.stand[1], 1.3) : false }; });
   rec(!built.err && built.rocks >= 8 && built.boats === 2 && built.seal && built.swing, 'the coast is made: rocks in the shallows, two boats, the seal, the swing', JSON.stringify(built));
-  rec(built.homes >= 2 && built.wins.every(n => n >= 3) && built.chim && built.lines >= 1, 'the homes are found, with their windows, chimneys and a washing line', JSON.stringify(built));
+  /* (at least one: the chipper has since taken the peach house's plot, leaving the grey-blue one by the café) */
+  rec(built.homes >= 1 && built.wins.every(n => n >= 3) && built.chim && built.lines >= 1, 'the homes are found, with their windows, chimneys and a washing line', JSON.stringify(built));
   rec(built.bench > 3 && built.toSwing, 'the swing is clear of the bench, and the town\'s path finder reaches it from the landing pad', JSON.stringify(built));
 
   /* ---------- the tide ---------- */
