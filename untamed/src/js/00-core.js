@@ -426,6 +426,40 @@ const A=(()=>{
      stalled, so it never goes round again */
   const soloEnd=()=>{ const a=SOLO.els[SOLO.cur]; if(a&&a._on&&a.currentTime>SOLO.P-2){ BK.done=true; SOLO.want=0; } };
   const SOLO=loop({name:'busk-solo',sr:22050,P:BKS.solo.P,H:.5,R:.2,fade:false,ref:1,tc:.12,tcOut:.25,gate:.3,make(oc,t0){ return amp(oc,t0,BKS.solo.notes,{drive:3.4,cab:2800,level:.1,wet:.42,room:.6,kick:BKS.solo.kick,kickLevel:.16,tamb:BKS.solo.tamb,tambLevel:.035}); }});
+  /* ---------- the session in the pub on Earth (see the pub): on a Friday market night three of them play in the corner, a
+     fiddle, a bodhrán and a whistle, a jig of our own in D, gentle and unhurried. A recording, as the town's music is, made
+     only the first time it is wanted (near the pub on a market night), and played quietly: never louder than a footstep.
+     The fiddle is a bowed saw through a wooden body with a slow vibrato; the whistle a breathy, nearly pure tone an octave
+     up, in the second half only; the bodhrán a soft low stroke and the slap of its skin, down-up-down. No voice in it ---------- */
+  const SESS_T=(()=>{ const q=60/92/3, lilt=[0,.37,.69], A_=[[62,66,69,71,69,66],[67,71,74,76,74,71],[69,66,62,64,66,67],[69,0,0,69,71,73],[74,73,71,69,66,62],[67,66,64,66,69,74],[76,74,71,69,66,64],[62,0,0,62,0,0]],
+      B_=[[78,76,74,81,78,74],[79,78,76,74,73,71],[69,74,78,76,74,73],[74,0,0,74,73,71],[69,71,73,74,76,78],[79,76,73,69,71,73],[74,71,67,69,66,64],[62,0,0,62,0,0]];
+    /* each note: its time, length (held through the zeros after it), pitch, and which half it is in */
+    const N=[]; A_.concat(B_).forEach((bar,b)=>bar.forEach((m,k)=>{ if(!m) return; let len=1; while(k+len<6&&!bar[k+len]) len++; const at=g=>(b*2+Math.floor(g/3))*3*q+lilt[g%3]*3*q;
+      N.push({t:at(k),d:(k+len<6?at(k+len):(b*2+2)*3*q)-at(k),m,B:b>=8}); }));
+    return {q,lilt,N,P:16*2*3*q}; })();
+  const SESS=loop({name:'session',sr:22050,P:SESS_T.P,H:1.2,R:0,fade:false,ref:1,tc:.8,tcOut:.6,gate:.25,make(oc){
+      const b=bus(oc,.55,.4), mf=m=>440*Math.pow(2,(m-69)/12), body=oc.createBiquadFilter(), top=oc.createBiquadFilter(), fv=oc.createGain(), wv=oc.createGain(), dv=oc.createGain();
+      body.type='peaking'; body.frequency.value=1050; body.Q.value=1.1; body.gain.value=5; top.type='lowpass'; top.frequency.value=2900; top.Q.value=.6; fv.gain.value=.05; wv.gain.value=.016; dv.gain.value=.11;
+      body.connect(top); top.connect(fv); fv.connect(b.in); fv.connect(b.rv); wv.connect(b.in); wv.connect(b.rv); dv.connect(b.in);
+      let seed=917; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+      for(const n of SESS_T.N){ const t=Math.max(0,n.t+(rnd()-.5)*.008), d=Math.max(.12,n.d), f=mf(n.m);   // (a hair early or late, never before the start)
+        /* the fiddle: a bow stroke, swelling a little, the vibrato coming in late on a long note */
+        { const o=oc.createOscillator(), a=oc.createGain(), lf=oc.createOscillator(), lg=oc.createGain(); o.type='sawtooth'; o.frequency.value=f;
+          lf.frequency.value=5.3+rnd()*.5; lg.gain.setValueAtTime(0,t); lg.gain.linearRampToValueAtTime(d>.4?f*.006:f*.002,t+Math.min(d,.35)); lf.connect(lg); lg.connect(o.frequency);
+          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.55,t+.035); a.gain.linearRampToValueAtTime(.7,t+d*.6); a.gain.linearRampToValueAtTime(0,t+d+.05);
+          o.connect(a); a.connect(body); o.start(t); o.stop(t+d+.1); lf.start(t); lf.stop(t+d+.1); }
+        /* the whistle, an octave up, in the second half: a near-pure tone with a breath of noise as each note starts */
+        if(n.B){ const o=oc.createOscillator(), o2=oc.createOscillator(), a=oc.createGain(), a2=oc.createGain(); o.type='sine'; o.frequency.value=f*2; o2.type='sine'; o2.frequency.value=f*4; a2.gain.value=.12;
+          a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.8,t+.02); a.gain.setValueAtTime(.7,t+d*.8); a.gain.linearRampToValueAtTime(0,t+d+.03);
+          o.connect(a); o2.connect(a2); a2.connect(a); a.connect(wv); o.start(t); o.stop(t+d+.08); o2.start(t); o2.stop(t+d+.08);
+          const L=Math.floor(oc.sampleRate*.05), nb=oc.createBuffer(1,L,oc.sampleRate), nd=nb.getChannelData(0); for(let i=0;i<L;i++) nd[i]=(rnd()*2-1)*(1-i/L);
+          const ns=oc.createBufferSource(), nf=oc.createBiquadFilter(), ng=oc.createGain(); ns.buffer=nb; nf.type='bandpass'; nf.frequency.value=f*4; nf.Q.value=2; ng.gain.value=.25; ns.connect(nf); nf.connect(ng); ng.connect(wv); ns.start(t); } }
+      /* the bodhrán: every quaver, strong on the beat; a low round stroke and the slap of the skin */
+      const q=SESS_T.q, K=[1,.22,.42,.78,.22,.42], L=Math.floor(oc.sampleRate*.05), sk=oc.createBuffer(1,L,oc.sampleRate), sd=sk.getChannelData(0); for(let i=0;i<L;i++) sd[i]=(rnd()*2-1)*Math.pow(1-i/L,2);
+      for(let b=0;b<32;b++) for(let k=0;k<3;k++){ const t=b*3*q+SESS_T.lilt[k]*3*q, w=K[(b%2)*3+k]*(.9+rnd()*.2);
+        const o=oc.createOscillator(), a=oc.createGain(); o.type='sine'; o.frequency.setValueAtTime(118,t); o.frequency.exponentialRampToValueAtTime(74,t+.16);
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(.55*w,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.22); o.connect(a); a.connect(dv); o.start(t); o.stop(t+.25);
+        const s=oc.createBufferSource(), f=oc.createBiquadFilter(), g=oc.createGain(); s.buffer=sk; f.type='lowpass'; f.frequency.value=900+600*w; f.Q.value=.7; g.gain.value=.22*w; s.connect(f); f.connect(g); g.connect(dv); s.start(t); } }});
   /* worked out one at a time, out of the way of the page starting: the music and the orbit first, the stations' air last */
   setInterval(soloEnd,100);
   let making=!!OAC;
@@ -810,6 +844,64 @@ const A=(()=>{
     poFlap(){ if(!on||muted||!ctx) return; const v=vr(.05); noise(.14,.016,2800*v,1300,'bandpass',1.3); tone(760*v,.06,.016,'triangle',520,.17); tone(1650*v,.03,.007,'sine',0,.17,0,.001); tone(160*v,.08,.022,'sine',90,.18); },
     /* paper: a card slid across the counter, or dropped into the sack among the letters (k: how much) */
     poShuffle(k=1){ if(!on||muted||!ctx) return; noise(.18,.02*k,3400,1600,'bandpass',.9); noise(.12,.012*k,5200,2600,'highpass',.7,.08); noise(.08,.01*k,900,500,'lowpass',.8,.15); },
+    /* ---------- the pub on Earth: its door, a pint set down on the bar, the fire in the grate, a dart going into the board,
+       and on a Friday market night the session in the corner (see SESS). Each short sound about as loud as a footstep;
+       knocks, ticks and rings, and only short, dark bursts of noise ---------- */
+    /* the door: the thumb latch lifting, and the heavy door swinging in on its hinges; shut, it knocks home and the latch drops */
+    pubDoor(open=true){ if(!on||muted||!ctx) return; const v=vr(.05);
+      if(open){ tone(1320*v,.025,.012,'triangle',0,0,0,.001); tone(2750*v,.014,.005,'sine',0,.006,0,.001); tone(150*v,.12,.02,'sine',88,.05); noise(.07,.006,700*v,380,'lowpass',.9,.05); }
+      else { tone(104*v,.2,.03,'sine',56); tone(230*v,.07,.012,'triangle',120,.004); noise(.06,.009,1000*v,320,'lowpass',.9); tone(1180*v,.02,.009,'triangle',0,.1,0,.001); tone(2500*v,.012,.004,'sine',0,.105,0,.001); } },
+    /* a glass on the bar: a pint set down (the wood's knock and the glass's short dull ring), or two glasses touched (k: how loud) */
+    pubGlass(k=1,clink=false){ if(!on||muted||!ctx) return; const v=vr(.05);
+      if(clink){ [[0,1],[.06+Math.random()*.04,.8]].forEach(([dl,a])=>{ tone(2380*v*(dl?.94:1),.24,.013*k*a,'sine',0,dl,.25,.002); tone(3920*v*(dl?.94:1),.12,.005*k*a,'sine',0,dl,.2,.002); }); return; }
+      tone(165*v,.09,.022*k,'sine',100); tone(1720*v,.1,.007*k,'sine',0,.003,.15,.002); tone(2890*v,.05,.003*k,'sine',0,.003,0,.001); noise(.03,.006*k,1500*v,700,'bandpass',1.2); },
+    /* the fire in the grate: a few small crackles over a moment, and now and then the soft pop of a log settling (g: how
+       loud, eased already for how near the fire is) */
+    pubFire(g=.02,pop=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, n0=2+Math.floor(Math.random()*4);
+      for(let k=0;k<n0;k++){ const t=t0+Math.random()*.6, d=.006+Math.random()*.018, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), gg=g*(.3+Math.random()*.7);
+        b.type='bandpass'; b.frequency.value=1500+Math.random()*2600; b.Q.value=1+Math.random();
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.0015); a.gain.exponentialRampToValueAtTime(.0001,t+d); s.connect(b); b.connect(a); a.connect(comp); s.start(t,Math.random()*8); s.stop(t+d+.02); }
+      if(pop){ const v=vr(.1); tone(92*v,.14,g*1.1,'sine',58,.1); noise(.08,g*.5,620*v,240,'lowpass',.8,.1); } },
+    /* a dart into the board: the steel point's short tick and the board taking it with a dense little thunk; off the board, into
+       the dark ring round it or the wall, a duller, softer knock */
+    dartThunk(onBoard=true){ if(!on||muted||!ctx) return; const v=vr(.06);
+      if(onBoard){ tone(205*v,.075,.04,'sine',120); tone(410*v,.04,.012,'triangle',230); noise(.025,.016,2600*v,1500,'bandpass',1.6); tone(3100*v,.012,.004,'sine',0,0,0,.001); }
+      else { tone(150*v,.1,.026,'sine',85); noise(.05,.01,800*v,300,'lowpass',.8); } },
+    /* the three darts drawn out of the board together: three little dry ticks */
+    dartPull(){ if(!on||muted||!ctx) return; for(let k=0;k<3;k++){ const v=vr(.08); tone(1900*v,.018,.006,'triangle',0,k*.07+Math.random()*.02,0,.001); noise(.02,.004,2400*v,1200,'bandpass',1.4,k*.07); } },
+    /* the session (see SESS): v how loud, 0 to 1, by how near the pub you are; made the first time it is asked for */
+    pubSession(v){ v=clamp(v||0,0,1); SESS.want=v*SESS.ref; if(v>0&&!SESS.url&&!SESS.busy) render(SESS); },
+    /* ---------- the fire station on Earth: the bell rung for a drill, and the hose: the water let go with a gush, its
+       patter on the forecourt while it runs, and a sputter as it is shut off. g how loud (eased for distance), p left or
+       right. Soft, short and dark: water here is a patter of small knocks, never a hiss ---------- */
+    /* the station's bell, rung by its rope: four or five strokes of a brass bell, each its strike and a few partials ringing
+       on, the clapper's knock with each */
+    fireBell(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, f=740*vr(.01); let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); const sg=ctx.createGain(); sg.gain.value=.4; pn.connect(sg); sg.connect(revIn); dst=pn; }
+      for(let k=0;k<5;k++){ const tk=t0+k*.42+(Math.random()-.5)*.03, a0=g*(k===4?.6:1)*(k%2?.85:1);
+        [[1,1,1.1],[2.01,.42,.6],[2.74,.22,.4],[4.07,.1,.25]].forEach(([m,a,d])=>{ const o=ctx.createOscillator(), e=ctx.createGain(); o.type='sine'; o.frequency.value=f*m*(k%2?1.003:1);
+          e.gain.setValueAtTime(0,tk); e.gain.linearRampToValueAtTime(a0*a,tk+.003); e.gain.exponentialRampToValueAtTime(.0001,tk+d); o.connect(e); e.connect(dst); o.start(tk); o.stop(tk+d+.05); });
+        const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=1700; b.Q.value=1.5;
+        a.gain.setValueAtTime(0,tk); a.gain.linearRampToValueAtTime(a0*.35,tk+.002); a.gain.exponentialRampToValueAtTime(.0001,tk+.03); s.connect(b); b.connect(a); a.connect(dst); s.start(tk,Math.random()*8); s.stop(tk+.05); } },
+    /* the water let go (a soft rising rush and the hose kicking), or shut off (a few sputters, and the last of it) */
+    hoseGush(open=true,g=.02,p=0){ if(!on||muted||!ctx) return; const v=vr(.05); let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      const nz=(dur,gg,f0,f1,type,q,dl)=>{ const t=ctx.currentTime+dl, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+Math.min(.05,dur*.3)); a.gain.exponentialRampToValueAtTime(.0001,t+dur); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+dur+.05); };
+      const tn=(f,dur,gg,f2,dl)=>{ const t=ctx.currentTime+dl, o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+dur); o.connect(a); a.connect(dst); o.start(t); o.stop(t+dur+.05); };
+      if(open){ tn(120*v,.18,g*1.2,70,0); nz(.5,g*.7,320*v,1300,'lowpass',.8,.02); nz(.3,g*.4,900*v,1600,'bandpass',1.1,.12); }
+      else { for(let k=0;k<4;k++) nz(.07,g*(.6-k*.12),900*v,500,'bandpass',1.3,k*.11+Math.random()*.03); tn(95*v,.12,g*.8,60,.02); } },
+    /* the water landing on the forecourt while it runs: a quick patter of small soft hits and a lower plash among them (call
+       it every tenth of a second or so; k how much is falling) */
+    hoseSplash(k=1,g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime; let dst=comp;
+      if(ctx.createStereoPanner){ const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); dst=pn; }
+      const n0=3+Math.floor(Math.random()*4*k);
+      for(let i=0;i<n0;i++){ const t=t0+Math.random()*.14, d=.012+Math.random()*.03, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), gg=g*k*(.3+Math.random()*.7);
+        b.type='bandpass'; b.frequency.value=800+Math.random()*1900; b.Q.value=1.6+Math.random()*1.5;
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+d); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+d+.02); }
+      if(Math.random()<.35*k){ const t=t0+Math.random()*.1, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='lowpass'; b.frequency.value=520; b.Q.value=.8;
+        a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*k*.6,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.07); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+.1); } },
     /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
        As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
        plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */
