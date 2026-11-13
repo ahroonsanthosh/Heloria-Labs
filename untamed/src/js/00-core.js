@@ -510,6 +510,13 @@ const A=(()=>{
     a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(tfBus()); o.start(t0); o.stop(t0+dur+.05); }
   function tfN(dur,g,f0,f1,type='lowpass',q=.7,delay=0,atk=.004){ const t0=ctx.currentTime+delay, s=shot(), b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(tfBus()); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); }
+  /* the town hall's and the school's short sounds on Earth: a tone or a band of noise, to the left or right (p), each let go of
+     by itself; the panner, if there is one, made for the one sound */
+  const ciDst=p=>{ if(!p||!ctx.createStereoPanner) return comp; const pn=ctx.createStereoPanner(); pn.pan.value=clamp(p,-1,1); pn.connect(comp); return pn; };
+  function ciT(d,f,dur,g,type='sine',f2=0,delay=0,atk=.004){ const t0=ctx.currentTime+delay, o=ctx.createOscillator(), a=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(f,t0); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+    a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(a); a.connect(d); o.start(t0); o.stop(t0+dur+.05); }
+  function ciN(d,dur,g,f0,f1,type='bandpass',q=1,delay=0,atk=.004){ const t0=ctx.currentTime+delay, s=shot(), b=ctx.createBiquadFilter(); b.type=type; b.Q.value=q; b.frequency.setValueAtTime(f0,t0); b.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
+    const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(d); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
@@ -764,6 +771,35 @@ const A=(()=>{
       e.gain.setValueAtTime(0,t0); e.gain.linearRampToValueAtTime(g,t0+.003); e.gain.exponentialRampToValueAtTime(.0001,t0+.09); o.connect(e); e.connect(dst); o.start(t0); o.stop(t0+.12);
       const s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='bandpass'; b.frequency.value=900*v; b.Q.value=1.2;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*.6,t0+.002); a.gain.exponentialRampToValueAtTime(.0001,t0+.03); s.connect(b); b.connect(a); a.connect(dst); s.start(t0,Math.random()*8); s.stop(t0+.05); },
+    /* ---------- inside the town hall and the school on Earth. Each is one short, soft sound made live: a door, a step on the
+       boards, chalk on the blackboard (and the duster), a bar of the xylophone, the model rocket's whoosh and its parachute
+       opening, the hamster's wheel, the clock's works ticking. Never a voice, never a bed of noise ---------- */
+    /* a door: the latch, then a low creak as it swings open, or a soft knock as it shuts. heavy: the hall's, lower; else the school's */
+    civDoor(open=true,heavy=true){ if(!on||muted||!ctx) return; const v=vr(.05), lo=heavy?.82:1.12, d=comp;
+      ciN(d,.03,.03,3300*v*lo,2200,'bandpass',2.5); ciT(d,1150*v*lo,.03,.009,'triangle',0,0,.002);
+      if(open){ const t0=ctx.currentTime+.06, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), l=ctx.createOscillator(), lg=ctx.createGain();
+        o.type='sawtooth'; o.frequency.setValueAtTime(98*v*lo,t0); o.frequency.linearRampToValueAtTime(80*v*lo,t0+.5); l.frequency.value=19; lg.gain.value=7; l.connect(lg); lg.connect(o.frequency);
+        b.type='bandpass'; b.frequency.value=950*lo; b.Q.value=5; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.011,t0+.08); a.gain.exponentialRampToValueAtTime(.0001,t0+.55);
+        o.connect(b); b.connect(a); a.connect(d); o.start(t0); l.start(t0); o.stop(t0+.6); l.stop(t0+.6); }
+      else { ciT(d,86*v*lo,.22,.0095,'sine',54*v); ciN(d,.12,.0058,480*lo,110,'lowpass',.9); } },
+    /* a step on wooden boards indoors: a soft, hollow knock, quieter than the street's */
+    floorStep(g=.04){ if(!on||muted||!ctx) return; const v=vr(.08); ciN(comp,.11,g*.8,560*v,380,'bandpass',2); ciT(comp,140*v,.08,g*.42,'sine',88); },
+    /* chalk on the blackboard: a few dry grains, high and close together; or the duster, a soft brush across it */
+    chalk(g=.032,wipe=false,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p);
+      if(wipe){ ciN(d,.24,g*.4,1500,800,'bandpass',.9,0,.04); return; }
+      for(let k=0;k<3;k++) ciN(d,.012,g*(1-k*.2),(3800+Math.random()*1400),3200,'bandpass',5,k*.013+Math.random()*.004,.001);
+      if(Math.random()<.18) ciT(d,2500+Math.random()*500,.035,g*.12,'sine',0,.01); },
+    /* a bar of the xylophone (i: 0, the lowest, to 7), on the town's notes: the wood's ring and its bright overtones dying away
+       quickly, and the soft tap of the beater */
+    xylo(i=0,g=.0075,p=0){ if(!on||muted||!ctx) return; const f=[523.25,587.33,659.25,783.99,880,1046.5,1174.66,1318.51][clamp(i|0,0,7)], d=ciDst(p);
+      ciT(d,f,.75,g,'sine',0,0,.002); ciT(d,f*3.93,.2,g*.2,'sine',0,0,.001); ciT(d,f*9.2,.06,g*.06,'sine',0,0,.001); ciN(d,.018,g*.35,2600,2000,'bandpass',1.5,0,.001); },
+    /* the model rocket going up: a soft cough as it lights, and its whoosh rising away; and its parachute, a little pop */
+    rocketWhoosh(g=.03,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); ciN(d,.12,g,1800,420,'lowpass',.8,0,.003); ciN(d,.7,g*.75,520,3200,'bandpass',1.3,.04,.06); ciT(d,320,.55,g*.12,'sine',760,.04,.05); },
+    chutePop(g=.017,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); ciT(d,560,.09,g,'sine',270,0,.002); ciN(d,.035,g*.5,1600,1100,'bandpass',1.4); for(let k=0;k<3;k++) ciN(d,.02,g*.3,2400,1800,'bandpass',3,.09+k*.05); },
+    /* the hamster's wheel, once round: a tiny squeak and the click of its axle */
+    wheelSqueak(g=.006,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p); ciT(d,2300*vr(.04),.05,g,'sine',2550,0,.004); ciT(d,1650,.015,g*.6,'triangle',0,.03,.001); },
+    /* the clock's works: a tick, and the tock a little lower and woodier */
+    gearTick(tock=false,g=.016){ if(!on||muted||!ctx) return; ciT(comp,tock?1650:2150,.025,g,'triangle',0,0,.001); ciN(comp,.012,g*.7,4200,3600,'bandpass',4,0,.001); if(tock) ciT(comp,420,.05,g*.5,'sine',300); },
     /* ---------- the workshop on Earth: its roller shutter and its strip lights. Every sound here is a ringing click, a knock
        or a low hum, never a band of noise (on a phone that is static) ---------- */
     /* the shutter's motor: two low saws a fifth apart and an octave, under a soft low pass, coming up to speed; the handle's

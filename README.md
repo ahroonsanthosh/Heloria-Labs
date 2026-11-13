@@ -61,6 +61,10 @@ finishes with a photo and a link, and a board outside the café books a chat wit
 - The café is open: walk in and order at the counter. The barista grinds, tamps, pulls the shot, steams the milk and
   sets the cup down in front of you, and each drink on the menu is a way to reach us (a coffee chat, a Kríos demo, a
   job). Its sign is drawn in the foam; look into the cup and the link is there.
+- The town hall and the school are open too. In the hall the clerk talks, a model of the whole town on a table takes you
+  to any building on it, the noticeboard says what is on, you can sign the visitor book, and a spiral stair climbs to the
+  clock room, its works turning with the clock outside. In the school the children are at their desks in lessons; draw on
+  the blackboard, play the xylophone, spin the globe, launch the model rocket and say hello to the class hamster.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
   dark to a sales call that rises over a table as lines of light.
 - No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
@@ -119,6 +123,7 @@ the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `
 every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
 `regulars.cjs` has a word with Gideon and Owen at their table outside it (a click, a tap, E, a name tag),
 `garage.cjs` opens the workshop's shutter (a click, a tap, E), goes into the garage, looks round and comes out again,
+`civic-inside.cjs` goes into the town hall and the school and does everything there is to do in each,
 `postcard.cjs` takes a postcard, `launch.cjs` says yes to Ahroon and plays the launch scene before the last flight (Skip,
 Escape, and nothing of it left behind), and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
