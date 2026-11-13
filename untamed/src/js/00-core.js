@@ -193,7 +193,7 @@ const A=(()=>{
      do. Another window only in front of it, the page still showing, is not leaving: the sound plays on, as any player's does */
   function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true;   // (the page closing is as final as hidden: everything stops at once)
     if(hid) for(const r of LOOPS){ r.vol=0; for(const el of r.els){ el._on=false; if(!el.paused) el.pause(); } }
-    if(SC.el&&!SC.el.paused) SC.el.pause();   // (a cutscene's recording: it starts again from where the scene is when you come back)
+    for(const el of [SC.el,LS.el]) if(el&&!el.paused) el.pause();   // (a cutscene's recording: it starts again from where the scene is when you come back)
     if(ctx){ set(out.gain,0,hid?.01:.15); if(hid) ctx.suspend().catch(()=>{}); } }
   function back(){ if(!away||document.hidden) return; away=false; wdT=-1; for(const r of LOOPS) r.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
     if(ctx&&on){ ctx.resume().catch(()=>{}); set(out.gain,muted?0:LOUD,.5); } }
@@ -202,7 +202,7 @@ const A=(()=>{
   ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,back,{capture:true,passive:true}));
   /* inside a click, a tap or a key a browser always lets a recording start: each player is started there once, silently,
      and stopped again, so a phone that only lets a page start sound inside a gesture lets it start later by itself */
-  function prime(){ /* the cutscene's recording too */ if(SC.el&&!SC.el._primed&&SC.el.paused){ const el=SC.el; el._primed=true; el.muted=true; const p=el.play(); const b=()=>{ if(!(on&&!muted&&!away&&el._want)) el.pause(); el.muted=false; }; if(p&&p.then) p.then(b,()=>{ el.muted=false; el._primed=false; }); else b(); }
+  function prime(){ /* the cutscenes' recordings too */ for(const el of [SC.el,LS.el]) if(el&&!el._primed&&el.paused){ el._primed=true; el.muted=true; const p=el.play(); const b=()=>{ if(!(on&&!muted&&!away&&el._want)) el.pause(); el.muted=false; }; if(p&&p.then) p.then(b,()=>{ el.muted=false; el._primed=false; }); else b(); }
     for(const r of LOOPS){ r.blocked=false;
       for(const el of r.els){ if(el._primed||!el.paused) continue; el._primed=true; el.muted=true; const p=el.play();
         const back=()=>{ if(!(el._on&&on&&!muted&&r.want>0)) el.pause(); el.muted=false; };
@@ -441,7 +441,7 @@ const A=(()=>{
       if(!qi){ KEEP.want(Q.map(keptAs));
         /* what you hear first, which the loader waits for (see firstReady), is made side by side: a browser works out each on
            a thread of its own, so the wait is for the longest of them, not for all of them in turn */
-        FIRST.slice(1).forEach(r=>render(r)); }
+        FIRST.slice(1).forEach(r=>render(r)); landMake(); }
       if(qi<Q.length) render(Q[qi++],go); else { making=false; KEEP.tidy(); } }; setTimeout(go,60); }
   /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
      Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
@@ -537,6 +537,83 @@ const A=(()=>{
       SC.el=BUFP?new BufPlayer(()=>{ if(SC.bb) return SC.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } SC.bb=b; return b; }):new Audio(); SC.el.preload='auto'; if(!BUFP) SC.el.src=SC.url; SC.el._want=false; try{ SC.el.preservesPitch=false; }catch(e){} };
     try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>{ SC.busy=false; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ SC.busy=false; } }
   const scoreStop=()=>{ if(SC.el){ SC.el._want=false; if(!SC.el.paused) SC.el.pause(); } };
+  /* ---------- the landing's own sound: the rocket coming down onto Earth, the first thing you hear ----------
+     Made once as the page loads, out of sight (as the launch scene's is), and played in step with the landing (see the
+     landing on Earth, whose times T are). Far off, the engine's roar through the cloud and the air tearing past; nearer, its
+     crackle (the part of a rocket's noise that a laptop's or a phone's small speaker carries) over the rumble under it; in
+     the hover the blast thrown back off the pad and grit rattling; the legs taking the weight; the engine spooling down;
+     the pressure let go; the hatch's ram and the ramp meeting the pad; and the metal ticking as it cools */
+  const LS={url:null,el:null,busy:false,fail:false,len:0,env:null,rms:0};
+  function landMake(){ if(!OAC||LS.url||LS.busy) return; LS.busy=true;
+    const T={hov:3,land:4.2,door:4.6,ramp:5.4,end:7.6}, sr=32000, len=Math.ceil((T.end+2.2)*sr); LS.len=len/sr; let oc;
+    try{ oc=new OAC(1,len,sr); }catch(e){ LS.busy=false; LS.fail=true; return; }
+    const b=bus(oc,1,.9), IN=b.in, room=b.rv;
+    const nz=oc.createBuffer(1,len,sr), nd=nz.getChannelData(0); for(let i=0;i<len;i++) nd[i]=Math.random()*2-1;
+    const src=t0=>{ const x=oc.createBufferSource(); x.buffer=nz; x.loop=true; x.start(Math.max(0,t0),Math.random()*(len/sr-1)); return x; };
+    const filt=(type,f,q)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=f; x.Q.value=q??.7; return x; };
+    const gainAt=(t0,peak,atk,dec,to)=>{ const g=oc.createGain(); g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(peak,t0+atk); g.gain.exponentialRampToValueAtTime(.0001,t0+atk+dec); g.connect(to); return g; };
+    const toRoom=(node,k)=>{ const g=oc.createGain(); g.gain.value=k; node.connect(g); g.connect(room); };
+    /* how much engine there is: far and coming nearer while it brakes, all of it in the hover, then spooling down */
+    const eng=t=>t<T.hov?.28+.72*Math.pow(t/T.hov,1.5):t<T.land?1:Math.pow(Math.max(0,1-(t-T.land)/1.4),1.6);
+    const curve=(f,t0,t1)=>{ const N=Math.max(2,Math.ceil((t1-t0)*60)), c=new Float32Array(N); for(let i=0;i<N;i++) c[i]=f(t0+(t1-t0)*i/(N-1)); return c; };
+    const ramp=(param,f,t0,t1)=>{ param.setValueAtTime(f(t0),0); param.setValueCurveAtTime(curve(f,t0,t1),t0,t1-t0); };
+    const ET=T.land+1.5;   // the engine is quiet by then
+    /* the rumble under it all, and the roar, its filter opening as it comes near and closing as it spools down */
+    { const g=oc.createGain(); ramp(g.gain,t=>.55*eng(t),0,ET); g.connect(IN);
+      const n=src(0), lp=filt('lowpass',150,.8); n.connect(lp); lp.connect(g); n.stop(ET+.1); }
+    { const g=oc.createGain(); ramp(g.gain,t=>.4*eng(t),0,ET); g.connect(IN); toRoom(g,.3);
+      const n=src(0), bp=filt('bandpass',420,.55), lp=filt('lowpass',900,.7); ramp(lp.frequency,t=>t<T.land?900+2400*Math.pow(eng(t),2):300+2900*Math.pow(eng(t),2.5),0,ET);
+      n.connect(bp); bp.connect(lp); lp.connect(g); n.stop(ET+.1); }
+    /* the crackle: a rattle of tiny bursts, more and harder the nearer and stronger the engine, worked out sample by sample */
+    { const ck=oc.createBuffer(1,len,sr), d=ck.getChannelData(0), tEnd=T.land+.45;
+      for(let t=0;t<tEnd;){ const e=t<T.land?eng(t):eng(t)*(1-(t-T.land)/.45); t+=-Math.log(1-Math.random())/(70+420*e*e);
+        const i0=Math.floor(t*sr), L=Math.floor((.0012+Math.random()*.004)*sr), a=e*(.25+.75*Math.pow(Math.random(),2.5));
+        for(let i=0;i<L&&i0+i<len;i++) d[i0+i]+=(Math.random()*2-1)*a*Math.exp(-5*i/L); }
+      const s=oc.createBufferSource(); s.buffer=ck; const hp=filt('highpass',650,.7), lp=filt('lowpass',6500,.6), g=oc.createGain(); g.gain.value=.55;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(IN); toRoom(g,.35); s.start(0); }
+    /* the engine's note under the noise: low, wavering, and falling as it spools down */
+    { const o=oc.createOscillator(); o.type='sawtooth'; ramp(o.frequency,t=>t<T.land?62+10*eng(t)+2*Math.sin(t*9):30+42*eng(t),0,ET); o.start(0); o.stop(ET);
+      const lp=filt('lowpass',520,1.1), g=oc.createGain(); ramp(g.gain,t=>.07*eng(t),0,ET); o.connect(lp); lp.connect(g); g.connect(IN); }
+    /* the air tearing past, through the cloud, less as it slows to the hover */
+    { const n=src(0), bp=filt('bandpass',1800,.9), g=oc.createGain(); ramp(bp.frequency,t=>1900-1100*Math.min(1,t/T.hov),0,T.hov+.4);
+      g.gain.setValueAtTime(.13,0); g.gain.linearRampToValueAtTime(.05,1.3); g.gain.linearRampToValueAtTime(0,T.hov+.3); n.connect(bp); bp.connect(g); g.connect(IN); toRoom(g,.25); n.stop(T.hov+.5); }
+    /* the hover: the blast thrown back off the pad, and grit rattling across it */
+    { const t0=T.hov-.9, n=src(t0), hp=filt('highpass',1100,.6), lp=filt('lowpass',5200,.6), g=oc.createGain();
+      g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(.09,T.hov+.4); g.gain.setValueAtTime(.09,T.land-.15); g.gain.exponentialRampToValueAtTime(.0001,T.land+.9);
+      n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(IN); toRoom(g,.4); n.stop(T.land+1);
+      for(let t=t0+.3;t<T.land+.3;t+=.02+Math.random()*.07){ const k=t<T.land?(t-t0)/(T.land-t0):1-(t-T.land)/.3, x=src(t), bp=filt('bandpass',2600+Math.random()*2200,3); x.connect(bp); bp.connect(gainAt(t,(.01+Math.random()*.03)*k,.001,.012+Math.random()*.02,IN)); x.stop(t+.06); } }
+    /* struck steel, a heavy thing landing, air let out: as in the launch scene's sound */
+    const clank=(t,g,f=380,deep=1)=>{ const out=oc.createGain(); out.connect(IN); toRoom(out,.45);
+      [[1,1,.22],[2.76,.55,.14],[5.4,.3,.09],[8.93,.16,.05]].forEach(([m,a,dk])=>{ const o=oc.createOscillator(); o.type='sine'; o.frequency.value=f*m*(.98+Math.random()*.04); o.start(t); o.stop(t+dk*8); o.connect(gainAt(t,g*a,.002,dk*5,out)); });
+      const n=src(t), bp=filt('bandpass',2600,1.1); n.connect(bp); bp.connect(gainAt(t,g*.7,.001,.05,out)); n.stop(t+.2);
+      if(deep){ const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(48,t+.22); o.start(t); o.stop(t+.5); o.connect(gainAt(t,g*1.3*deep,.004,.3,out)); } };
+    const thud=(t,g)=>{ const out=oc.createGain(); out.connect(IN); toRoom(out,.3);
+      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(82,t); o.frequency.exponentialRampToValueAtTime(42,t+.35); o.start(t); o.stop(t+.7); o.connect(gainAt(t,g,.004,.45,out));
+      const o2=oc.createOscillator(); o2.type='triangle'; o2.frequency.setValueAtTime(165,t); o2.frequency.exponentialRampToValueAtTime(90,t+.25); o2.start(t); o2.stop(t+.5); o2.connect(gainAt(t,g*.35,.003,.25,out));
+      const n=src(t), lp=filt('lowpass',420,.8); n.connect(lp); lp.connect(gainAt(t,g*.8,.002,.12,out)); n.stop(t+.4); };
+    const hiss=(t,dur,g)=>{ const n=src(t), hp=filt('highpass',2200,.6), lp=filt('lowpass',6500,.6); n.connect(hp); hp.connect(lp); const e=gainAt(t,g,.03,dur,IN); lp.connect(e); toRoom(e,.3); n.stop(t+dur+.3); };
+    /* touchdown: the legs take the weight, the frame settles with a groan; the engine cut, and the pressure let go */
+    thud(T.land,.3); clank(T.land,.2,230,.7); clank(T.land+.07,.16,270,.4);
+    { const t=T.land+.18, o=oc.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(150,t); o.frequency.linearRampToValueAtTime(118,t+.55); o.start(t); o.stop(t+.7);
+      const bp=filt('bandpass',600,4); o.connect(bp); bp.connect(gainAt(t,.035,.08,.5,IN)); }
+    hiss(T.land+.35,.9,.045); hiss(T.land+1.3,.5,.025);
+    /* the hatch: the latch, the ram easing it down, the ramp meeting the pad */
+    clank(T.door,.1,520,0);
+    { const o=oc.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(200,T.door+.05); o.frequency.linearRampToValueAtTime(290,T.ramp); o.start(T.door); o.stop(T.ramp+.1);
+      const lp=filt('lowpass',900,.8), a=oc.createGain(); a.gain.setValueAtTime(0,0); a.gain.setValueAtTime(0,T.door+.05); a.gain.linearRampToValueAtTime(.035,T.door+.17); a.gain.setValueAtTime(.035,T.ramp-.1); a.gain.linearRampToValueAtTime(0,T.ramp); o.connect(lp); lp.connect(a); a.connect(IN); }
+    thud(T.ramp,.18); clank(T.ramp,.1,340,.3);
+    /* and the metal ticking as it cools */
+    for(let t=T.land+.9;t<T.end+1.8;t+=.28+Math.random()*.6){ const f=2100+Math.random()*1500, o=oc.createOscillator(); o.type='sine'; o.frequency.value=f; o.start(t); o.stop(t+.12);
+      const g=gainAt(t,.02+Math.random()*.025,.001,.05,IN); o.connect(g); toRoom(g,.5); }
+    /* set by the hover, the engine at its strongest, which is the loudest of it (a tenth of a second at a time), and
+       nothing in it (the touchdown) more than half as loud again */
+    const done=bf=>{ const dd=bf.getChannelData(0), E=new Float32Array(Math.ceil(dd.length/(sr/10)));
+      const env=()=>{ for(let k=0;k<E.length;k++){ let q=0, n=0; for(let i=k*sr/10;i<Math.min(dd.length,(k+1)*sr/10);i++,n++) q+=dd[i]*dd[i]; E[k]=Math.sqrt(q/Math.max(1,n)); } };
+      env(); let hv=0; for(let i=Math.round(T.hov*10);i<Math.round((T.land-.1)*10);i++) hv+=E[i]/Math.round((T.land-.1-T.hov)*10); const pk=Math.max(1e-4,...E), k=Math.min(6,.16/Math.max(1e-4,hv),.26/pk); for(let i=0;i<dd.length;i++) dd[i]*=k; env();
+      const w=wav(dd,0,dd.length,sr); LS.url=w.url; LS.rms=w.rms; LS.env=E; LS.busy=false;
+      const el=BUFP?new BufPlayer(()=>{ if(LS.bb) return LS.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } LS.bb=b; return b; }):new Audio();
+      el.preload='auto'; if(!BUFP) el.src=LS.url; el._want=false; try{ el.preservesPitch=false; }catch(e){} LS.el=el; };
+    try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>{ LS.busy=false; LS.fail=true; }); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ LS.busy=false; LS.fail=true; } }
   /* the workshop's test fire: all of its sounds go through one gain of their own (and a little of it into the room), so
      walking out mid-fire can silence every one of them at once, the ones already sounding as well. A fresh one is made
      for the next fire */
@@ -569,7 +646,7 @@ const A=(()=>{
     /* the recordings you hear first (Earth's music and the rocket coming down) made, or three seconds gone: the loader waits
        for these, so nothing sounds late however soon you are let in */
     firstReady(){ const want=FIRST, t0=performance.now();
-      return new Promise(res=>{ const ck=()=>{ if(!OAC||want.every(r=>r.els.length)||performance.now()-t0>3000) res(); else setTimeout(ck,40); }; ck(); }); },
+      return new Promise(res=>{ const ck=()=>{ if(!OAC||(want.every(r=>r.els.length)&&(LS.el||LS.fail))||performance.now()-t0>3000) res(); else setTimeout(ck,40); }; ck(); }); },
     _loopRms(){ let q=0; if(BUFP&&window.__meter) return 0; /* (where a meter listens to the page, buffer players, the score's too, are heard by it already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
       if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to
       return Math.sqrt(q); },
@@ -711,6 +788,15 @@ const A=(()=>{
     /* where the cutscene's recording has got to, while it is playing; the scene follows it, so a slow frame never parts them */
     scoreClock(){ const el=SC.el; return el&&!el.paused&&!el.seeking&&el.readyState>=3?el.currentTime:null; },
     scoreStop(){ scoreStop(); },
+    /* the landing's sound (see LS above): landAt(t) keeps it in step with the landing (true while there is one to play),
+       landClock() where it has got to, landEnd(cut) lets it ring out (or, the landing skipped, stops it) */
+    landAt(t){ const el=LS.el; if(!el) return false; el._want=true; if(!on||muted||away){ if(!el.paused) el.pause(); return true; }
+      if(el.paused){ if(t<LS.len-.3){ try{ el.currentTime=t; }catch(e){} const p=el.play(); if(p&&p.catch) p.catch(()=>{}); } }
+      else if(Math.abs(el.currentTime-t)>.4){ try{ el.currentTime=t; }catch(e){} } return true; },
+    landClock(){ const el=LS.el; return el&&!el.paused&&!el.seeking&&el.readyState>=3?el.currentTime:null; },
+    landEnd(cut){ const el=LS.el; if(!el) return; el._want=false; if(cut&&!el.paused) el.pause(); },
+    _land(full){ if(full) return LS.env?Array.from(LS.env,v=>+v.toFixed(3)):null; const el=LS.el; return el?{t:+el.currentTime.toFixed(2),paused:el.paused,len:LS.len,rms:+LS.rms.toFixed(4),peak:+Math.max(...LS.env).toFixed(4),
+      lv:+(LS.env[clamp(Math.floor(el.currentTime*10),0,LS.env.length-1)]||0).toFixed(4)}:{ready:false,busy:LS.busy,fail:LS.fail}; },
     _score(full){ if(full) return SC.env?Array.from(SC.env,v=>+v.toFixed(4)):null; return SC.el?{t:+SC.el.currentTime.toFixed(2),paused:SC.el.paused,want:!!SC.el._want,rms:+SC.rms.toFixed(4),len:SC.len,ready:!!SC.url,
       lv:+(SC.env[clamp(Math.floor(SC.el.currentTime*10),0,SC.env.length-1)]||0).toFixed(4),peak:+Math.max(...SC.env).toFixed(4)}:{ready:false,busy:SC.busy}; },   // test hook: where it is, how loud there and at its loudest
     /* Diarmuid outside the café (see BUSK above): v his piece's level, s the solo's, k how close you are to him (0 to 1);

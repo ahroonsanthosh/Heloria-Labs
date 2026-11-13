@@ -1526,31 +1526,37 @@ const CUT={on:false,t:0,look:new T.Vector3()}, CAMC=[PAD[0]+2.6,PAD[1]+6.6];
 function rocketLanded(){ rocketPose(padTop,PADU); RK.door.rotation.x=DOOR_OPEN; RK.flame.visible=false; RK.puffs.forEach(p=>{ p.t=p.life; p.m.visible=false; }); }
 function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P.u,at(START[0]+FACE[0],START[1]+FACE[1]),P.f); C.f.copy(P.f); C.pitch=C.pEff=C.PITCH; C.zoom=1; C.dragT=9; C.tk=0; P.tgt=null; P.speed=0;
   [P.x,P.z]=START; P.h=standH(START[0],START[1]); C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dist=rigLimit(START[0],START[1],P.u,P.f,C.pitch,C.D0()); }
-function endCut(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); S.stSnap=true; }
-function skipCut(){ if(CUT.on){ CUT.t=T_END; endCut(); } }
-st.cutscene=function(){ CUT.on=true; CUT.t=0; document.documentElement.classList.add('crcut'); CUT.landed=false; CUT.door=false; CUT.ph=0; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
+function endCut(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); A.landEnd(false); S.stSnap=true; }
+function skipCut(){ if(CUT.on){ A.landEnd(true); CUT.t=T_END; endCut(); } }
+st.cutscene=function(){ CUT.on=true; CUT.t=0; document.documentElement.classList.add('crcut'); CUT.landed=false; CUT.door=false; CUT.ph=0; CUT.st=0; CUT.ac=null; CUT.rec=false; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
 function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
 /* the walk out, as distance from the middle of the rocket toward the hatch: along the floor, down the ramp, onto the pad */
 const rampY=z=>z<HINGE_Z?FLOOR:z<RAMP_END?FLOOR-(z-HINGE_Z)*Math.tan(DROP):0;
 const cT=new T.Vector3(), cG=new T.Vector3(), cL=new T.Vector3(), cF=new T.Vector3();
-function cutUpdate(dt,t){ CUT.t+=dt; const c=CUT.t, up=PADU;
+function cutUpdate(dt,t){ CUT.t+=dt;
+  /* its sound (a recording made as the page loaded): kept in step with the scene, and the scene with it, so a slow frame
+     never parts them; where there is none (it could not be made), the rocket's engine and roar as before */
+  { const ac=A.landClock(); if(ac!==null&&ac!==CUT.ac){ if(ac>CUT.t&&ac<CUT.t+1.5) CUT.t=ac; else if(ac<CUT.t&&ac>CUT.t-.4) CUT.t+=(ac-CUT.t)*Math.min(1,dt*4); } CUT.ac=ac; }   // (a slow frame: the scene catches up with the sound, never the sound jumping back)
+  CUT.rec=CUT.t<T_END&&A.landAt(CUT.t);
+  const c=CUT.t, up=PADU;
   const sp=rocketFly(c,t), hgt=c<T_LAND?V.copy(fPos).sub(padTop).dot(up):0;
   // the flame: steady while it brakes, strongest in the hover, gone just after touchdown
   const fk=c<T_HOV?.65+.55*sstep(.35,.95,c/T_HOV):c<T_LAND?.95-.4*sstep(T_LAND-.5,T_LAND,c):Math.max(0,1-(c-T_LAND)/.35)*.55;
   RK.flame.visible=fk>.02; RK.flame.scale.set(.95+.05*Math.sin(t*31),fk*(.88+.18*Math.sin(t*43)+.08*Math.sin(t*19)),.95+.05*Math.sin(t*29));
-  if(c<T_LAND){ A.thrust(.35+.6*fk); A.roar(.06+.1*fk);
+  if(c<T_LAND){ if(!CUT.rec){ A.thrust(.35+.6*fk); A.roar(.06+.1*fk); }
     if(hgt<4&&Math.random()<dt*22*(1-hgt/4)){ const a=Math.random()*TAU, r=.7+Math.random()*.8; at(PAD[0]+Math.cos(a)*r,PAD[1]+Math.sin(a)*r,V2).multiplyScalar(R+.2);
       tang(up,at(PAD[0]+Math.cos(a)*3,PAD[1]+Math.sin(a)*3),V3).multiplyScalar(2+Math.random()*1.5).addScaledVector(up,.3); puff(V2,V3,.16+Math.random()*.14,1); } }
-  if(c>=T_LAND&&!CUT.landed){ CUT.landed=true; S.shake=.28; A.pop(); A.thrust(0); A.roar(0);
+  if(c>=T_LAND&&!CUT.landed){ CUT.landed=true; S.shake=.28; if(!CUT.rec) A.pop(); A.thrust(0); A.roar(0);
     for(let k=0;k<14;k++){ const a=k/14*TAU+Math.random()*.3; at(PAD[0]+Math.cos(a)*1.3,PAD[1]+Math.sin(a)*1.3,V2).multiplyScalar(R+.35);
       tang(up,at(PAD[0]+Math.cos(a)*3,PAD[1]+Math.sin(a)*3),V3).multiplyScalar(2.2+Math.random()*1.2).addScaledVector(up,.2); puff(V2,V3,.24+Math.random()*.14,1.4); } }
   // the hatch drops into a ramp, settling with a small bounce
-  const dk=clamp((c-T_DOOR)/.8,0,1); if(dk>0&&!CUT.door){ CUT.door=true; A.click(); }
+  const dk=clamp((c-T_DOOR)/.8,0,1); if(dk>0&&!CUT.door){ CUT.door=true; if(!CUT.rec) A.click(); }
   RK.door.rotation.x=lerp(DOOR_SHUT,DOOR_OPEN,dk<1?1-Math.pow(1-dk,3)+Math.sin(dk*Math.PI)*.06*dk:1);
   // and out you come through the hatch, down the ramp, turning to look across at Aetos
   if(c>=T_OUT){ me.visible=true; const wk=clamp((c-T_OUT)/(T_WALK-T_OUT),0,1), z=.15+(OUT_Z-.15)*wk*wk*(3-2*wk), wv=6*wk*(1-wk); // starts and stops gently
     const x0=PAD[0]+DOOR[0]*z, z0=PAD[1]+DOOR[1]*z, tk=sstep(.72,1,wk), fx=lerp(DOOR[0],FACE[0],tk), fz=lerp(DOOR[1],FACE[1],tk);
     at(x0,z0,V2); tang(V2,at(x0+fx*.2,z0+fz*.2),cF); standOn(me,V2,cF,.1+rampY(z)); CUT.ph+=dt*7.2*Math.min(1,wv*.8); animate(me,CUT.ph,Math.min(1,wv*.75),0,t,9);
+    { const stp=Math.floor(CUT.ph/Math.PI); if(wv>.25&&stp!==CUT.st){ CUT.st=stp; A.step(z<RAMP_END+.3?2:1); } }   // your steps: down the metal ramp, then onto the pad
     player.x=x0; player.z=z0; player.u.copy(V2); player.f.copy(cF); }
   // the camera: low by the road, following the rocket down out of the sky, then round behind you
   camAt(CAMC[0],CAMC[1],1.45,cT);
