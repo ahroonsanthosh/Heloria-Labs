@@ -135,13 +135,15 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const meter = await H(async h => {
     const c = window.__meterCtx; if (!c || !c.__an) return null; const A = h.A, an = c.createAnalyser(); an.fftSize = 32768; c.__an.connect(an); const buf = new Float32Array(an.fftSize);
     const keep = { music: A.music, cricket: A.cricket, chirp: A.chirp, busk: A.busk }; A.music(0); A.busk(0, 0, 0); A.music = () => {}; A.cricket = () => {}; A.chirp = () => {}; A.busk = () => {};
+    /* (and the town held still and its beds quiet while we listen: the sea, the wind, the chipper's fryer and the engines came after this was written) */
+    const up = h.ST.cr.update; h.ST.cr.update = () => {}; A.hush();
     const sleep = ms => new Promise(r => setTimeout(r, ms)), lv = d => Math.pow(Math.max(0, 1 - d / 14), 1.5);
     const read = () => { an.getFloatTimeDomainData(buf); let pk = 0, best = 0; const W = Math.round(c.sampleRate * .01); for (let i = 0; i + W <= buf.length; i += W >> 1) { let q = 0; for (let j = i; j < i + W; j++) q += buf[j] * buf[j]; best = Math.max(best, q / W); } for (const v of buf) pk = Math.max(pk, Math.abs(v)); return { pk: +(20 * Math.log10(pk + 1e-9)).toFixed(1), rms10: +(10 * Math.log10(best + 1e-12)).toFixed(1) }; };
     await sleep(2500); const floor = read(); const out = { floor };
     const play = async (n, fn) => { const r = []; for (let i = 0; i < 3; i++) { fn(); await sleep(450); r.push(read()); await sleep(500); } out[n] = { pk: Math.max(...r.map(x => x.pk)), rms10: Math.max(...r.map(x => x.rms10)) }; };
     await play('step on the pavement', () => A.step(1)); await play('step on the grass', () => A.step(0));
     await play('fryer, 2 m from the van', () => A._mktFry(.04 * lv(2), 0)); await play('basket, 2 m', () => A._mktBasket(.02 * lv(2), 0)); await play('glasses, 2 m from the table', () => A._mktClink(.016 * lv(2), 0));
-    Object.assign(A, keep); c.__an.disconnect(an); return out; });
+    Object.assign(A, keep); h.ST.cr.update = up; c.__an.disconnect(an); return out; });
   if (meter) { log('  levels (dB at the speakers, peak and loudest 10 ms):'); for (const [k, v] of Object.entries(meter)) log('   ', k.padEnd(30), String(v.pk).padStart(7), String(v.rms10).padStart(7));
     const st1 = meter['step on the pavement'], st0 = meter['step on the grass'], loudStep = Math.max(st1.rms10, st0.rms10), ks = ['fryer, 2 m from the van', 'basket, 2 m', 'glasses, 2 m from the table'];
     rec(ks.every(k => meter[k].rms10 <= loudStep + 1 && meter[k].rms10 > meter.floor.rms10 + 6), 'each market sound is heard, and no louder than a footstep', ks.map(k => k.split(',')[0] + ' ' + meter[k].rms10).join(', ') + ' against steps ' + st1.rms10 + ' / ' + st0.rms10 + ' (quiet ' + meter.floor.rms10 + ')'); }

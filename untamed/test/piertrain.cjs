@@ -44,7 +44,9 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(built.head.walk && built.head.h === -.08 && !built.off && built.toHead, 'the pier head is boards to stand on, the sea past it is not, and the path finder reaches it from the landing pad', JSON.stringify(built));
 
   /* ---------- walking out to the end of the pier: round whatever is in the way, onto the boards, steps that sound like boards ---------- */
-  const out = await C((c, d) => { const P = d.pier.PR; c.put(-3.2, -12, P.Hc[0], P.Hc[1]); const T = d.pier.TR; T.next = T.clk + 600; d.pier.trPlan(); d.began();
+  /* (Ahroon waits by the pad to say hello to someone he has not met, and the way to the pier goes past him now the building site
+     stands in the straight line: met him already, so this is only about the pier) */
+  const out = await C((c, d) => { const P = d.pier.PR; d.MET.add(0); c.put(-3.2, -12, P.Hc[0], P.Hc[1]); const T = d.pier.TR; T.next = T.clk + 600; d.pier.trPlan(); d.began();
     const p = d.navPath(-3.2, -12, P.Hc[0], P.Hc[1], 1.2); d.player.path = p ? p.concat([[P.Hc[0], P.Hc[1]]]) : null; d.player.stuck = 0; const s0 = c.snd.length;
     const u = c.until(d => !d.player.path && !d.player.tgt, 30 * 40, true); const steps = c.snd.slice(s0).filter(s => s.n === 'step'), last = steps.slice(-3).map(s => s.a[0]);
     return { ...u, on: d.pier.onPier(d.player.x, d.player.z), h: +d.player.h.toFixed(2), d: +Math.hypot(d.player.x - P.Hc[0], d.player.z - P.Hc[1]).toFixed(2), last, steps: steps.length }; });

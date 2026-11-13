@@ -57,7 +57,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await W((w, f, d) => { w.clear(); d.sky.set({ time: '21:10' }); w.run(30 * 6); }); s = await state();
   rec(s.door === 0 && await W(w => w.count('shutterMotor')) === 1 && await W(w => w.count('ratchet')) >= 6 && await W(w => w.count('shutterEnd')) === 1 && s.crew.every(q => !q.vis), 'after nine in the evening the door rolls down (motor, slats, its stop) with the two inside', JSON.stringify({ door: s.door, snd: await W(w => w.snd.map(x => x.n).join(',')) }));
   await W((w, f, d) => { w.clear(); d.sky.set({ time: '07:40' }); w.run(30 * 6); }); s = await state();
-  rec(s.door === 1 && await W(w => w.count('shutterMotor')) === 1 && s.crew.every(q => q.vis), 'and after half past seven in the morning it rolls up again', JSON.stringify({ door: s.door }));
+  /* (counting only shutters going up: the chipper's along the street comes down for the morning in earshot) */
+  rec(s.door === 1 && await W(w => w.snd.filter(x => x.n === 'shutterMotor' && x.a[0] === true).length) === 1 && s.crew.every(q => q.vis), 'and after half past seven in the morning it rolls up again', JSON.stringify({ door: s.door }));
   await W((w, f, d) => { d.sky.set({ time: '15:00' }); w.run(30); });
 
   /* ---- a drill, by a click (a tap) on the engine through the open door ---- */

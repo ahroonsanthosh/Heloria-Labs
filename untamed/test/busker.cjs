@@ -143,7 +143,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* by day, close up; at night his lights are on and warm */
   await B(e => { e.put(2.6, -1.4); e.run(30); }); await wait(2500); await shot(pre + 'busker-day');
-  await H(h => { const d = h.ST.cr._dbg; d.sky.set({ time: '21:30', weather: 'clear' }); d.sky.step(1); });
+  /* (the test's day is the middle of July, when half nine is still the last of the sunset: half eleven is dark) */
+  await H(h => { const d = h.ST.cr._dbg; d.sky.set({ time: '23:30', weather: 'clear' }); d.sky.step(1); });
   await B(e => { e.run(10); }); await wait(2500);
   const night = await B((e, d) => { const D = d.busk.DM; return { nk: +D.nk.toFixed(2), halo: D.halo.visible, pool: D.pool.visible }; });
   rec(night.nk > .9 && night.halo && night.pool, 'at night his lights and lantern are lit, with a warm pool under them', JSON.stringify(night));

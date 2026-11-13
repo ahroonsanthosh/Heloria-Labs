@@ -4427,7 +4427,7 @@ function ciRoute(pts){ const p=[pts[0]]; for(const q of pts) if(Math.hypot(q[0]-
   const c=[0]; for(let i=1;i<p.length;i++) c.push(c[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1])); return {p,c,L:c[c.length-1]}; }
 function ciAt(r,s,o){ s=clamp(s,0,r.L); let k=1; while(k<r.c.length-1&&r.c[k]<s) k++; const a=r.p[k-1], b=r.p[k], L=(r.c[k]-r.c[k-1])||1, t=clamp((s-r.c[k-1])/L,0,1);
   o.x=a[0]+(b[0]-a[0])*t; o.z=a[1]+(b[1]-a[1])*t; o.dx=(b[0]-a[0])/L; o.dz=(b[1]-a[1])/L; return o; }
-const CHOMES=[[7.4,-12],[-5.8,13.6],[-10.6,10.4]];   // the houses the children come from: south by the café, north by the workshop, north-west
+const CHOMES=[[7.4,-12],[-5.8,13.6],[-13,3.8]];   // the houses the children come from: south by the café, over the chipper by the workshop, over the post office to the west (the house to the north-west is the fire station now)
 function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
   for(let i=0;i<n;i++){ const a=lp[(i-1+n)%n], b=lp[(i+1)%n], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz)||1; let nx=-tz/L, nz=tx/L; if(nx*lp[i][0]+nz*lp[i][1]<0){ nx=-nx; nz=-nz; } ring.push([lp[i][0]+nx*(RW+SW/2),lp[i][1]+nz*(RW+SW/2)]); }
   const near=(x,z)=>{ let bi=0,bd=1e9; ring.forEach((p,i)=>{ const d=Math.hypot(p[0]-x,p[1]-z); if(d<bd){ bd=d; bi=i; } }); return bi; };
@@ -8508,7 +8508,7 @@ function tlBall(dt,t){ const B=BALL, P=player; if(!B.m) return; const n=Math.cei
     const dx=B.x-P.x, dz=B.z-P.z, d=Math.hypot(dx,dz);
     if(d<.34+B.r&&B.h<.3&&P.speed>.25&&!TALK.p&&!tlIn()){ const [fx,fz]=tlMapDir(P.u,P.f), tw=(dx*fx+dz*fz)/Math.max(d,1e-3), now=TL.clk;
       if(tw>.15&&now-B.lastT>.3){ const sp=clamp(P.speed*1.35+.55,.9,6.2), ux=lerp(fx,dx/Math.max(d,1e-3),.35), uz=lerp(fz,dz/Math.max(d,1e-3),.35), l=Math.hypot(ux,uz)||1;
-        B.vx=ux/l*sp; B.vz=uz/l*sp; B.vh=P.speed>3.2?2.3:sp>2.2?1.0:.25; B.h=Math.max(B.h,.005); B.last='me'; B.lastT=now; B.kicks++; tlSay('kick',.03*clamp(sp/4,.45,1.1),B.x,B.z,16); } }
+        B.vx=ux/l*sp; B.vz=uz/l*sp; B.vh=P.speed>3.2?2.3:sp>2.2?1.0:.25; B.h=Math.max(B.h,.005); B.last='me'; B.lastT=now; B.kicks++; tlSay('kick',.025*clamp(sp/4,.45,1.1),B.x,B.z,16); } }
     if(d<.3+B.r&&d>1e-4){ const m=.3+B.r; B.x=P.x+dx/d*m; B.z=P.z+dz/d*m; const vn=(B.vx*dx+B.vz*dz)/d; if(vn<0){ B.vx-=1.5*vn*dx/d; B.vz-=1.5*vn*dz/d; } }
     /* in the air it falls and bounces; on the ground it rolls and slows */
     B.vh-=9.8*h; B.h+=B.vh*h; if(B.h<=0){ B.h=0; if(B.vh<-.9){ const vi=-B.vh; B.vh=vi*.46; B.bounces++; tlSay('ballBounce',.035*clamp(vi/3,.3,1),B.x,B.z,14); } else B.vh=0; }

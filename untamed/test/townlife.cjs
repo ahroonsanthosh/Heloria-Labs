@@ -199,7 +199,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const best = async src => { src = typeof src === 'function' ? src.toString() : src; const a = await peak(src); await quiet(); const b = await peak(src); await quiet(); return a.pk < b.pk ? a : b; };
     const ref = { step1: await best(A => A.step(1)), step0: await best(A => A.step(0)) }; const foot = Math.max(ref.step1.pk, ref.step0.pk);
     const S = { bell: A => A.bell(.016), busDoor: A => A.busDoor(.024, 0, true), bottles: A => A.bottles(.016), purr: A => A.purr(.03), gull: A => A.gull(.028), paws: A => A.paws(.03), woof: A => A.woof(.024), wings: A => A.wings(.034),
-      kick: A => A.kick(.033), quack: A => A.quack(.03), splash: A => A.splash(.031, 0, 1.2), creak: A => A.doorCreak(.03, 0, true), knock: A => A.doorCreak(.03, 0, false) };
+      kick: A => A.kick(.0275), quack: A => A.quack(.03), splash: A => A.splash(.031, 0, 1.2), creak: A => A.doorCreak(.03, 0, true), knock: A => A.doorCreak(.03, 0, false) };
     const rows = {}; for (const [k, f] of Object.entries(S)) rows[k] = await best(f.toString());
     for (const [k, kind] of [['bus', 0], ['van', 1], ['float', 2]]) { await H((h, kind) => h.A.engine('meter', 1, kind, .6, 0), kind); await wait(700); const r = await peak('A=>0', 900); rows['engine ' + k] = r; await H(h => h.A.engine('meter', -1)); await wait(400); }
     log('footsteps', JSON.stringify(ref)); for (const [k, r] of Object.entries(rows)) log(('  ' + k).padEnd(16), 'peak', r.pk, ' dB', r.db, ' (' + (r.pk / foot).toFixed(2) + ' of a footstep)');
