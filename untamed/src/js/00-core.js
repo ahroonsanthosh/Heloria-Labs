@@ -1082,6 +1082,26 @@ const A=(()=>{
         b.type='bandpass'; b.frequency.value=1250*lo; b.Q.value=6; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.08); a.gain.setValueAtTime(g*.8,t0+dur*.6); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
         o.connect(b); b.connect(a); a.connect(d); o.start(t0); l.start(t0); o.stop(t0+dur+.05); l.stop(t0+dur+.05); }
       else { ciT(d,100*v*lo,.2,g*.75,'sine',60*v,0,.004); ciN(d,.1,g*.5,560*lo,140,'lowpass',.9,0,.004); ciN(d,.025,g*.6,3600*v,2400,'bandpass',2.5,.09,.002); } },
+    /* ---------- the coast and the homes on Earth: the sea at the tide line, a boat's engine going by, the seal going into
+       the water, the swing's ropes on the bough, the wind in the washing. Each is one short, soft sound made live, about as
+       loud as a footstep, and kept low and dark (a phone plays a bright band of noise as static); g how loud (the station
+       makes each softer with distance), p left or right ---------- */
+    /* a wave running up the sand and drawing back: a low rush swelling over a second and falling away, a little foam as it turns */
+    seaWash(g=.05,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.1); ciN(d,2.5,g,380*v,820*v,'lowpass',.7,0,.95); ciN(d,1,g*.22,1500*v,900,'bandpass',.8,.9,.25); },
+    /* a small boat's engine: a few quick, low knocks in a row, a putter, with a little rasp on each (k: how hard it runs) */
+    putter(g=.03,p=0,k=1){ if(!on||muted||!ctx) return; const d=ciDst(p), f=(52+16*clamp(k,0,1))*vr(.04), sp=.088-.022*clamp(k,0,1);
+      for(let i=0;i<4;i++){ ciT(d,f*(i%2?1:1.06),.075,g*(i%2?.75:1),'triangle',f*.72,i*sp,.004); ciT(d,f*2.02,.05,g*.35,'sine',0,i*sp,.003); ciN(d,.05,g*.3,620,360,'bandpass',1.3,i*sp,.003); } },
+    /* the seal going in: a slap on the water, the splash thrown up and falling back in drops, a deep plop under it */
+    sealSplash(g=.05,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.08); ciN(d,.09,g,1400*v,500,'bandpass',.9,0,.002); ciN(d,.5,g*.4,900*v,1500,'bandpass',.7,.04,.03);
+      ciT(d,180*v,.24,g*.55,'sine',80,.02,.005); for(let k=0;k<4;k++) ciN(d,.05,g*.16,1500+Math.random()*900,1200,'bandpass',3,.24+k*.07+Math.random()*.05,.002); },
+    /* the swing's ropes turning on the bough: a short, dry creak of rope on bark, a little higher at the back of the swing */
+    swingCreak(g=.03,p=0,hi=false){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, d=ciDst(p), v=vr(.07)*(hi?1.12:1), du=.3, o=ctx.createOscillator(), b=ctx.createBiquadFilter(), a=ctx.createGain(), l=ctx.createOscillator(), lg=ctx.createGain();
+      o.type='sawtooth'; o.frequency.setValueAtTime(130*v,t0); o.frequency.linearRampToValueAtTime(168*v,t0+du*.6); o.frequency.linearRampToValueAtTime(146*v,t0+du); l.frequency.value=21; lg.gain.value=16; l.connect(lg); lg.connect(o.frequency);
+      b.type='bandpass'; b.frequency.value=1100*v; b.Q.value=5; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.05); a.gain.exponentialRampToValueAtTime(.0001,t0+du);
+      o.connect(b); b.connect(a); a.connect(d); o.start(t0); l.start(t0); o.stop(t0+du+.05); l.stop(t0+du+.05); },
+    /* the washing in the wind: two to four soft, muffled flaps of cloth, quicker the harder it blows (k from 0 to 1) */
+    washFlap(g=.03,p=0,k=.5){ if(!on||muted||!ctx) return; k=clamp(k,0,1); const d=ciDst(p), n=2+Math.round(k*2), sp=.11-.03*k;
+      for(let i=0;i<n;i++) ciN(d,.07,g*(1-i*.18)*vr(.15),(300+240*k)*vr(.12),220,'bandpass',1.1,i*sp*(.85+Math.random()*.3),.006); },
     /* ---------- the workshop's test fire: the button, the warning, the coughs, the roar, and after it the smoke alarm.
        As with the shutter, kept to clicks, knocks and tones; the coughs and the roar are noise, but low and dark (a phone
        plays a bright band of noise as static), and the roar is no more than twice as loud as the shutter's motor ---------- */

@@ -139,6 +139,16 @@ const BARE=`uniform float uBare;
     mix(mix(brH(i+vec3(0.,0.,1.)),brH(i+vec3(1.,0.,1.)),f.x),mix(brH(i+vec3(0.,1.,1.)),brH(i+vec3(1.,1.,1.)),f.x),f.y),f.z); }
   bool leafC(vec3 c){ return (abs(c.r-.31)<.006&&abs(c.g-.498)<.006)||(abs(c.r-.373)<.006&&abs(c.g-.573)<.006)||(abs(c.r-.435)<.006&&abs(c.g-.635)<.006)||(abs(c.r-.498)<.006&&abs(c.g-.682)<.006); }
   bool bareCut(vec3 c,vec3 w){ return uBare>.01&&leafC(c)&&length(w)>${(R+.9).toFixed(2)}&&(!gl_FrontFacing||brN(w*3.1)<uBare*.62); }`;   // (the trees' crowns only, up off the ground: the bushes keep theirs; and a hole goes right through)
+/* the homes' windows (see the homes, at the end): where each window of a house people live in is and how bright its light is
+   now (w), which way is across it, and where someone going by behind its curtains is (w; far off when nobody is) */
+Object.assign(LU,{uHW:{value:Array.from({length:12},()=>new T.Vector4(0,-99,0,0))},uHX:{value:Array.from({length:12},()=>new T.Vector4(1,0,0,-9))}});
+/* x below zero: not one of the homes' windows. Else yzw is the light in it: warm through drawn curtains, folds down their
+   sides, and the shadow of someone passing behind them */
+const HOMEW=`uniform vec4 uHW[12],uHX[12];
+  vec4 homeLit(vec3 w){ for(int i=0;i<12;i++){ vec3 d=w-uHW[i].xyz; if(dot(d,d)<.16){ float k=uHW[i].w; if(k<.003) return vec4(1.,0.,0.,0.);
+      float lx=dot(d,uHX[i].xyz)/.29, ly=dot(d,normalize(uHW[i].xyz))/.28, sx=lx-uHX[i].w, fold=mix(.84+.16*sin(lx*26.),.64+.12*sin(lx*44.),step(.62,abs(lx)));
+      float who=max(1.-smoothstep(.16,.2,length(vec2(sx,(ly-.25)*1.15))),(1.-smoothstep(.31,.36,abs(sx)))*(1.-smoothstep(-.03,.03,ly-.03+.3*sx*sx/.13)));
+      return vec4(1.,vec3(1.,.74,.42)*k*fold*(1.-.7*who)); } } return vec4(-1.); }`;
 /* (uLeaf: the wind in the trees, given only to the town's static mesh: its leaves lean with it and rustle; see the sky alive) */
 const TOON_V=uv=>`uniform vec4 uLeaf; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${uv?'varying vec2 vUv;':''}
   void main(){ vec4 p=vec4(position,1.); vec3 nn=normal; vC=vec3(1.); ${uv?'vUv=uv;':''}
@@ -158,7 +168,7 @@ const TOON_V=uv=>`uniform vec4 uLeaf; varying vec3 vN; varying vec3 vW; varying 
           w.xyz+=wt*(.035+.028*sin(ph)+.012*sin(ph*2.7+1.3)); } }
     #endif
     vW=w.xyz; vN=normalize(mat3(modelMatrix)*nn); gl_Position=projectionMatrix*viewMatrix*w; }`;
-const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR} ${BARE}
+const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying vec3 vW; varying vec3 vC; ${LIGHT} ${NEAR} ${BARE} ${HOMEW}
   void main(){ ${QCUT} nearFade(vW); vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 b=uC*vC, E=vec3(0.);
     if(uKit>.5){ if(bareCut(vC,vW)) discard; float upn=dot(n,normalize(vW));
       /* leaves turn with the season, tree by tree: reds and golds in autumn (uSeason up to 1), blossom in spring (down to -1) */
@@ -169,7 +179,8 @@ const TOON_F=`uniform vec3 uC; uniform float uOp,uKit; varying vec3 vN; varying 
       if(lb>0.&&uBare>.01&&length(vW)>${(R+.9).toFixed(2)}) b=mix(b,vec3(.5,.46,.36)*(.8+.4*vC.g),uBare*.55);   // what is left on the bare trees in winter, dry and dull
       b=mix(b,vec3(.93,.95,.97),snowAt(vW)*smoothstep(.55,.8,upn));   // snow lying on whatever faces the sky (see the sky alive)
       b*=1.-.2*uWet*smoothstep(.5,.9,upn);   // rain darkens it
-      if(uNight>.01&&distance(vC,vec3(.498,.639,.706))<.02){ float hw=fract(sin(dot(floor(vW*1.7),vec3(7.13,157.1,113.7)))*43758.5453); E+=vec3(1.,.76,.44)*step(.3,hw)*(.7+.4*hw)*uNight; }   // windows lit inside, not every one
+      if(distance(vC,vec3(.498,.639,.706))<.02){ vec4 hl=homeLit(vW); if(hl.x>-.5) E+=hl.yzw;   // (a home's window: lit as its people go about their evening, see the homes)
+        else if(uNight>.01){ float hw=fract(sin(dot(floor(vW*1.7),vec3(7.13,157.1,113.7)))*43758.5453); E+=vec3(1.,.76,.44)*step(.3,hw)*(.7+.4*hw)*uNight; } }   // windows lit inside, not every one
       if(distance(vC,vec3(1.,.949,.769))<.02){ float m=0.; for(int i=0;i<8;i++) m=max(m,uLmp[i].w*step(distance(vW,uLmp[i].xyz),.7)); E+=vec3(1.,.86,.55)*m*1.6*uNight; } }   // a lamp's glass, as bright as its lamp
     gl_FragColor=vec4(toon(b,n,vW)+E,uOp); }`;
 const mcache=new Map();
@@ -248,7 +259,7 @@ function windowAt(M,x,y,z,ry,o={}){ const W=sub(M,x,y,z,ry), tr=o.trim||'#f6f1e7
   if(o.flowers){ slBox(W); box(W,'#8a5a3c',0,-.56,.12,.72,.14,.18); for(let k=0;k<4;k++) put(W,'sph',['#f19bb0','#f6d26b','#fbf6ec','#e9744f'][k],-.24+k*.16,-.38,.14,.07,.07,.07); } }
 function door(M,x,z,ry,c,tr){ const D=sub(M,x,0,z,ry); box(D,tr,0,.2,.02,.78,1.26,.06); box(D,c,0,.2,.05,.6,1.12,.05); box(D,'#e7c36a',.2,.75,.09,.05,.05,.04); box(D,'#bdb6aa',0,0,.32,.96,.16,.56); }
 const HOUSES=[];
-function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat});
+function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat,plain:true});   // (plain: somebody's home, not a building made for a purpose: see the homes)
   box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(M,o.wall,0,.2,0,w,h-.2,d);
   if(o.flat){ box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3); }
   else { const rh=o.rh||1.3; put(M,'prism',o.roof,0,h,0,d+.62,rh,w+.5,Math.PI/2); box(M,tr,0,h-.12,d/2+.04,w+.1,.12,.05); box(M,tr,0,h-.12,-d/2-.04,w+.1,.12,.05);
@@ -423,10 +434,10 @@ function buildGround(){
     if(i<CN-1&&j<CN-1){ const a=k, b=k+1, c=k+CN, e=k+CN+1; if(Math.max(GH[a],GH[b],GH[c],GH[e])>-1.55) idx.push(a,c,b, b,c,e); } } // the sea floor far out is hidden by the sea: skip it
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(P,3)); g.setAttribute('aL',new T.BufferAttribute(GL,1)); g.setAttribute('aB',new T.BufferAttribute(GB,1)); g.setAttribute('aH',new T.BufferAttribute(GH,1));
   g.setAttribute('aXZ',new T.BufferAttribute(XZ,2)); g.setIndex(idx); g.computeVertexNormals();
-  const cap=new T.Mesh(g,new T.ShaderMaterial({uniforms:Object.assign({uSeg:SEGU,uSegW:SEGW,uHoleOn:{value:1}},LU),side:T.DoubleSide,
+  const cap=new T.Mesh(g,new T.ShaderMaterial({uniforms:Object.assign({uSeg:SEGU,uSegW:SEGW,uHoleOn:{value:1},uTide:TIDEU},LU),side:T.DoubleSide,
     vertexShader:`attribute float aL,aB,aH; attribute vec2 aXZ; varying vec3 vN; varying vec3 vW; varying float vL,vB,vH; varying vec2 vXZ;
       void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vN=normalize(mat3(modelMatrix)*normal); vL=aL; vB=aB; vH=aH; vXZ=aXZ; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform vec4 uSeg[12]; uniform float uSegW[12]; varying vec3 vN; varying vec3 vW; varying float vL,vB,vH; varying vec2 vXZ; ${N2} ${LIGHT}
+    fragmentShader:`uniform vec4 uSeg[12]; uniform float uSegW[12]; uniform vec2 uTide; varying vec3 vN; varying vec3 vW; varying float vL,vB,vH; varying vec2 vXZ; ${N2} ${LIGHT}
       void main(){ ${QCUT} vec3 n=normalize(vN); if(!gl_FrontFacing) n=-n; vec3 up=normalize(vW); float steep=1.-dot(n,up); vec2 xz=vXZ;
         // grass painted in two greens, with brushy streaks
         float p1=vn2(xz*.3+3.)*.7+vn2(xz*1.1)*.3, p2=vn2(xz*vec2(1.9,.5)+11.), p3=vn2(xz*2.6);
@@ -439,6 +450,11 @@ function buildGround(){
         float sand=clamp(smoothstep(.035,.012,vL)*(.25+.75*vB)+smoothstep(-.02,-.25,vH)*vB,0.,1.); c=mix(c,vec3(.91,.84,.66)*(.96+.06*vn2(xz*5.)),sand);
         vec3 rock=mix(vec3(.67,.61,.54),vec3(.56,.51,.47),step(.5,fract(vH*2.6+vn2(xz*.7)*.7)));
         c=mix(c,rock,smoothstep(.3,.5,steep)*(1.-vB*.85));
+        /* the tide (see the coast): below the day's high water the sand is dark and wet and the rock dark with weed, and a line
+           of wrack lies along the top of the beach */
+        { float hw=${WATER}+uTide.y, wet=1.-smoothstep(hw-.05,hw+.004,vH), rk=smoothstep(.3,.5,steep)*(1.-vB*.85);
+          c=mix(c,c*mix(vec3(.6,.56,.5),vec3(.5,.55,.42)*(.9+.2*vn2(xz*6.)),rk*smoothstep(hw-.04,hw-.16,vH)+rk*.35),wet);
+          c=mix(c,vec3(.33,.33,.24),(1.-smoothstep(.008,.022,abs(vH-hw+.012)))*vB*.85*(.7+.3*vn2(xz*3.))); }
         /* snow on the grass and the paths, thinner on the sand; in the rain the ground darkens and the paths hold puddles of sky */
         { float upn=dot(n,up); c=mix(c,vec3(.93,.95,.97)*(.97+.04*p3),snowAt(vW)*smoothstep(.75,.9,upn)*(1.-sand*.6));
           if(uWet>.01){ c*=1.-.16*uWet; float pud=smoothstep(.62,.7,vn2(xz*.8+7.3))*(1.-smoothstep(-fw,fw,pd)); c=mix(c,uSky*.9+vec3(.05),pud*uWet*.55); } }
@@ -448,12 +464,14 @@ function buildGround(){
   // the sea: shallow and bright by the land, foam where it meets the shore, painted ripples
   const ld=new Uint16Array(CN*CN*4); for(let k=0;k<CN*CN;k++){ ld[k*4]=T.DataUtils.toHalfFloat(GL[k]); ld[k*4+1]=T.DataUtils.toHalfFloat(GH[k]); ld[k*4+2]=T.DataUtils.toHalfFloat(GB[k]); ld[k*4+3]=T.DataUtils.toHalfFloat(1); }
   const landTex=new T.DataTexture(ld,CN,CN,T.RGBAFormat,T.HalfFloatType); landTex.minFilter=landTex.magFilter=T.LinearFilter; landTex.needsUpdate=true;
-  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime,uHoleOn:{value:1},uMoonD:SKYU.uMoonD,uGlit:SKYU.uGlit},LU),
+  /* (the sea rises and falls with the tide: it is made bigger or smaller round the world, and reads how deep it is from
+     where its surface is now; see the coast) */
+  const sea=new T.Mesh(new T.SphereGeometry(R+WATER,160,110),new T.ShaderMaterial({uniforms:Object.assign({uLand:{value:landTex},uTime:G.uTime,uHoleOn:{value:1},uMoonD:SKYU.uMoonD,uGlit:SKYU.uGlit,uTide:TIDEU},LU),
     vertexShader:TOON_V(),
-    fragmentShader:`uniform sampler2D uLand; uniform float uTime; uniform vec3 uMoonD; uniform vec4 uGlit; varying vec3 vN; varying vec3 vW; ${N2} ${LIGHT}
+    fragmentShader:`uniform sampler2D uLand; uniform float uTime; uniform vec3 uMoonD; uniform vec4 uGlit; uniform vec2 uTide; varying vec3 vN; varying vec3 vW; ${N2} ${LIGHT}
       void main(){ ${QCUT} vec3 d=normalize(vW); float a=acos(clamp(d.y,-1.,1.)); vec2 xz=d.xz*(a*${R}./max(sin(a),1e-4));
         vec2 g=((xz+${CAPR}.)/${CS}+.5)/${CN}.; float hg=-1.6; if(d.y>0.&&g.x>0.&&g.x<1.&&g.y>0.&&g.y<1.) hg=texture2D(uLand,g).g;
-        float dep=${WATER}-hg;
+        float dep=${WATER}+uTide.x-hg;
         vec3 c=mix(vec3(.5,.84,.8),vec3(.27,.66,.73),smoothstep(.0,.3,dep)); c=mix(c,vec3(.18,.5,.66),smoothstep(.3,.7,dep));
         float rip=vn2(xz*vec2(.5,1.7)+vec2(uTime*.18,uTime*.05)); c=mix(c,vec3(.74,.92,.9),smoothstep(.72,.75,rip)*.5);
         float fo=1.-smoothstep(.0,.045+.025*sin(uTime*1.3+xz.x*.6+xz.y*.5),dep);
@@ -466,7 +484,7 @@ function buildGround(){
             float g=smoothstep(wd,wd*.2,sd)*step(0.,al)*smoothstep(.62,.7,vn2(xz*vec2(2.6,7.)+vec2(uTime*.35,-uTime*.9)))*smoothstep(.03,.12,dep);
             col+=vec3(.93,.91,.82)*g*uGlit.x*.85; } }
         gl_FragColor=vec4(col,1.); }`}));
-  sea.userData.cast=false; sc.add(sea);
+  sea.userData.cast=false; sc.add(sea); TD.sea=sea;
   // the sky: blue overhead, pale at the horizon, flat painted clouds
   const sky=new T.Mesh(new T.SphereGeometry(300,48,32),new T.ShaderMaterial({uniforms:Object.assign({uUp:UPU,uTime:G.uTime,uSpace:SPACEU,uNight:LU.uNight},SKYU),side:T.BackSide,depthWrite:false,
     vertexShader:`varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
@@ -720,20 +738,21 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
   const shd=new T.Mesh(SHG,SHM); shd.scale.set(.62,1,.62); shd.position.y=.025; shd.renderOrder=1; shd.layers.set(1); g.add(shd);
   g.userData={legs,knees,arms,fore,head,body,eyes:[em],drone:o.prop==='drone'?prop:null}; return g; }
 /* what each of us says: every landmark stands, so we talk about them as they are */
+/* (MET.back: you have been to Earth before, on an earlier visit, and we say so first; see welcome back, in the homes) */
 const MET=new Set();
-function linesFor(i){ const back=MET.has(i);
+function linesFor(i){ const back=MET.has(i), again=!!MET.back;
   if(i===0){ const last='And this is me. Come and say hello properly.';
     if(back) return ['Good to see you again.','Michael is up by his rocket and Abraham is in the square, if you haven\'t caught them yet.',last];
-    return ['Oh, hello! Welcome to Earth.',
+    return [again?'Oh, you\'re back! Welcome to Earth again.':'Oh, hello! Welcome to Earth.',
       'I\'m Ahroon. Michael, Abraham and I build Heloria Labs together, and everything round here is something we\'ve made.',
       `That radar on the rocks is Aetos, mine. When the sky fills with drones, it works out which one actually matters.`,
       `The lighthouse out on the cliff is mine too: Pharos. When GPS is jammed, spoofed or gone, its drone keeps going, and it knows when it doesn\'t know.`,
       'Abraham is in the square by Kríos, and Michael is up by his rocket. Go and say hi.',last]; }
-  if(i===1) return [back?'Hey, good to see you again.':'Hey, I\'m Michael.',
+  if(i===1) return [back?'Hey, good to see you again.':again?'Hey, you came back! Michael, still up by the rocket.':'Hey, I\'m Michael.',
     `This rocket is Ogive, my project: AI tools for OpenRocket. Name the height, and it reworks the design until the rocket gets there.`,
     'I built Kríos too, down in the square. That one belongs to all three of us: it\'s our group project.',
     'That\'s me. Come and find me.'];
-  return [back?'Hi again!':'Hi, I\'m Abraham.',
+  return [back?'Hi again!':again?'Welcome back! Abraham, by Kríos as ever.':'Hi, I\'m Abraham.',
     `The glass sculpture is Kríos, our group project: Michael built it, and all three of us are behind it.`,
     'Reps rehearse the calls that matter against a buyer who answers back, before a real one ever hears them.',
     'That\'s me. Say hi any time.']; }
@@ -1945,7 +1964,7 @@ function pfSpawn(dt){ const cam=st.camP, cold=SL.cold, inside=CAFE.on||GAR.on;
     pfV.addScaledVector(V4.copy(pfV).normalize(),.07); pfAdd(pfV,V2.copy(pfV).normalize().multiplyScalar(.16),1.6,.035,.13,.26*sstep(12,8,SL.temp),1); });
   /* smoke from the chimneys of the nearest houses, when it is cool enough for a fire: in the evening and the morning most */
   const sk=sstep(14,8,SL.temp)*(.55+.45*Math.max(SKY.night,SKY.dusk,SKY.h<10?1:0)); if(sk>.05&&SLCHIM.length){
-    if(!PF.near||(PF.nearT-=dt)<=0){ PF.nearT=.5; PF.near=SLCHIM.map(c=>[c,c.p.distanceToSquared(cam)]).filter(x=>x[1]<38*38).sort((a,b)=>a[1]-b[1]).slice(0,4).map(x=>x[0]); }   // (the nearest four, looked for twice a second)
+    if(!PF.near||(PF.nearT-=dt)<=0){ PF.nearT=.5; PF.near=SLCHIM.map(c=>[c,c.p.distanceToSquared(cam)]).filter(x=>x[1]<38*38&&!x[0].home).sort((a,b)=>a[1]-b[1]).slice(0,4).map(x=>x[0]); }   // (the nearest four, looked for twice a second; the homes' own smoke as their fires are lit, see the homes)
     for(const c of PF.near){ c.t-=dt; if(c.t>0) continue; c.t=.5+Math.random()*.3; pfV.copy(c.p).normalize(); pfAdd(c.p,V2.copy(pfV).multiplyScalar(.32),4.2,.18,.7,.32*sk,.42); } } }
 
 /* ---------- petals and leaves on the wind, and bees: one mesh of many small bits, in the town's own colours and light ---------- */
@@ -2145,7 +2164,7 @@ function buildSteer(){ if(!PH) return; PH.beam.parent.updateWorldMatrix(true,fal
   const d=drone('#ff5a4a'); d.scale.setScalar(1.7); sc.add(d); const ring=new T.Mesh(new T.TorusGeometry(.42,.025,6,32).rotateX(Math.PI/2),flatMat('#ffd27a')); ring.visible=false; sc.add(ring);
   PHS.lost={g:d,ring,a:pick(.55),r:8.6,pos:new T.Vector3(),from:new T.Vector3(),sa}; phLocal(0,.95,-.15,PHS.home); }
 /* a thing at sea: on the water at its angle and distance from the lamp, bobbing */
-function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+.02+Math.sin(t*1.4+q.ph)*.03);
+function seaPose(q,t){ phLocal(q.a,q.r,0,V); const up=V2.copy(V).normalize(); V.copy(up).multiplyScalar(R+WATER+TIDEU.value.x+.02+Math.sin(t*1.4+q.ph)*.03);   // (on the tide: see the coast)
   const M=frameAt(...loc(up),q.a+Math.sin(t*.9+q.ph)*.08); M.setPosition(V); M.multiply(Mr.makeRotationZ(Math.sin(t*1.7+q.ph)*.07)); q.g.matrix.copy(M); q.g.matrixWorldNeedsUpdate=true; }
 function seaMid(){ const sa=PHS.lost?PHS.lost.sa:[]; if(!sa.length) return null; let x=0, y=0; for(const a of sa){ x+=Math.cos(a); y+=Math.sin(a); } return Math.atan2(y,x); }
 function steerSet(on){ if(on===PHS.on) return; PHS.on=on; steerUI.hidden=!on; if(on){ closeTalk(); steerBtn.hidden=true; player.tgt=null; player.speed=0; A.click(); PHS.aim=seaMid(); } else { PHS.drag=null; PHS.aim=null; A.click(); } }
@@ -2860,6 +2879,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   buildRegulars();   // Gideon and Owen at their table outside it (the same)
   await buildMarket(gap); await gap();   // the night market in the square, kept hidden by day (after Diarmuid, whose big amp is in it)
   await buildSkyLife(gap); await gap();   // the sky alive: flags, frost, blooms, the ice cream cart, breath and smoke, petals and leaves (after the market, whose materials it shares)
+  buildCoast(); buildHomes(); await gap();   // the coast's boats, seal and swing, and the homes' washing lines (see them, at the end: their rocks, posts and branch go into the town's mesh)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};
   kitM.uniforms.uLeaf=WIND.leaf; kitM.userData.inkF=KIT_IF; kitM.userData.shdF=KIT_SF;   // the trees in the wind, and bare in winter (see the sky alive)   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
@@ -6230,7 +6250,7 @@ const BRID={shirt:'#3f6b4f',crew:true,under:'#f3ede0',pants:'#5a4a40',shoes:'#3a
 const BRL={hi:'Dia dhuit! Come in, come in.',card:'Is that a postcard you have? Hand it over and I\'ll stamp it for you.',
   none:'No postcard on you? Go out and take one, the camera\'s up in the corner, and bring it in to me.',look:'Have a look round all the same. You\'re very welcome.',
   posted:'There now, stamped and in the sack. It\'ll go out with the evening post.',again:'Back again! Take another postcard outside and I\'ll post that one too.',
-  boxed:'You put one in the box outside? Grand, I\'ll have it in the next collection.'};
+  boxed:'You put one in the box outside? Grand, I\'ll have it in the next collection.',back:'You\'re back! Come in, come in.'};   // (back: hello on a later visit, see welcome back, in the homes)
 const POWHO={guest:true,i:3,first:'Bríd',name:'Bríd',pitch:BRID.pitch,x:0,z:0,dir:new T.Vector3(),greeted:false,wave:0,resume:0,lines:null,
   onClose(done){ PO.said=performance.now(); if(PO.ph==='said'){ PO.ph='idle'; poShowCard(); } poUI(); }};
 /* her arms, as in the café: each arm's turn forward and out, and the forearm's bend */
@@ -6491,7 +6511,7 @@ function poGreet(){ const has=poHas(); let L;
   if(has) L=[BRL.card];
   else if(PO.boxed&&!PO.toldBox){ PO.toldBox=true; L=[BRL.boxed]; }
   else L=PO.posted?[BRL.again]:PO.seen?[BRL.none]:[BRL.none,BRL.look];
-  if(!PO.seen) L.unshift(BRL.hi);   // (hello, the first time you come in)
+  if(!PO.seen) L.unshift(MET.back?BRL.back:BRL.hi);   // (hello, the first time you come in: on a later visit, she knows you)
   PO.seen=true; poTalk(L); }
 function poTalk(L){ POWHO.lines=L; openTalk(POWHO,0); poUI(); }
 /* hand it over: the card slides across the counter, she inks the stamp and brings it down, and into the sack it goes */
@@ -8545,4 +8565,428 @@ st._dbg.town={TL,TLA,TLP,TLR,CAT,GUL,PG,POND,DOG,BALL,PUD,get err(){ return TL.e
     ball:{x:r(BALL.x),z:r(BALL.z),h:r(BALL.h),v:r(Math.hypot(BALL.vx,BALL.vz)),kicks:BALL.kicks,kidKicks:BALL.kidKicks,bounces:BALL.bounces},kids:TL.kids.map(k=>({on:k.on,st:k.st,x:r(k.x),z:r(k.z)})),
     wet:r(TL.wet),puddles:PUD.list.length,wetPuddles:PUD.list.filter(q=>q.k>.3).length,bottles:TL.bottles.map(b=>b.on),stops:{bus:r(TLP.bus),hall:r(TLP.hall),po:r(TLP.po),cafe:r(TLP.cafe),milk:TLP.milk.length}}; }};
 /* ===================== (town life ends here) ===================== */
+/* ===================== the coast: the tide, two boats at the jetty, a seal on its rock, a swing on the cliff tree =====================
+   The sea keeps the real tide. It rises and falls on the moon's rhythm, a high water every twelve hours and twenty five
+   minutes, timed from the visitor's own clock and date (a simple model: one wave, its high waters counted from one at
+   Dublin on a known morning, a little bigger at the new and the full moon and smaller at the half moons). At low water a
+   strip of wet sand shows along the beaches with a line of wrack at its top, the rock under the high water mark comes out
+   dark with weed, and rocks in the shallows stand out of the water; at high water they are under it again.
+   ?tide=high or ?tide=low (or a number from -1 to 1) holds it, for the tests.
+   Two small fishing boats work out of the jetty. While one is tied up beside it, the other is out: it backs off the
+   jetty, turns, puts out to sea, fishes a while and comes back in. Both ride the swell, and their engines putter as they
+   go by. Now and then a seal comes in to its rock off the islet below the cliff, hauls itself up, lies there looking about
+   and slips back into the water with a splash. And from the big tree on the cliff over the harbour hangs a swing: walk to
+   it and sit (its tag, E beside it, or a click or a tap on it) and you swing out over the drop with the sea below, the
+   camera settling slowly into the view as it does on the bench. Anything that stands you up from the bench stands you up
+   from the swing.
+   All of it is made with the town and drawn with the town's own materials and kit, so no shader is made for it: the tide is
+   one uniform the sea and the ground read; the rocks and the swing's bough are in the town's mesh; the boats, the seal and
+   the swing are a few meshes each, drawn as the people are. Its sounds are short and soft (see the core).
+   (The long west beach is left as it is, for a pier and for a railway along the shore: nothing of the coast goes there) */
+const TIDEU={value:new T.Vector2(0,.19)};   // the sea's height over its mean now, and the day's high water over the mean (the sea and the ground read it)
+const TD={h:0,hw:.19,lv:0,amp:.24,set:null,sea:null};
+{ const q=QPS.get('tide'); if(q!=null&&q!=='') TD.set=q==='high'?1:q==='low'?-1:clamp(+q||0,-1,1); }
+const TD_HW0=Date.UTC(2000,0,6,6,10)/36e5, TD_PER=12.4206;   // a high water (in hours since 1970), and the time from one to the next
+function tdNow(){ const md=SKY.md.split('-'), hrs=Date.UTC(SKY.y,(+md[0]||1)-1,+md[1]||1)/36e5+SKY.h-SL.off;
+  TD.lv=TD.set!=null?TD.set:Math.cos(TAU*(hrs-TD_HW0)/TD_PER); TD.hw=TD.amp*(.8+.2*Math.cos(2*TAU*SL.moon.ph)); TD.h=TD.hw*TD.lv;
+  TIDEU.value.set(TD.h,TD.hw); if(TD.sea) TD.sea.scale.setScalar((R+WATER+TD.h)/(R+WATER)); }
+const coV=new T.Vector3(), coV2=new T.Vector3(), coV3=new T.Vector3(), coM=new T.Matrix4(), coM2=new T.Matrix4(), coQ=new T.Quaternion(), coS=new T.Vector3(), coZ=new T.Vector3();
+/* left or right of the camera (for a sound), and how far a place is from you */
+const cpF=new T.Vector3(), cpR=new T.Vector3(), cpD=new T.Vector3();
+function coPan(p){ cpF.subVectors(st.camL,st.camP).normalize(); cpR.crossVectors(cpF,UPU.value).normalize(); return clamp(cpD.subVectors(p,st.camP).normalize().dot(cpR),-1,1)*.8; }
+const coFar=(x,z)=>Math.hypot(player.x-x,player.z-z);
+const coQuiet=()=>!!(TALK.p||CUT.on||FIN.on||CAFE.on||GAR.on||PO.on||HSI.on||PUB.on||S.mode!=='station'||S.st!==st||!S.ready);
+
+/* ---------- rocks in the shallows: just under the sea's mean, so out at low water and under at high; and the seal's rock ---------- */
+/* where none go: by the jetty and the boats' way in and out of it, by the seal's rock, and along the west beach */
+const CO_KEEP=[[10.5,-14.3,2],[11.7,-16.2,2.2],[12.9,-18.1,2.6],[14.8,-19.2,2.4],[13.1,-20.3,2.4]], SEALR=[19.62,-8.3];
+const coKept=(x,z)=>CO_KEEP.some(([kx,kz,kr])=>Math.hypot(x-kx,z-kz)<kr)||Math.hypot(x-SEALR[0],z-SEALR[1])<1.8||(x<-12&&Math.abs(z)<10);
+function coRocks(){ const rr=seeded(97); let n=0; kitTo();
+  for(let k=0;k<90&&n<(LO?18:26);k++){ const a=k/90*TAU+rr()*.04, ux=Math.cos(a), uz=Math.sin(a); let r=8;
+    for(;r<23.5;r+=.06) if(grid(GH,ux*r,uz*r)<WATER-.08) break;
+    if(r>=23.5||rr()<.5) continue; const m=1+Math.floor(rr()*2.6);
+    for(let j=0;j<m;j++){ const x=ux*r+(rr()-.5)*1.1, z=uz*r+(rr()-.5)*1.1, g=grid(GH,x,z); if(g>WATER+.02||g<WATER-.45||coKept(x,z)) continue;
+      const s=.32+rr()*.42, top=WATER-.13+rr()*.22, M=frameAt(x,z,rr()*TAU);
+      put(M,'rock',['#6b6c65','#5f635c','#73746b'][j%3],0,top-.34*s,0,.62*s,.42*s,.52*s,0,rr()*.4,rr()*.4);
+      if(rr()<.6) put(M,'blob','#55633b',(rr()-.5)*.2*s,top-.14*s,(rr()-.5)*.2*s,.44*s,.08*s,.38*s);   // weed on it
+      n++; } }
+  /* the seal's: a big flat rock with two smaller at its foot, its top just over the highest tide */
+  { const [x,z]=SEALR, M=frameAt(x,z,.4), top=WATER+.3; SEAL.top=top+.05;
+    put(M,'rock','#7b7a72',0,top-.52,0,.78,.62,.6,0,.06,.05); put(M,'rock','#6e6f68',.6,top-.7,.28,.46,.5,.44,.6,.3,.2); put(M,'rock','#686a63',-.52,top-.8,-.3,.44,.46,.4,1.2,.2,.4);
+    put(M,'blob','#55633b',0,top-.42,0,.76,.1,.56); }
+  return n; }
+
+/* ---------- the boats: a route each, out from the jetty to the fishing and back ---------- */
+/* P: the time it takes each boat to go round (seconds), inK: how much of that it is tied up; v: how fast it goes */
+const BT={P:420,inK:.55,v:1.25,clk:0,boats:[],putT:0,wakeT:0,set:null};
+/* a route through points on the town's map, measured along, so a boat can be put a distance along it */
+function btRoute(pts){ const c=new T.CatmullRomCurve3(pts.map(([x,z])=>new T.Vector3(x,0,z)),false,'centripetal'), n=Math.max(40,Math.round(c.getLength()/.2)), P=c.getSpacedPoints(n).map(p=>[p.x,p.z]), L=[0];
+  for(let i=1;i<P.length;i++) L.push(L[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1])); return {P,L,len:L[L.length-1]}; }
+function btAt(r,s,o){ s=clamp(s,0,r.len); let lo=0, hi=r.L.length-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(r.L[m]<s) lo=m; else hi=m; }
+  const a=r.P[lo], b=r.P[hi], t=(s-r.L[lo])/((r.L[hi]-r.L[lo])||1); o.x=a[0]+(b[0]-a[0])*t; o.z=a[1]+(b[1]-a[1])*t; o.yaw=Math.atan2(b[0]-a[0],b[1]-a[1]); return o; }
+/* a small open boat: the hull a bowl, finer at the bow, painted outside with a band under the gunwale and pale inside; two
+   thwarts, an outboard on the stern, a wheelhouse or a mast, and the fisherman in his oilskins by the engine */
+function btMesh(o){ const B=part(), Z=new T.Vector3(), Q=new T.Quaternion(), S3=new T.Vector3(), M4=new T.Matrix4(), bowl=(ph,t0,t1)=>new T.SphereGeometry(1,12,4,ph,Math.PI,t0,t1-t0).toNonIndexed();
+  for(const [ph,len] of [[0,.82],[Math.PI,.5]]){ M4.compose(Z,Q,S3.set(.32,.27,len)); B.geo(bowl(ph,Math.PI/2,Math.PI/2+.4),o.band,M4); B.geo(bowl(ph,Math.PI/2+.4,Math.PI),o.hull,M4);
+    const gi=bowl(ph,Math.PI/2,Math.PI), nA=gi.attributes.normal; for(let i=0;i<nA.count;i++) nA.setXYZ(i,-nA.getX(i),-nA.getY(i),-nA.getZ(i)); B.geo(gi,o.inner,M4.compose(Z,Q,S3.set(.29,.24,len-.03))); }
+  B.put(FG.box,'#b48a5c',0,-.07,.12,.56,.035,.1); B.put(FG.box,'#b48a5c',0,-.07,-.24,.56,.035,.1);
+  B.put(FG.box,'#2e3236',0,.03,-.55,.12,.17,.15); B.put(FG.box,'#e4ded0',0,.12,-.55,.13,.04,.16); B.put(FG.box,'#2e3236',0,-.16,-.6,.045,.28,.05);
+  if(o.cabin){ B.put(FG.box,'#f2ede3',0,.12,.18,.36,.32,.3); B.put(FG.box,'#45535e',0,.2,.18,.37,.07,.31); B.put(FG.box,o.hull,0,.3,.18,.42,.035,.36); }
+  else { B.put(FG.can,'#5a4636',0,.38,.34,.018,.84,.018); B.put(FG.box,'#f2d26b',.07,.72,.34,.13,.06,.01); }
+  B.put(FG.can,'#e8c33a',0,.09,-.33,.1,.24,.085); B.put(FG.sph,'#d9a27e',0,.29,-.33,.075); B.put(FG.can,'#e8c33a',0,.35,-.33,.115,.014,.115); B.put(FG.sph,'#e8c33a',0,.37,-.33,.07,.05,.07);
+  [-1,1].forEach(s=>B.put(FG.box,'#e8c33a',s*.1,.1,-.27,.04,.17,.04,-.7));
+  const m=B.mesh(); m.position.y=.12; m.userData.dyn=true; return m; }
+function btPlan(){ const [a,b]=JETTY, L=Math.hypot(b[0]-a[0],b[1]-a[1]), ux=(b[0]-a[0])/L, uz=(b[1]-a[1])/L, nx=-uz, nz=ux, px=a[0]+ux*L*.72, pz=a[1]+uz*L*.72;
+  /* east of the jetty, out to the east to fish below the cliff (in the view from the swing); west of it, out to the south-west */
+  [[1,[[17.8,-21],[19.9,-18.4],[19.7,-15.9],[18,-15.6],[16.4,-17.6]],2,{hull:'#c8483a',band:'#f4efe6',inner:'#e9e2d4',cabin:true}],
+   [-1,[[12,-23.4],[9.4,-22.9],[7.7,-21.3],[8.6,-19.8],[10.9,-20.3]],2,{hull:'#3f6fa0',band:'#f2ead6',inner:'#e9e2d4',cabin:false}]].forEach(([sd,way,fi,look],k)=>{
+    const B=[px+nx*sd,pz+nz*sd], Qp=[B[0]+ux*3.2,B[1]+uz*3.2], r=btRoute([Qp,[Qp[0]+ux*2.4,Qp[1]+uz*2.4],...way,[Qp[0]+ux*1.7+nx*sd,Qp[1]+uz*1.7+nz*sd],Qp]);
+    let s1=0, bd=1e9; r.P.forEach((p,i)=>{ const d=Math.hypot(p[0]-way[fi][0],p[1]-way[fi][1]); if(d<bd){ bd=d; s1=r.L[i]; } });
+    const g=new T.Group(); g.matrixAutoUpdate=false; g.add(btMesh(look)); sc.add(g);
+    BT.boats.push({k,g,B,Q:Qp,u:[ux,uz],r,s1,turn:sd,off:k*.5,ph:k*2.1,yaw:Math.atan2(-ux,-uz),x:B[0],z:B[1],sp:0,st:'in',fish:[...way[fi]]}); }); }
+/* where a boat is at a moment of its round: tied up; backing off the jetty; turning; out along its route; fishing; back
+   along it; and in to the jetty again */
+function btPose(b,o){ const P=BT.P, c=fract(BT.clk/P+b.off), [ux,uz]=b.u, yIn=Math.atan2(-ux,-uz);
+  o.st='in'; if(c<BT.inK){ o.x=b.B[0]; o.z=b.B[1]; o.yaw=yIn; return o; }
+  let t=(c-BT.inK)*P; const T1=b.s1/BT.v+4, T2=(b.r.len-b.s1)/BT.v+4, Tf=Math.max(5,(1-BT.inK)*P-7-6-T1-T2-8);
+  if(t<7){ const k=E.io(t/7); o.x=b.B[0]+ux*3.2*k; o.z=b.B[1]+uz*3.2*k; o.yaw=yIn; o.st='back'; return o; } t-=7;
+  if(t<6){ btAt(b.r,0,o); let d=angWrap(o.yaw-yIn); if(Math.sign(d)!==Math.sign(b.turn)) d+=Math.sign(b.turn)*TAU; o.yaw=yIn+d*E.io(t/6); o.st='turn'; return o; } t-=6;
+  if(t<T1){ btAt(b.r,b.s1*E.io(t/T1),o); o.st='out'; return o; } t-=T1;
+  if(t<Tf){ btAt(b.r,b.s1,o); const k=sstep(0,8,t)*(1-sstep(Tf-8,Tf,t)); o.x+=.35*Math.sin(t*.05)*k; o.z+=.25*Math.sin(t*.037)*k; o.yaw+=.3*Math.sin(t*.06)*k; o.st='fish'; return o; } t-=Tf;   // (drifting at its lines, a little)
+  if(t<T2){ btAt(b.r,b.s1+(b.r.len-b.s1)*E.io(t/T2),o); o.st='home'; return o; }
+  t-=T2; const k=E.io(Math.min(1,t/8)); o.x=b.Q[0]-ux*3.2*k; o.z=b.Q[1]-uz*3.2*k; o.yaw=yIn; o.st='dock'; return o; }
+const btO={x:0,z:0,yaw:0,st:''};
+function btUpdate(dt,t){ BT.clk+=dt; const q=coQuiet(); BT.putT-=dt; BT.wakeT-=dt; let near=null, nd=16;
+  for(const b of BT.boats){ btPose(b,btO); const jump=Math.hypot(btO.x-b.x,btO.z-b.z)>2, sp=jump?0:Math.hypot(btO.x-b.x,btO.z-b.z)/Math.max(dt,1e-3);
+    b.sp=damp(b.sp,sp,4,dt); b.x=btO.x; b.z=btO.z; b.st=btO.st; b.yaw=jump?btO.yaw:b.yaw+angWrap(btO.yaw-b.yaw)*Math.min(1,dt*3);
+    /* on the tide and the swell, rolling a little, its bow up as it gets going */
+    const run=sstep(.2,1,b.sp), M=frameAt(b.x,b.z,b.yaw,WATER+TD.h+.022*Math.sin(t*1.3+b.ph)+.012*Math.sin(t*2.3+b.ph*2)-.03);
+    M.multiply(coM.makeRotationX(-.03*Math.sin(t*.9+b.ph)-.06*run)).multiply(coM2.makeRotationZ(.05*Math.sin(t*1.1+b.ph))); b.g.matrix.copy(M); b.g.matrixWorldNeedsUpdate=true;
+    if(b.sp>.25){ const d=coFar(b.x,b.z); if(d<nd){ nd=d; near=b; }
+      /* its wake: a little white water off the stern, near enough to see */
+      if(BT.wakeT<=0&&d<(LO?14:24)){ coV.set(0,.02,-.75).applyMatrix4(M); pfAdd(coV,coV2.copy(coV).normalize().multiplyScalar(.04),1.4,.07,.3,.32,1); } } }
+  if(BT.wakeT<=0) BT.wakeT=.2;
+  /* the engine of the nearer boat going by, a putter, softer the further off */
+  if(near&&BT.putT<=0){ BT.putT=.52+Math.random()*.08; if(!q) A.putter&&A.putter(.034*Math.pow(1-nd/16,1.4)*clamp(near.sp/1.2,.4,1),coPan(coV.set(0,0,0).applyMatrix4(near.g.matrix)),clamp(near.sp/1.4,0,1)); } }
+
+/* ---------- the seal ---------- */
+/* st: gone, swim (in to the rock), haul (up onto it), lie, slip (back in), away (swimming off, then under); t: how long in it */
+const SEAL={st:'gone',t:0,next:14,lie:40,top:WATER+.35,g:null,body:null,head:null,x:0,z:0,y:0,yaw:0,splashes:0,look:0,lookT:0,hy:0,hp:0,
+  S0:[18.9,-10.9],S1:[19.5,-9.15],W1:[18.95,-8.2],S2:[18.5,-10.5]};
+function sealMesh(){ const B=part(), H=part(), lath=(p0)=>new T.LatheGeometry([[0,-.52],[.05,-.48],[.11,-.38],[.16,-.22],[.185,-.04],[.18,.12],[.15,.26],[.11,.35],[.075,.41]].map(([r,y])=>new T.Vector2(r,y)),14,p0,Math.PI).toNonIndexed();
+  const M=new T.Matrix4().makeScale(1,.8,1).multiply(new T.Matrix4().makeRotationX(Math.PI/2));
+  B.geo(lath(Math.PI/2),'#7d7f86',M); B.geo(lath(-Math.PI/2),'#bab6ad',M);   // grey on its back, pale underneath
+  [[.07,.13,-.12],[-.05,.14,.05],[.03,.12,-.3],[-.08,.11,-.2]].forEach(([x,y,z])=>B.put(FG.sph,'#5f6168',x,y,z,.035,.012,.045));   // its spots
+  [-1,1].forEach(s=>{ B.put(FG.sph,'#6c6e75',s*.17,-.09,.16,.036,.024,.095,.3,s*.5); B.put(FG.sph,'#6c6e75',s*.06,-.01,-.58,.05,.016,.12,0,s*.32); });   // flippers, fore and hind
+  H.put(FG.sph,'#7d7f86',0,.04,.06,.12,.11,.13); H.put(FG.sph,'#8c8d93',0,0,.16,.075,.066,.075); H.put(FG.sph,'#bab6ad',0,-.045,.12,.07,.04,.08);
+  H.put(FG.sph,'#26262b',0,.018,.232,.022,.016,.012); [-1,1].forEach(s=>H.put(FG.sph,'#1d1d22',s*.056,.06,.14,.024,.028,.02));
+  const g=new T.Group(); g.matrixAutoUpdate=false; const body=B.mesh(), head=H.mesh(); head.position.set(0,.06,.36); body.add(head); g.add(body); body.userData.dyn=head.userData.dyn=true; sc.add(g);
+  SEAL.g=g; SEAL.body=body; SEAL.head=head; }
+function sealGo(st,t=0){ SEAL.st=st; SEAL.t=t; if(st==='lie') SEAL.lie=30+Math.random()*25; if(st==='gone') SEAL.next=25+Math.random()*45; }
+/* the splash as it goes in: white water thrown up round it, and the sound of it */
+function sealSplash(x,z){ SEAL.splashes++; at(x,z,coV).multiplyScalar(R+WATER+TD.h+.05);
+  for(let k=0;k<10;k++){ const a=k/10*TAU; coV2.copy(coV).normalize().multiplyScalar(.7+Math.random()*.5); coV3.set(Math.cos(a),0,Math.sin(a)); tang(coV2.clone().normalize(),coV3,coV3); coV2.addScaledVector(coV3,.35); pfAdd(coV,coV2,.8+Math.random()*.3,.05,.17,.55,1); }
+  const d=coFar(x,z); if(!coQuiet()&&d<22) A.sealSplash&&A.sealSplash(.05*Math.pow(1-d/22,1.3),coPan(coV)); }
+function sealUpdate(dt,t){ if(!SEAL.g) return; const S_=SEAL; S_.t+=dt; const sea=WATER+TD.h, top=S_.top, warm=SL.warmNow;
+  let x=S_.x, z=S_.z, y=sea-.16, yaw=S_.yaw, pitch=0, roll=0, hp=-.35, hy=0, hl=.12, vis=true;
+  const lerp2=(A0,B0,k)=>[A0[0]+(B0[0]-A0[0])*k,A0[1]+(B0[1]-A0[1])*k], R0=SEALR;
+  if(S_.st==='gone'){ vis=warm; if(S_.t>S_.next) sealGo('swim'); [x,z]=S_.S0; }
+  else if(S_.st==='swim'){ const k=E.io(clamp(S_.t/10,0,1)); [x,z]=lerp2(S_.S0,S_.S1,k); yaw=Math.atan2(S_.S1[0]-S_.S0[0],S_.S1[1]-S_.S0[1]); pitch=-.25; y=sea-.16+.02*Math.sin(t*2.2); if(S_.t>10) sealGo('haul'); }
+  else if(S_.st==='haul'){ const k=clamp(S_.t/2.6,0,1), e=E.io(k); [x,z]=lerp2(S_.S1,R0,e); yaw=Math.atan2(R0[0]-S_.S1[0],R0[1]-S_.S1[1]); y=lerp(sea-.16,top+.15,sstep(0,.8,k))+.05*Math.sin(k*Math.PI*3)*(1-k);
+    pitch=-.35*(1-k)+.12*Math.sin(k*Math.PI*4)*(1-k); hp=lerp(-.35,0,k); if(S_.t>2.6) sealGo('lie'); }
+  else if(S_.st==='lie'){ [x,z]=R0; y=top+.15+.006*Math.sin(t*1.1); yaw=Math.atan2(R0[0]-S_.S1[0],R0[1]-S_.S1[1]);
+    /* looking about: its head turned this way and that, now and then lifted to look, now and then laid down */
+    S_.lookT-=dt; if(S_.lookT<=0){ S_.lookT=1.6+Math.random()*3.4; S_.look=-(Math.sign(S_.look)||1)*(.3+Math.random()*.45); S_.lift=Math.random()<.35?-.35:Math.random()<.4?.22:0; }   // (each time the other way)
+    hy=S_.look; hp=S_.lift||0; roll=.12*sstep(.4,.6,.5+.5*Math.sin(t*.13)); if(S_.t>S_.lie) sealGo('slip'); }
+  else if(S_.st==='slip'){ const k=clamp(S_.t/1.5,0,1), e=E.i(k); [x,z]=lerp2(R0,S_.W1,e); const y0=Math.atan2(R0[0]-S_.S1[0],R0[1]-S_.S1[1]), y1=Math.atan2(S_.W1[0]-R0[0],S_.W1[1]-R0[1]);
+    yaw=y0+angWrap(y1-y0)*sstep(0,.5,k); y=lerp(top+.15,sea-.3,e); pitch=.45*sstep(.2,.8,k); if(k>=.82&&!S_.sp){ S_.sp=true; sealSplash(x,z); } if(S_.t>1.5){ S_.sp=false; sealGo('away'); } }
+  else if(S_.st==='away'){ const k=clamp(S_.t/7,0,1); [x,z]=lerp2(S_.W1,S_.S2,E.io(k)); yaw=Math.atan2(S_.S2[0]-S_.W1[0],S_.S2[1]-S_.W1[1]); y=sea-.16-.5*sstep(.75,1,k); pitch=-.25+.6*sstep(.75,1,k); if(S_.t>7){ sealGo('gone'); vis=warm; } }
+  S_.x=x; S_.z=z; S_.y=y; S_.yaw=yaw; S_.hy=damp(S_.hy,hy,3,dt); S_.hp=damp(S_.hp,hp,3,dt); S_.g.visible=vis;
+  if(!vis) return; const M=frameAt(x,z,yaw,y); M.multiply(coM.makeRotationX(pitch)).multiply(coM2.makeRotationZ(roll)); S_.g.matrix.copy(M); S_.g.matrixWorldNeedsUpdate=true;
+  S_.head.rotation.set(S_.hp,S_.hy,0); S_.head.position.y=.06+hl*(S_.st==='swim'||S_.st==='away'?1:0); }
+
+/* ---------- the swing ---------- */
+/* the tree: the big one at the south end of the cliff, over the harbour, with a long bough reaching out toward the edge; or,
+   if the town has grown otherwise, the tree nearest it with open ground under a bough of it. dir: the way the swing swings,
+   out toward the drop */
+const SW_PREF={tree:[13.92,-11.02],seat:[15.19,-10.04]};   // (a long bough out over the edge, the swing out toward the islet: the same on a phone)
+/* (SWG: the swing as it is now, SWM: where it all is; SW is the pavement's width) */
+const SWG={st:'idle',t:0,ws:0,vs:0,view:false,phi:0,amp:0,ph:0,lookOn:false,held:new Set(),tap:null,hov:null,stuck:0,crk:0,creaks:0,mv:0,tagOn:false,tagCan:false,err:null};
+let SWM=null;
+/* how well a seat at (sx, sz), hung from the tree at (tx, tz), fits: the swing's way across the bough toward the nearer drop,
+   open ground all along its swing and behind it to stand on, and the drop near in front; or nothing */
+function swFit(tx,tz,sx,sz){ const bx=sx-tx, bz=sz-tz, bl=Math.hypot(bx,bz)||1, own=OBS.find(o=>Math.hypot(o.x-tx,o.z-tz)<.05&&o.h>=3.4), clear=(x,z,m)=>OBS.every(o=>o===own||Math.hypot(x-o.x,z-o.z)>o.r+m);
+  if(!walkable(sx,sz)||grid(GH,sx,sz)<-.05||!clear(sx,sz,.42)) return null;
+  if(Math.hypot(sx-CLF.x,sz-CLF.z)<3.2||(PH&&Math.hypot(sx-PH.x,sz-PH.z)<8.5)) return null;   // (clear of the bench and its kite, and of the lighthouse's E)
+  let best=null; for(const sg of [1,-1]){ const dx=-bz/bl*sg, dz=bx/bl*sg; let ok=true, edge=99;
+    for(let q=-.9;q<=.91&&ok;q+=.15){ const x=sx+dx*q, z=sz+dz*q; if(!clear(x,z,.24)||(q<0&&!walkable(x,z))) ok=false; }
+    for(let q=0;q<=2;q+=.1) if(!walkable(sx+dx*q,sz+dz*q)){ edge=q; break; }
+    const st=[sx-dx*.8,sz-dz*.8]; if(!ok||edge>1.7||!walkable(...st)||!clear(...st,.35)) continue;
+    if(!best||edge<best.edge) best={dir:[dx,dz],edge,stand:st}; }
+  return best; }
+/* (and a way there from the landing pad that the town's own path finder can walk. The town grows a little differently on
+   a phone, fewer trees and more bushes, so the bough is looked for round the same tree first, then round the nearest others) */
+function swPlace(){ const pt=SW_PREF.tree, reach=f=>!!navPath(START[0],START[1],f.stand[0],f.stand[1],1.3);
+  const near=TREES.filter(([x,z,s])=>s>=.95&&Math.hypot(x,z)>9).sort((a,b)=>Math.hypot(a[0]-pt[0],a[1]-pt[1])-Math.hypot(b[0]-pt[0],b[1]-pt[1]));
+  const t0=near[0]; if(t0&&Math.hypot(t0[0]-pt[0],t0[1]-pt[1])<.3){ const f=swFit(t0[0],t0[1],...SW_PREF.seat); if(f&&reach(f)) return {tree:t0,seat:SW_PREF.seat,...f}; }
+  for(const T_ of near.slice(0,14)){ const [tx,tz]=T_, fits=[];
+    for(let k=0;k<24;k++) for(const L of [.95,1.1]){ const a=k/24*TAU, sx=tx+Math.cos(a)*L, sz=tz+Math.sin(a)*L, f=swFit(tx,tz,sx,sz); if(f) fits.push({tree:T_,seat:[sx,sz],...f}); }
+    fits.sort((a,b)=>a.edge-b.edge); for(const f of fits.slice(0,4)) if(reach(f)) return f; }
+  return null; }
+function buildSwing(){ const p=swPlace(); if(!p){ SWG.err='no tree for the swing'; return; } kitTo();
+  const [tx,tz,ts]=p.tree, [sx,sz]=p.seat, g0=standH(sx,sz), up=at(sx,sz).clone(), M0=frameAt(sx,sz,yawTo(sx,sz,sx+p.dir[0],sz+p.dir[1]),g0);
+  const dir=new T.Vector3().setFromMatrixColumn(M0,2).normalize(), side=new T.Vector3().crossVectors(up,dir).normalize(), hang=Math.max(1.78,1.25*ts+.2), L=hang-.46;
+  const H=up.clone().multiplyScalar(R+g0+hang), Mh=new T.Matrix4().makeBasis(side,up,dir).setPosition(H);
+  /* the bough, out from the trunk under the leaves to just past where the ropes hang, rising a little */
+  const tb=at(tx,tz).multiplyScalar(R+standH(tx,tz)+hang-.22), tip=H.clone().addScaledVector(coV.subVectors(H,tb).normalize(),.22).addScaledVector(up,.05), mid=tb.clone().lerp(tip,.55).addScaledVector(up,.06);
+  const limb=(a,b,r0,r1)=>{ const ax=coV2.subVectors(b,a), l=ax.length(); kadd(new T.CylinderGeometry(r1,r0,1,7).toNonIndexed(),'#7a5a42',coM.compose(coV3.addVectors(a,b).multiplyScalar(.5),coQ.setFromUnitVectors(UPY,ax.normalize()),coS.set(1,l,1))); };
+  limb(tb,mid,.075,.058); limb(mid,tip,.058,.04);
+  /* the swing: two ropes and a plank seat, knotted round the bough; it turns about the bough's line */
+  const B=part(); [-1,1].forEach(s=>{ B.put(FG.can,'#d9c9a3',s*.23,-L/2,0,.013,L,.013); B.put(FG.sph,'#cdbb92',s*.23,0,0,.04,.035,.04); B.put(FG.sph,'#cdbb92',s*.23,-L+.03,0,.026,.03,.026); });
+  B.put(FG.box,'#9b6b45',0,-L,0,.56,.045,.19); B.put(FG.box,'#8a5d3b',0,-L-.03,0,.5,.02,.15);
+  const g=new T.Group(); g.matrixAutoUpdate=false; g.matrix.copy(Mh); const m=B.mesh(); m.userData.dyn=true; g.add(m); sc.add(g);
+  const o={x:sx,z:sz,r:.32,h:1.9}; OBS.push(o); slNav(o,true);
+  const hit=new T.Mesh(new T.BoxGeometry(.8,1.3,.6)); hit.matrixAutoUpdate=false; hit.matrix.copy(Mh).multiply(new T.Matrix4().makeTranslation(0,-L+.45,0)); hit.matrixWorld.copy(hit.matrix);
+  SWM={tree:p.tree,seat:[sx,sz],stand:p.stand,edge:p.edge,up,dir,side,H,L,Mh,g,hit,trunkSide:Math.sign(coV.set(tx-sx,0,tz-sz).dot(coV2.set(side.x,0,side.z)))||1,
+    seatW:up.clone().multiplyScalar(R+g0+.46),tagW:up.clone().multiplyScalar(R+g0+1.32),qBase:new T.Quaternion().setFromRotationMatrix(coM.makeBasis(side,up,dir))};
+  clWay([p.stand]); }   // (the way in to where you stand to sit, opened on the walking grid as the cliff's are)
+/* the swing's pose for an angle: the group turned about the bough, and the seat's frame for whoever sits on it */
+const swQ=new T.Quaternion();
+function swPose(phi){ SWM.g.matrix.copy(SWM.Mh).multiply(coM.makeRotationX(-phi)); SWM.g.matrixWorldNeedsUpdate=true; }
+function swFree(){ return !!SWM&&!FIN.on&&!CUT.on&&!TALK.p&&GLN.t<0&&CL.st==='idle'&&CL.k==='home'&&!PHS.on&&!CAFE.on&&!GAR.on&&!PO.on&&!HSI.on&&!PUB.on; }
+function swGo(){ if(!swFree()||(SWG.st!=='idle'&&SWG.st!=='go')) return; const P=player, [ax,az]=SWM.stand;
+  if(Math.hypot(P.x-ax,P.z-az)<.45){ began(); swSit(); return; }
+  const path=Math.hypot(P.x-ax,P.z-az)>2.2||!navClear(P.x,P.z,ax,az)?navPath(P.x,P.z,ax,az,1.3):null; P.path=(path||[]).concat([[ax,az]]); P.tgt=null; P.stuck=0; TALK.goal=null; C.guide=null; SWG.stuck=0; SWG.st='go'; began(); A.tick(); }
+function swWalk(dt){ if(SWG.st!=='go') return; const P=player, [ax,az]=SWM.stand, d=Math.hypot(P.x-ax,P.z-az);
+  if(TALK.goal||TALK.p||(!P.path&&!P.tgt&&d>.6)){ SWG.st='idle'; return; }
+  if(d<.3||(!P.path&&!P.tgt)){ P.path=null; P.tgt=null; swSit(); return; }
+  SWG.stuck=P.speed<.25?SWG.stuck+dt:Math.max(0,SWG.stuck-dt); if(SWG.stuck>1.3){ SWG.stuck=0; if(d<1.4){ P.path=null; P.tgt=null; swSit(); } else { P.path=null; P.tgt=null; SWG.st='idle'; } } }
+function swSit(){ const P=player; SWG.st='sit'; SWG.t=0; SWG.lookOn=false; P.path=null; P.tgt=null; P.speed=0; TALK.goal=null; C.guide=null;
+  /* what you held to walk over does not count as getting up again (as on the bench) */
+  SWG.held=new Set(CLMOVE.filter(k=>keys.has(k))); SWG.held.forEach(k=>keys.delete(k)); if(down&&down.touch){ down=null; stickOff(); } look=null; }
+function swStand(){ if(SWG.st!=='sat'&&SWG.st!=='sit') return; SWG.st='up'; SWG.t=0; SWG.held.clear(); A.swingCreak&&A.swingCreak(.02,0,false);
+  tang(player.u,SWM.dir,player.f); C.pitch=C.PITCH; C.dragT=0; }
+function swMoving(){ for(const k of CLMOVE) if(keys.has(k)&&!SWG.held.has(k)) return true; return !!(down&&down.touch&&down.moved&&Math.hypot(down.ix,down.iz)>.15); }
+/* the view from the swing: from up over the water to the side away from the trunk, looking down across the swing, the edge
+   and the drop, with the harbour beyond; going a little with the swing. Whatever leaves come between it and you are cut
+   away round you, as the walking camera's are (the tree hangs over the swing) */
+function swCam(dt,oP,oL){ const u=SWM.up, f=SWM.dir, port=innerHeight>innerWidth, side=coV3.copy(SWM.side).multiplyScalar(-SWM.trunkSide);
+  oP.copy(SWM.seatW).addScaledVector(side,port?4.2:3.4).addScaledVector(f,port?-.5:-.3).addScaledVector(u,port?3.5:3);
+  oL.copy(SWM.seatW).addScaledVector(f,(port?.7:1.2)+SWG.phi*.5).addScaledVector(u,port?.4:.3); }
+const swP=new T.Vector3(), swL=new T.Vector3();
+function swUpdate(dt,t){ if(!SWM) return; dt=Math.min(dt,.05); const P=player, d=me.userData, q=coQuiet();
+  if(FIN.on||CUT.on){ if(SWG.st!=='idle'||SWG.ws>0) swReset(); swTag(false); return; }
+  if(TALK.p||GLN.t>=0||TALK.goal) swStand();
+  swWalk(dt);
+  /* the swing itself: pumped up to a good height with you on it, let die away when you get up; empty, it sways in the wind */
+  const on=SWG.st==='sat'||(SWG.st==='sit'&&SWG.t>.8), want=on?.52:SWG.st==='up'?0:.035+.05*Math.min(1,WIND.e);
+  SWG.amp+=(want-SWG.amp)*Math.min(1,dt*(on?.32:SWG.st==='up'?3:.4)); const w=Math.sqrt(9.8/SWM.L), ph0=SWG.ph; SWG.ph+=w*dt; SWG.phi=SWG.amp*Math.sin(SWG.ph);
+  /* a creak of the ropes on the bough at each end of the swing, the back one a little higher */
+  const c0=Math.floor((ph0-Math.PI/2)/Math.PI), c1=Math.floor((SWG.ph-Math.PI/2)/Math.PI);
+  if(c1!==c0&&SWG.amp>.12){ const back=Math.sin(SWG.ph)<0; SWG.creaks++; const dd=coFar(...SWM.seat); if(!q&&dd<14) A.swingCreak&&A.swingCreak((on?.03:.016)*(back?1:.75)*Math.pow(1-dd/14,1.2),coPan(SWM.seatW),back); }
+  swPose(SWG.phi);
+  if(SWG.st==='sat'){ P.speed=0; P.tgt=null; P.path=null; if(swMoving()) swStand(); }
+  /* you: from where the walk left you onto the seat; then swinging with it, the legs out on the way forward and tucked on the
+     way back, the hands on the ropes, the head up to the view */
+  if(SWG.st==='sit'||SWG.st==='sat'||SWG.st==='up'){ SWG.t+=dt; let mv=1;
+    if(SWG.st==='sit'){ mv=E.io(clamp(SWG.t/.75,0,1)); if(SWG.t>=.85){ SWG.st='sat'; SWG.t=0; tang(P.u,SWM.dir,P.f); } }
+    if(SWG.st==='up'){ if(SWG.amp>.06) SWG.t=0; mv=1-E.io(clamp((SWG.t-.1)/.5,0,1)); if(SWG.amp<=.06&&SWG.t>.7){ SWG.st='idle'; swPoseOff(); } }   // (the swing let come to rest first, then off it)
+    SWG.mv=mv; swQ.copy(SWM.qBase).multiply(coQ.setFromAxisAngle(coV.set(1,0,0),-SWG.phi)); swP.set(0,-SWM.L-.41,.07).applyMatrix4(SWM.g.matrix);
+    me.position.lerp(swP,mv); me.quaternion.slerp(swQ,mv);
+    if(SWG.st!=='idle'){ const k=sstep(.1,.7,mv), v=Math.cos(SWG.ph)*Math.min(1,SWG.amp/.3);
+      for(let i=0;i<2;i++){ d.legs[i].rotation.x=lerp(d.legs[i].rotation.x,-1.18-.42*v+.06*Math.sin(t*1.3+i),k); d.arms[i].rotation.x=lerp(d.arms[i].rotation.x,-.32,k); d.arms[i].rotation.z=lerp(d.arms[i].rotation.z,(i?.16:-.16),k); d.fore[i].rotation.x=lerp(d.fore[i].rotation.x,-1.55,k); }
+      d.body.rotation.x=-.1*v*k; d.head.rotation.x=(-.08+.1*v)*k; } }
+  /* the camera: into the view from the swing, slowly; given back a little quicker (the bench's spring) */
+  const sitW=SWG.st==='sat'||(SWG.st==='sit'&&SWG.t>.35)?1:0, ws=sitW?1.25:2.4;
+  SWG.vs+=(ws*ws*(sitW-SWG.ws)-2*ws*SWG.vs)*dt; SWG.ws+=SWG.vs*dt; if(SWG.ws>=1){ SWG.ws=1; SWG.vs=Math.min(0,SWG.vs); } if(SWG.ws<=.001&&!sitW){ SWG.ws=0; SWG.vs=0; }
+  if(GLN.t>=0){ SWG.ws=SWG.vs=0; }
+  if(SWG.ws>0){ swCam(dt,swP,swL); st.camP.lerp(swP,SWG.ws); st.camL.lerp(swL,SWG.ws); LU.uPly.value.lerp(coV2.copy(me.position).addScaledVector(SWM.up,1.1),SWG.ws); stCam.fov+=6*SWG.ws; stCam.updateProjectionMatrix();
+    if(SWG.ws>.95){ tang(P.u,coV.subVectors(swL,swP),C.f); C.dragT=0; } }
+  if(SWG.hov&&SWG.st!=='idle') swHover(null);
+  const vw=SWG.ws>.5; if(vw!==SWG.view){ SWG.view=vw; el.classList.toggle('swview',vw); }   // the name tags step aside, as on the bench
+  swTag(true); }
+function swPoseOff(){ const d=me.userData; d.body.rotation.x=0; d.head.rotation.x=0; d.arms[0].rotation.z=0; }
+function swReset(){ if(!SWM) return; SWG.st='idle'; SWG.t=0; SWG.ws=SWG.vs=0; SWG.amp=0; SWG.phi=0; SWG.view=false; el.classList.remove('swview'); SWG.held.clear(); SWG.tap=null; swPose(0); swPoseOff(); }
+/* its tag, like the bench's: near it, it says what you can do there, and takes a click */
+{ const s=document.createElement('style'); s.textContent='.st-cr.swview #crLabels{opacity:0;transition:opacity .6s}.st-cr.swview #crLabels>*{pointer-events:none!important}'; document.head.appendChild(s); }
+const swTagE=(()=>{ const e=document.createElement('span'); e.className='crl ui'; e.textContent='Swing'; $('#crLabels',el).appendChild(e);
+  e.addEventListener('click',ev=>{ ev.stopPropagation(); if(S.st===st&&S.mode==='station') swGo(); }); return e; })();
+function swTag(live){ let on=false, can=false; const P=player;
+  if(live&&SWM&&swFree()&&SWG.st==='idle'){ const dd=Math.hypot(P.x-SWM.seat[0],P.z-SWM.seat[1]); if(dd<7){ coV.copy(SWM.tagW).project(stCam); on=coV.z<1&&Math.abs(coV.x)<.95&&Math.abs(coV.y)<.95; can=dd<2.6;
+    if(on) swTagE.style.transform=`translate(${((coV.x*.5+.5)*innerWidth).toFixed(1)}px,${((-coV.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
+  if(on!==SWG.tagOn){ SWG.tagOn=on; swTagE.classList.toggle('on',on); } if(can!==SWG.tagCan){ SWG.tagCan=can; swTagE.classList.toggle('can',can); } }
+/* what a click is on: the swing, or not; never through the ground on the far side of the world */
+const swRay=new T.Raycaster(), swNdc=new T.Vector2(), swHits=[];
+function swPick(e){ if(!SWM) return false; swNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); swRay.setFromCamera(swNdc,stCam);
+  const g=swRay.ray.intersectSphere(clBall,coV)?swRay.ray.origin.distanceTo(coV):1e9; swHits.length=0; SWM.hit.raycast(swRay,swHits); return swHits.some(h=>h.distance<g); }
+/* sitting, a touch only stands you up; the station's own handler (and the bench's) go on as they did otherwise */
+{ const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on&&(SWG.st==='sat'||SWG.st==='sit')){ swStand(); SWG.tap=null; return; }
+    SWG.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,skip:!!TALK.p||CL.st!=='idle'||CL.k!=='home'||PHS.on||CAFE.on||PO.on||GAR.on||HSI.on||PUB.on}; return op.call(this,e); }; }
+addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return; const tp=SWG.tap; if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(e.pointerType==='mouse'?13:8)) tp.moved=true;
+  if(e.pointerType==='mouse'&&!down&&!look&&!CL.drag) swHover(e); },{passive:true});
+addEventListener('pointerup',e=>{ const tp=SWG.tap; if(!tp||e.pointerId!==tp.id) return; SWG.tap=null; if(S.st!==st||S.mode!=='station'||CUT.on||FIN.on||tp.moved||tp.skip||TALK.p||TALK.goal) return;
+  if(pickPerson(e)) return; if(swPick(e)) swGo(); });
+addEventListener('pointercancel',e=>{ if(SWG.tap&&e.pointerId===SWG.tap.id) SWG.tap=null; });
+function swHover(e){ const h=!!(e&&SWM&&swFree()&&SWG.st==='idle'&&!hov&&!CL.hov&&coFar(...SWM.seat)<20&&swPick(e)); if(h===!!SWG.hov) return; SWG.hov=h; const ce=$('#cur'), ct=$('#curT'); if(!ce||!ct) return;
+  if(h){ ct.textContent='Swing'; ce.classList.add('big'); } else if(!hov&&!CL.hov) ce.classList.remove('big'); }
+/* keys: on the swing any key stands you up (one held since you sat down does not count); beside it, E or Enter sits you down */
+addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||!SWM) return; const k=e.code, act=k==='Escape'||k==='KeyE'||k==='Enter'||k==='Space';
+  const typing=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
+  if(SWG.st==='sat'||SWG.st==='sit'){ if(SWG.held.has(k)){ if(e.repeat) e.stopImmediatePropagation(); return; } if(/^(Shift|Control|Alt|Meta|Tab)/.test(k)) return;
+    swStand(); if(act&&!typing){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
+  if((k==='KeyE'||k==='Enter')&&!e.repeat&&!typing&&swFree()&&SWG.st==='idle'&&coFar(...SWM.seat)<2.6){ swGo(); e.preventDefault(); e.stopImmediatePropagation(); } },true);
+addEventListener('keyup',e=>{ SWG.held.delete(e.code); });
+addEventListener('wheel',()=>{ if(S.st===st&&S.mode==='station'&&(SWG.st==='sat'||SWG.st==='sit')) swStand(); },{passive:true});
+
+/* ---------- the sea at the tide line: a wave running up and back every few seconds wherever you are by the water ---------- */
+const CO={waveT:3,wd:99};
+function coWaves(dt){ CO.waveT-=dt; if(CO.waveT>0) return; CO.waveT=2.6+Math.random()*2.6; const P=player, sea=WATER+TD.h; let best=99, bx=0, bz=0;
+  for(const r of [.6,1.2,2,3,4.2,5.6]){ for(let k=0;k<12;k++){ const a=k/12*TAU, x=P.x+Math.cos(a)*r, z=P.z+Math.sin(a)*r; if(onJetty(x,z)) continue; if(grid(GH,x,z)<sea-.02){ best=r; bx=x; bz=z; break; } } if(best<99) break; }
+  if(onJetty(P.x,P.z)){ best=Math.min(best,.8); bx=P.x; bz=P.z; } CO.wd=best;
+  if(best<6&&!coQuiet()) A.seaWash&&A.seaWash(.05*(1-best/6.6)*(.65+.35*Math.min(1,WIND.e)),coPan(at(bx,bz,coV).multiplyScalar(R+sea))); }
+
+/* ---------- built with the town (before its mesh is made: the rocks and the bough go into it), stepped after it ---------- */
+function buildCoast(){ try{ tdNow(); CO.rocks=coRocks(); btPlan(); sealMesh(); buildSwing(); }catch(err){ SWG.err=String(err&&err.stack||err); console.warn('coast',err); } }
+{ const up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&BT.boats.length){ CO.tT=(CO.tT||0)-dt; if(CO.tT<=0){ CO.tT=1; tdNow(); } btUpdate(dt,t); sealUpdate(dt,t); swUpdate(dt,t); if(!CUT.on&&!FIN.on) coWaves(dt); } return r; };
+  st.enter=function(){ swReset(); if(!window.__TEST&&!BT.started){ BT.started=true; BT.clk=Date.now()/1000%(BT.P*1e3); } return en.apply(this,arguments); };   // (the boats keep the real time, so they are where they were a moment ago when you come back)
+  st.exit=function(){ swReset(); swTag(false); return ex.apply(this,arguments); };
+  st.finaleEnd=function(){ const r=fe?fe.apply(this,arguments):undefined; swReset(); return r; }; }
+st._dbg.coast={TD,TIDEU,BT,SEAL,SWG,get M(){ return SWM; },CO,SEALR,tdNow,btPose,sealGo,swGo,swSit,swStand,swReset,swPick,gh:(x,z)=>grid(GH,x,z),beach:(x,z)=>grid(GB,x,z),
+  tide(v){ TD.set=v; tdNow(); return TD.h; },
+  get state(){ return {tide:{h:+TD.h.toFixed(3),hw:+TD.hw.toFixed(3),lv:+TD.lv.toFixed(3),scale:TD.sea?+TD.sea.scale.x.toFixed(5):null},rocks:CO.rocks,
+    boats:BT.boats.map(b=>({st:b.st,x:+b.x.toFixed(2),z:+b.z.toFixed(2),sp:+b.sp.toFixed(2),berth:+Math.hypot(b.x-b.B[0],b.z-b.B[1]).toFixed(2),y:+(new T.Vector3().setFromMatrixPosition(b.g.matrix).length()-R).toFixed(3)})),
+    seal:{st:SEAL.st,vis:SEAL.g.visible,x:+SEAL.x.toFixed(2),z:+SEAL.z.toFixed(2),y:+SEAL.y.toFixed(3),hy:+SEAL.hy.toFixed(2),splashes:SEAL.splashes},
+    swing:SWM?{st:SWG.st,ws:+SWG.ws.toFixed(3),amp:+SWG.amp.toFixed(3),phi:+SWG.phi.toFixed(3),creaks:SWG.creaks,seat:SWM.seat.map(v=>+v.toFixed(2)),stand:SWM.stand.map(v=>+v.toFixed(2)),edge:SWM.edge,tag:{on:SWG.tagOn,can:SWG.tagCan}}:{err:SWG.err},waveD:CO.wd}; }};
+/* ===================== (the coast ends here) ===================== */
+
+/* ===================== the homes: lights in the windows, smoke from the chimneys, washing on the line, and welcome back =====================
+   The houses people live in (the plain ones round the loop: not the buildings made for a purpose, and not the two on the
+   west side being made into the pub and the fire station) keep their evenings by the visitor's own clock. As it gets dark
+   the lights come on room by room and house by house: the kitchen and the front room first, the hall for a moment now and
+   then, the bedroom later, and toward midnight they go out one by one; on a dark morning the kitchen is lit again before
+   eight. The curtains are drawn on a lit window, and now and then someone passes behind them. The fires are lit on a cool
+   evening and all day in the depth of winter, most of all on a cold morning, and their smoke goes off with the one wind.
+   Behind each home is a washing line, the clothes on it flapping in the wind; in the rain most of them are taken in, and
+   at night too, leaving the odd thing forgotten on the line.
+   And the town remembers you. The browser keeps a note of your visits in its own storage (nothing is sent anywhere):
+   coming back another time, Ahroon, Michael and Abraham say so first, Bríd at the post office says you're back, Gideon at
+   the café is glad to see you again, and the line under the title says welcome back.
+   The windows are lit in the town's own shader (the kit's glass, told where the homes' windows are and how bright each
+   is); the smoke is the sky alive's puffs; the washing is one mesh in the flags' material, shaped each frame as they are. */
+const HM_OUT=[[-13.3,-3.2],[-10.6,10.4]];   // (the pub's and the fire station's plots: left as they are)
+const HM={homes:[],wins:[],lines:[],m:null,P:null,puffs:0};
+PF.n+=24;   // (the homes' smoke shares the sky alive's puffs: room for it)
+const hmH=k=>fract(Math.sin(k*12.9898+78.233)*43758.5453);
+/* the homes, from what the houses told the town as they were built: their windows (and what room each is) and chimneys */
+function hmFind(){ for(const H of HOUSES){ if(!H.plain||H.M===CAFE.M) continue; const [hx,hz]=loc(coV.setFromMatrixPosition(H.M).normalize());
+    if(HM_OUT.some(([x,z])=>Math.hypot(hx-x,hz-z)<1.2)) continue;
+    const Mi=H.M.clone().invert(), home={H,x:hx,z:hz,i:HM.homes.length,wins:[],chim:null,line:null,fire:0,smT:Math.random()}; HM.homes.push(home);
+    for(const W of SLWIN){ const q=coV2.setFromMatrixPosition(W).applyMatrix4(Mi); if(Math.abs(q.x)>H.w/2+.15||Math.abs(q.z)>H.d/2+.15||q.y<0||q.y>H.h+.6||HM.wins.length>=12) continue;
+      const front=q.z>H.d/2-.1, left=(q.x<0)!==(home.i%2===1);
+      const role=q.y>1.9?'bed':front?(left?'living':'kitchen'):(left?'hall':'bed');
+      const w={home,j:home.wins.length,role,c:new T.Vector3(0,-.01,.05).applyMatrix4(W),right:new T.Vector3().setFromMatrixColumn(W,0).normalize(),k:0,sil:-9,silT:6+Math.random()*16,silS:0,silD:1,silV:1};
+      home.wins.push(w); HM.wins.push(w); }
+    for(const c of SLCHIM){ const q=coV2.copy(c.p).applyMatrix4(Mi); if(Math.abs(q.x)<=H.w/2&&Math.abs(q.z)<=H.d/2){ c.home=true; home.chim=c; } } } }
+/* whether a room's light is on now: in hours of the visitor's evening (past midnight counted on from 24), a little
+   different every day and in every house (hs: how late this house is up tonight) */
+function hmWant(w){ const h=SKY.h, e=h<5?h+24:h, d=SKY.doy, r1=hmH(w.home.i*31+w.j*7+d*.37), r2=hmH(w.home.i*17+w.j*3+d*.91+5), hs=hmH(w.home.i*5+d*.53)*1.2-.4, inn=(a,b)=>e>=a&&e<b;
+  if(w.role==='living') return inn(17.2+r1*1.3,22.7+hs+r2*.8);
+  if(w.role==='kitchen') return inn(16.9+r1*.8,19.4+r2*.9)||inn(21.3+r1*.5,21.55+r1*.5+.25*r2)||(h>=6.5+r1*.6&&h<8.3+r2*.4);
+  if(w.role==='hall') return inn(18.1+r1*.6,18.4+r1*.6)||inn(22.6+hs+r2*.4,22.85+hs+r2*.4);
+  return inn(22.4+hs+r1*.6,23.4+hs+r2*1.1)||(h>=6.8+r1*.4&&h<7.25+r1*.4); }   // the bedroom
+/* the lights: as bright as the dark wants them, coming on and going off in a moment; someone passing behind the curtains of
+   a lit front room or kitchen now and then, sometimes stopping a moment on the way */
+function hmLights(dt){ const dk=1-sstep(-4,5,SKY.e), warm=SL.warmNow;
+  HM.wins.forEach((w,i)=>{ const want=warm?1:hmWant(w)?dk*(.86+.14*hmH(w.home.i+w.j*3)):0; w.k+=(want-w.k)*Math.min(1,dt*(want>w.k?7:4));
+    if(w.k>.35&&(w.role==='living'||w.role==='kitchen')){ if(w.sil<-5){ w.silT-=dt; if(w.silT<=0){ w.silD=Math.random()<.5?1:-1; w.silS=0; w.silV=1/(3.2+Math.random()*1.6); w.silP=Math.random()<.35?.4+Math.random()*.2:-1; w.silW=0; w.sil=-1.5*w.silD; } }
+      else { if(w.silP>0&&w.silS>=w.silP&&w.silW<1.4){ w.silW+=dt; } else w.silS+=dt*w.silV; w.sil=w.silD*(w.silS*3-1.5); if(w.silS>=1){ w.sil=-9; w.silT=12+Math.random()*30; } } }
+    else w.sil=-9;
+    LU.uHW.value[i].set(w.c.x,w.c.y,w.c.z,w.k); LU.uHX.value[i].set(w.right.x,w.right.y,w.right.z,w.sil<-5?-9:w.sil); }); }
+/* how much fire is in the grate: none on a warm day; lit on a cool evening; all day in the depth of winter; most on a cold
+   morning when it is first got going; embers through the night */
+function hmFire(home){ const h=SKY.h, cold=sstep(15,4,SL.temp), w=SL.seas.w, r=hmH(home.i*13+SKY.doy*.61);
+  const when=h>=6.3+r*.5&&h<10?1:h>=16.5||h<.6?.85:h>=10&&h<16.5?.25+.6*w:.12; return clamp(when*(cold*1.1+.35*w),0,1); }
+function hmSmoke(dt){ const cam=st.camP;
+  for(const h of HM.homes){ const c=h.chim; if(!c) continue; h.fire=damp(h.fire,hmFire(h),.6,dt); const f=h.fire;
+    if(f<.06||c.p.distanceToSquared(cam)>48*48) continue; h.smT-=dt; if(h.smT>0) continue; h.smT=lerp(1.15,.3,f)*(.85+.3*Math.random());
+    coV.copy(c.p).normalize(); pfAdd(c.p,coV.multiplyScalar(.28+.14*f),4.4+1.6*f,.15,.62+.4*f,.2+.22*f,.42); HM.puffs++; } }
+
+/* ---------- the washing lines: two posts in the garden behind the house (or beside it), a line between them, and the clothes ---------- */
+/* what hangs on a line: how wide and long each thing is, and its colours across it */
+const HM_CLOTH=[['sheet',.62,.5,['#f4f1ea']],['shirt',.3,.36,['#7fa6c9']],['towel',.28,.44,['#e9744f','#f3ede2','#e9744f']],['sock',.07,.15,['#c94a3a']],['sock',.07,.15,['#c94a3a']],
+  ['shirt',.3,.35,['#f2b3c6']],['towel',.26,.4,['#5f9cc9','#f3ede2']],['sheet',.56,.46,['#e8eef2']]];
+const HM_NX=4, HM_NY=3, HM_V=(HM_NX+1)*(HM_NY+1);
+/* where the line goes: behind the house if it will go there, else beside it (never in front, where the children come out of
+   the door); straight across or at a slant, a shorter line where a long one will not fit; on open grass, clear of
+   everything, and well away from the plots being made into the pub and the fire station */
+function hmPlace(home){ const H=home.H, w=H.w, d=H.d, cands=[];
+  for(let lz=-d/2-.9;lz>=-d/2-2.6;lz-=.25) for(let lx=0;lx<=w/2+1.5;lx+=.25) for(const sx of lx?[1,-1]:[1]) cands.push([sx*lx,lz,0]);
+  for(let lx=w/2+1;lx<=w/2+2.2;lx+=.25) for(let lz=-d/2;lz<=d/2-.3;lz+=.25) for(const sx of [1,-1]) cands.push([sx*lx,lz,1]);
+  cands.sort((a,b)=>a[2]-b[2]||Math.abs(a[0])-Math.abs(b[0])||b[1]-a[1]);
+  /* (across the way the wind mostly blows, where it can be: off the land at the cliff, see the sky alive) */
+  const wa=slFwA(), axes=[[1,0],[0,1],[.71,.71],[.71,-.71]].map(([ax,az])=>{ coV.set(ax,0,az).applyMatrix4(coM.extractRotation(H.M)); return [ax,az,Math.abs(coV.x*Math.cos(wa)+coV.z*Math.sin(wa))]; }).sort((a,b)=>a[2]-b[2]);
+  for(const L of [1.05,.8]) for(const [ax,az] of axes) for(const [cx,cz] of cands){ const pts=[-1,-.5,0,.5,1].map(t=>loc(coV.set(cx+ax*t*L,0,cz+az*t*L).applyMatrix4(H.M).normalize()));
+    if(pts.every(([x,z],i)=>slFree(x,z,i%4===0?.25:.35,1.4)&&HM_OUT.every(([ox,oz])=>Math.hypot(x-ox,z-oz)>4.6)&&!hmFenced(home.x,home.z,x,z))) return pts; }
+  return null; }
+/* a fence between the house and a spot: the garden ends there */
+const hmFenced=(x0,z0,x1,z1)=>{ for(let k=1;k<12;k++){ const x=x0+(x1-x0)*k/12, z=z0+(z1-z0)*k/12; if(OBS.some(o=>o.r<=.15&&o.h<=.95&&Math.hypot(x-o.x,z-o.z)<.3)) return true; } return false; };
+function hmLine(home){ const pts=hmPlace(home); if(!pts) return; const A0=pts[0], B0=pts[4], rr=seeded(41+home.i*7);
+  for(const [x,z] of [A0,B0]){ const M=frameAt(x,z,0,standH(x,z)); cyl(M,'#8f8a80',0,0,0,.035,1.82,'cyl8'); put(M,'sph','#8f8a80',0,1.84,0,.045,.045,.045); const o={x,z,r:.14,h:1.8}; OBS.push(o); slNav(o,true); }
+  const top=(x,z)=>at(x,z).multiplyScalar(R+standH(x,z)+1.76), a3=top(...A0), b3=top(...B0), sag=.09, cur=[];
+  for(let k=0;k<=12;k++){ const t=k/12, p=a3.clone().lerp(b3,t); p.addScaledVector(coV.copy(p).normalize(),-sag*4*t*(1-t)); cur.push(p); }
+  kadd(new T.TubeGeometry(new T.CatmullRomCurve3(cur),14,.008,4,false).toNonIndexed(),'#ece6d8',new T.Matrix4());
+  const mid=a3.clone().lerp(b3,.5), up=mid.clone().normalize(), along=b3.clone().sub(a3).normalize(), L={home,a3,b3,sag,mid,up,along,n:new T.Vector3().crossVectors(up,along).normalize(),items:[],ph:rr()*TAU,flapT:2,x:(A0[0]+B0[0])/2,z:(A0[1]+B0[1])/2};
+  /* along it, a few things pegged out with a gap between, as they come out of the basket; one towel stays out in the rain */
+  const len=a3.distanceTo(b3), order=HM_CLOTH.map((c,i)=>[c,rr()+(c[0]==='sheet'&&i===0?-1:0)]).sort((a,b)=>a[1]-b[1]).map(c=>c[0]); let u=.1/len, kept=false;
+  for(const [kind,wd,ht,cols] of order){ const u1=u+wd/len; if(u1>1-.08/len) continue; const keep=!kept&&kind==='towel'; if(keep) kept=true;
+    L.items.push({kind,u0:u,u1,H:ht,cols,keep,k:1,rank:0}); u=u1+(kind==='sock'?.03:.07)/len; }
+  L.items.forEach((it,i)=>{ it.rank=it.keep?0:i+1; }); home.line=L; HM.lines.push(L); }
+function hmLinesMesh(){ const n=HM.lines.reduce((s,L)=>s+L.items.length,0); if(!n) return; const P=new Float32Array(n*HM_V*3), C=[], I=[]; let b=0;
+  for(const L of HM.lines) for(const it of L.items){ it.b=b; for(let j=0;j<=HM_NY;j++) for(let i=0;i<=HM_NX;i++){ const c=C3R(it.cols[Math.min(it.cols.length-1,Math.floor(i/(HM_NX+1)*it.cols.length))]); C.push(c.r,c.g,c.b);
+      if(i<HM_NX&&j<HM_NY){ const a=b+j*(HM_NX+1)+i; I.push(a,a+1,a+HM_NX+1, a+1,a+HM_NX+2,a+HM_NX+1); } } b+=HM_V; }
+  const g=new T.BufferGeometry(); g.setAttribute('position',new T.BufferAttribute(P,3).setUsage(T.DynamicDrawUsage)); g.setAttribute('normal',new T.BufferAttribute(new Float32Array(n*HM_V*3),3).setUsage(T.DynamicDrawUsage));
+  g.setAttribute('color',new T.Float32BufferAttribute(C,3)); g.setIndex(I);
+  const m=new T.Mesh(g,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fig:true})); m.frustumCulled=false; m.userData.dyn=true; sc.add(m); HM.m=m; HM.P=P; hmShape(0,0,true); }
+/* each thing on the line: hung from it along its sag, swung out from under it by the wind across the line (more at the hem),
+   rippling the way the wind goes, more and quicker the harder it blows; taken in, it is drawn up to the line and gone */
+const hmT=new T.Vector3(), hmD=new T.Vector3(), hmN=new T.Vector3(), hmW=new T.Vector3();
+function hmShape(dt,t,all){ if(!HM.m) return; const cam=st.camP, e=Math.min(WIND.e,1.1), outN=WX.rain>.3?1:SKY.night>.6?2:99, warm=SL.warmNow; let dirty=!!all;
+  for(const L of HM.lines){ for(const it of L.items){ const want=warm||it.rank<outN?1:0; if(it.k!==want){ it.k=want>it.k?Math.min(1,it.k+dt/1.2):Math.max(0,it.k-dt/1.2); dirty=true; } }
+    if(!all&&!warm&&L.mid.distanceToSquared(cam)>42*42) continue; dirty=true;
+    slWindAt(L.mid,hmW); const wp=hmW.dot(L.n), lean=clamp(wp*e*1.25,-1.15,1.15), amp=.018+.05*Math.min(e,1), sp=2.6+7*Math.min(e,1); L.lean=lean;
+    for(const it of L.items){ for(let j=0,k=it.b*3;j<=HM_NY;j++) for(let i=0;i<=HM_NX;i++,k+=3){ const u=lerp(it.u0,it.u1,i/HM_NX), v=j/HM_NY, hang=it.H*v*it.k;
+        hmT.copy(L.a3).lerp(L.b3,u).addScaledVector(L.up,-L.sag*4*u*(1-u));
+        const a=lean*(.78+.22*v)+amp*2.6*Math.sin(t*sp*.55+u*9+L.ph)*v, wv=amp*Math.sin(u*15-t*sp+v*2.2+L.ph)*v*it.k;
+        hmD.copy(L.up).multiplyScalar(-Math.cos(a)).addScaledVector(L.n,Math.sin(a)); hmN.copy(L.n).multiplyScalar(Math.cos(a)).addScaledVector(L.up,Math.sin(a));
+        hmT.addScaledVector(hmD,hang).addScaledVector(hmN,wv); HM.P[k]=hmT.x; HM.P[k+1]=hmT.y; HM.P[k+2]=hmT.z; } } }
+  if(dirty){ const g=HM.m.geometry; g.attributes.position.needsUpdate=true; g.computeVertexNormals(); } }
+/* the wind in the washing: near a line on a breezy day, a few soft flaps now and then */
+function hmFlaps(dt){ const e=WIND.e; if(e<.3||coQuiet()) return;
+  for(const L of HM.lines){ const d=coFar(L.x,L.z); if(d>5.5||!L.items.some(it=>it.k>.5)) continue; L.flapT-=dt; if(L.flapT>0) continue; L.flapT=(1.4+Math.random()*2.2)/(.6+e);
+    A.washFlap&&A.washFlap(.03*(1-d/5.5)*Math.min(1,e*1.3),coPan(L.mid),Math.min(1,e)); } }
+
+/* ---------- welcome back: the browser's note of your visits (its own storage, never sent anywhere; read and written with
+   care, as a private window or blocked storage may refuse it). A visit is a new one after twenty minutes away, so a
+   reload is the same visit, and the greeting it had ---------- */
+const WB={read:false,back:false,n:0,last:0,key:'heloria.earth.visits',gap:20*60e3,g0:null};
+function wbRead(force){ if(WB.read&&!force) return; WB.read=true; let o=null; try{ const s=localStorage.getItem(WB.key); o=s?JSON.parse(s):null; }catch(e){ o=null; }
+  const n=o&&isFinite(o.n)?Math.max(0,Math.floor(o.n)):0, last=o&&isFinite(o.t)?+o.t:0, now=Date.now(), fresh=now-last>WB.gap;
+  WB.n=n; WB.last=last; WB.back=fresh?n>0:!!(o&&o.b); MET.back=WB.back;
+  try{ localStorage.setItem(WB.key,JSON.stringify({n:fresh?n+1:Math.max(1,n),t:now,b:WB.back})); }catch(e){} }
+/* and the town's small signs of it: the line under the title, and Gideon at the café (the three of us and Bríd say it
+   themselves: see what each of us says, and Bríd at her counter) */
+function wbSigns(){ if(WB.back) $('#crLede',el).textContent='Welcome back. Walk over and say hello.';
+  const g=REGS[0]; if(g&&g.L0){ if(WB.g0==null) WB.g0=g.L0[0]; g.L0[0]=WB.back?'You\'re back! Gideon again. Good to see you.':WB.g0; } }
+
+/* ---------- built with the town (before its mesh is made: the posts and the lines go into it), stepped after it ---------- */
+function buildHomes(){ try{ kitTo(); hmFind(); HM.homes.forEach(hmLine); hmLinesMesh(); }catch(err){ HM.err=String(err&&err.stack||err); console.warn('homes',err); } }
+{ const up=st.update, en=st.enter;
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&!HM.err){ hmLights(dt); hmSmoke(dt); hmShape(dt,t); hmFlaps(dt); } return r; };
+  st.enter=function(){ wbRead(); const r=en.apply(this,arguments); wbSigns(); return r; }; }
+st._dbg.homes={HM,WB,hmWant,hmFire,wbRead,wbSigns,greet(){ PO.seen=false; poGreet(); return TALK.txt; },
+  get state(){ return {homes:HM.homes.map(h=>({x:+h.x.toFixed(2),z:+h.z.toFixed(2),wins:h.wins.length,chim:!!h.chim,fire:+h.fire.toFixed(2),line:!!h.line})),
+    wins:HM.wins.map(w=>({role:w.role,k:+w.k.toFixed(2),sil:+w.sil.toFixed(2)})),lit:HM.wins.filter(w=>w.k>.4).length,puffs:HM.puffs,
+    lines:HM.lines.map(L=>({x:+L.x.toFixed(2),z:+L.z.toFixed(2),out:L.items.filter(it=>it.k>.5).length,n:L.items.length,lean:+(L.lean||0).toFixed(2)})),back:WB.back,n:WB.n,err:HM.err||null}; }};
+/* ===================== (the homes end here) ===================== */
 })();
