@@ -1138,6 +1138,24 @@ const A=(()=>{
         b.type='bandpass'; b.frequency.value=1250*lo; b.Q.value=6; a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.08); a.gain.setValueAtTime(g*.8,t0+dur*.6); a.gain.exponentialRampToValueAtTime(.0001,t0+dur);
         o.connect(b); b.connect(a); a.connect(d); o.start(t0); l.start(t0); o.stop(t0+dur+.05); l.stop(t0+dur+.05); }
       else { ciT(d,100*v*lo,.2,g*.75,'sine',60*v,0,.004); ciN(d,.1,g*.5,560*lo,140,'lowpass',.9,0,.004); ciN(d,.025,g*.6,3600*v,2400,'bandpass',2.5,.09,.002); } },
+    /* ---------- the building site on Earth (see the town grows): a few hammer taps, a saw, the mixer turning. Each is
+       short and soft and made live, kept low and dark (a phone plays a bright band of noise as static), about as loud as a
+       footstep at most; never a voice. g how loud (the station makes it softer with distance), p left or right ---------- */
+    /* a few taps of a hammer on a nail: a dull knock and the short tick of the nail, the last one a little harder (n taps, sp apart) */
+    siteTap(g=.026,p=0,n=3,sp=.32){ if(!on||muted||!ctx) return; const d=ciDst(p);
+      for(let i=0;i<n;i++){ const dl=i*sp*vr(.05), k=i===n-1?1:.72*vr(.12), v=vr(.05);
+        ciT(d,190*v,.075,g*k,'triangle',115*v,dl,.002); ciN(d,.03,g*.45*k,1050*v,650,'bandpass',2.2,dl,.001); } },
+    /* a handsaw through a board: a rasp on each stroke, the push a little harder and higher than the draw (n strokes) */
+    siteSaw(g=.04,p=0,n=4){ if(!on||muted||!ctx) return; const d=ciDst(p), sp=.27*vr(.05);
+      for(let i=0;i<n;i++){ const push=i%2===0, f=(push?720:590)*vr(.06); ciN(d,sp*.92,g*(push?1:.68),f,f*1.22,'bandpass',2.4,i*sp,.07); } },
+    /* the mixer turning: the drum's low rumble swelling and easing as it goes round, the mix tumbling over inside it, and
+       the little motor's hum under it all (dur seconds) */
+    siteMix(g=.026,p=0,dur=2.6){ if(!on||muted||!ctx) return; const d=ciDst(p), t0=ctx.currentTime, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(), lfo=ctx.createOscillator(), lg=ctx.createGain(), am=ctx.createGain();
+      b.type='lowpass'; b.frequency.value=280*vr(.08); b.Q.value=.8; lfo.frequency.value=1.5; lg.gain.value=.35; am.gain.value=.65; lfo.connect(lg); lg.connect(am.gain);
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.4); a.gain.setValueAtTime(g,t0+dur-.6); a.gain.linearRampToValueAtTime(0,t0+dur);
+      s.connect(b); b.connect(am); am.connect(a); a.connect(d); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); lfo.start(t0); lfo.stop(t0+dur+.05);
+      for(let k=0,n0=Math.floor((dur-.5)/.42);k<n0;k++) ciN(d,.1,g*.4*vr(.2),460*vr(.1),280,'lowpass',.9,.25+k*.42+Math.random()*.06,.012);
+      ciT(d,62*vr(.03),dur,g*.22,'triangle',0,0,.35); },
     /* ---------- the coast and the homes on Earth: the sea at the tide line, a boat's engine going by, the seal going into
        the water, the swing's ropes on the bough, the wind in the washing. Each is one short, soft sound made live, about as
        loud as a footstep, and kept low and dark (a phone plays a bright band of noise as static); g how loud (the station

@@ -3261,9 +3261,20 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   P.speed=damp(P.speed,want,8,dt);
   if(P.speed>.01){ const u0=P.u.clone(), f0=P.f.clone(); walk(P,P.speed*dt); let [x,z]=loc(P.u);
     if(!walkable(x,z)){ P.u.copy(u0); P.f.copy(f0); P.speed*=.2; if(P.path) P.stuck=(P.stuck||0)+.4; else P.tgt=null; }
-    else { let tx=null,tz=null; if(P.tgt) [tx,tz]=loc(V.copy(P.tgt).normalize());
-      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(tx!==null&&!P.path&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
-      if(walkable(x,z)) at(x,z,P.u); else P.u.copy(u0); tang(P.u,P.f,P.f); } }
+    else { let tx=null,tz=null, held=null; if(P.tgt) [tx,tz]=loc(V.copy(P.tgt).normalize());
+      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(o.tl) held=o; if(tx!==null&&!P.path&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
+      if(walkable(x,z)) at(x,z,P.u); else P.u.copy(u0); tang(P.u,P.f,P.f);
+      /* held against something that moves (a van or the bus stopped to let you by, someone walking) while walking a way you
+         were given: the way runs through it, and it is waiting for you. Step round it, the way the town's walkers step round
+         you, on the side nearer where you are going */
+      if(held&&P.path&&!ix&&!iz){ P.held=(P.held||0)+dt; if(P.held>.7){ P.held=0; const [qx,qz]=loc(P.u), ox=qx-held.x, oz=qz-held.z, ol=Math.hypot(ox,oz)||1, px=-oz/ol, pz=ox/ol,
+          [nx,nz]=P.path[P.path.length-1], sg=((nx-qx)*px+(nz-qz)*pz)>=0?1:-1;
+          /* (where you were going is where it stands, parked: close enough, you are there) */
+          if(Math.hypot(nx-held.x,nz-held.z)<held.r+.7&&Math.hypot(nx-qx,nz-qz)<held.r+1.6){ P.path=null; P.tgt=null; } else {
+          const free=(sx,sz)=>walkable(sx,sz)&&OBS.every(o=>Math.hypot(sx-o.x,sz-o.z)>o.r+.3);
+          let step=null; for(const k of [1.1,1.7,2.4]) for(const s_ of [sg,-sg]){ const sx=qx+px*s_*k+ox/ol*.3, sz=qz+pz*s_*k+oz/ol*.3; if(!step&&free(sx,sz)) step=[sx,sz]; }
+          if(step){ P.path.unshift(step); P.tgt=at(step[0],step[1]).multiplyScalar(R); P.rounds=(P.rounds||0)+1; } } } }
+      else P.held=Math.max(0,(P.held||0)-dt); } }
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
   /* walked over to someone: talk on arrival. Held up on the way, or they have moved: find the way again; after a few tries,
      close enough is close enough */
@@ -10130,4 +10141,239 @@ st._dbg.pier={PR,TR,TRK,PRM,onPier,trCrossing,trPlan,trRun,prAt,
   get state(){ return {st:TR.st,sN:+TR.sN.toFixed(2),v:+TR.v.toFixed(2),dir:TR.dir,next:+TR.next.toFixed(1),dep:+TR.dep.toFixed(1),clk:+TR.clk.toFixed(1),since:+(TR.clk-TR.t0).toFixed(1),stops:TR.stops,arrive:TR.arrive.slice(-4),
     waits:TR.waits,blocked:TR.blocked,minGap:+TR.minGap.toFixed(2),clacks:TR.clacks,sHalt:+PR.sHalt.toFixed(2),sC:+PR.sC.toFixed(2),len:+TRK.len.toFixed(2),sounds:TR.n||{},opened:PRM.opened||0,err:PRM.err}; }};
 /* ===================== (the pier and the train end here) ===================== */
+/* ===================== the town grows: a building for each of our projects, and a building site for what is next =====================
+   Every Heloria Labs project gets a building in town, and they are all listed in one place, TOWN_GROWS, just below. Each
+   entry is one plot: where it is and which way it faces, how big it is, its colours, what its sign says, and how far along
+   it is. 'built' puts a finished building on the plot, made with the town's own house kit (the same toon walls, roof,
+   door and windows as the homes, inked the same, its windows lit at night as theirs are) and a sign over its door. 'next'
+   puts up a building site instead: a fence of site panels with a sign on it, blockwork going up with the timber frame of
+   the walls and the gable on it, scaffolding along its front with planks at two lifts, a blue tarp on the scaffold that
+   bellies and ripples in the town's one wind, a cement mixer, a pallet of blocks and a heap of sand, and one builder in a
+   hard hat and a hi-vis vest. By day, but not on a Sunday (and only on a Saturday morning), the site is at work now and
+   then: a few hammer taps, a saw, the mixer turning (the builder's arm and the mixer's drum go with them), each as loud as
+   a footstep at most and softer the further off you are (see the core). At night and on Sundays it is quiet and the
+   builder has gone home.
+   A plot is kept for the town to grow onto: as the town is made, the trees, bushes and rocks that would grow on it are
+   drawn from the same numbers as ever (so everything else grows exactly where it always did) and then left out, and the
+   grass on it is cut. A plot that would stand on a road, a path, the shore, a person or anything built is not built on
+   (st._dbg.grow says why). Its solids go into the town's list and onto the walking grid as the pub's do, so you, the
+   three of us and everyone in town go round it.
+   (Kríos, Aetos, Ogive and Pharos are left as they are: each is a sculpture with moving parts, a card and our lines, not
+   a building, so they are not in this list) */
+/* THE LIST. Add a project here.
+     id      a short name of its own, for the code
+     name    the project's name
+     x, z    the middle of its plot, in metres from the square (the map in the town's notes, at the top)
+     yaw     which way its front faces, in radians (0 faces +z; yawTo(x,z,0,0) would face the square)
+     w, d    the plot: its width along its front and its depth (a finished building fills it, less a little all round)
+     h       how tall its walls are, finished
+     wall, roof   its colours
+     sign, sub    what its sign says, and the smaller line under it
+     status  'built': the finished building; 'next': a building site, until it is built */
+const TOWN_GROWS=[
+  {id:'next',name:'Coming soon',x:-12.3,z:-7.75,yaw:1.15,w:3.2,d:2.4,h:2.4,wall:'#e8dcc2',roof:'#4f6f8f',sign:'COMING SOON',sub:'Heloria Labs',status:'next'},
+];
+const TG={ok:false,err:null,skip:[],cleared:[],plots:{},mat:null,n:{siteTap:0,siteSaw:0,siteMix:0},g:{},ink:[]};
+const tgV=new T.Vector3(), tgV2=new T.Vector3(), tgV3=new T.Vector3(), tgM=new T.Matrix4(), tgW=new T.Vector3();
+/* how far (x, z) is from a plot's edge, in metres (0 inside it) */
+function tgRectD(e,x,z){ const c=Math.cos(e.yaw), s=Math.sin(e.yaw), dx=x-e.x, dz=z-e.z, lx=dx*c-dz*s, lz=dx*s+dz*c;
+  return Math.hypot(Math.max(Math.abs(lx)-e.w/2,0),Math.max(Math.abs(lz)-e.d/2,0)); }
+/* a place on a plot (lx, lz in its own frame: x along its front, +z out of it) on the town's map */
+const tgXZ=(e,lx,lz)=>{ const c=Math.cos(e.yaw), s=Math.sin(e.yaw); return [e.x+lx*c+lz*s,e.z-lx*s+lz*c]; };
+
+/* ---------- the plots kept clear: what would grow on one is grown as ever (the same random numbers are drawn, and its
+   solid stands in the town's list while the rest is laid out round it, so nothing else moves), but is drawn into nothing
+   and taken off the list once the town is made. reach: how far a tree's crown (a bush, a rock) spreads from its middle ---------- */
+{ const keep=(fn,reach)=>function(x,z,s=1){ if(!TOWN_GROWS.some(e=>tgRectD(e,x,z)<reach*s+.3)) return fn.apply(this,arguments);
+    const k0=KP, k1=KN, k2=KC, o0=OBS.length, t0=TREES.length; KP=[]; KN=[]; KC=[];
+    try{ return fn.apply(this,arguments); } finally { KP=k0; KN=k1; KC=k2; TG.cleared.push(...OBS.slice(o0)); TREES.length=t0; } };
+  tree=keep(tree,1); pine=keep(pine,.8); bush=keep(bush,.45); rock=keep(rock,.5); }
+
+/* ---------- whether a plot is free: on ground you can walk on, off the roads and the paths, clear of everyone and of
+   everything built (what grew there is already gone) ---------- */
+function tgCheck(e,mine){ const why=[], pe=new Set(people.map(p=>p.ob));
+  for(let a=-.5;a<=.501;a+=.1) for(let b=-.5;b<=.501;b+=.1){ const [x,z]=tgXZ(e,a*(e.w+.3),b*(e.d+.3));
+    if(!walkable(x,z)||isle(at(x,z))<.02) why.push('shore'); else if(roadDist(x,z)<RW+SW+.05) why.push('road'); else if(pathDist(x,z)<.05) why.push('path'); }
+  for(const o of OBS){ if(pe.has(o)||o.tl||(mine&&mine.has(o))) continue; if(tgRectD(e,o.x,o.z)<o.r+.12) why.push('solid at '+o.x.toFixed(1)+','+o.z.toFixed(1)); }
+  for(const o of MKT.obs) if(tgRectD(e,o.x,o.z)<o.r0+.12) why.push('market');
+  for(const p of people) if(tgRectD(e,p.x,p.z)<2.5) why.push('near '+p.first);
+  for(const c of CLEAR()) if(tgRectD(e,c[0],c[1])<2) why.push('a spot kept clear');
+  for(const p of LP.piles) if(tgRectD(e,p.x,p.z)<.8) why.push('leaves');
+  for(const f of FLAGS) if(tgRectD(e,f.x,f.z)<.5) why.push('flag');
+  if(tgRectD(e,DM.x,DM.z)<2||tgRectD(e,ICE.x,ICE.z)<2) why.push('busker or cart');
+  for(const o of TOWN_GROWS){ if(o===e||!TG.plots[o.id]||!TG.plots[o.id].up) continue; if(tgOverlap(e,o)) why.push('plot '+o.id); }
+  return [...new Set(why)]; }
+const tgOverlap=(a,b)=>{ for(let i=-.5;i<=.501;i+=.125) for(let j=-.5;j<=.501;j+=.125){ const [x,z]=tgXZ(a,i*a.w,j*a.d); if(tgRectD(b,x,z)<.05) return true; } return false; };
+
+/* ---------- the parts: everything that never moves goes into a kit of the plot's own, drawn with the town's kit material
+   (the homes' toon, the ink, and the kit's glass lit at night) ---------- */
+function tgKitMat(){ if(!TG.mat){ TG.mat=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); TG.mat.uniforms.uKit={value:1}; } return TG.mat; }
+function tgKitMesh(id,g){ kitTo(); const k=KITS[id]; if(!k||!k.P.length){ delete KITS[id]; return null; } const geo=kgeo(id); delete KITS[id];
+  const m=new T.Mesh(geo,tgKitMat()); m.frustumCulled=false; m.userData.cast=true; g.add(m); return m; }
+/* a sign, in the plot's group (the town's own sign, see the signs) */
+function tgSign(g,M,txt,o){ const m=sign(M,txt,o); sc.remove(m); g.add(m); return m; }
+
+/* ---------- a finished building: one of the town's houses, its sign over the door ---------- */
+function tgBuilt(e,P){ const g=P.g, back=.1, [x,z]=tgXZ(e,0,-back), w=e.w-.3, d=e.d-.3-back*2, h=e.h||2.4, o0=OBS.length;
+  kitTo('tg_'+e.id);
+  const M=house(x,z,e.yaw,{wall:e.wall,roof:e.roof||'#59646a',trim:e.trim||'#f6f1e7',door:e.door||'#4f6f8f',w,d,h,chim:!!e.chim,win:[-w*.33,w*.33]});
+  HOUSES[HOUSES.length-1].plain=false;   // (made for a purpose, not somebody's home)
+  P.kit=tgKitMesh('tg_'+e.id,g);
+  P.sign=tgSign(g,sub(M,0,0,d/2+.07),e.sign||e.name,{sub:e.sub,w:Math.min(w*.42,1.8),h:.42,y:h-.38,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
+  P.obs=OBS.slice(o0); P.M=M; P.kind='built'; }
+
+/* ---------- the building site ---------- */
+const TG_BLOCK=['#cfcac0','#c4beb2','#d6d1c7'], TG_WOOD='#c9a06a', TG_POLE='#9aa3ab', TG_PLANK='#b48a5c', TG_TARP=['#3d74b0','#356aa3','#2f5f93'];
+/* the builder: the figure everyone in town is made with, in a white hard hat and a hi-vis vest with its silver bands */
+HAIR.hardhat=(B,f,c)=>{ HAIR.short(B,f,'#3a2a1e'); const dome=new T.SphereGeometry(1,16,7,0,TAU,0,Math.PI/2).toNonIndexed();
+  B.geo(dome,c,fM.compose(fT.set(0,.05,-.004),fQ.identity(),fS.set(.186,.17,.198)));
+  B.put(FG.can,c,0,.052,.014,.212,.014,.236);   // the brim, longer at the front
+  B.put(FG.box,tint(c,-.1),0,.214,-.004,.034,.024,.3); };   // a ridge over the top
+const TG_LOOK={shirt:'#3d4a5c',crew:true,pants:'#4a4f57',shoes:'#6b5038',sole:'#3a2c22',skin:'#d9a882',hair:'hardhat',hairC:'#f3f0e6',mouth:'smile',build:1.05,depth:.74};
+function tgVest(g,o){ const d=g.userData, W=o.build||1, D=(o.depth||.7)/.7, P=part();
+  P.grid(tube([[.5,.15,.106],[.56,.149,.105],[.65,.143,.103],[.79,.159,.115],[.86,.173,.117],[.9,.195,.111],[.932,.2,.1],[.95,.18,.086]].map(([y,x,z])=>[y,x*W,z*D]),20),'#d4df3a',true);
+  for(const y of [.6,.7]) P.grid(tube([[y,.149*W,.108*D],[y+.03,.15*W,.109*D]],20),'#e6eaec',true);
+  d.body.add(P.mesh());
+  /* and a claw hammer in the right hand */
+  const H=part(); H.put(FG.box,'#7a5236',0,-.2,.08,.018,.018,.15); H.put(FG.box,'#5d6066',0,-.2,.155,.026,.075,.03); H.put(FG.box,'#5d6066',0,-.235,.14,.02,.02,.04,.5); d.fore[0].add(H.mesh()); }
+
+function tgSite(e,P){ const g=P.g, M=frameAt(e.x,e.z,e.yaw), W2=e.w/2-.06, D2=e.d/2-.06, rr=seeded(301), o0=OBS.length;
+  kitTo('tg_'+e.id);
+  /* the ground, trodden bare, and the slab the walls stand on */
+  box(M,'#a3967f',0,-.012,0,W2*2+.04,.03,D2*2+.04); box(M,'#bdb6aa',-.38,0,-.4,1.92,.1,1.28);
+  /* the blockwork, in courses, each block a little different and every other course set over by half a block. back:
+     full height, left: full with the gable to come, right: stepped down toward the front, front: low, with the doorway */
+  const X0=-1.3, X1=.54, Z0=-1.02, Z1=.22, BL=.37, BH=.2, BT=.14, y0=.1;
+  const course=(ax,a0,a1,c,k,o={})=>{ const L=a1-a0, sh=(k%2)*BL/2; for(let p=a0-sh;p<a1-.01;p+=BL){ const q0=Math.max(p,a0), q1=Math.min(p+BL,a1); if(q1-q0<.06) continue;
+      if(o.gap&&q1>o.gap[0]&&q0<o.gap[1]) continue; const m=(q0+q1)/2, col=TG_BLOCK[Math.floor(rr()*3)];
+      if(ax==='x') box(M,col,m,y0+k*BH,c,q1-q0-.012,BH-.012,BT); else box(M,col,c,y0+k*BH,m,BT,BH-.012,q1-q0-.012); } };
+  for(let k=0;k<6;k++) course('x',X0,X1,Z0+BT/2,k);
+  for(let k=0;k<6;k++) course('z',Z0+BT,Z1,X0+BT/2,k);
+  for(let k=0;k<4;k++) course('z',Z0+BT,Z1-(k>1?(k-1)*BL:0),X1-BT/2,k);
+  for(let k=0;k<3;k++) course('x',X0+BT,X1-BT,Z1-BT/2,k,{gap:[-.62,-.14]});
+  /* the timber: a post at each corner, the plates along the back, the front and the left, the gable's rafters and their ties, joists */
+  const top=y0+6*BH, pt=2.3;
+  for(const [px,pz] of [[X0+.07,Z0+.07],[X1-.07,Z0+.07],[X0+.07,Z1-.07],[X1-.07,Z1-.07]]) box(M,TG_WOOD,px,px>0&&pz>0?y0+2*BH:top,pz,.08,pt-(px>0&&pz>0?y0+2*BH:top),.08);
+  box(M,TG_WOOD,(X0+X1)/2,pt,Z0+.07,X1-X0,.08,.08); box(M,TG_WOOD,(X0+X1)/2,pt,Z1-.07,X1-X0,.08,.08); box(M,TG_WOOD,X0+.07,pt,(Z0+Z1)/2,.08,.08,Z1-Z0);
+  { const ridge=pt+.62, zm=(Z0+Z1)/2, hl=(Z1-Z0)/2+.06, L=Math.hypot(hl,ridge-pt), a=Math.atan2(ridge-pt,hl);
+    for(const sx of [X0+.07,X0+.62]){ box(M,TG_WOOD,sx,(pt+ridge)/2-.035,zm-hl/2,.07,.07,L,0,-a); box(M,TG_WOOD,sx,(pt+ridge)/2-.035,zm+hl/2,.07,.07,L,0,a); box(M,TG_WOOD,sx,pt+.3,zm,.06,.06,Z1-Z0-.3); }
+    box(M,TG_WOOD,X0+.34,ridge-.02,zm,.6,.06,.06); }
+  for(let k=0;k<3;k++) box(M,TG_WOOD,X0+.5+k*.42,pt+.02,(Z0+Z1)/2,.06,.06,Z1-Z0-.1);
+  /* the scaffolding along the front: standards on base plates, ledgers and transoms, boards at two lifts, guard rails and
+     toe boards on the outside, a brace across its face, and a ladder up to the first lift */
+  const SZ0=Z1+.1, SZ1=Z1+.42, SX=[X0+.02,-.38,X1], LIFT=[.98,1.9], ST=2.5;
+  for(const sx of SX) for(const sz of [SZ0,SZ1]){ box(M,'#7d8489',sx,0,sz,.09,.02,.09); cyl(M,TG_POLE,sx,.02,sz,.022,ST,'cyl8'); }
+  for(const y of LIFT){ for(const sz of [SZ0,SZ1]) put(M,'cyl8',TG_POLE,(SX[0]+SX[2])/2,y,sz,.018,SX[2]-SX[0]+.1,.018,0,0,Math.PI/2);
+    for(const sx of SX) put(M,'cyl8',TG_POLE,sx,y-.04,(SZ0+SZ1)/2,.018,SZ1-SZ0+.1,.018,0,Math.PI/2,0);
+    for(let k=0;k<3;k++) box(M,k===1?'#a87f53':TG_PLANK,(SX[0]+SX[2])/2,y+.02,SZ0+.05+k*.105,SX[2]-SX[0]+.12,.035,.1);
+    box(M,TG_PLANK,(SX[0]+SX[2])/2,y+.055,SZ1+.02,SX[2]-SX[0]+.1,.12,.025);
+    put(M,'cyl8',TG_POLE,(SX[0]+SX[2])/2,y+.48,SZ1+.03,.016,SX[2]-SX[0]+.1,.016,0,0,Math.PI/2); }
+  { const dx=SX[2]-SX[0], dy=LIFT[1]-.1, L=Math.hypot(dx,dy); put(M,'cyl8',TG_POLE,(SX[0]+SX[2])/2,.1+dy/2,SZ1+.035,.015,L,.015,0,0,-Math.atan2(dx,dy)); }
+  { const lx=X0-.14, lean=.16; for(const s of [-1,1]) put(M,'cyl8','#8c7a5c',lx,(LIFT[0]+.5)/2,(SZ0+SZ1)/2+s*.13,.016,LIFT[0]+.5,.016,0,0,-lean);
+    for(let k=1;k<6;k++){ const y=k*.25; put(M,'cyl8','#8c7a5c',lx+Math.sin(lean)*(y-(LIFT[0]+.5)/2),y,(SZ0+SZ1)/2,.012,.27,.012,0,Math.PI/2,0); } }
+  /* the pallet of blocks, the mixer's frame and wheels (its drum turns: see below), the heap of sand with a shovel in it */
+  { const px=1.06, pz=-.55; for(const s of [-1,0,1]) box(M,'#9c7a50',px,0,pz+s*.2,.6,.06,.07); for(let k=0;k<5;k++) box(M,TG_PLANK,px-.24+k*.12,.06,pz,.09,.025,.5);
+    for(let j=0;j<3;j++) for(let a=0;a<2;a++) for(let b=0;b<2;b++) box(M,TG_BLOCK[(a+b+j)%3],px+(a-.5)*.27,.085+j*.2,pz+(b-.5)*.22,.36,.188,.2,(rr()-.5)*.06); }
+  const MX=[1.06,.66];
+  { const [mx,mz]=MX; box(M,'#c45f2a',mx,.18,mz,.08,.34,.08); box(M,'#c45f2a',mx-.05,.12,mz,.5,.05,.06,0,0,.12); for(const s of [-1,1]){ put(M,'cyl','#2a2826',mx-.24,.11,mz+s*.17,.11,.05,.11,0,Math.PI/2,0); put(M,'cyl','#c9cdca',mx-.24,.11,mz+s*.2,.05,.02,.05,0,Math.PI/2,0); }
+    put(M,'cyl8','#5d6066',mx-.24,.11,mz,.02,.4,.02,0,Math.PI/2,0); box(M,'#c45f2a',mx+.22,0,mz,.05,.32,.05,0,0,-.35); }
+  { const [sx,sz]=[.3,.8]; put(M,'blob','#d6c08e',sx,.02,sz,.34,.18,.24); put(M,'blob','#cdb683',sx+.14,.0,sz-.05,.18,.1,.15); put(M,'cyl8','#8a5a3c',sx-.06,.42,sz+.02,.016,.6,.016,0,.15,.42); box(M,'#6b6e70',sx+.04,.12,sz+.02,.12,.14,.02,0,.15,.42); }
+  /* the fence of site panels round it all: a galvanised frame and its mesh on a block at each foot, the gate in front */
+  const panel=(x0,z0,x1,z1)=>{ const L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.82)), ry=Math.atan2(-(z1-z0),x1-x0);
+    for(let k=0;k<n;k++){ const t0=k/n, t1=(k+1)/n, cx=x0+(x1-x0)*(t0+t1)/2, cz=z0+(z1-z0)*(t0+t1)/2, pl=L/n-.03, Q=sub(M,cx,0,cz,ry);
+      box(Q,'#a7aeb2',0,.1,0,pl,.025,.025); box(Q,'#a7aeb2',0,.9,0,pl,.025,.025); for(const s of [-1,1]) box(Q,'#a7aeb2',s*pl/2,.08,0,.025,.86,.025);
+      for(let q=1;q<5;q++) box(Q,'#bcc2c5',-pl/2+q*pl/5,.12,0,.008,.78,.008); box(Q,'#bcc2c5',0,.5,0,pl,.008,.008);
+      if(k===0) box(Q,'#d9d3c6',-pl/2,0,0,.14,.08,.22); box(Q,'#d9d3c6',pl/2,0,0,.14,.08,.22); } };
+  panel(-W2,D2,W2,D2); panel(W2,D2,W2,-D2); panel(W2,-D2,-W2,-D2); panel(-W2,-D2,-W2,D2);
+  /* its sign, on the panels in front, clear of the pole by the road */
+  P.sign=tgSign(g,sub(M,-.52,0,D2+.05),e.sign||'COMING SOON',{sub:e.sub||'Heloria Labs',w:1.36,h:.5,y:.8,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
+  P.kit=tgKitMesh('tg_'+e.id,g);
+  /* solid: the fence all round (close enough that nobody slips between), and the frame and the scaffold inside, tall, so
+     the camera comes in for it as it does for a house */
+  const ring=(x0,z0,x1,z1)=>{ const L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.ceil(L/.42)); for(let k=0;k<=n;k++){ const t=k/n; obsAt(M,x0+(x1-x0)*t,z0+(z1-z0)*t,.2,1); } };
+  ring(-W2,D2,W2,D2); ring(W2,D2-.42,W2,-D2+.42); ring(W2,-D2,-W2,-D2); ring(-W2,-D2+.42,-W2,D2-.42);
+  obsAt(M,-.95,-.35,.72,2.8); obsAt(M,.15,-.35,.72,2.8);
+  P.obs=OBS.slice(o0); P.M=M; P.kind='site';
+  /* the mixer's drum: on its own, tipped up toward the front, so it can turn */
+  { const D=part(); D.put(FG.can,'#e2793a',0,0,0,.2,.3,.2); D.put(FG.cone,'#e2793a',0,.25,0,.2,.2,.2); D.put(FG.can,'#c45f2a',0,.36,0,.09,.04,.09); D.put(FG.can,'#c45f2a',0,-.16,0,.21,.03,.21);
+    for(let k=0;k<4;k++){ const a=k/4*TAU; D.put(FG.box,'#c45f2a',Math.cos(a)*.2,.02,Math.sin(a)*.2,.03,.26,.03,0,-a); }
+    const m=D.mesh(); m.userData.dyn=true; const gd=new T.Group(); gd.matrixAutoUpdate=false; gd.matrix.copy(M).multiply(tgM.compose(tgV.set(MX[0]+.04,.52,MX[1]),new T.Quaternion().setFromEuler(new T.Euler(.7,0,0)),tgV2.set(1,1,1)));
+    gd.add(m); g.add(gd); P.drum=m; P.spin=0; }
+  /* the tarp on the scaffold's right bay, tied along the top rail and at its foot, bellying with the wind */
+  { const NX=6, NY=5, n=(NX+1)*(NY+1), Pp=new Float32Array(n*3), C=[], I=[];
+    for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ const c=C3R(j===0||j===NY?TG_TARP[2]:TG_TARP[(i+j)%2?0:1]); C.push(c.r,c.g,c.b); if(i<NX&&j<NY){ const a=j*(NX+1)+i; I.push(a,a+1,a+NX+1, a+1,a+NX+2,a+NX+1); } }
+    const geo=new T.BufferGeometry(); geo.setAttribute('position',new T.BufferAttribute(Pp,3).setUsage(T.DynamicDrawUsage)); geo.setAttribute('normal',new T.BufferAttribute(new Float32Array(n*3),3).setUsage(T.DynamicDrawUsage));
+    geo.setAttribute('color',new T.Float32BufferAttribute(C,3)); geo.setIndex(I);
+    const m=new T.Mesh(geo,toonMat('#ffffff',{vc:true,side:T.DoubleSide,fig:true})); m.frustumCulled=false; m.userData.dyn=true; g.add(m);
+    const a=new T.Vector3(SX[1]+.05,ST-.06,SZ1+.06).applyMatrix4(M), b=new T.Vector3(SX[2]-.03,ST-.06,SZ1+.06).applyMatrix4(M);
+    P.tarp={m,P:Pp,NX,NY,a,b,up:new T.Vector3().setFromMatrixColumn(M,1).normalize(),n:new T.Vector3().setFromMatrixColumn(M,2).normalize(),L:1.32,ph:rr()*TAU,lean:0,mid:a.clone().lerp(b,.5)}; tgTarp(P,0,true); }
+  /* the builder, at the right-hand wall between the mixer and the pallet, side on to the street */
+  { const f=figure(TG_LOOK); tgVest(f,TG_LOOK); const [bx,bz]=tgXZ(e,.86,.02), [fx,fz]=tgXZ(e,.2,.02), u=at(bx,bz), fw=tang(u,at(fx,fz).sub(u),new T.Vector3());
+    standOn(f,u,fw,standH(bx,bz)+.015); g.add(f); P.man=f; P.manAt=[bx,bz]; }
+  P.act=null; P.sndT=3+rr()*4; }
+
+/* the tarp, each frame it can be seen: hung from the rail, swung out by the wind across it (a lean at its foot, which is tied
+   loosely) and bellying out between its ties, rippling the way the wind goes, more and quicker the harder it blows */
+const tgT=new T.Vector3(), tgD=new T.Vector3();
+function tgTarp(P,t,all){ const S=P.tarp; if(!S) return; if(!all&&S.mid.distanceToSquared(st.camP)>45*45) return;
+  const e=Math.min(WIND.e,1.1); slWindAt(S.mid,tgW); const wp=tgW.dot(S.n), amp=.01+.03*Math.min(e,1), sp=2.4+6*Math.min(e,1);
+  S.wp=wp; S.lean=clamp(wp*e*.32,-.035,.3); S.disp=0;
+  for(let j=0,k=0;j<=S.NY;j++) for(let i=0;i<=S.NX;i++,k+=3){ const u=i/S.NX, v=j/S.NY, bel=Math.sin(Math.PI*v)*(.55+.45*Math.sin(Math.PI*u));
+      const off=S.lean*(.55*bel+.45*v*v)+amp*Math.sin(u*8.5-t*sp+v*2.4+S.ph)*Math.sin(Math.PI*v*.9);
+      tgT.copy(S.a).lerp(S.b,u).addScaledVector(S.up,-S.L*v).addScaledVector(S.n,Math.max(off,-.035)+.004); S.P[k]=tgT.x; S.P[k+1]=tgT.y; S.P[k+2]=tgT.z; S.disp+=Math.max(off,-.035); }
+  S.disp/=(S.NX+1)*(S.NY+1); const g=S.m.geometry; g.attributes.position.needsUpdate=true; g.computeVertexNormals(); }
+
+/* ---------- at work: by day, Monday to Friday and Saturday morning; never at night or on a Sunday ---------- */
+function tgWorking(){ const h=SKY.h, d=civDay(); if(d===0||SKY.night>.3||FIN.on||CUT.on) return false; return d===6?h>=8.5&&h<13:h>=8&&h<17.5; }
+/* now and then, one of the three (each sound made softer with distance and muffled from indoors, as the town's are); the
+   builder's arm and the mixer's drum go with it */
+function tgStep(dt,t){ const work=tgWorking();
+  for(const e of TOWN_GROWS){ const P=TG.plots[e.id]; if(!P||!P.up||P.kind!=='site') continue;
+    tgTarp(P,t);
+    if(P.man.visible!==work){ P.man.visible=work; if(!work) P.act=null; }
+    const [mx,mz]=P.manAt, near=Math.hypot(player.x-mx,player.z-mz)<26;
+    if(work&&near&&!P.act){ P.sndT-=dt; if(P.sndT<=0){ const r=Math.random(); tgAct(P,r<.5?'siteTap':r<.78?'siteSaw':'siteMix'); P.sndT=4+Math.random()*7; } }
+    /* the builder: the hammer up and down to each tap; the arm back and forth with the saw; else at rest, a look round now and then */
+    const D=P.man.userData, A=P.act; let arm=-.06, fore=-.2, body=0;
+    if(A){ A.t+=dt; if(A.what==='siteTap'){ arm=-1.5+.42*Math.cos(TAU*A.t/A.sp); fore=-.7; body=.06; } else if(A.what==='siteSaw'){ arm=-.75+.3*Math.sin(TAU*A.t/.54); fore=-.9; body=.1; } else { P.spin+=dt*(A.t<.3?A.t/.3:A.t>A.dur-.4?Math.max(0,(A.dur-A.t)/.4):1)*4.2; }
+      if(A.t>=A.dur) P.act=null; }
+    if(P.man.visible){ D.arms[0].rotation.x=damp(D.arms[0].rotation.x,arm,A&&A.what==='siteTap'?30:8,dt); D.fore[0].rotation.x=damp(D.fore[0].rotation.x,fore,10,dt); D.body.rotation.x=damp(D.body.rotation.x,body,6,dt);
+      D.head.rotation.y=A?0:.35*Math.sin(t*.23)*sstep(.6,1,Math.sin(t*.11)); }
+    P.drum.rotation.y=P.spin; } }
+/* one of them: the sound, from where the builder is, and what he (or the mixer) does with it */
+function tgAct(P,what){ const [mx,mz]=P.manAt;
+  if(what==='siteTap'){ const n=2+Math.floor(Math.random()*3), sp=.3+Math.random()*.08; P.act={what,t:0,dur:n*sp+.25,n,sp}; tgSay('siteTap',.026,mx,mz,n,sp); }
+  else if(what==='siteSaw'){ const n=4+2*Math.floor(Math.random()*2); P.act={what,t:0,dur:n*.27+.1,n}; tgSay('siteSaw',.04,mx,mz,n); }
+  else { P.act={what,t:0,dur:2.6}; tgSay('siteMix',.026,mx,mz,2.6); } }
+function tgSay(fn,g,x,z,...rest){ TG.n[fn]++; const gg=tlSay(fn,g,x,z,18,...rest); TG.g[fn]=gg; TG.last={fn,g:gg,d:+Math.hypot(player.x-x,player.z-z).toFixed(2)}; return gg; }
+
+/* ---------- building it: once the town and its life are made; and again whenever a plot changes (the tests do) ---------- */
+function tgInk(root){ root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
+  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,o.material.userData.shdF||SHD_F,T.DoubleSide);
+  if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); }); }
+/* takes a plot's things down (its building or its site) and its solids off the list and the walking grid */
+function tgDown(e){ const P=TG.plots[e.id]; if(!P||!P.up) return; P.up=false; P.g.visible=false; P.act=null;
+  const gone=new Set(P.obs); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
+  pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+1.2); baked=false; }
+/* puts up a plot's building or site (taking down whatever stood on the same ground first) */
+function tgBuild(e){ for(const o of TOWN_GROWS){ if(o!==e&&TG.plots[o.id]&&TG.plots[o.id].up&&tgOverlap(e,o)) tgDown(o); }
+  if(TG.plots[e.id]) tgDown(e);
+  const why=tgCheck(e); if(why.length){ TG.skip.push({id:e.id,why}); console.warn('the town grows: plot '+e.id+' not built:',why.join('; ')); return null; }
+  const g=new T.Group(); sc.add(g); const P=TG.plots[e.id]={e,g,up:true,obs:[],kind:null};
+  if(e.status==='built') tgBuilt(e,P); else tgSite(e,P);
+  kitTo(); pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+1.2); P.tufts=pfTufts(P.M,-e.w/2,e.w/2,-e.d/2,e.d/2+(e.status==='built'?.3:0));
+  tgInk(g); if(P.man) PF.figs&&PF.figs.push(P.man); baked=false; return P; }
+function buildGrow(){ const gone=new Set(TG.cleared); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);   // (what grew on the plots, now taken off the list)
+  for(const e of TOWN_GROWS) tgBuild(e);
+  TG.ok=true; }
+{ const b=st.build, up=st.update;
+  st.build=async function(){ await b.apply(this,arguments); try{ buildGrow(); }catch(err){ TG.err=String(err&&err.stack||err); console.warn('the town grows',err); kitTo(); } };
+  st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TG.ok&&!TG.err){ try{ tgStep(Math.min(dt,.05),t); }catch(err){ TG.err=String(err&&err.stack||err); console.error('the town grows',err); } } return r; }; }
+st._dbg.grow={TG,list:TOWN_GROWS,build:tgBuild,down:tgDown,check:tgCheck,rectD:tgRectD,xz:tgXZ,working:tgWorking,tarp:tgTarp,TREES,LOOK:TG_LOOK,
+  act(id,what){ const P=TG.plots[id]; if(P&&P.up&&P.kind==='site') tgAct(P,what); return P&&P.act; },
+  plot:id=>TG.plots[id],roadDist,pathDist,walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
+  get state(){ return {ok:TG.ok,err:TG.err,skip:TG.skip,cleared:TG.cleared.length,n:{...TG.n},g:{...TG.g},last:TG.last||null,
+    plots:Object.values(TG.plots).map(P=>({id:P.e.id,kind:P.kind,up:P.up,obs:P.obs.length,tufts:P.tufts,man:P.man?P.man.visible:null,act:P.act?P.act.what:null,
+      tarp:P.tarp?{lean:+P.tarp.lean.toFixed(3),disp:+(P.tarp.disp||0).toFixed(3),wp:+(P.tarp.wp||0).toFixed(3)}:null}))}; }};
+/* ===================== (the town grows ends here) ===================== */
 })();
