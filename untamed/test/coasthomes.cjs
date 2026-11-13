@@ -159,7 +159,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     /* each house's evening: when its first light comes on and its last goes off (every quarter of an hour, 16:00 to 01:00) */
     const SK = d.sky.SKY, h0 = SK.h; out.houses = S.HM.homes.map(H => { let on = null, off = null; for (let q = 0; q <= 36; q++) { SK.h = (16 + q / 4) % 24; const any = H.wins.some(w => S.hmWant(w)); if (any && on == null) on = 16 + q / 4; if (any) off = 16 + q / 4; } return [on, off]; });
     out.changes = 0; let prev = null; for (let q = 0; q <= 36; q++) { SK.h = (16 + q / 4) % 24; const s = S.HM.wins.map(w => S.hmWant(w) ? 1 : 0).join(''); if (prev != null && s !== prev) out.changes++; prev = s; } SK.h = h0; return out; });
-  rec(lit.day === 0 && lit.eve >= 2 && lit.night === 0, 'no home is lit in the afternoon or in the small hours; in the evening some are', JSON.stringify(lit));
+  /* (one home since the chipper took the peach house: at least one lit window in its evening) */
+  rec(lit.day === 0 && lit.eve >= 1 && lit.night === 0, 'no home is lit in the afternoon or in the small hours; in the evening some are', JSON.stringify(lit));
   rec(lit.changes >= 6 && lit.houses.every(x => x[0] != null) && (lit.houses.length < 2 || lit.houses[0][0] !== lit.houses[1][0] || lit.houses[0][1] !== lit.houses[1][1]), 'through the evening the lights go on and off room by room, house by house', JSON.stringify(lit));
   const sil = await C((c, d) => { d.sky.set({ time: '22:15' }); c.run(30); const w = d.homes.HM.wins.find(w => w.k > .4 && (w.role === 'living' || w.role === 'kitchen')); if (!w) return null; w.sil = -9; w.silT = 0; w.silP = -1; c.run(40);
     const i = d.homes.HM.wins.indexOf(w), u = d.LU.uHX.value[i].w, k = d.LU.uHW.value[i].w; return { sil: +w.sil.toFixed(2), u: +u.toFixed(2), k: +k.toFixed(2), home: w.home.i }; });
