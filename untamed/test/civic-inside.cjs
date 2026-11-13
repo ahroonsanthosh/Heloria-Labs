@@ -84,7 +84,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return { cls: document.querySelector('.st-cr').classList.contains('inciv'), labels: vis(document.querySelector('#crLabels')), card: vis(document.querySelector('#crProj')), hint: vis(document.querySelector('#crHint')) && !document.querySelector('#crHint').classList.contains('gone'), go: vis(document.querySelector('#crGo')), post: vis(document.querySelector('#crPost')), leave: vis(document.querySelector('#crCivLeave')) }; });
   rec(quiet.cls && !quiet.labels && !quiet.card && !quiet.hint && !quiet.go, 'nothing of the street is drawn over the room', JSON.stringify(quiet));
   rec(quiet.leave && !quiet.post, 'there is a way out, and no postcard button', JSON.stringify(quiet));
-  const calm = await H(h => h.ST.cr.calm()); rec(calm === false, 'while you are inside, other work waits (the station is not calm)', String(calm));
+  /* (there is no other world to make while you are inside: Earth is all there is, made behind the loader) */
   const mus = await H(() => window.__CI.music); rec(mus > .2 && mus < .4, 'the town\'s music is a little quieter in here', String(mus));
   const p1 = await programs(); rec(p1 === p0, 'going in compiles no new shader', p0 + ' then ' + p1);
   await shot(pre + 'hall-3-inside');

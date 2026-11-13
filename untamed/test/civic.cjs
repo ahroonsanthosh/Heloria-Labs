@@ -43,8 +43,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const east = [[1, 1.6, 2.0], [13, 1.6, 3.2]], views = mobile ? [['east-hall', [3.0, -1.4, 2.0], [13.3, -3.4, 4.2]], ['east-school', [2.2, 6.4, 2.0], [12.4, 7.4, 1.6]]] : [['east', ...east]];
   const look = v => C((e, d, h, a) => { const [p, l] = a; e.look(d.at(p[0], p[1]).multiplyScalar(24 + p[2]).toArray(), d.at(l[0], l[1]).multiplyScalar(24 + l[2]).toArray()); }, v);
   for (const [n, p, l] of views) { await C(e => e.time('11:05')); await look([p, l]); await frames(3); await wait(1500); await shot(tag + pre + n + '-day');
-    await C(e => { e.time('21:30'); }); await C((e, d) => d.sky.step(1)); await frames(3); await wait(1800); await shot(tag + pre + n + '-night'); }
-  await C((e, d, h, a) => { e.time('21:30'); window.__CAM = { p: [0, 24 + a, .01], l: [0, 24, 0], u: [0, 0, -1], fog: 0 }; }, mobile ? 70 : 44);
+    await C(e => { e.time('23:30'); }); await C((e, d) => d.sky.step(1)); await frames(3); await wait(1800); await shot(tag + pre + n + '-night'); }
+  await C((e, d, h, a) => { e.time('23:30'); window.__CAM = { p: [0, 24 + a, .01], l: [0, 24, 0], u: [0, 0, -1], fog: 0 }; }, mobile ? 70 : 44);
   await frames(3); await wait(1500); await shot(tag + pre + 'top-night');
   if (VIEWS) { await C(() => { window.__CAM = null; }); console.log('\nSUMMARY views only'); return; }
 
@@ -67,11 +67,11 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(read.hall.on && read.hall.clear, 'and the hall\'s lettering over its door', JSON.stringify(read.hall));
 
   /* ---------- the clock: its hands at the time set, lit at night ---------- */
-  for (const [t, eh, em] of [['09:15', 277.5, 90], ['15:40', 110, 240], ['21:30', 285, 180]]) {
+  for (const [t, eh, em] of [['09:15', 277.5, 90], ['15:40', 110, 240], ['23:30', 345, 180]]) {   // (late enough to be dark even on a July night in Dublin, now the sky keeps the real sunset)
     const hd = await C((e, d, h, t) => { e.time(t); return d.civic.hands(); }, t);
     const dd = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
     rec(dd(hd.h, eh) < 1 && dd(hd.m, em) < 1, 'at ' + t + ' the hands read ' + t, JSON.stringify({ hands: hd, want: { h: eh, m: em } }));
-    if (t !== '09:15') { await C((e, d) => { const c = d.civic, f = c.face(0), p = c.world('hall', 1.6, 4.4, 7.2); e.look(p, f); d.sky.step(1); }); await frames(3); await wait(1200); await shot(pre + (t === '21:30' ? 'clock-night' : 'clock')); }
+    if (t !== '09:15') { await C((e, d) => { const c = d.civic, f = c.face(0), p = c.world('hall', 1.6, 4.4, 7.2); e.look(p, f); d.sky.step(1); }); await frames(3); await wait(1200); await shot(pre + (t === '23:30' ? 'clock-night' : 'clock')); }
   }
   const lit = await C((e, d) => ({ night: d.LU.uNight.value, glow: /uNight\*\.85/.test(d.civic.CIV.face.material.fragmentShader) }));
   rec(lit.night > .9 && lit.glow, 'at night the clock faces are lit from inside', JSON.stringify(lit));
