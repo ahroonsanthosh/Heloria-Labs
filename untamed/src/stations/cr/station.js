@@ -9839,9 +9839,12 @@ st._dbg.lighthouse={L:LHI,LHD,LHLOG,LHMV,get err(){ return LHI.err; },go:()=>wiG
    the hill town they came from painted beside them. Order off the board (Single, One and one, Curry chips, Battered sausage,
    Spice bag): he says it back, rings it into the till, lifts the basket out of the fryer and shakes it, and lays it out on
    the paper in front of you. Shake the salt and the vinegar over it yourself (the cellar and the bottle are on the counter),
-   and he wraps it up in the paper. Take it outside, and you are carrying it for a while after, as you walk about. Leave,
-   Escape or a tap on the door takes you out (with your chips, if they are ready).
-   Sound: the fryer (louder as the basket goes in), the bell over the door, the till, the paper.
+   and he folds the paper up round it into a parcel (the spice bag into its brown bag), its top folded over. Take it outside:
+   it comes up off the counter into your hands, and out on the pavement you hold it in your left hand at your side, open its
+   top, and now and then take a chip from it up to your mouth as you walk about or stand, until it is empty; then you fold
+   the paper up small and pop it in the bin by the door, if you are by it, or in your pocket. The people who eat outside
+   hold theirs the same way. Leave, Escape or a tap on the door takes you out (with your chips, if they are ready).
+   Sound: the fryer (louder as the basket goes in), the bell over the door, the till, the paper (folded, opened, a hand in it).
    As with the pub and the lighthouse, the room is built after the town's trees (on the house's own ground until then) and
    hidden until you go in, drawn once behind the loader in the café's own shaders, so going in compiles nothing new. */
 /* where it all is, in the shop's own frame (x across, y up, z out to the street): its size, walls, floor and eye height;
@@ -9867,6 +9870,7 @@ const chOpen=()=>SKY.h>=12||SKY.h<2;   // open from lunchtime until two in the m
 /* how many are waiting: at lunch one, in the evening two, and while the market is on four (two in, two on the bench and at the door) */
 const chQueue=()=>!chOpen()?0:mktOpen()?4:SKY.h>=17?2:SKY.h>=12.4&&SKY.h<14?1:0;
 const CHP=wiRoom({id:'chip',cls:'inchip',ph:'menu',oi:-1,ot:0,salt:0,vin:0,shk:null,said:'',sayT:0,chat:0,seen:false,carry:-1,carryT:0,sh:1,shT:1,shK:0,motor:null,q:0,fry:0,fryK:0,slide:0,
+  lift:-1,li:-1,left:1,lv:1,bu:-1,ou:-1,fu:-1,op:0,nb:0,bin:false,bites:0,free:true,gone:'',fly:null,
   DX:CHD.DX,F:CHD.d/2,F0:CHD.d/2,DZ:[CHD.d/2+.15,CHD.d/2+1.25,.8],AP:[CHD.DX,CHD.d/2+.75],S:CHD.S,p0:-.1,pP:-.14,IN:3.1,OUT:2.8,tagY:[1.55,1.98],tagZ:CHD.d/2+.25,
   wayIn:[[CHD.DX,CHD.d/2+.55],[CHD.DX,CHD.d/2-.4],[CHD.S[0]+.1,CHD.S[1]+.08]], camIn:[[CHD.DX,CHD.FL+1.5,CHD.d/2+1.9],[CHD.DX,CHD.FL+CHD.EY+.12,CHD.d/2+.15],[CHD.DX,CHD.FL+CHD.EY+.05,CHD.d/2-.45]], lookIn:[[CHD.DX,1.3,.4],[.2,1.3,-.5]],
   wayOut:[[CHD.DX,CHD.d/2-.45],[CHD.DX,CHD.d/2+.2],[CHD.DX,CHD.d/2+.75]], camOut:[[CHD.DX,CHD.FL+CHD.EY+.1,CHD.d/2-.5],[CHD.DX,CHD.FL+CHD.EY+.15,CHD.d/2+.2]],
@@ -9876,7 +9880,7 @@ const CHP=wiRoom({id:'chip',cls:'inchip',ph:'menu',oi:-1,ot:0,salt:0,vin:0,shk:n
   eye:o=>chEye(o), fov:()=>cport()?78:56, tagText:()=>chOpen()?'Go in':'Opens at lunchtime', ui:()=>chUI(), outdoors:()=>false,
   onEnter(){ CHP.ph='menu'; CHP.oi=-1; CHP.salt=CHP.vin=0; CHP.shk=null; CHP.greet=0; CHP.tilled=CHP.fried=CHP.laid=CHP.wrapped=0; chPaper(); chSay(''); }, onWayIn(c){ if(c>1.4&&!CHP.greet){ CHP.greet=1; CHP.e.wave=1.8; } },
   onIn(){ chSay(!CHP.seen?(mktOpen()?CHL.night:CHL.hi):CHL.again); CHP.seen=true; chUI(); if(CHP.kb) chFocus(); }, onLeave(){ if(CHP.ph==='ready') chCarry(CHP.oi); chSay(''); }, onOut(){},
-  onReset(){ CHP.ph='menu'; CHP.oi=-1; CHP.shk=null; CHP.greet=0; chPaper(); chSay(''); if(CHP.e) CHP.e.wave=0; }, quiet:()=>{ A.chipFry(0); },
+  onReset(){ CHP.ph='menu'; CHP.oi=-1; CHP.shk=null; CHP.greet=0; CHP.lift=-1; if(CHP.carry>=0) chDrop(); chPaper(); chSay(''); if(CHP.e) CHP.e.wave=0; }, quiet:()=>{ A.chipFry(0); },
   inside:(dt,t)=>chInside(dt,t), look:(dx,dy)=>{ CHP.yaw=clamp(CHP.yaw-dx*.0042,-2.7,2.7); CHP.pitch=clamp(CHP.pitch-dy*.0034,-.8,.6); CHP.dragT=0; },
   label:k=>({enzo:'Talk',salt:'Salt',vin:'Vinegar',door:'Leave',paper:'Take it',menu:'Menu'})[k]||null, pickIn:e=>chPick(e), click:k=>chClick(k), key:(e,k,ctl)=>chKey(e,k,ctl),
   doorPose:()=>chDoorPose(), cull:on=>{ [CHP.m.door,CHP.m.pane,CHP.m.pane2,CHP.m.fascia,CHP.m.shut].forEach(m=>{ if(m) m.frustumCulled=on; }); }});
@@ -9969,6 +9973,64 @@ function chBoards(cv){ const c=cv.getContext('2d'), F=s=>`900 ${s}px Doto, monos
     c.fillStyle='#8a7050'; c.fillRect(x0+60,y0+40,w-120,40); [[.24,1],[.4,.9],[.56,1.05],[.72,.85]].forEach(([u,s])=>{ const cx=x0+w*u, cy=y0+h*.55; c.fillStyle='#6a5236'; c.beginPath(); c.arc(cx,cy-46*s,16*s,0,TAU); c.fill(); c.fillStyle='#efe4cc'; c.fillRect(cx-20*s,cy-30*s,40*s,70*s); c.fillStyle='#4a3a26'; c.fillRect(cx-16*s,cy+40*s,12*s,40*s); c.fillRect(cx+4*s,cy+40*s,12*s,40*s); });
     c.fillStyle='#4a3a26'; c.font=F(22); c.textAlign='center'; c.fillText('LANZETTI\'S',x0+w/2,y0+64); } }
 
+/* ---------- the takeaway: made once, and the same on the counter, in your hand and in the hands of the people who eat
+   outside. The paper (white, folded up round the chips into a parcel, its ends tucked in at the corners; or the spice bag's
+   brown bag, a band of the shop's green and red round it), its two top flaps (folded over the top, or opened back down its
+   sides), what is in it for each thing on the menu, the paper folded up small once it is empty, and one chip. Each from its
+   bottom middle, z along it: W across, L along, h high, fw the flaps' width, and what is in it sits fill up off the bottom ---------- */
+const CHT=[{W:.14,L:.18,h:.074,fw:.074,fill:0,c:'#f7f5ed',c2:'#ddd5c4'},{W:.085,L:.115,h:.15,fw:.046,fill:.075,c:'#bd8c5c',c2:'#9e6e3e'}];
+const chKind=i=>i===4?1:0, CHBITES=[10,13,10,8,12], CHTOP=.056, CHS=1.25;   // (the brown bag for the spice bag; how many bites in each; how high the heap is; and in a hand a little bigger, to be seen from behind you)
+const chGeo=fn=>{ const P=part(); fn(P); return P.mesh().geometry; };
+function chPackG(k){ const D=CHT[k], {W,L,h}=D, t=.005; return chGeo(P=>{ P.put(FG.box,D.c,0,t/2,0,W,t,L);
+  [-1,1].forEach(s=>{ P.put(FG.box,D.c,s*W/2,h/2,0,t,h,L); P.put(FG.box,D.c,0,h*.46,s*L/2,W,h*.92,t);   // its sides, and its ends a little lower
+    [-1,1].forEach(e=>P.put(FG.box,D.c2,e*(W/2-.024),h*.44,s*(L/2+.003),.005,h*.95,.003,0,0,e*.55)); });   // (the paper tucked in at each corner of the ends)
+  if(k) [[.3,'#2f6b4f',.02],[.3+.13,'#c8372e',.012]].forEach(([y,c,bh])=>[-1,1].forEach(s=>{ P.put(FG.box,c,s*(W/2+.003),h*y,0,.003,bh,L+.007); P.put(FG.box,c,0,h*y,s*(L/2+.003),W+.007,bh,.003); })); }); }
+const chFlapG=k=>{ const D=CHT[k]; return chGeo(P=>P.put(FG.box,D.c,0,D.fw/2,0,.004,D.fw,D.L+.004)); };
+function chFoodG(i){ const k=chKind(i), D=CHT[k], r=seeded(53+i*11), W=D.W-.016, L=D.L-.016, top=CHTOP, G=['#ffd45e','#f7c548','#ffe28c','#f2bd47'];
+  return chGeo(P=>{ const ch=(j,x,y,z,rx,ry,rz)=>P.put(FG.box,G[j%4],x,y,z,.016,.066,.016,rx,ry,rz);
+    P.put(FG.sph,k?'#cf913a':'#eab746',0,.018,0,W/2,.02,L/2);   // the chips packed in underneath
+    for(let j=0;j<(k?8:11);j++) ch(j,(r()-.5)*(W-.024),.03+r()*.012,(r()-.5)*(L-.07),Math.PI/2+(r()-.5)*.5,(r()<.5?0:Math.PI)+(r()-.5)*.9,(r()-.5)*.4);   // lying every which way over them
+    for(let j=0;j<(i===2?5:k?6:8);j++){ const a=r()*TAU, q=Math.sqrt(r())*.7; ch(j+1,Math.cos(a)*q*W/2,.05,Math.sin(a)*q*L/2,(r()-.5)*1.3,r()*TAU,(r()-.5)*1.3); }   // and standing up out of the heap
+    if(i===1){ P.put(FG.sph,'#d39a3e',.01,top+.004,.03,.04,.02,.086,.08,.22,-.06); P.put(FG.sph,'#e4b056',.004,top+.016,.02,.026,.01,.05,.08,.22,0); }   // the fish in its batter, out over the end
+    else if(i===2){ P.put(FG.sph,'#8a5a1c',0,top-.006,0,W*.44,.018,L*.4); for(let j=0;j<5;j++) P.put(FG.sph,'#9a6a24',(r()-.5)*W*.8,top-.014,(r()-.5)*L*.8,.014,.009,.016); }   // the curry sauce poured over
+    else if(i===3){ P.put(FG.sph,'#d39a3e',.012,top+.03,0,.02,.088,.02,.5,0,-.35); P.put(FG.sph,'#e4b056',.016,top+.045,.012,.012,.05,.012,.5,0,-.35); }   // the battered sausage, standing up out of the chips
+    else if(i===4){ for(let j=0;j<8;j++) P.put(FG.box,['#b8742e','#c8372e','#3f8a3a','#a8642a'][j%4],(r()-.5)*W*.8,top-.008+r()*.016,(r()-.5)*L*.8,.024,.012,j%4===1||j%4===2?.03:.05,(r()-.5)*.9,r()*3,(r()-.5)*.9);   // the chicken, the peppers
+      for(let j=0;j<18;j++) P.put(FG.box,'#d9541e',(r()-.5)*W*.85,top+.004+r()*.012,(r()-.5)*L*.85,.006,.004,.006); } }); }   // and the spice over it all
+const chFoldG=k=>{ const D=CHT[k], w=k?.062:.078, l=k?.07:.088; return chGeo(P=>{ P.put(FG.box,D.c,0,.008,0,w,.016,l); P.put(FG.box,D.c2,0,.0165,0,w*.98,.002,.004); P.put(FG.box,D.c,w*.22,.0175,l*.24,w*.4,.004,l*.32,0,.5,0); }); };   // (folded in two, a corner turned)
+const chChipG=()=>chGeo(P=>P.put(FG.box,'#f0c24e',0,0,0,.012,.066,.012));
+/* the shapes, once: shared by the counter's parcel and the ones in people's hands, so they are the same */
+let CHG=null; const chShapes=()=>CHG||(CHG={pack:[0,1].map(chPackG),flap:[0,1].map(chFlapG),food:CHMENU.map((_,i)=>chFoodG(i)),fold:[0,1].map(chFoldG),chip:chChipG()});
+/* a parcel to hold (its paper, the flaps, what is in it), each in mat, in a group of its own: the paper's kind (k) and what
+   is in it (i), or every kind and everything (all, for your own hand: shown as you order) */
+function chParcel(mat,i,all){ const G=chShapes(), g=new T.Group(), o={g,pack:[],flap:[],food:[]};
+  [0,1].forEach(k=>{ if(!all&&k!==chKind(i)) return; const p=new T.Mesh(G.pack[k],mat); g.add(p); o.pack[k]=p; o.flap[k]=[-1,1].map(s=>{ const f=new T.Mesh(G.flap[k],mat); f.position.set(s*CHT[k].W/2,CHT[k].h,0); g.add(f); return f; }); });
+  CHMENU.forEach((_,j)=>{ if(!all&&j!==i) return; const f=new T.Mesh(G.food[j],mat); g.add(f); o.food[j]=f; }); return o; }
+/* what is in it, as it is eaten (lv: how much is left), the flaps (op: 0 folded over the top, 1 opened back), and which shows */
+function chParcelSet(o,i,lv,op){ const k=chKind(i), D=CHT[k], th=lerp(1.5,-2.5,op);
+  o.pack.forEach((p,j)=>{ if(p) p.visible=j===k; }); o.flap.forEach((fl,j)=>{ if(fl) fl.forEach((f,s)=>{ f.visible=j===k; f.rotation.z=(s?1:-1)*(th-(s?.05:0)); }); });
+  o.food.forEach((f,j)=>{ if(!f) return; f.visible=j===i&&lv>.03; if(j!==i) return; const a=.8+.2*lv; f.position.y=D.fill*Math.min(1,lv*1.4); f.scale.set(a,(.2+.8*lv)*lerp(.8,1,sstep(0,.3,op)),a); }); }   // (pressed down a little under the flaps while it is shut)
+/* holding it, and eating from it (you, and the people who eat outside): the left hand holds it at your side, a little in front,
+   tilted so you see into it; for a bite (u, 0 to 1) it comes in in front of you, the right hand takes a chip from it up to your
+   mouth (the head down to it a moment), and it goes back out. To open it (o, 0 to 1) the right hand opens its top; to fold it
+   up (f, seconds) both hands, and then into the bin (bin) or your pocket. Only the hands that are free are moved (pose) */
+const CHH={side:new T.Vector3(.29,.69,.15),mid:new T.Vector3(.11,.76,.24),mouth:new T.Vector3(-.035,1.06,.19),pocket:new T.Vector3(.2,.5,.04),toss:new T.Vector3(.2,.86,.32)},
+  chL=new T.Vector3(), chR=new T.Vector3(), chH=new T.Vector3(), chQa=new T.Quaternion(), chQb=new T.Quaternion(), chQs=new T.Quaternion().setFromEuler(new T.Euler(-.3,-.25,-.08,'YXZ')), chQm=new T.Quaternion().setFromEuler(new T.Euler(-.14,0,0,'YXZ'));
+function chReach(arm,fore,p,pole,k){ if(k<=0) return; chQa.copy(arm.quaternion); chQb.copy(fore.quaternion); reach(arm,fore,p,pole,.18,.19); if(k<1){ arm.quaternion.copy(chQa.slerp(arm.quaternion,k)); fore.quaternion.copy(chQb.slerp(fore.quaternion,k)); } }
+const chHand=(arm,fore,o)=>{ arm.updateMatrix(); fore.updateMatrix(); return o.set(0,-.19,.004).applyMatrix4(fore.matrix).applyMatrix4(arm.matrix); };
+function chHold(d,g,s){ const u=s.u??-1, o=s.o??-1, f=s.f??-1, pose=s.pose!==false, top=s.top||CHTOP+.012;
+  if(pose) [...d.arms,...d.fore].forEach(a=>{ a.rotation.y=0; a.rotation.z=0; });   // (from the walk's own swing, whatever the last frame left)
+  const inn=Math.max(u>=0?sstep(0,.2,u)*(1-sstep(.62,.9,u)):0,o>=0?sstep(0,.25,o)*(1-sstep(.75,1,o)):0,f>=0?.35*sstep(0,.4,f)*(1-sstep(1.15,1.5,f)):0);   // (folded up where you hold it, at your side)
+  chL.copy(CHH.side).lerp(CHH.mid,inn); chL.y+=s.bob||0;
+  if(f>=1.15) chL.lerp(s.bin?CHH.toss:CHH.pocket,s.bin?sstep(1.15,1.35,f)*(1-sstep(1.4,1.75,f)):sstep(1.2,1.6,f));
+  if(pose) chReach(d.arms[1],d.fore[1],chL,LPOLE,f>=0?1-sstep(s.bin?1.7:1.8,s.bin?2.1:2.3,f):1);   // (and at the very end, back to your side)
+  chHand(d.arms[1],d.fore[1],chH); g.position.copy(chH).add(chR.set(.004,.024,0)); g.quaternion.copy(chQs).slerp(chQm,inn);
+  /* the right hand: into it and up to your mouth, or to its top to open it, or to its side to fold it */
+  let w=0; if(u>=0){ w=sstep(.1,.3,u)*(1-sstep(.76,.98,u)); chR.set(-.035,top-.022*sstep(.36,.4,u)*(1-sstep(.42,.47,u)),0).applyQuaternion(g.quaternion).add(g.position).lerp(CHH.mouth,sstep(.46,.68,u)); }
+  else if(o>=0){ w=sstep(.05,.3,o)*(1-sstep(.7,.95,o)); chR.set(-.03+.05*sstep(.3,.7,o),top+.02,0).applyQuaternion(g.quaternion).add(g.position); }
+  else if(f>=0){ w=sstep(.1,.4,f)*(1-sstep(1.1,1.4,f)); chR.set(-.1,.05,0).applyQuaternion(g.quaternion).add(g.position); }
+  if(pose){ chReach(d.arms[0],d.fore[0],chR,RPOLE,w);
+    const lk=u>=0?sstep(.1,.3,u)*(1-sstep(.44,.6,u)):o>=0?sstep(0,.3,o)*(1-sstep(.7,1,o)):f>=0?sstep(0,.3,f)*(1-sstep(1.1,1.4,f)):0; d.head.rotation.x=(s.hx||0)+.22*lk; }
+  if(s.chip) s.chip.visible=pose&&u>.42&&u<.7; }
 /* ---------- building the inside: the tiles and the floor, the counter, its hot cabinet, the till, the salt and the
    vinegar, the fryers under their hood, the menu, the window's ledge, the pictures; Enzo; the people who wait; the paper,
    the chips and the parcel. After the trees: then what stands outside is made solid and the walking grid round it made again ---------- */
@@ -10028,38 +10090,42 @@ function buildChipper(){ if(!CHP.M||CHP.g) return; const D=CHD, B=CHP, M=B.M, w=
   B.m.bask=own('chbask',I=>{ box(I,'#5a5f63',0,0,0,.3,.14,.24); box(I,'#d9a24a',0,.12,0,.26,.03,.2); box(I,'#2a2c2e',0,.1,.16,.04,.04,.22); });
   B.m.grain=own('chgrain',I=>{ for(let k=0;k<10;k++) box(I,'#ffffff',(rnd()-.5)*.03,-k*.03,(rnd()-.5)*.03,.006,.006,.006); }); B.m.grain.visible=false;
   B.m.drop=own('chdrop',I=>{ for(let k=0;k<7;k++) put(I,'sph','#b9862a',(rnd()-.5)*.03,-k*.04,(rnd()-.5)*.03,.006,.009,.006); }); B.m.drop.visible=false;
-  /* the paper (white, or the spice bag's brown), its two sides that fold over, what is on it for each thing on the menu, the
-     salt and the vinegar on the chips, and the wrapped parcel; each in its own colour, the paper's set when you order */
-  B.pm=wiMat(B); const pm=B.pm, chip=(I,n,s)=>{ for(let k=0;k<n;k++){ const a=rnd()*TAU, r=rnd()*.08*s; box(I,['#f0c24e','#e8b440','#f3cf6a'][k%3],Math.cos(a)*r,.004+rnd()*.03,Math.sin(a)*r*1.4,.014,.012,.075+rnd()*.03,rnd()*3,(rnd()-.5)*.6,(rnd()-.5)*.4); } };
+  /* the paper laid out flat (white, or the spice bag's brown: its colour set when you order) and its four sides, that fold
+     up round the chips; then the parcel itself, its top flaps and what is in it, the takeaway's own shapes (see the takeaway),
+     the same as you carry out; and the salt and the vinegar on the chips */
+  B.pm=wiMat(B); const pm=B.pm, G=chShapes();
   const pown=(id,fn,m_=mat)=>{ kitTo(id); fn(new T.Matrix4()); kitTo(); const o=wiAdd(B,new T.Mesh(kgeo(id),m_)); o.visible=false; return o; };
-  B.m.sheet=pown('chsheet',I=>box(I,'#ffffff',0,0,0,.2,.004,.36),pm); B.m.flL=pown('chflL',I=>box(I,'#ffffff',-.085,0,0,.17,.004,.36),pm); B.m.flR=pown('chflR',I=>box(I,'#ffffff',.085,0,0,.17,.004,.36),pm);
-  B.m.parcel=pown('chparcel',I=>{ box(I,'#ffffff',0,0,0,.15,.055,.22); box(I,'#ececec',0,.055,0,.09,.004,.22); },pm);
-  B.m.heaps=[pown('chh0',I=>chip(I,18,1)),pown('chh1',I=>{ chip(I,12,1); put(I,'sph','#d9a24a',.02,.05,.0,.06,.03,.13,.3); }),pown('chh2',I=>{ chip(I,16,1); put(I,'sph','#8a5a1c',0,.05,0,.08,.02,.1); put(I,'sph','#9a6a24',.03,.055,.04,.05,.015,.06); }),
-    pown('chh3',I=>{ chip(I,7,.8); put(I,'cyl','#d39a3e',0,.04,0,.03,.17,.03,.4,0,Math.PI/2); }),pown('chh4',I=>{ chip(I,12,1); for(let k=0;k<6;k++) box(I,['#b8742e','#c8372e','#3f8a3a'][k%3],(rnd()-.5)*.12,.03+rnd()*.03,(rnd()-.5)*.18,.03,.012,k%3?.02:.07,rnd()*3); for(let k=0;k<14;k++) box(I,'#d9541e',(rnd()-.5)*.14,.05+rnd()*.02,(rnd()-.5)*.2,.006,.004,.006); })];
-  B.m.salted=pown('chsalted',I=>{ for(let k=0;k<16;k++) box(I,'#ffffff',(rnd()-.5)*.14,.045+rnd()*.025,(rnd()-.5)*.2,.005,.004,.005); }); B.m.vined=pown('chvined',I=>{ for(let k=0;k<9;k++) put(I,'sph','#9a6a24',(rnd()-.5)*.13,.045+rnd()*.02,(rnd()-.5)*.18,.01,.003,.01); });
+  B.m.sheet=pown('chsheet',I=>box(I,'#ffffff',0,0,0,1,.004,1),pm); [['flL',-.5,0],['flR',.5,0],['flF',0,.5],['flB',0,-.5]].forEach(([n,x,z])=>{ B.m[n]=pown('ch'+n,I=>box(I,'#ffffff',x,0,z,1,.004,1),pm); });   // (each a unit, sized to the paper)
+  B.m.pack=G.pack.map(g_=>{ const o=wiAdd(B,new T.Mesh(g_,mat)); o.visible=false; return o; }); B.m.parcel=B.m.pack[0];
+  B.m.lid=G.flap.map(g_=>[0,1].map(()=>{ const o=wiAdd(B,new T.Mesh(g_,mat)); o.visible=false; return o; }));
+  B.m.heaps=G.food.map(g_=>{ const o=wiAdd(B,new T.Mesh(g_,mat)); o.visible=false; return o; });
+  { const D0=CHT[0]; B.m.salted=pown('chsalted',I=>{ for(let k=0;k<18;k++) box(I,'#ffffff',(rnd()-.5)*D0.W*.8,CHTOP-.004+rnd()*.022,(rnd()-.5)*D0.L*.8,.005,.004,.005); }); B.m.vined=pown('chvined',I=>{ for(let k=0;k<9;k++) put(I,'sph','#9a6a24',(rnd()-.5)*D0.W*.75,CHTOP-.006+rnd()*.016,(rnd()-.5)*D0.L*.75,.01,.003,.01); }); }
   /* ---- Enzo: his whites, an apron, a paper hat; and the people who wait, each in their own clothes ---- */
   const chFigMat=()=>{ const m=wiMat(B); m.uniforms.uLitA={value:new T.Vector3()}; return m; };
   { const f=figure(ENZO), bm=chFigMat();
     { const P=part(); P.put(FG.box,'#fbf8f2',0,.66,.105*ENZO.build,.22,.36,.012); P.put(FG.box,'#fbf8f2',0,.86,.1*ENZO.build,.14,.1,.012); f.userData.body.add(P.mesh()); }
     { const P=part(); P.put(FG.box,'#fbf8f2',0,.2,-.01,.17,.08,.26); P.put(FG.box,'#2f6b4f',0,.168,-.01,.172,.014,.262); f.userData.head.add(P.mesh()); }
     wiFigure(B,f,bm); B.e={fig:f,d:f.userData,x:D.HOME[0],z:D.HOME[1],f:0,tx:D.HOME[0],tz:D.HOME[1],tf:0,ph:0,sp:0,wave:0,nod:0,blink:2,lk:0,act:'rest',arm:[[0,0,0],[0,0,0]],H:[new T.Vector3(),new T.Vector3()]}; }
-  B.qf=D.Q.map((q,i)=>{ const o=Object.assign({},CHQL[i],{knee:!!q.sit}), f=figure(o), d=f.userData;
+  B.qf=D.Q.map((q,i)=>{ const o=Object.assign({},CHQL[i],{knee:!!q.sit}), f=figure(o), d=f.userData; let par=null;
     if(q.sit){ d.body.position.y=-.06; d.legs.forEach((l,j)=>{ l.rotation.set(j?-1.48:-1.4,0,(j?1:-1)*.07); d.knees[j].rotation.x=j?1.36:1.25; }); }
-    if(q.eat){ const P=part(); P.put(FG.cone,'#f6f3ec',0,-.2,.03,.035,.1,.035,Math.PI); for(let k=0;k<4;k++) P.put(FG.box,'#f0c24e',(k%2-.5)*.012,-.15,.03+(k-1.5)*.008,.009,.045,.009); d.fore[0].add(P.mesh()); }
+    if(q.eat){ const it=q.sit?4:0, p=chParcel(FIGM,it), c=new T.Mesh(G.chip,FIGM); d.body.add(p.g); p.g.scale.setScalar(CHS); chParcelSet(p,it,q.sit?.55:.8,1); c.position.set(0,-.235,.02); c.scale.setScalar(1.3); c.visible=false; d.fore[0].add(c); par={o:p,it,chip:c}; }   // (their takeaway as yours: a single, and on the bench a spice bag)
     else if(i===3){ const P=part(); P.put(FG.box,'#1f2226',0,-.2,.03,.04,.075,.008,-.3); d.fore[0].add(P.mesh()); }
     if(q.in) wiFigure(B,f,chFigMat()); else { f.traverse(m=>{ if(!m.isMesh||m.material===SHM) return; m.frustumCulled=false; m.userData.col=m.material; m.userData.inkM=variant(inkC,m.material,INK_F); m.userData.shdM=variant(shdC,m.material,SHD_F,T.DoubleSide); INK.push(m); }); sc.add(f); }
     const [qx,qz]=q.at, U=wiV2.copy(B.up); if(q.in) wiW(B,qx,F,qz,f.position); else if(q.sit) wiW(B,qx,.01,qz,f.position); else { const [mx,mz]=wiXZ(B,qx,qz); at(mx,mz,U); f.position.copy(U).multiplyScalar(R+standH(mx,mz)); }
     tang(U,wiD(B,Math.sin(q.f),0,Math.cos(q.f),wiV3),wiV3); sT.crossVectors(U,wiV3).normalize(); Mf.makeBasis(sT,U,wiV3); f.quaternion.setFromRotationMatrix(Mf); f.updateMatrixWorld(true);
-    return {q,f,d,i,ph:i*1.7,blink:2+i,vis:true}; });
+    return {q,f,d,i,ph:i*1.7,blink:2+i,vis:true,par,u:-1,nb:1.5+i*1.3}; });
   /* ---- the lamps: over the counter, over you, the hot cabinet's, the menu's glow ---- */
   [[-.4,top-.12,-.15,1.05],[.35,top-.12,.7,.85],[-.75,ct+.26,-.22,.45],[1.0,F+1.5,-.95,.55]].forEach(([x,y,z,w_],i)=>{ chW(x,y,z,wiV); B.U.uCL.value[i].set(wiV.x,wiV.y,wiV.z,w_); });
   /* ---- what a tap finds: the front from the street; inside Enzo, the salt, the vinegar, the paper, the menu and the door ---- */
   const pk=(w_,h_,d_,x,y,z)=>wiHit(B,w_,h_,d_,x,y,z);
   B.pick=pk(w-.1,2.4,.5,0,1.25,d/2+.15); B.pk={enzo:pk(.5,1.3,.4,D.HOME[0],F+.75,D.HOME[1]),salt:pk(.12,.2,.12,D.SALT[0],ct+.07,D.SALT[1]),vin:pk(.12,.26,.12,D.VIN[0],ct+.1,D.VIN[1]),
     paper:pk(.4,.14,.4,D.SERVE[0],ct+.05,D.SERVE[1]),menu:pk(mx1-mx0,D.MENU[3]-D.MENU[2],.1,(mx0+mx1)/2,F+(D.MENU[2]+D.MENU[3])/2,-id+.05),door:pk(D.DW,D.DH-F,.3,D.DX,(D.DH+F)/2,id)};
-  /* ---- what you carry out: the parcel in your hand (white, or the spice bag's brown) ---- */
-  B.carryM=['#f7f4ec','#b98a5a'].map(c=>{ const m=new T.Mesh(new T.BoxGeometry(.13,.06,.2),toonMat(c)); m.position.set(0,-.21,.06); m.rotation.x=-.25; m.visible=false; me.userData.fore[0].add(m);
-    m.userData.col=m.material; m.userData.inkM=variant(inkC,m.material,INK_F); m.userData.shdM=variant(shdC,m.material,SHD_F,T.DoubleSide); INK.push(m); return m; });
+  /* ---- what you carry out: your parcel (every kind of it, the one you ordered shown), in a group of its own in your body;
+     the paper folded up small, and a chip for your right hand. Inked as you are ---- */
+  { const o=chParcel(FIGM,0,true), fo=G.fold.map(g_=>new T.Mesh(g_,FIGM)), fg=new T.Group(), c=new T.Mesh(G.chip,FIGM), bd=me.userData.body;
+    o.g.visible=false; bd.add(o.g); fo.forEach(m=>fg.add(m)); fg.visible=false; fg.scale.setScalar(CHS); bd.add(fg); c.position.set(0,-.235,.02); c.scale.setScalar(1.3); c.visible=false; me.userData.fore[0].add(c);
+    [...o.g.children,...fo,c].forEach(m=>{ m.userData.col=m.material; m.userData.inkM=variant(inkC,m.material,INK_F); m.userData.shdM=variant(shdC,m.material,SHD_F,T.DoubleSide); INK.push(m); });
+    B.cm=Object.assign(o,{fold:fo,fg,chip:c}); }
   chSolids(); chPaper(); chProps(0); chPose(0,0,true); }
 /* what stands outside is solid once the trees are laid out: the shop's own walls, the bench and where the one at the door
    waits; the walking grid round it made again by the grid's own rule; no grass through the step */
@@ -10075,15 +10141,27 @@ function chInside(dt){ const kx=(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)-(k
   if(bk||fw&&out){ CHP.out+=dt; if(CHP.out>.3){ CHP.out=0; wiLeave(CHP); return; } } else CHP.out=0;
   CHP.dragT+=dt; if(CHP.dragT>2.4){ CHP.yaw=damp(CHP.yaw,CHP.yaw0,1.8,dt); CHP.pitch=damp(CHP.pitch,cport()?CHP.pP:CHP.p0,1.8,dt); }
   CHP.lean=damp(CHP.lean,fw&&!out?1:0,1.8,dt); chEye(CHP.cp,CHP.lean); wiDir(CHP,CHP.yaw,CHP.pitch,wiV).add(CHP.cp); CHP.cl.copy(wiV); CHP.cu.copy(CHP.up); me.visible=false; }
-/* the paper on the counter: what is on it now (the order, how far it is wrapped, salted, vinegared), slid toward you when ready */
-function chPaper(){ const m=CHP.m; if(!m.sheet) return; const ph=CHP.ph, i=CHP.oi, laid=i>=0&&(ph==='season'||ph==='wrap'||ph==='ready'||ph==='serve'&&CHP.ot>.75), wrapped=ph==='ready'||ph==='wrap'&&CHP.ot>1.5;
-  m.sheet.visible=laid&&!wrapped; m.flL.visible=m.flR.visible=laid&&!wrapped; m.parcel.visible=laid&&wrapped; m.heaps.forEach((h,k)=>{ h.visible=laid&&!wrapped&&k===i; });
-  m.salted.visible=laid&&!wrapped&&CHP.salt>0; m.vined.visible=laid&&!wrapped&&CHP.vin>0; if(i>=0) CHP.pm.uniforms.uC.value.setRGB(...(i===4?[.74,.55,.36]:[.97,.96,.93])); }
-function chPaperPose(){ const D=CHD, m=CHP.m; if(!m.sheet) return; const ct=D.FL+D.CTOP, P=wiM.makeTranslation(D.SERVE[0],ct+.003,D.SERVE[1]+.22*E.io(CHP.slide)), Mx=wiM2.multiplyMatrices(CHP.M,P);
-  const wk=CHP.ph==='wrap'?CHP.ot:CHP.ph==='ready'?9:0, lay=CHP.ph==='serve'?sstep(.75,1.05,CHP.ot):1;
-  for(const o of [m.sheet,m.parcel,m.salted,m.vined,...m.heaps]){ o.matrix.copy(Mx); if(lay<1) o.matrix.multiply(chM1.makeScale(1,lay,1)); o.matrixWorldNeedsUpdate=true; }
-  [[m.flL,-1,sstep(.1,.75,wk)],[m.flR,1,sstep(.6,1.3,wk)]].forEach(([o,s,k])=>{ o.matrix.copy(Mx).multiply(chM1.makeTranslation(s*.1,0,0)).multiply(chM2.makeRotationZ(s*2.62*k)); o.matrixWorldNeedsUpdate=true; }); }
-const chM1=new T.Matrix4(), chM2=new T.Matrix4();
+/* the paper on the counter: what is on it now (the order laid out flat, salted, vinegared; its sides folded up round it, and
+   then the parcel itself, its top folded over), slid toward you when ready; and lifted off the counter as you take it */
+function chPaper(){ const m=CHP.m; if(!m.sheet) return; const ph=CHP.ph, lift=CHP.lift>=0, i=lift?CHP.li:CHP.oi, k=chKind(i), laid=lift||i>=0&&(ph==='season'||ph==='wrap'||ph==='ready'||ph==='serve'&&CHP.ot>.75), up=lift||ph==='ready'||ph==='wrap'&&CHP.ot>1.15;
+  m.sheet.visible=laid&&!up; [m.flL,m.flR,m.flF,m.flB].forEach(o=>{ o.visible=laid&&!up; }); m.pack.forEach((o,j)=>{ o.visible=laid&&up&&j===k; }); m.lid.forEach((l,j)=>l.forEach(o=>{ o.visible=laid&&up&&j===k; }));
+  m.heaps.forEach((h,j)=>{ h.visible=laid&&j===i; }); m.salted.visible=laid&&!lift&&CHP.salt>0; m.vined.visible=laid&&!lift&&CHP.vin>0; if(i>=0) CHP.pm.uniforms.uC.value.setRGB(...(k?[.74,.55,.36]:[.97,.96,.93])); }
+const chMat=(o,M_)=>{ o.matrix.copy(M_); o.matrixWorldNeedsUpdate=true; };
+function chPaperPose(){ const D=CHD, m=CHP.m, B=CHP; if(!m.sheet) return; const lift=B.lift>=0, i=lift?B.li:B.oi; if(i<0) return; const k=chKind(i), T_=CHT[k], ct=D.FL+D.CTOP;
+  const Mx=wiM2.multiplyMatrices(B.M,wiM.makeTranslation(D.SERVE[0],ct+.003,D.SERVE[1]+.22*E.io(B.slide)));
+  /* taken: up off the counter toward you, and down out of sight into your hands */
+  if(lift){ const u=E.io(clamp(B.lift/.6,0,1)); wiL(B,B.cp,chV1); wiV.subVectors(B.cl,B.cp).transformDirection(B.Mi); chV2.copy(chV1).addScaledVector(wiV,.3); chV2.y-=.42;
+    chV1.setFromMatrixPosition(Mx).applyMatrix4(B.Mi).lerp(chV2,u); chV1.y+=.12*Math.sin(Math.PI*u); Mx.copy(B.M).multiply(wiM.makeTranslation(chV1.x,chV1.y,chV1.z).multiply(chM2.makeRotationY(-.6*u))); }
+  const wk=lift||B.ph==='ready'?9:B.ph==='wrap'?B.ot:0, lay=B.ph==='serve'&&!lift?sstep(.75,1.05,B.ot):1, fl=(a,b)=>Math.PI/2*sstep(a,b,wk), up=sstep(.6,1.1,wk), {W,L,h}=T_;
+  chMat(m.sheet,chM1.copy(Mx).multiply(wiM.makeScale(W,lay,L)));
+  chMat(m.flL,chM1.copy(Mx).multiply(wiM.makeTranslation(-W/2,0,0)).multiply(wiM.makeRotationZ(-fl(.1,.5)*.985)).multiply(wiM.makeScale(h,1,L)));
+  chMat(m.flR,chM1.copy(Mx).multiply(wiM.makeTranslation(W/2,0,0)).multiply(wiM.makeRotationZ(fl(.3,.7)*.985)).multiply(wiM.makeScale(h,1,L)));
+  chMat(m.flF,chM1.copy(Mx).multiply(wiM.makeTranslation(0,0,L/2)).multiply(wiM.makeRotationX(-fl(.55,.9)*.985)).multiply(wiM.makeScale(W,1,h*.92)));
+  chMat(m.flB,chM1.copy(Mx).multiply(wiM.makeTranslation(0,0,-L/2)).multiply(wiM.makeRotationX(fl(.7,1.05)*.985)).multiply(wiM.makeScale(W,1,h*.92)));
+  chMat(m.pack[k],Mx); m.lid[k].forEach((o,s)=>{ const a=fl(s?1.32:1.18,s?1.62:1.48)*(s?.96:.99); chMat(o,chM1.copy(Mx).multiply(wiM.makeTranslation((s?1:-1)*W/2,h,0)).multiply(wiM.makeRotationZ(s?a:-a))); });
+  const Mf=chM1.copy(Mx).multiply(wiM.makeTranslation(0,T_.fill*up,0)), sq=lay*(1-.2*sstep(1.15,1.45,wk)); if(sq<1) Mf.multiply(wiM.makeScale(1,sq,1)); chMat(m.heaps[i],Mf);
+  Mf.multiply(wiM.makeScale(W/CHT[0].W,1,L/CHT[0].L)); chMat(m.salted,Mf); chMat(m.vined,Mf); }
+const chM1=new T.Matrix4(), chM2=new T.Matrix4(), chV1=new T.Vector3(), chV2=new T.Vector3();
 
 /* ---------- the order: said back, rung in, fried, laid out, seasoned by you, wrapped, handed over ---------- */
 function chSay(s){ if(s===CHP.said) return; CHP.said=s; chSayEl.textContent=s; CHP.sayT=0; if(s&&CHP.st==='in') A.murmur(ENZO.pitch,4); chUI(); }
@@ -10091,8 +10169,40 @@ function chOrder(i){ if(CHP.st!=='in'||CHP.ph!=='menu'||i<0||i>=CHMENU.length) r
 function chSeason(k){ if(CHP.ph!=='season'||CHP.shk) return false; CHP.shk={k,t:0}; if(k==='salt') A.shaker(); else A.vinegar(); chUI(); return true; }
 function chWrap(){ if(CHP.ph!=='season'||CHP.shk) return false; CHP.ph='wrap'; CHP.ot=0; chSay(CHL.wrap); A.wrap(1); chUI(); return true; }
 function chAnother(){ if(CHP.ph!=='ready') return false; CHP.ph='menu'; CHP.oi=-1; CHP.slide=0; chPaper(); chSay(CHL.again); chUI(); if(CHP.kb) chFocus(); return true; }
-/* what you carry out with you: your parcel in your hand, for as long as it takes to eat it */
-function chCarry(i){ CHP.carry=i; CHP.carryT=0; CHP.ph='menu'; CHP.oi=-1; chPaper(); if(CHP.carryM) CHP.carryM.forEach((m,k)=>{ m.visible=k===(i===4?1:0); }); }
+/* what you carry out with you: your parcel, lifted off the counter into your hands still folded shut. Outside you open it and
+   eat it as you go, a chip now and then, until it is empty; then you fold the paper up and put it away (in the bin, if you
+   are by it). Going in anywhere else, the finale or the cutscene put it away at once */
+function chCarry(i){ const B=CHP; B.carry=i; B.carryT=0; B.left=B.lv=1; B.bu=B.ou=B.fu=-1; B.op=0; B.bites=0; B.gone=''; B.fly=null; B.nb=0; B.free=true;
+  B.lift=0; B.li=i; B.ph='menu'; B.oi=-1; chPaper(); if(B.cm){ B.cm.g.scale.setScalar(CHS); B.cm.g.visible=true; B.cm.fg.visible=false; B.cm.fold.forEach((m,k)=>{ m.visible=k===chKind(i); }); } }
+function chDrop(){ const B=CHP, c=B.cm; B.carry=-1; B.bu=B.ou=B.fu=-1; B.fly=null; if(c) c.g.visible=c.fg.visible=c.chip.visible=false;
+  if(me){ const d=me.userData; [...d.arms,...d.fore].forEach(a=>{ a.rotation.y=0; a.rotation.z=0; }); d.head.rotation.x=0; } }
+/* the bin by the door: near enough, and in front of you, to drop the paper in */
+function chBinNear(){ const P=player; chW(CHD.DX+.62,.62,CHD.d/2+.3,chV1); chV2.copy(P.u).multiplyScalar(R+P.h); chV1.sub(chV2); chV1.addScaledVector(P.u,-chV1.dot(P.u)); const L=chV1.length(); return L<2.2&&chV1.dot(P.f)>.2*L; }
+/* each frame you carry it (out of doors): opening it first, then a bite now and then while your hands are free and you are not
+   talking, how much is left, and at the end folding the paper up and away; your hands and the parcel in them */
+function chEat(dt){ const B=CHP, c=B.cm, d=me.userData, i=B.carry, k=chKind(i), P=player, out=B.st==='out';
+  const free=!(CL.st!=='idle'||CL.k!=='home'||SWG.st!=='idle'||PO.bx.st==='post'||TL.throwT>0||PHS.on), calm=free&&out&&!TALK.p&&GLN.t<0;
+  if(B.free&&!free) [...d.arms,...d.fore].forEach(a=>{ a.rotation.y=0; a.rotation.z=0; }); B.free=free;   // (your arms handed over to whatever else they are doing: the parcel stays in your left hand)
+  B.carryT+=dt;
+  if(out&&!B.op&&B.ou<0&&B.carryT>1&&calm) B.ou=0;
+  if(B.ou>=0){ const o0=B.ou; B.ou+=dt/1.1; if(o0<.32&&B.ou>=.32) A.rustle(.9); if(B.ou>=1){ B.ou=-1; B.op=1; B.nb=1+Math.random(); } }
+  if(B.op&&B.bu<0&&B.fu<0&&B.left>0&&calm){ B.nb-=dt; if(B.nb<=0) B.bu=0; }
+  if(B.bu>=0){ const u0=B.bu; B.bu+=dt/1.9; if(u0<.38&&B.bu>=.38) A.rustle(.45); if(u0<.68&&B.bu>=.68){ B.left=Math.max(0,B.left-1/CHBITES[i]); B.bites++; } if(B.bu>=1){ B.bu=-1; B.nb=4.5+Math.random()*4; } }
+  B.lv=damp(B.lv,B.left,2.5,dt);
+  if(B.left<=0&&B.bu<0&&B.fu<0&&calm&&B.lv<.06){ B.fu=0; B.bin=chBinNear(); }
+  /* the empty paper: brought in, the flaps folded back over and the whole of it pressed flat and folded in two; then tossed
+     into the bin, or into your pocket */
+  const bd=d.body, fg=c.fg; let end=false;
+  if(B.fu>=0){ const f0=B.fu, f=B.fu+=dt; if(f0<.45&&f>=.45) A.wrap(.4); if(f0<1.15&&f>=1.15){ c.g.visible=false; fg.visible=true; }
+    if(B.bin){ if(f0<1.38&&f>=1.38){ me.updateMatrixWorld(true); B.fly=[bd.localToWorld(fg.position.clone()),chW(CHD.DX+.62,.64,CHD.d/2+.3)]; }
+      if(f0<1.88&&f>=1.88){ fg.visible=false; B.gone='bin'; A.rustle(1.2); } end=f>=2.1; }
+    else { if(f0<1.75&&f>=1.75){ fg.visible=false; B.gone='pocket'; A.rustle(.5); } end=f>=2.3; } }
+  const op=B.op?1:B.ou>=0?sstep(.3,.75,B.ou):0, fold=B.fu>=0?sstep(.45,1.1,B.fu):0, D=CHT[k];
+  chParcelSet(c,i,B.lv,op*(1-sstep(.45,.85,B.fu))); c.g.scale.set(1-.4*fold,1-.8*fold,1-.3*fold).multiplyScalar(CHS);
+  chHold(d,c.g,{u:B.bu,o:B.ou,f:B.fu,bin:B.bin,pose:free,chip:c.chip,top:(D.fill*Math.min(1,B.lv*1.4)+CHTOP*(.2+.8*B.lv)+.01)*CHS,bob:out&&free?Math.sin(P.ph*2)*.008*clamp(P.speed/2.7,0,1):0});
+  if(fg.visible){ if(B.fly){ const s=clamp((B.fu-1.38)/.5,0,1); chV1.copy(B.fly[0]).lerp(B.fly[1],s); chV2.copy(chV1).normalize(); chV1.addScaledVector(chV2,.32*4*s*(1-s)); me.updateMatrixWorld(true); bd.worldToLocal(fg.position.copy(chV1)); fg.rotation.x+=dt*9; }
+    else { fg.position.copy(c.g.position); fg.quaternion.copy(c.g.quaternion); } }
+  if(end) chDrop(); }
 const chTake=()=>{ if(CHP.ph!=='ready') return false; return wiLeave(CHP); };
 function chOrderStep(dt){ const D=CHD, e=CHP.e; CHP.ot+=dt; const c=CHP.ot;
   if(CHP.ph==='said'){ e.tx=D.HOME[0]; e.tz=D.HOME[1]; e.tf=0; e.act='rest'; if(c>.9){ CHP.ph='till'; CHP.ot=0; } }
@@ -10102,7 +10212,7 @@ function chOrderStep(dt){ const D=CHD, e=CHP.e; CHP.ot+=dt; const c=CHP.ot;
     if(c>3){ CHP.ph='serve'; CHP.ot=0; CHP.fried=0; } }
   else if(CHP.ph==='serve'){ e.tx=D.SERVP[0]; e.tz=D.SERVP[1]; e.tf=0; e.act=c>.55?'wrap':'rest'; if(c>.75&&!CHP.laid){ CHP.laid=1; A.poShuffle(.5); chPaper(); } if(c>1.3){ CHP.ph='season'; CHP.ot=0; CHP.laid=0; chSay(CHL.sv); chPaper(); chUI(); } }
   else if(CHP.ph==='season'){ e.tx=D.SERVP[0]; e.tz=D.SERVP[1]; e.tf=0; e.act='rest'; }
-  else if(CHP.ph==='wrap'){ e.act='wrap'; if(c>1.5&&!CHP.wrapped){ CHP.wrapped=1; A.wrap(.6); chPaper(); } if(c>1.9){ CHP.ph='ready'; CHP.ot=0; CHP.wrapped=0; chSay(CHL.ready); chPaper(); chUI(); if(CHP.kb) chFocus(); } }
+  else if(CHP.ph==='wrap'){ e.act='wrap'; if(c>1.15&&!CHP.wrapped){ CHP.wrapped=1; chPaper(); } if(c>1.45&&CHP.wrapped===1){ CHP.wrapped=2; A.wrap(.6); } if(c>1.9){ CHP.ph='ready'; CHP.ot=0; CHP.wrapped=0; chSay(CHL.ready); chPaper(); chUI(); if(CHP.kb) chFocus(); } }
   else if(CHP.ph==='ready'){ e.act='rest'; CHP.slide=Math.min(1,CHP.slide+dt/.5); }
   else { e.tx=D.HOME[0]; e.tz=D.HOME[1]; e.tf=0; e.act='rest'; }
   }
@@ -10141,8 +10251,10 @@ function chPose(dt,t,force){ const e=CHP.e; if(!e) return; const d=e.d, D=CHD, d
 const wiQr0=new T.Quaternion(), wiQr1=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-.12);
 /* the people who wait: as many as the hour has, idling (a glance up at the menu, a look at a phone, eating) while you are near enough to see */
 function chQueuePose(dt,t){ const n=CHP.q; for(const q of CHP.qf){ const vis=CHP.warm||q.i<n; if(q.f.visible!==vis) q.f.visible=vis; if(!vis||!CHP.on&&!CHP.warm&&CHP.dd>24) continue; const d=q.d, ph=t*.7+q.ph;
-    d.head.rotation.x=q.q.eat?.25+.08*Math.sin(ph*1.3):-.1+.12*Math.sin(ph*.5); d.head.rotation.y=.3*Math.sin(ph*.37);
-    if(q.q.eat){ const k=Math.max(0,Math.sin(ph*1.1)); d.arms[0].rotation.x=-.9-.25*k; d.fore[0].rotation.x=-1.2-.5*k; } else if(q.i===3){ d.arms[0].rotation.x=-.5; d.fore[0].rotation.x=-1.3; d.head.rotation.x=.35; }
+    d.head.rotation.x=q.par?.1+.05*Math.sin(ph*1.3):-.1+.12*Math.sin(ph*.5); d.head.rotation.y=.3*Math.sin(ph*.37);
+    if(q.par){ if(q.u<0){ q.nb-=dt; if(q.nb<=0) q.u=0; } else { q.u+=dt/1.9; if(q.u>=1){ q.u=-1; q.nb=2.5+Math.random()*3.5; } }   // (eating as you do: a chip now and then, from the same takeaway)
+      d.arms.forEach(a=>a.rotation.set(0,0,0)); d.fore.forEach(f=>f.rotation.set(-.12,0,0)); chHold(d,q.par.o.g,{u:q.u,chip:q.par.chip,hx:d.head.rotation.x,top:(CHT[chKind(q.par.it)].fill+CHTOP*.8)*CHS}); }
+    else if(q.i===3){ d.arms[0].rotation.x=-.5; d.fore[0].rotation.x=-1.3; d.head.rotation.x=.35; }
     q.blink-=dt; d.eyes.forEach(e=>e.scale.y=q.blink<.12?.15:1); if(q.blink<0) q.blink=2+Math.random()*3; q.f.updateMatrixWorld(true); } }
 
 /* ---------- the menu over the counter, the buttons, clicks and keys ---------- */
@@ -10184,15 +10296,23 @@ function chStep(dt,t){ const live=wiStep(CHP,dt,t), B=CHP; if(!B.g) return; cons
   /* the lamps a little brighter by night; the fryer's sound: in here, and by the door while it is open; louder with the basket in */
   const nt=SKY.night; B.U.uCL.value[0].w=1.05*(1+.12*nt); B.U.uCL.value[1].w=.85*(1+.12*nt);
   B.fryK=damp(B.fryK,!live||!chOpen()?0:B.st==='in'?.6+.4*B.fry:B.on?.45:B.door>.1?.25:0,2,dt); A.chipFry(B.fryK,B.dd<14&&chOpen());
-  /* what you carry: in your hand while you walk about, until it is eaten */
-  if(B.carry>=0&&!B.on){ B.carryT+=dt; const d=me.userData; d.arms[0].rotation.x=-.55; d.fore[0].rotation.x=-1.15; if(B.carryT>150||FIN.on||CUT.on||WI.some(b=>b!==B&&b.on)||PUB.on||PO.on||CAFE.on||HSI.on||GAR.on){ B.carry=-1; B.carryM.forEach(m=>m.visible=false); } } }
+  /* what you carry: off the counter into your hands, then in your hand as you walk about, until it is eaten and put away */
+  if(B.lift>=0){ B.lift+=dt; if(B.lift>.6){ B.lift=-1; chPaper(); } }
+  if(B.carry>=0&&B.cm){ if(FIN.on||CUT.on||WI.some(b=>b!==B&&b.on)||PUB.on||PO.on||CAFE.on||HSI.on||GAR.on) chDrop(); else if(B.st!=='in') chEat(dt); } }
 wiWire(CHP,buildChipper,chStep);
-st._dbg.chipper={C:CHP,CHD,CHMENU,CHL,get err(){ return CHP.err; },open:chOpen,queue:chQueue,go:()=>wiGo(CHP),enter:()=>wiEnter(CHP),leave:()=>wiLeave(CHP),order:chOrder,season:chSeason,wrap:chWrap,take:chTake,another:chAnother,reset:()=>wiReset(CHP),
+/* (for the tests: how your takeaway is going, where it is in your hand, and how near your right hand is to your mouth) */
+function chEatState(){ const B=CHP, c=B.cm; if(!c||!me) return null; const d=me.userData, i=B.carry, f=i>=0?c.food[i]:null; me.updateMatrixWorld(true);
+  const p=c.g.getWorldPosition(new T.Vector3()), lh=d.fore[1].localToWorld(new T.Vector3(0,-.19,.004)), rh=d.fore[0].localToWorld(new T.Vector3(0,-.19,.004)), mo=d.head.localToWorld(new T.Vector3(0,-.07,.15)), r2=n=>+n.toFixed(3);
+  return {left:r2(B.left),lv:r2(B.lv),bite:r2(B.bu),open:r2(B.ou),fold:r2(B.fu),op:B.op,bites:B.bites,gone:B.gone,bin:B.bin,free:B.free,par:c.g.visible,folded:c.fg.visible,chip:c.chip.visible,
+    food:f?{vis:f.visible,sy:r2(f.scale.y)}:null,flap:r2(c.flap[chKind(Math.max(0,i))][0].rotation.z),inHand:r2(p.distanceTo(lh)),at:c.g.position.toArray().map(r2),mouth:r2(rh.distanceTo(mo)),head:r2(d.head.rotation.x),
+    twist:r2(Math.max(...[...d.arms,...d.fore].map(a=>Math.max(Math.abs(a.rotation.y),Math.abs(a.rotation.z)))))}; }
+st._dbg.chipper={C:CHP,CHD,CHMENU,CHL,CHT,get err(){ return CHP.err; },open:chOpen,queue:chQueue,go:()=>wiGo(CHP),enter:()=>wiEnter(CHP),leave:()=>wiLeave(CHP),order:chOrder,season:chSeason,wrap:chWrap,take:chTake,another:chAnother,reset:()=>wiReset(CHP),
+  carry:chCarry,binNear:chBinNear,get eaters(){ return CHP.qf?CHP.qf.filter(q=>q.par).map(q=>({it:q.par.it,vis:q.f.visible&&q.par.o.g.visible,food:q.par.o.food[q.par.it].visible,u:+q.u.toFixed(2)})):[]; },
   local:(x,z)=>wiXZ(CHP,x,z),world:(x,y,z)=>chW(x,y,z),toLocal:w=>wiL(CHP,w),
   run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
   get state(){ const B=CHP; return {st:B.st,on:B.on,ph:B.ph,oi:B.oi,k:+B.k.toFixed(3),vis:!!(B.g&&B.g.visible),me:me.visible,near:stCam.near,fov:+stCam.fov.toFixed(1),door:+B.door.toFixed(2),you:[+B.you.x.toFixed(2),+B.you.z.toFixed(2)],dd:+B.dd.toFixed(2),
-    open:chOpen(),sh:+B.sh.toFixed(2),q:B.q,queue:B.qf.map(q=>q.f.visible),say:B.said,salt:B.salt,vin:B.vin,carry:B.carry,carryVis:!!(B.carryM&&B.carryM.some(m=>m.visible)),
-    paper:{sheet:!!(B.m.sheet&&B.m.sheet.visible),parcel:!!(B.m.parcel&&B.m.parcel.visible),heap:B.m.heaps?B.m.heaps.findIndex(h=>h.visible):-1,salted:!!(B.m.salted&&B.m.salted.visible),vined:!!(B.m.vined&&B.m.vined.visible)},
+    open:chOpen(),sh:+B.sh.toFixed(2),q:B.q,queue:B.qf.map(q=>q.f.visible),say:B.said,salt:B.salt,vin:B.vin,carry:B.carry,carryVis:!!(B.cm&&(B.cm.g.visible||B.cm.fg.visible)),eat:chEatState(),
+    paper:{sheet:!!(B.m.sheet&&B.m.sheet.visible),parcel:!!(B.m.pack&&B.m.pack.some(m=>m.visible)),shut:!!(B.m.lid&&B.m.lid.some(l=>l.some(m=>m.visible))),heap:B.m.heaps?B.m.heaps.findIndex(h=>h.visible):-1,salted:!!(B.m.salted&&B.m.salted.visible),vined:!!(B.m.vined&&B.m.vined.visible),lift:B.lift,li:B.li},
     tag:{on:B.tagOn,can:B.tagCan,txt:B.tag.textContent},leave:!chOut.hidden,menu:chEl.classList.contains('on'),btn:Object.keys(CHB).filter(k=>!CHB[k].hidden),mk:+B.mk.toFixed(2),fry:+B.fryK.toFixed(2),enzo:{act:B.e?B.e.act:null,x:B.e?+B.e.x.toFixed(2):0,z:B.e?+B.e.z.toFixed(2):0}}; },
   /* where on the screen the door, the fascia, Enzo, the paper, the salt and the vinegar are (for a test to tap them) */
   screen(what){ stCam.updateMatrixWorld(); const D=CHD, ct=D.FL+D.CTOP; let p;

@@ -1038,6 +1038,8 @@ const A=(()=>{
       for(let k=0;k<6;k++) tone(300+Math.random()*250,.04,g*.25,'sine',500,.3+Math.random()*.6,0,.003); },
     /* the paper: folded over and over round the chips, a crackle at each fold (k: how much) */
     wrap(k=1){ if(!on||muted||!ctx) return; for(let i=0;i<4;i++){ const d=i*.22+Math.random()*.06; noise(.16,.016*k,3400,1500,'bandpass',.8,d); noise(.1,.01*k,1200,700,'bandpass',1,d+.04); } },
+    /* the paper once, softly: a hand in among the chips, the parcel opened, or the empty paper let go (k: how much) */
+    rustle(k=1){ if(!on||muted||!ctx) return; const v=vr(.1); noise(.1,.007*k,3600*v,1900,'bandpass',.9); noise(.07,.004*k,1300*v,800,'bandpass',1,.03); },
     /* ---------- the fire station on Earth: the bell rung for a drill, and the hose: the water let go with a gush, its
        patter on the forecourt while it runs, and a sputter as it is shut off. g how loud (eased for distance), p left or
        right. Soft, short and dark: water here is a patter of small knocks, never a hiss ---------- */

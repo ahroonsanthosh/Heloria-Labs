@@ -6,9 +6,12 @@
    the market is on. From the street its name is in view. In by a click (a tap) on the front: the bell, and you are at the
    counter in your own eyes, Enzo saying hello, the menu up, the fryer heard and the town's music quieter. Order (a key,
    or a tap on the menu): said back, rung into the till, fried (the basket lifted and shaken), laid out on the paper. Salt
-   and vinegar by the buttons and by a tap on the cellar; wrapped (E, or the button); taken outside (the button), and
-   carried. Everything on the menu can be had. Escape mid-order leaves without chips, and an Escape just after stays on
-   Earth. Nothing new is compiled the whole way, and the paths round the shop stay open. */
+   and vinegar by the buttons and by a tap on the cellar; wrapped (E, or the button): the paper folded up round it into a
+   parcel, its top folded over; taken outside (the button): lifted off the counter into your left hand, held at your side.
+   Eaten: opened, a chip up to your mouth now and then, less in it each time; and at the end the empty paper folded up
+   small, into the bin by the door when you are by it, or your pocket. The ones eating outside hold theirs the same way.
+   Everything on the menu can be had. Escape mid-order leaves without chips, and an Escape just after stays on Earth.
+   Nothing new is compiled the whole way, and the paths round the shop stay open. */
 module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   let pass = 0, fail = 0; const failed = [];
   const rec = (ok, name, info) => { if (ok) pass++; else { fail++; failed.push(name); } console.log((ok ? 'PASS ' : 'FAIL ') + name + (info ? '  (' + info + ')' : '')); };
@@ -21,7 +24,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       put(lx, lz, fx, fz) { const [x, z] = C.local(lx, lz), P = d.player, t = d.at(...C.local(fx, fz)); P.x = x; P.z = z; P.u.copy(d.at(x, z)); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); d.cam.pitch = d.cam.PITCH; P.tgt = null; P.path = null; P.speed = 0; },
       count(n) { return this.snd.filter(s => s.n === n).length; },
     };
-    for (const n of ['poBell', 'till', 'mktFry', 'mktBasket', 'shaker', 'vinegar', 'wrap', 'poShuffle', 'murmur', 'shutterMotor']) { const f = h.A[n]; h.A[n] = function () { window.__C.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
+    for (const n of ['poBell', 'till', 'mktFry', 'mktBasket', 'shaker', 'vinegar', 'wrap', 'rustle', 'poShuffle', 'murmur', 'shutterMotor']) { const f = h.A[n]; h.A[n] = function () { window.__C.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
     { const f = h.A.music; h.A.music = function (v) { window.__C.lastMusic = v; return f.apply(this, arguments); }; }
   });
   const W = (fn, arg) => H((h, [src, a]) => (0, eval)('(' + src + ')')(window.__C, h.ST.cr._dbg.chipper, h.ST.cr._dbg, h, a), [fn.toString(), arg]);
@@ -57,6 +60,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   s = await at('17:30'); rec(s.q === 2 && s.queue[0] && s.queue[1] && !s.queue[2], 'a small queue in the evening', JSON.stringify({ q: s.q, queue: s.queue }));
   s = await at('21:15'); const mkt = await W((w, C, d) => d.market.open());
   rec(mkt && s.q === 4 && s.queue.every(Boolean), 'busier while the market is on: inside, on the bench and at the door', JSON.stringify({ market: mkt, q: s.q, queue: s.queue }));
+  { const ea = await W((w, C) => { w.run(5); return C.eaters; });
+    rec(ea.length === 2 && ea.every(q => q.vis && q.food) && ea.some(q => q.it === 4), 'the ones eating hold their takeaway as you will (one a spice bag in its brown bag)', JSON.stringify(ea)); }
   await frames(4); const fa = await W((w, C) => C.screen('fascia'));
   rec(onScreen(fa), 'from across the street LANZETTI\'S is over the window', JSON.stringify(fa.map(v => +v.toFixed(0))));
   await shot(pre + 'chip-2-street-market');
@@ -101,17 +106,31 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   if (mobile) await press('#crChWrap'); else await page.keyboard.press('KeyE');
   await W(w => w.run(20)); await frames(3); await shot(pre + 'chip-7-wrapping');
   r = await W(w => w.until(C => C.C.ph === 'ready', 30 * 4)); await W(w => w.run(20)); s = await state();
-  rec(r.done && s.paper.parcel && !s.paper.sheet && s.say === CHL.ready && await W(w => w.count('wrap')) >= 1, (mobile ? 'Wrap it up' : 'E') + ' and he wraps it in the paper and hands it over', JSON.stringify({ paper: s.paper, say: s.say }));
+  rec(r.done && s.paper.parcel && s.paper.shut && s.paper.heap === 1 && !s.paper.sheet && s.say === CHL.ready && await W(w => w.count('wrap')) >= 1, (mobile ? 'Wrap it up' : 'E') + ' and he folds the paper up round it into a parcel, its top folded over, and hands it over', JSON.stringify({ paper: s.paper, say: s.say }));
   rec(await visible('#crChTake'), 'Take it outside is offered');
   await frames(3); await shot(pre + 'chip-8-wrapped');
   const progD = await progs(); rec(progD === prog0, 'ordering compiles nothing new', prog0 + ' then ' + progD);
 
   /* ---- taken outside, and carried ---- */
-  await press('#crChTake'); s = await state(); rec(s.st === 'exit' && s.carry === 1, 'Take it outside: out you go with it', JSON.stringify({ st: s.st, carry: s.carry }));
-  await W(w => w.until(C => C.C.st === 'out', 30 * 5)); await W(w => w.run(30)); s = await state();
+  await press('#crChTake'); s = await state(); rec(s.st === 'exit' && s.carry === 1 && s.paper.li === 1 && (s.paper.lift < 0 || s.paper.parcel), 'Take it outside: out you go with it, the parcel lifted off the counter', JSON.stringify({ st: s.st, carry: s.carry, paper: s.paper }));
+  await W(w => w.run(24)); s = await state();
+  rec(!s.paper.parcel && s.eat.par && s.eat.inHand < .08, 'and into your hands: it is in your left hand as you go out', JSON.stringify({ paper: s.paper, eat: s.eat }));
+  await W(w => w.until(C => C.C.st === 'out', 30 * 5)); s = await state(); const e0 = s.eat;
+  rec(e0.par && !e0.op && e0.left === 1 && e0.inHand < .08 && e0.at[0] > .1 && e0.at[0] < .4 && e0.at[1] > .5 && e0.at[1] < .85 && e0.at[2] > 0 && e0.at[2] < .3,
+    'on the pavement your parcel is in your left hand, held at your side a little in front of you, still folded shut', JSON.stringify(e0));
+  await W(w => w.run(30)); s = await state();
   rec(s.st === 'out' && s.me && s.carryVis && s.near === .1 && s.k < .05, 'back on the pavement with the walking camera, your chips in your hand', JSON.stringify({ st: s.st, carryVis: s.carryVis, k: s.k }));
   await frames(4); await shot(pre + 'chip-9-carry');
   rec(await visible('#crPost') && await W(w => w.lastMusic) > .5, 'the postcard button is back, the music as it was');
+
+  /* ---- eating it as you go: opened first, then a chip to your mouth now and then, and there is less in it ---- */
+  r = await W(w => w.until(C => C.C.op, 30 * 4)); s = await state();
+  rec(r.done && s.eat.flap > 2 && s.eat.food.vis && await W(w => w.count('rustle')) >= 1, 'you open the top of the paper (a rustle), and there are your chips', JSON.stringify({ r, eat: s.eat }));
+  r = await W(w => w.until(C => C.C.bu >= .64, 30 * 12)); s = await state();
+  rec(r.done && s.eat.chip && s.eat.mouth < .12 && s.eat.inHand < .08, 'now and then your right hand takes a chip from it up to your mouth', JSON.stringify({ r, eat: s.eat }));
+  await frames(3); await shot(pre + 'chip-10-eat');
+  await W(w => { w.until(C => C.C.bu < 0, 30 * 3); w.run(30); }); s = await state();
+  rec(s.eat.bites === 1 && s.eat.left < 1 && s.eat.food.sy < .99 && !s.eat.chip && s.eat.mouth > .2, 'one eaten: there is less in it, and your hand goes back down', JSON.stringify(s.eat));
 
   /* ---- everything on the menu can be had (and Order another) ---- */
   const got = await W((w, C) => { const out = []; C.enter(); w.until(C => C.C.st === 'in', 30 * 5);
@@ -142,6 +161,22 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     return out; });
   const miss = Object.entries(nav).filter(([, v]) => v === null).map(([k]) => k);
   rec(miss.length === 0, 'there is a way to the chipper\'s door, the workshop and the fire station, from the pad, the square and the chipper', miss.length ? 'none for ' + miss.join(', ') : Object.keys(nav).length + ' ways');
+
+  /* ---- the last of it: the empty paper folded up and put away, into the bin by the door when you are by it ---- */
+  await W(w => { w.put(.95, 2.05, 1.57, 1.6); w.run(10); }); s = await state(); const binNear = await W((w, C) => C.binNear());
+  rec(s.carry === 1 && s.eat.par && s.eat.left < 1 && binNear, 'you still have your chips (part eaten), standing by the bin at the door', JSON.stringify({ carry: s.carry, eat: s.eat, binNear }));
+  await W((w, C) => { w.snd = []; C.C.left = 1e-4; C.C.bu = -1; C.C.nb = 0; });
+  r = await W(w => w.until(C => C.C.fu >= .8, 30 * 8)); s = await state();
+  rec(r.done && s.eat.left === 0 && !s.eat.food.vis && s.eat.par && s.eat.inHand < .08 && s.eat.bin, 'the last chip eaten and the paper empty, you fold it up in your hands', JSON.stringify({ r, eat: s.eat }));
+  r = await W(w => w.until(C => C.C.fu >= 1.3, 30 * 3)); s = await state();
+  rec(r.done && s.eat.folded && !s.eat.par && s.carryVis && await W(w => w.count('wrap')) === 1, 'folded up small (with a rustle of the paper): it does not just vanish', JSON.stringify({ r, eat: s.eat }));
+  await frames(3); await shot(pre + 'chip-11-folded');
+  r = await W(w => w.until(C => C.C.carry < 0, 30 * 3)); await W(w => w.run(10)); s = await state();
+  rec(r.done && s.eat.gone === 'bin' && !s.carryVis && await W(w => w.count('rustle')) >= 1 && s.eat.twist < .01 && s.eat.head === 0, 'and into the bin, your hands back at your sides', JSON.stringify({ r, eat: s.eat, carryVis: s.carryVis }));
+  /* away from the bin, into your pocket */
+  await W((w, C) => { w.put(.3, 4.6, .3, 9); w.run(5); C.carry(0); C.C.op = 1; C.C.left = 1e-4; C.C.lv = .05; C.C.nb = 0; });
+  r = await W(w => w.until(C => C.C.carry < 0, 30 * 12)); s = await state();
+  rec(r.done && s.eat.gone === 'pocket' && !s.carryVis, 'away from it, the folded paper goes in your pocket', JSON.stringify({ r, eat: s.eat }));
 
   console.log('\nSUMMARY ' + pass + ' passed, ' + fail + ' failed' + (failed.length ? '\n  FAILED: ' + failed.join('; ') : ''));
   if (fail) process.exitCode = 1;
