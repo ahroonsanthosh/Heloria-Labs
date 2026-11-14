@@ -18,13 +18,14 @@ module.exports = async ({ page, shot, wait, log, mobile, quiet }) => {
   const cue = await quiet("() => document.querySelector('#beginT').textContent");
   rec(mobile ? /^swipe to land$/i.test(cue) : /^click to land$/i.test(cue), mobile ? 'on a phone it asks for a swipe' : 'on a computer it asks for a click (a scroll cannot start the sound on a page of its own)', cue);
   rec(await quiet("() => !window.__heloria.A.ctx || window.__heloria.A.ctx.state !== 'running'"), 'before the way in, no sound has started (as on a visitor\'s browser)');
-  await shot(pre + 'ls-1-opening');
+  /* (no screenshot yet: taking one counts as a gesture to the browser, as a click would) */
   if (!mobile) {
     await page.mouse.move(640, 400); await page.mouse.wheel(0, 240); await wait(1000);
     const s = JSON.parse(await quiet("() => JSON.stringify({ mode: window.__heloria.S.mode, nudge: document.querySelector('#begin').classList.contains('nudge'), act: !!(navigator.userActivation && navigator.userActivation.hasBeenActive) })"));
     rec(s.mode === 'load' && s.nudge && !s.act, 'a scroll does not start a silent landing: it nudges the prompt', JSON.stringify(s));
+    await shot(pre + 'ls-1-opening');
     await page.mouse.click(640, 400);
-  } else await page.tap('#begin');
+  } else { await shot(pre + 'ls-1-opening'); await page.tap('#begin'); }
   rec(await until(() => window.__heloria.S.mode !== 'load', 10000), mobile ? 'a tap goes in' : 'a click goes in');
   rec(await until(() => { const c = window.__heloria.A.ctx; return !!c && c.state === 'running'; }, 8000), 'and the sound starts with it', await page.evaluate(() => window.__heloria.A.ctx && window.__heloria.A.ctx.state));
 
