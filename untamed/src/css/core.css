@@ -88,6 +88,7 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #begin.nudge{animation:beginNudge .7s var(--io)}   /* a scroll where a click is wanted: the prompt says so */
 @keyframes beginNudge{0%,100%{transform:translateX(-50%) scale(1);color:var(--ink2)}35%{transform:translateX(-50%) scale(1.12);color:var(--ink)}}
 #load.ready #begin{opacity:1}
+#load.wait #begin i::after{animation-duration:.9s}   /* asked in before the last of Earth is made: the line drips faster, coming down */
 #boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
 #load.ready #boot{opacity:0}
 #load.go #begin{opacity:0;transition-duration:.3s}

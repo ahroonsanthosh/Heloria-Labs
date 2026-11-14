@@ -1,7 +1,8 @@
 /* The landing heard as a visitor's browser has it: sound only after a click, a tap or a key (a scroll is not one), on a page
    of its own (the click at the front door does not count here).
    node untamed/test/shot.cjs --html dist/untamed.html --real-autoplay --meter --scenario untamed/test/landing-sound.cjs --out <dir> [--mobile]
-   (no --earth: it goes in from the opening screen.) On a computer the opening screen asks for a click, and a scroll only nudges
+   (no --earth: it goes in from the opening screen, which asks as soon as the town is built: a way in before the rest is made
+   is taken at once and comes down when it is.) On a computer the opening screen asks for a click, and a scroll only nudges
    the prompt, so the landing never comes down in silence; on a phone a swipe or a tap. The way in starts the sound: the
    landing's own recording plays from the moment the rocket is coming down, and the town's music is up by the touchdown,
    not at your first key afterwards. */
@@ -26,7 +27,11 @@ module.exports = async ({ page, shot, wait, log, mobile, quiet }) => {
     await shot(pre + 'ls-1-opening');
     await page.mouse.click(640, 400);
   } else { await shot(pre + 'ls-1-opening'); await page.tap('#begin'); }
-  rec(await until(() => window.__heloria.S.mode !== 'load', 10000), mobile ? 'a tap goes in' : 'a click goes in');
+  /* (the prompt is up as soon as the town is built, the rest finished behind it: a way in before that is taken at once, the
+     sound started and the prompt saying so, and it comes down the moment Earth is ready) */
+  const early = await page.evaluate(() => ({ want: !!window.__heloria.S.want, ready: !!window.__heloria.S.ready, mode: window.__heloria.S.mode, cue: document.querySelector('#beginT').textContent }));
+  rec(early.mode !== 'load' || (early.want && /^landing$/i.test(early.cue)), (mobile ? 'a tap' : 'a click') + ' is taken at once (in, or coming down as soon as Earth is ready)', JSON.stringify(early));
+  rec(await until(() => window.__heloria.S.mode !== 'load', 240000), mobile ? 'a tap goes in' : 'a click goes in');
   rec(await until(() => { const c = window.__heloria.A.ctx; return !!c && c.state === 'running'; }, 8000), 'and the sound starts with it', await page.evaluate(() => window.__heloria.A.ctx && window.__heloria.A.ctx.state));
 
   /* through the landing: when its own recording is heard, and when the music is */
