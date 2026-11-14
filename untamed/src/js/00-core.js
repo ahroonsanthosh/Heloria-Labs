@@ -1073,6 +1073,16 @@ const A=(()=>{
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(gg,t+.002); a.gain.exponentialRampToValueAtTime(.0001,t+d); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+d+.02); }
       if(Math.random()<.35*k){ const t=t0+Math.random()*.1, s=shot(), b=ctx.createBiquadFilter(), a=ctx.createGain(); b.type='lowpass'; b.frequency.value=520; b.Q.value=.8;
         a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g*k*.6,t+.006); a.gain.exponentialRampToValueAtTime(.0001,t+.07); s.connect(b); b.connect(a); a.connect(dst); s.start(t,Math.random()*8); s.stop(t+.1); } },
+    /* ---------- the fire station on Earth, inside: a helmet put on (the shell's hollow knock as it settles on your head, then
+       the chin strap's buckle clicking shut) or set back on its shelf (a softer knock); and the radio on the watch desk, its
+       squelch and a moment of talk too broken to make out, narrow and muffled. Short and soft, never over a footstep ---------- */
+    helmet(wear=true,g=.02){ if(!on||muted||!ctx) return; const v=vr(.05), d=comp, k=wear?1:.6;
+      ciT(d,290*v,.16,g*.8*k,'sine',170*v); ciT(d,580*v,.07,g*.22*k,'triangle'); ciN(d,.06,g*.45*k,1500*v,700,'bandpass',1.4);
+      if(wear){ ciT(d,2600*v,.014,g*.2,'square',0,.34,.001); ciN(d,.025,g*.28,4200,3200,'bandpass',2,.34); ciT(d,3300*v,.01,g*.15,'square',0,.4,.001); ciN(d,.02,g*.22,4600,3600,'bandpass',2,.4); } },
+    fsRadio(g=.01,p=0){ if(!on||muted||!ctx) return; const d=ciDst(p), v=vr(.04);
+      ciN(d,.09,g,2400*v,1800,'bandpass',1.2);   // (the squelch opening)
+      for(let k=0;k<5;k++) ciN(d,.08+Math.random()*.05,g*(.45+Math.random()*.35),900+Math.random()*700,700+Math.random()*500,'bandpass',3,.12+k*.13+Math.random()*.04);   // (the words)
+      ciN(d,.07,g*.8,2600*v,1400,'bandpass',1.4,.85); ciT(d,1750*v,.05,g*.25,'sine',1200,.88); },   // (and its tail as it closes)
     /* ---------- town life on Earth: the traffic, the animals, the football, the ducks, puddles and doors. Each is short and
        soft and made live, a tone or a narrow band of noise to the left or right (p), about as loud as a footstep at most. The
        engines alone go on: one quiet voice for each vehicle while it runs, its level set every frame (0 lets it go). Never a

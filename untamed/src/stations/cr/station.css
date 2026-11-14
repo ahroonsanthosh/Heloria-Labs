@@ -303,20 +303,22 @@ html.crq #chrome{opacity:0!important;pointer-events:none!important;transition:no
 .st-cr .crpbaim::before,.st-cr .crpbaim::after{content:'';position:absolute;left:50%;top:50%;background:#fbf6ec;box-shadow:0 0 0 1px #2a241d;transform:translate(-50%,-50%)}
 .st-cr .crpbaim::before{width:2px;height:8px}.st-cr .crpbaim::after{width:8px;height:2px}
 .st-cr.post .crpbout,.st-cr.fin .crpbout,.st-cr.cut .crpbout,.st-cr.post .crpbdarts,.st-cr.fin .crpbdarts,.st-cr.cut .crpbdarts,.st-cr.fin .crpbdone,.st-cr.cut .crpbdone,.st-cr.fin .crpbchalk,.st-cr.fin .crpbaim{display:none!important}
-/* the lighthouse, inside, and the chipper: as in the pub, nothing of the street over the rooms; the lighthouse's ways up and
-   down in a row at the bottom (they wrap onto two rows on a narrow phone), the log read aloud to a screen reader; the
-   chipper's menu is the café's */
+/* the lighthouse, inside, the chipper and the fire station, inside: as in the pub, nothing of the street over the rooms;
+   the lighthouse's ways up and down in a row at the bottom (they wrap onto two rows on a narrow phone), the log read aloud
+   to a screen reader; the chipper's menu is the café's; the fire station's three things to do in the same row as the
+   lighthouse's, and its map read aloud */
 .st-cr.inlh #crLabels,.st-cr.inlh .cre,.st-cr.inlh .crhint,.st-cr.inlh .crpj,.st-cr.inlh .crgo,.st-cr.inlh .crsteer,.st-cr.inlh .crcafein,
-.st-cr.inchip #crLabels,.st-cr.inchip .cre,.st-cr.inchip .crhint,.st-cr.inchip .crpj,.st-cr.inchip .crgo,.st-cr.inchip .crsteer,.st-cr.inchip .crcafein{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
-.st-cr.inlh .crstick,.st-cr.inchip .crstick{display:none}
+.st-cr.inchip #crLabels,.st-cr.inchip .cre,.st-cr.inchip .crhint,.st-cr.inchip .crpj,.st-cr.inchip .crgo,.st-cr.inchip .crsteer,.st-cr.inchip .crcafein,
+.st-cr.infs #crLabels,.st-cr.infs .cre,.st-cr.infs .crhint,.st-cr.infs .crpj,.st-cr.infs .crgo,.st-cr.infs .crsteer,.st-cr.infs .crcafein,.st-cr.infs .card{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+.st-cr.inlh .crstick,.st-cr.inchip .crstick,.st-cr.infs .crstick{display:none}
 .st-cr .crlhbar{position:absolute;left:50%;bottom:calc(var(--gb) + 26px);transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:10px;width:max-content;max-width:calc(100vw - 32px)}
 .st-cr .crlhb{background:#fbf6ec;color:#2a241d;border:2px solid #2a241d;box-shadow:4px 4px 0 #2a241d}
 .st-cr .crlhpri{background:#e8c36a}
-.st-cr .crlhb[hidden],.st-cr .crlhout[hidden],.st-cr .crchout[hidden],.st-cr .crlhhint[hidden],.st-cr .crsr[hidden]{display:none}
+.st-cr .crlhb[hidden],.st-cr .crlhout[hidden],.st-cr .crchout[hidden],.st-cr .crfiout[hidden],.st-cr .crlhhint[hidden],.st-cr .crsr[hidden]{display:none}
 .st-cr .crlhb[disabled]{opacity:.42;pointer-events:none}
 .st-cr .crlhb .crkey{color:#2a241d;opacity:.55;margin-left:4px}
 @media (hover:none),(pointer:coarse){.st-cr .crlhb .crkey{display:none}}
 @media (max-width:520px){.st-cr .crlhbar{gap:8px}.st-cr .crlhb{padding:0 13px}}
 .st-cr .crsr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .st-cr .crchip .crlook[disabled],.st-cr .crchip .crmore[disabled]{opacity:.45;pointer-events:none}
-.st-cr.post .crlhout,.st-cr.fin .crlhout,.st-cr.cut .crlhout,.st-cr.post .crlhbar,.st-cr.fin .crlhbar,.st-cr.cut .crlhbar,.st-cr.fin .crlhhint,.st-cr.fin .crchout,.st-cr.cut .crchout{display:none!important}
+.st-cr.post .crlhout,.st-cr.fin .crlhout,.st-cr.cut .crlhout,.st-cr.post .crlhbar,.st-cr.fin .crlhbar,.st-cr.cut .crlhbar,.st-cr.fin .crlhhint,.st-cr.fin .crchout,.st-cr.cut .crchout,.st-cr.post .crfiout,.st-cr.fin .crfiout,.st-cr.cut .crfiout{display:none!important}
