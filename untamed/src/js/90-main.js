@@ -55,10 +55,20 @@ async function boot(){
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
   setP(1); $('#load').classList.add('ready'); S.ready=true;
-  /* and down, by itself: no click asked for. Once the page has drawn a frame or two of its own (the graphics card caught up
-     with everything just made, so the landing has every frame from its first) */
-  await nextFrame(); await nextFrame(); enter();
+  /* and down, by itself, with its sound: once the page has drawn a frame or two of its own (the graphics card caught up with
+     everything just made, so the landing has every frame from its first), the sound is started. Where the browser lets it
+     start without a click here (it carried the click on the front door over, as Chrome does) it is running at once, and
+     down it comes. Where it does not (Safari; anyone come straight to this address in any browser), the landing is never
+     made without its sound: it waits, under the name, for the first click, tap or key (see askLand) */
+  await nextFrame(); await nextFrame(); A.start();
+  /* (a browser that says outright whether it will let the sound start is taken at its word; any other is given a second to
+     get its sound going, as one waking a pair of wireless headphones may need, before the landing waits on a click) */
+  let pol=null; try{ pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):null; }catch(e){}
+  const t0=performance.now(); if(pol!=='allowed'&&pol!=='disallowed') while(A.waiting&&S.mode==='load'&&performance.now()-t0<1000) await wait(25);
+  if(S.mode!=='load') return; if(pol==='disallowed'||pol!=='allowed'&&A.waiting) askLand(); else enter();
 }
+/* (the one line, quiet, where the name was being built: what to do, on a phone or not) */
+function askLand(){ S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask'); }
 
 /* ---------- Land: straight down to Earth, in its own daylight, the colour the front door left you in. Any address of
    this page comes here (the old ones too: #land, and #aetos, where the rocket at the end of the walk used to go) ---------- */
@@ -83,7 +93,9 @@ function enter(){
    same site), and the landing is heard from its first moment. Come straight here (a bookmark, a reload, or a browser that
    does not carry it), a click, a tap or a key while it loads or as it comes down starts it then, in step with the landing,
    and a first click on the landing starts the sound rather than skipping it (see the landing) */
-['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='load'&&!A.on) A.start(); },{capture:true,passive:true}));
+['pointerdown','mousedown','click','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode!=='load') return; if(!A.on||A.waiting) A.start();
+  /* (waiting for it: the same click, tap or key that lets the sound start brings the landing down with it) */
+  if(S.ask&&S.ready){ S.ask=false; $('#load').classList.remove('ask'); enter(); } },{capture:true,passive:true}));
 
 /* onto Earth: a flash of white, and it opens on the rocket coming down through the clouds. Should Earth not have been made
    (an error while it was built), the plain page is the way in instead */

@@ -84,6 +84,11 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
 #load.ready #boot{opacity:0}
 #load.ready{cursor:default}
+/* (a browser that holds the sound until a click: the landing waits for one, and says so where the name was being built) */
+#load.ready.ask{cursor:pointer}
+#load.ready.ask #boot{opacity:1;animation:askLand 2.6s ease-in-out infinite}
+@keyframes askLand{0%,100%{opacity:.5}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#load.ready.ask #boot{animation:none}}
 
 /* ---------- chrome ---------- */
 #chrome{z-index:20}
