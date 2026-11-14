@@ -326,3 +326,8 @@ window.__tamed={gal:()=>({stage:GLATE.stage,want:GLATE.want,log:GLATE.log}),galN
   /* and for driving the scroll on a clock of the test's own: one frame of the hand and the walk */
   tick(dt){ S.frame++; scrollTick(dt); VEIL.tick(dt); holdTick(); return warp(SC.v); },
 };
+/* Land is a page of its own: once the front door is in and the browser is idle, Land's script and styles are asked for (at
+   the very addresses Land asks for, which the build writes into the page), so going in finds them already kept */
+addEventListener('load',()=>{ const m=document.querySelector('meta[name="heloria-land"]'); if(!m||!m.content||!window.fetch) return;
+  const go=()=>m.content.split(',').forEach(u=>{ try{ fetch(u,{credentials:'same-origin'}).then(r=>r.ok&&r.blob()).catch(()=>{}); }catch(e){} });
+  if(window.requestIdleCallback) requestIdleCallback(go,{timeout:6000}); else setTimeout(go,3000); });

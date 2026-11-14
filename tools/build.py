@@ -17,7 +17,7 @@ docs/
   _redirects          for Cloudflare: /walk and /land (the addresses shown while you are there), and /fly (the old way into
                       orbit), back to the front door
 """
-import argparse, importlib.util, os, shutil, sys
+import argparse, importlib.util, os, re, shutil, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -102,6 +102,14 @@ def main():
     os.makedirs(out)
     untamed.write_site(out, minify=not a.no_minify)   # first: it also lays down the shared files in assets/
     tamed.write_site(out, minify=not a.no_minify)
+    # Land is a page of its own: the front door asks for Land's script and styles while you are still there, at the lowest
+    # priority (once everything of its own is in), at the very addresses Land asks for, so going in finds them already kept
+    land = open(os.path.join(out, 'untamed', 'index.html'), encoding='utf-8').read()
+    want = re.findall(r'"\.\./(assets/untamed\.(?:js|css)\?v=[0-9a-f]+)"', land)
+    gp = os.path.join(out, 'index.html'); gate = open(gp, encoding='utf-8').read()
+    if want and '</head>' in gate:
+        gate = gate.replace('</head>', '<meta name="heloria-land" content="%s">\n</head>' % ','.join(want), 1)   # (read by the front door's script: a prefetch link is not allowed by the site's own rules)
+        open(gp, 'w', encoding='utf-8').write(gate)
     shutil.copy(os.path.join(ROOT, 'untamed', 'src', 'assets', 'favicon.ico'), os.path.join(out, 'favicon.ico'))   # where browsers and search engines look first
     open(os.path.join(out, '_headers'), 'w').write(HEADERS)
     open(os.path.join(out, '_redirects'), 'w').write(REDIRECTS)
