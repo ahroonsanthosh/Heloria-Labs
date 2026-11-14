@@ -3032,6 +3032,7 @@ const compM=new T.ShaderMaterial({uniforms:{tC:{value:colRT.texture},tN:{value:i
       col*=.972+.04*(vn2(vUv*uRes/2.4)*.6+vn2(vUv*uRes/9.)*.4);   // paper
       gl_FragColor=vec4(col,1.); }`});
 const compS=new T.Scene(), compCam=new T.OrthographicCamera(-1,1,1,-1,0,1); { const q=new T.Mesh(new T.PlaneGeometry(2,2),compM); q.frustumCulled=false; compS.add(q); }
+st.warmAlso=[[compS,compCam]];   // (the ink's composite: made with the rest behind the loader, see warmEarth)
 st.render=function(rt){ if(!st.built){ renderer.setRenderTarget(rt); renderer.clear(); return; }
   const w=rt.width, h=rt.height; if(inkRT.width!==w||inkRT.height!==h){ inkRT.setSize(w,h); colRT.setSize(w,h); }
   compM.uniforms.uRes.value.set(w,h); compM.uniforms.uPx.value=Math.max(1,h/820);
@@ -3067,14 +3068,14 @@ function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]
     for(let m=0;m<4;m++){ const a0=-.9+m*.45, a1=a0+.45; kquad(Pq(a0,-.12),Pq(a1,-.12),Pq(a1,.12),Pq(a0,.12),up,'#f1ecdf'); } } }   // (in four, so it lies on the road all the way across)
 
 /* ---------- build, in steps so the loader keeps breathing ---------- */
-st.build=async function(){ const gap=nextFrame;   // between the parts: the next frame
-  buildGround(); await gap();
+st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the page's turn (see st.pace, set behind the loader), else the next frame
+  buildGround(); sendShaders(sc,stCam); await gap();   // (the ground, the sea and the sky, the biggest shaders, sent off first)
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
   const spur=Object.assign([SPUR[0],SPUR[1]],{hw:.95,sw:.75,open:true});
   ROADS.push(lp.concat([lp[0]]),spur); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
-  buildTown(); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
+  buildTown(); sendShaders(sc,stCam); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
   buildBusker();   // Diarmuid outside the pub (after the walking grid, which he marks his own spot on)
@@ -3087,7 +3088,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
     const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
   kitTo();
-  registerInk(); sendShaders(sc,stCam); st.built=true; };
+  registerInk(); sendShaders(sc,stCam); sendSets(sc,stCam,st.matSets); st.built=true; };   // (and the ink's and the shadow's, while the rooms and the town's life are built)
 
 /* ---------- walking on a sphere ---------- */
 const player={u:at(START[0],START[1]),f:new T.Vector3(0,0,1),tgt:null,speed:0,ph:0,step:0,h:0,x:START[0],z:START[1]};
@@ -4589,7 +4590,7 @@ function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
     for(let i=0;i<pts.length-2;i++) if(!navClear(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1])) CIV.routeBad.push([+pts[i][0].toFixed(2),+pts[i][1].toFixed(2)]);
     const r=ciRoute(pts); CIV.routes.push({fw:r,bw:ciRoute(pts.slice().reverse()),home:[hx,hz]}); } }
 /* built after the town, the trees and the people: the yard and what is solid, the children, their ways; a part at a time */
-async function buildCivic(){ const gap=nextFrame;
+async function buildCivic(){ const gap=()=>st.pace?st.pace():nextFrame();
   if(!CIV.hall||!CIV.school) return; civSolids(); await gap();
   for(let i=0;i<KIDS.length;i++){ CIV.kids.push(civKid(i)); if(i%2) await gap(); }
   civRoutes();
@@ -6956,7 +6957,7 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!PO.g||FIN.on|
 addEventListener('keyup',e=>{ if(e.code==='Escape'&&S.st===st&&S.mode==='station'&&PO.st==='in'&&performance.now()-PO.said<700&&pcCard.hidden) poLeave(); });
 /* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
-  st.build=async function(){ await b.apply(this,arguments); await nextFrame();   // (a frame before it)
+  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame());   // (a frame before it)
     try{ buildPO(); }catch(err){ PO.err=String(err&&err.stack||err); console.warn('post office',err); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) poStep(dt,t); return r; };
   st.enter=function(){ poReset(); return en.apply(this,arguments); }; st.exit=function(){ poReset(true); return ex.apply(this,arguments); };
@@ -8886,7 +8887,7 @@ addEventListener('pointerup',e=>{ const tp=TL.tap; TL.tap=null; if(!tp||tp.id!==
 
 /* built after everything else in the town; stepped after the town has moved you and placed its camera; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit;
-  st.build=async function(){ await b.apply(this,arguments); await nextFrame(); try{ await buildTownLife(()=>st.pace?st.pace():nextFrame()); }catch(err){ TL.err=String(err&&err.stack||err); console.warn('town life',err); kitTo(); } };
+  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame()); try{ await buildTownLife(()=>st.pace?st.pace():nextFrame()); }catch(err){ TL.err=String(err&&err.stack||err); console.warn('town life',err); kitTo(); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TL.ok){ try{ tlStep(dt,t); }catch(err){ if(!TL.err){ TL.err=String(err&&err.stack||err); console.error('town life',err); } } } return r; };
   st.enter=function(){ const r=en.apply(this,arguments); if(TL.ok) tlEnter(); return r; };
   st.exit=function(){ if(TL.ok){ tlCarsQuiet(); TL.h0=null; } return ex.apply(this,arguments); }; }

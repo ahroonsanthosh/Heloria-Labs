@@ -8,25 +8,33 @@ async function compileQuiet(sc,cam,sets){ try{
        now: the drawing would make no others), and the wait is for every shader sent so far: a browser that makes them in
        the background makes them side by side, and none is then made on its own, holding the page, the first time it is
        drawn with */
-    if(sets) intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||hasLight(o)) return;
-      for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); }catch(e){} finally{ o.material=m0; } } } }));
+    sendSets(sc,cam,sets);
     if(renderer.compileAsync) await Promise.race([intoTarget(()=>renderer.compileAsync(sc,cam)).then(programsReady),wait(8000)]); else intoTarget(()=>renderer.compile(sc,cam)); }catch(e){} }
 /* a world's shaders sent off as it is being built, waited for by nobody: a browser that makes them in the background makes
    them while the rest of the world is still being put together, so the wait behind the loader is only for those not made by
    then. They are the very ones the wait sends (each is made once, sooner). Only what is shown is sent: something hidden may
    yet be changed before it is first drawn (the rain is made dry in the workshop), and would then be made twice */
 function sendShaders(sc,cam){ try{ sc.traverse=sc.traverseVisible; intoTarget(()=>renderer.compile(sc,cam)); renderer.getContext().flush(); }catch(e){} finally{ delete sc.traverse; } }
+/* the other ways a world is drawn (its ink, its shadow), of what is shown now, sent off without waiting */
+function sendSets(sc,cam,sets){ if(sets) intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||hasLight(o)) return;
+  for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); }catch(e){} finally{ o.material=m0; } } } })); }
+/* the page's next turn: whatever is waiting (a frame to draw, a click) goes first, then straight on */
+const nextSlice=()=>new Promise(r=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); });
 /* every shader sent off so far is made (at once, where the browser makes them as they are first drawn with) */
 const programsReady=()=>new Promise(res=>{ const ck=()=>{ let ok=true; try{ ok=renderer.info.programs.every(p=>p.isReady()); }catch(e){} if(ok) res(); else setTimeout(ck,10); }; ck(); });
 /* an object with a light of its own is compiled with the whole scene, not by itself: three would count its light twice
    (from the scene and from the object) */
 const hasLight=o=>{ let l=false; o.traverse(x=>{ if(x.isLight) l=true; }); return l; };
 /* Earth drawn once into a small target of the same kind, entered and left again round it as it will be when you arrive,
-   so its textures are sent and every shader it draws with is made */
-function warmEarth(st){ const rt=mkRT(); rt.setSize(64,64);
+   so its textures are sent and every shader it draws with is made. What this first drawing shows that the town at rest did
+   not (the rooms drawn once behind the loader), the ink's composite and the screen's own last pass are sent off first, and
+   waited for together, so none of them is made on its own, holding the page, as the drawing comes to it */
+async function warmEarth(st){ const rt=mkRT(); rt.setSize(64,64);
   st.enter(); st.update(.016,0);
   stCam.position.copy(st.camP); stCam.lookAt(st.camL);
-  try{ intoTarget(()=>renderer.compile(st.scene,stCam)); }catch(e){}
+  try{ intoTarget(()=>renderer.compile(st.scene,stCam)); sendSets(st.scene,stCam,st.matSets); for(const [s,c] of st.warmAlso||[]) intoTarget(()=>renderer.compile(s,c)); }catch(e){}
+  { const was=renderer.getRenderTarget(); try{ renderer.setRenderTarget(null); renderer.compile(postScene,ortho); }catch(e){} finally{ renderer.setRenderTarget(was); } }
+  await Promise.race([programsReady(),wait(8000)]);
   try{ st.render(rt); }catch(e){ console.error('render cr',e); }
   st.exit(); renderer.setRenderTarget(null); rt.dispose(); }
 async function boot(){
@@ -35,9 +43,11 @@ async function boot(){
   const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
   resize(); setP(.1);
-  bootEl.textContent='Building Earth'; await nextFrame(); try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } setP(.6);
+  /* between the parts of Earth, the page's own turn rather than the next frame: a frame due is drawn and a click answered
+     all the same, but the build does not stand idle waiting for one (nor for a graphics card busy making shaders) */
+  bootEl.textContent='Building Earth'; await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
   const st=ST.cr;
-  if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets); warmEarth(st); }
+  if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets); await warmEarth(st); }
   setP(.9);
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
