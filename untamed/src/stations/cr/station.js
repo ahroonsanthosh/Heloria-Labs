@@ -8427,7 +8427,13 @@ function tlPastBy(c,p){ const ah=tlAhead(c,p.s); return Math.max(0,p.hl+c.hl+.7-
    beside it (so two never take turns going round each other, out and out off the road) */
 /* another right beside it where its own lane is (it cannot pull in there) */
 const tlBeside=c=>tlOver(c,c.s,c.lane)>0;
-function tlCanPass(c,p){ if(tlAhead(c,p.s)>TLR.L/2||p.pass||tlSide(c,p)==null) return false; for(const o of TL.cars) if(o!==c&&o.on&&(o.pass===p||o.pass===c)) return false; return true; }
+function tlCanPass(c,p){ if(tlAhead(c,p.s)>TLR.L/2||p.pass||tlSide(c,p)==null) return false; for(const o of TL.cars) if(o!==c&&o.on&&(o.pass===p||o.pass===c)) return false;
+  /* and never round one only waiting its turn: one in its lane held by something close in front of it (another queued,
+     someone crossing or standing in the road), or come up to the zebra. Gone round, the one going round would be held by
+     the same thing out in the middle of the road, and the next behind it would do the same, and the road would be clogged.
+     Round one stopped at its stop, or going on slowly with the road clear in front of it and room to pull in again past it */
+  if(p.mode==='drive'){ const [pg]=tlGap(p); if(pg<c.hl*2+1.6) return false; if(TLP.zeb!=null){ const zd=tlAhead(p,TLP.zeb); if(zd<6||zd>TLR.L-1.5) return false; } }
+  return true; }
 /* nothing coming the other way for a good stretch: room to pass */
 function tlClearPass(c){ for(const o of TL.cars){ if(o===c||!o.on||o.dir===c.dir) continue; let al=((o.s-c.s)*c.dir%TLR.L+TLR.L)%TLR.L; if(al>TLR.L/2) al-=TLR.L; if(al>-2&&al<15) return false; } return true; }
 /* stopping here would stand in the way of you and whoever you are walking to (or on the way you are walking): go round again */
@@ -8466,7 +8472,10 @@ function tlDrive(c,dt,t){ const L=TLR.L; let want=0, lw=c.mode==='stop'&&c.via?c
   /* (past it, once and for all: back in as soon as nothing is beside it there. Not yet beside it, and something coming or it has
      got going again: back in behind it. Beside it, or anything else: on past) */
   if(c.pass){ const p=c.pass, ah=tlAhead(c,p.s), beside=ah>L/2||ah<p.hl+c.hl+.3||tlBeside(c); if(ah>L/2&&L-ah>p.hl+c.hl+.7) c.passed=true;
-    if(!p.on||c.passed&&!tlBeside(c)) c.pass=null; else if(!c.passed&&!beside&&(bc&&bc.dir!==c.dir||p.mode==='drive'&&p.v>c.vmax*.65)) c.pass=null; }
+    if(!p.on||c.passed&&!tlBeside(c)) c.pass=null; else if(!c.passed&&!beside&&(bc&&bc.dir!==c.dir||p.mode==='drive'&&p.v>c.vmax*.65)) c.pass=null;
+    /* (held up out there before it is past, and not yet beside it: back in behind it, rather than standing in the middle of
+       the road for the next to come round as well) */
+    c.stuck=c.pass&&!c.passed&&c.v<.05?(c.stuck||0)+dt:0; if(c.pass&&c.stuck>1.5&&!beside){ c.pass=null; c.stuck=0; } }
   if(by&&by.me&&gap<4&&c.v>.3&&c.id==='bike'&&c.bell<=0){ c.bell=6; tlSay('bell',.016,c.x,c.z,18); }
   c.bell-=dt;
   c.v=want<c.v?Math.max(want,c.v-6*dt):Math.min(want,c.v+1.1*dt);

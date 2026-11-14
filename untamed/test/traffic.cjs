@@ -152,6 +152,18 @@ module.exports = async ({ page, H, log }) => {
     return { sec: +(t / 30).toFixed(1), both, mx: +mx.toFixed(2), kei: [+ah(k).toFixed(1), +k.v.toFixed(2), +k.lat.toFixed(2)], bike: [+ah(bk).toFixed(1), +bk.v.toFixed(2), +bk.lat.toFixed(2)] }; });
   rec(nt.both === 0 && nt.mx <= 1.2 && nt.sec < 40, 'two of them nose to tail behind a parked van: never each going round the other (out and out off the road), and both get by', JSON.stringify(nt));
 
+  /* the bike held up (you on the zebra in front of it) with the van and the post's van coming up behind it: neither goes round
+     it to stop again out in the middle of the road (and the next do the same, the road clogged); they wait behind it, and all
+     three go on when you step off */
+  const held = await L((W, d, T) => { W.at('2026-07-15', '14:00'); W.out(); const k = T.TLA.kei, bk = T.TLA.bike, p = T.TLA.post, z = T.near(-3, -8.9).s, Lr = T.TLR.L;
+    W.putAt(z, .6); W.go(bk, z - 3.1, 0); W.go(k, bk.s - (bk.hl + k.hl + 3), 1.4); W.go(p, k.s - (k.hl + p.hl + 3.5), 1.4);
+    let went = 0, outStill = 0, t = 0; const out = c => Math.abs(c.lat - c.lane) > .25;
+    for (; t < 30 * 12; t++) { W.run(1); for (const c of [k, p]) { if (c.pass && c.pass === bk) went++; if (out(c) && c.v < .05) outStill += 1 / 30; } }
+    W.putAt(z, 2.4); const past = c => { const a = ((c.s - z) % Lr + Lr) % Lr; return a > 2 && a < Lr / 2; };
+    let t2 = 0; for (; t2 < 30 * 25 && !(past(bk) && past(k) && past(p)); t2++) { W.run(1); for (const c of [k, p]) if (out(c) && c.v < .05) outStill += 1 / 30; }
+    return { wentRound: went, outInMiddleStill: +outStill.toFixed(1), allOnIn: +(t2 / 30).toFixed(1), bike: +bk.v.toFixed(2), kei: [+k.v.toFixed(2), +k.lat.toFixed(2)], post: [+p.v.toFixed(2), +p.lat.toFixed(2)] }; });
+  rec(held.wentRound === 0 && held.outInMiddleStill < .5 && held.allOnIn < 25, 'the bike held up at the zebra with two behind it: neither goes round it to stop out in the middle of the road; they wait behind, and all three go on after', JSON.stringify(held));
+
   /* you standing in the outer lane a while: the van stops short of you, waits, then goes round you, well clear */
   const lane = await L((W, d, T) => { W.at('2026-07-15', '14:00'); W.out(); const k = T.TLA.kei, s = T.TLP.hall + 6; W.putAt(s, .6); W.go(k, s - 8, 2);
     let mn = 99, t = 0, waited = 0; for (; t < 30 * 30; t++) { W.run(1); mn = Math.min(mn, W.meNear(k)); if (k.v < .05) waited += 1 / 30; if (((k.s - s) % T.TLR.L + T.TLR.L) % T.TLR.L < T.TLR.L / 2 && ((k.s - s) % T.TLR.L + T.TLR.L) % T.TLR.L > 2) break; }
