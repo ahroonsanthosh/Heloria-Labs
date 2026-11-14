@@ -47,7 +47,10 @@ async function boot(){
      all the same, but the build does not stand idle waiting for one (nor for a graphics card busy making shaders) */
   bootEl.textContent='Building Earth'; await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
   const st=ST.cr;
-  if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets); await warmEarth(st); }
+  if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets);
+    /* (the graphics card's answer, by now long drawn: where it cannot draw the page's pictures, the plain page instead) */
+    if(!rtWorks()){ document.documentElement.classList.add('nogl'); delete ST.cr; setP(1); $('#load').classList.add('ready'); S.ready=true; return; }
+    await warmEarth(st); }
   setP(.9);
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)

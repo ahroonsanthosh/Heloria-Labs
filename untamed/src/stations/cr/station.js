@@ -567,8 +567,15 @@ function wildClear(){ for(const g of WAS){ if(g.xz){ for(const o of g.obs){ o.x=
   const Mi=new T.Matrix4(), v=new T.Vector3(), q=new T.Quaternion(), A=new T.Vector3(), B=new T.Vector3(), [ja,jb]=JETTY;
   const inside=(H,p,m)=>{ const lx=Math.abs(p.x), lz=Math.abs(p.z), hw=H.w/2+.09+m, hd=H.d/2+.09+m; if(lx>hw||lz>hd||p.y<-.1) return false;
     return p.y<(H.flat?H.h+.3:H.h+1.35*Math.max(0,1-lz/(H.d/2+.31)))+m; };   // (its walls, and its roof: flat, or pitched front to back)
+  /* (each house's frame, undone once; and each tree, bush or stone looked at corner by corner only against a house it can
+     reach: its middle and the reach of its furthest corner from it, against the house's walls. One it cannot reach has no
+     corner in it, so what is moved, and where to, is just as it was) */
+  const HMI=new Map(HOUSES.map(H=>{ const m=new T.Matrix4().copy(H.M).invert(), e=m.elements; return [H,{m,s:Math.max(Math.hypot(e[0],e[1],e[2]),Math.hypot(e[4],e[5],e[6]),Math.hypot(e[8],e[9],e[10]))}]; })), Cw=new T.Vector3();
   for(const w of WILD){ for(let pass=0;pass<3;pass++){ let to=null;
-      for(const H of HOUSES){ Mi.copy(H.M).invert(); let hit=false, rr=0; const c=at(w.x,w.z,v).multiplyScalar(R).applyMatrix4(Mi), cx=c.x, cz=c.z;
+      { let sx=0, sy=0, sz=0; const nv=Math.max(1,(w.k1-w.k0)/3); for(let k=w.k0;k<w.k1;k+=3){ sx+=w.P[k]; sy+=w.P[k+1]; sz+=w.P[k+2]; } Cw.set(sx/nv,sy/nv,sz/nv); }
+      let reach=0; for(let k=w.k0;k<w.k1;k+=3){ const dx=w.P[k]-Cw.x, dy=w.P[k+1]-Cw.y, dz=w.P[k+2]-Cw.z; reach=Math.max(reach,dx*dx+dy*dy+dz*dz); } reach=Math.sqrt(reach)+.01;
+      for(const H of HOUSES){ const hm=HMI.get(H); Mi.copy(hm.m); { const c=v.copy(Cw).applyMatrix4(Mi), r=reach*hm.s; if(Math.abs(c.x)-r>H.w/2+.09+.05||Math.abs(c.z)-r>H.d/2+.09+.05) continue; }
+        let hit=false, rr=0; const c=at(w.x,w.z,v).multiplyScalar(R).applyMatrix4(Mi), cx=c.x, cz=c.z;
         for(let k=w.k0;k<w.k1;k+=3){ A.set(w.P[k],w.P[k+1],w.P[k+2]).applyMatrix4(Mi); if(inside(H,A,.05)) hit=true; if(A.y<H.h+1.4) rr=Math.max(rr,Math.hypot(A.x-cx,A.z-cz)); }
         if(!hit) continue;
         /* out by the nearer of its sides, as far as the widest of it below the roof's top, and a little more */
@@ -1558,13 +1565,16 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
     /* their feet on the ground: perched on a tall stool, each leg comes down from that pose (the thigh lower, the knee opened)
        just as far as it takes for the lowest of its shoe to be on the ground under it, measured on the shoe itself; or, where
        the pose has the shoe in the ground already, up from it (the thigh higher, the knee bent more) as far as it takes */
-    /* (the ground is looked up only under the lowest 30 cm of the leg: a point higher than that could only be nearer the
-       ground if the ground under it rose 30 cm within a shoe's length, and the highest step anywhere is a kerb, 9 cm. The
+    /* (the ground is looked up only under the lowest 15 cm of the leg: a point higher than that could only be nearer the
+       ground if the ground under it rose 15 cm within a shoe's length, and the highest step anywhere is a kerb, 9 cm. The
        ground under every point of a leg, for every try, was most of the time Earth took to build) */
-    const low=l=>{ g.updateMatrixWorld(true); let lo=9, mL=9, n=0; l.traverse(m=>{ if(!m.isMesh) return; const A=m.geometry.attributes.position.array, E=m.matrixWorld.elements;
+    const low=l=>{ g.updateMatrixWorld(true); let lo=9, mL=Infinity, n=0; l.traverse(m=>{ if(!m.isMesh) return; const A=m.geometry.attributes.position.array, E=m.matrixWorld.elements;
       for(let j=0;j<A.length;j+=3){ const x=A[j], y=A[j+1], z=A[j+2], wx=E[0]*x+E[4]*y+E[8]*z+E[12], wy=E[1]*x+E[5]*y+E[9]*z+E[13], wz=E[2]*x+E[6]*y+E[10]*z+E[14], L=Math.sqrt(wx*wx+wy*wy+wz*wz);
-        if(L>mL+.3) continue; if(L<mL) mL=L; RGLOW[n++]=wx; RGLOW[n++]=wy; RGLOW[n++]=wz; RGLOW[n++]=L; } });
-      for(let j=0;j<n;j+=4){ const L=RGLOW[j+3]; if(L>mL+.3) continue; const [mx,mz]=loc(rgW.set(RGLOW[j]/L,RGLOW[j+1]/L,RGLOW[j+2]/L)); lo=Math.min(lo,L-R-kGround(mx,mz)); } return lo; };
+        if(L>mL+.15) continue; if(L<mL) mL=L; RGLOW[n++]=wx; RGLOW[n++]=wy; RGLOW[n++]=wz; RGLOW[n++]=L; } });
+      for(let j=0;j<n;j+=4){ const L=RGLOW[j+3]; if(L>mL+.15) continue; const [mx,mz]=loc(rgW.set(RGLOW[j]/L,RGLOW[j+1]/L,RGLOW[j+2]/L)); lo=Math.min(lo,L-R-gAt(mx,mz)); } return lo; };
+    /* (the ground under a point, to the nearest centimetre, kept as it is found: the legs are tried many times, over the same
+       few square centimetres) */
+    const GAT=new Map(), gAt=(x,z)=>{ const k=Math.round(x*100)*1e6+Math.round(z*100); let h=GAT.get(k); if(h===undefined){ h=kGround(Math.round(x*100)/100,Math.round(z*100)/100); GAT.set(k,h); } return h; };
     const down=()=>d.legs.forEach((l,i)=>{ const k=d.knees[i], [a0,b0]=lg[i], at_=f=>{ l.rotation.x=a0*f; k.rotation.x=b0*f; return low(l); }; let f0=0, f1=1;
       if(at_(1)<=.004){ f0=1; f1=1.6; } if(at_(f1)>.004) for(let n=0;n<12;n++){ const f=(f0+f1)/2; if(at_(f)>.004) f1=f; else f0=f; } at_(f1); });
     /* down onto the stool: the lowest of them over its top (the seat of the trousers, the backs of the thighs, measured on

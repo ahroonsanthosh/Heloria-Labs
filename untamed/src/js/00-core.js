@@ -475,6 +475,10 @@ const A=(()=>{
         /* what you hear first, which the loader waits for (see firstReady), is made side by side: a browser works out each on
            a thread of its own, so the wait is for the longest of them, not for all of them in turn */
         FIRST.slice(1).forEach(r=>render(r)); landMake(); }
+      /* the rest (the engine for the last flight, the rain, Diarmuid's guitar, the score up high) once the page is ready, while
+         you read its prompt: the rain and the guitar are worked out a drop and a note at a time on the page itself, and behind
+         the loader that was half a second more of waiting, for sounds heard only later */
+      if(qi>=3&&qi<Q.length&&!S.ready){ setTimeout(go,100); return; }
       if(qi<Q.length) render(Q[qi++],go); else { making=false; KEEP.tidy(); } }; setTimeout(go,60); }
   /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
      Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
@@ -1299,20 +1303,25 @@ renderer.setPixelRatio(DPR); renderer.setClearColor(0,1);
 const stCam=new T.PerspectiveCamera(36,1,.1,900);
 const ortho=new T.OrthographicCamera(-1,1,1,-1,0,1);
 const G={uTime:{value:0},uAspect:{value:1}};
-/* whether this browser really draws into the kind of picture the page is made in: half-float. Checked once at the start by
-   drawing red into a small one and reading it back through a plain one. Where it fails, the page shows its plain version
-   rather than a black screen */
-function rtWorks(){ let a,b,m1,m2,g; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
-    a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType}); b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
+/* whether this browser really draws into the kind of picture the page is made in: half-float. Red is drawn into a small one
+   and read back through a plain one; where it fails, the page shows its plain version rather than a black screen. The
+   drawing is sent off at the start, and read back only once Earth is built and its shaders made (see boot): read back at
+   once, it held the page until the graphics card had started up and made its first shaders, while it could have been
+   building the town */
+const RTCK=(()=>{ const c={}; try{ const gl=renderer.getContext(); for(let k=0;k<8&&gl.getError()!==gl.NO_ERROR;k++){}
+    c.a=new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType}); c.b=new T.WebGLRenderTarget(4,4,{type:T.UnsignedByteType});
     const cc=new T.Color(), ca=renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000,1);
-    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); g=new T.PlaneGeometry(2,2);
-    m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); m2=new T.MeshBasicMaterial({map:a.texture,depthTest:false,depthWrite:false});
-    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(g,m1)); s2.add(new T.Mesh(g,m2));
-    renderer.setRenderTarget(a); renderer.render(s1,cam); renderer.setRenderTarget(b); renderer.render(s2,cam);
-    const px=new Uint8Array(4); renderer.readRenderTargetPixels(b,1,1,1,1,px); renderer.setRenderTarget(null); renderer.setClearColor(cc,ca);
-    return px[0]>180&&px[1]<80&&px[2]<80&&gl.getError()===gl.NO_ERROR; }
-  catch(e){ return false; } finally{ try{ renderer.setRenderTarget(null); a&&a.dispose(); b&&b.dispose(); m1&&m1.dispose(); m2&&m2.dispose(); g&&g.dispose(); }catch(e){} } }
-if(!rtWorks()) noGL();
+    const cam=new T.OrthographicCamera(-1,1,1,-1,0,1); c.g=new T.PlaneGeometry(2,2);
+    c.m1=new T.MeshBasicMaterial({color:0xff0000,depthTest:false,depthWrite:false}); c.m2=new T.MeshBasicMaterial({map:c.a.texture,depthTest:false,depthWrite:false});
+    const s1=new T.Scene(), s2=new T.Scene(); s1.add(new T.Mesh(c.g,c.m1)); s2.add(new T.Mesh(c.g,c.m2));
+    try{ renderer.setRenderTarget(c.a); renderer.render(s1,cam); renderer.setRenderTarget(c.b); renderer.render(s2,cam); }
+    finally{ renderer.setRenderTarget(null); renderer.setClearColor(cc,ca); } }
+  catch(e){ c.fail=true; } return c; })();
+/* (its answer, read back now: the red came through, or the page is plain) */
+function rtWorks(){ const c=RTCK; if(c.done) return c.ok; c.done=true; c.ok=false;
+  try{ if(!c.fail){ const px=new Uint8Array(4); renderer.readRenderTargetPixels(c.b,1,1,1,1,px); c.ok=px[0]>180&&px[1]<80&&px[2]<80; } }catch(e){}
+  finally{ try{ renderer.setRenderTarget(null); for(const k of ['a','b','m1','m2','g']) c[k]&&c[k].dispose(); }catch(e){} }
+  return c.ok; }
 /* Earth draws itself (inking its own lines, smoothing its edges as it goes) and hands over a finished picture that covers
    the screen, so its target needs no smoothing of its own */
 const mkRT=()=>new T.WebGLRenderTarget(4,4,{type:T.HalfFloatType,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter});
