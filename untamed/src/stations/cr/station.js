@@ -1524,7 +1524,15 @@ REGS.forEach(r=>Object.assign(r,{guest:true,name:r.first,x:0,z:0,dir:new T.Vecto
   sip:-1,sipT:5+r.seat*2.5+2.5,nod:0,gl:-1,glT:7+r.i,att:0,attT:2,gk:0,hy:0,hp0:0,blink:2+r.i*.4,
   onClose(done){ if(done) this.met=true; this.att=1; this.attT=1.2; REG.tt=Math.max(REG.tt,1.8); REG.shut=performance.now(); }}));
 const REG={built:false,vis:true,hov:null,goal:null,turn:0,tt:3.5,M:null,pick:[],cx:0,cz:0,shut:-1e9};
-const rgV=new T.Vector3(), rgW=new T.Vector3(), rgH=new T.Vector3(), rgM=new T.Matrix4(), rgQ=new T.Quaternion(), rgS=new T.Vector3();
+/* a shop window's glass, its alpha from the letters' own sheet: whole where the letters are, half elsewhere (the glass shader
+   reads it: by day the letters show gold over the glint). Made by the canvas itself, not read back and written again pixel
+   by pixel, which waits on the graphics card for each window; what was never painted is dark glass, as before */
+function glassAlpha(c,L,W,H){ const M=document.createElement('canvas'); M.width=W; M.height=H; const m=M.getContext('2d');
+  m.fillStyle='rgba(0,0,0,.5)'; m.fillRect(0,0,W,H); m.drawImage(L,0,0);
+  c.save(); c.setTransform(1,0,0,1,0,0); c.beginPath(); c.rect(0,0,W,H); c.clip();
+  c.globalCompositeOperation='destination-over'; c.fillStyle='#000'; c.fillRect(0,0,W,H);
+  c.globalCompositeOperation='destination-in'; c.drawImage(M,0,0); c.restore(); M.width=M.height=1; }
+const rgV=new T.Vector3(), rgW=new T.Vector3(), rgH=new T.Vector3(), rgM=new T.Matrix4(), rgQ=new T.Quaternion(), rgS=new T.Vector3(), RGLOW=[];
 const RG_RP=new T.Vector3(-.5,-.75,-.45).normalize(), RG_LP=new T.Vector3(.5,-.75,-.45).normalize();   // where their elbows go: down, out and back
 const RG_A=.18, RG_B=.19;   // how long an upper arm and a forearm are
 /* the outside tables and their stools, as a café's are to the people of the town (legs half a metre long: a thigh .22, a shin and
@@ -1550,10 +1558,15 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
     /* their feet on the ground: perched on a tall stool, each leg comes down from that pose (the thigh lower, the knee opened)
        just as far as it takes for the lowest of its shoe to be on the ground under it, measured on the shoe itself; or, where
        the pose has the shoe in the ground already, up from it (the thigh higher, the knee bent more) as far as it takes */
-    const low=l=>{ g.updateMatrixWorld(true); let lo=9; l.traverse(m=>{ if(!m.isMesh) return; const A=m.geometry.attributes.position.array;
-      for(let j=0;j<A.length;j+=3){ rgW.fromArray(A,j).applyMatrix4(m.matrixWorld); const L=rgW.length(), [mx,mz]=loc(rgW.divideScalar(L)); lo=Math.min(lo,L-R-kGround(mx,mz)); } }); return lo; };
+    /* (the ground is looked up only under the lowest 30 cm of the leg: a point higher than that could only be nearer the
+       ground if the ground under it rose 30 cm within a shoe's length, and the highest step anywhere is a kerb, 9 cm. The
+       ground under every point of a leg, for every try, was most of the time Earth took to build) */
+    const low=l=>{ g.updateMatrixWorld(true); let lo=9, mL=9, n=0; l.traverse(m=>{ if(!m.isMesh) return; const A=m.geometry.attributes.position.array, E=m.matrixWorld.elements;
+      for(let j=0;j<A.length;j+=3){ const x=A[j], y=A[j+1], z=A[j+2], wx=E[0]*x+E[4]*y+E[8]*z+E[12], wy=E[1]*x+E[5]*y+E[9]*z+E[13], wz=E[2]*x+E[6]*y+E[10]*z+E[14], L=Math.sqrt(wx*wx+wy*wy+wz*wz);
+        if(L>mL+.3) continue; if(L<mL) mL=L; RGLOW[n++]=wx; RGLOW[n++]=wy; RGLOW[n++]=wz; RGLOW[n++]=L; } });
+      for(let j=0;j<n;j+=4){ const L=RGLOW[j+3]; if(L>mL+.3) continue; const [mx,mz]=loc(rgW.set(RGLOW[j]/L,RGLOW[j+1]/L,RGLOW[j+2]/L)); lo=Math.min(lo,L-R-kGround(mx,mz)); } return lo; };
     const down=()=>d.legs.forEach((l,i)=>{ const k=d.knees[i], [a0,b0]=lg[i], at_=f=>{ l.rotation.x=a0*f; k.rotation.x=b0*f; return low(l); }; let f0=0, f1=1;
-      if(at_(1)<=.004){ f0=1; f1=1.6; } if(at_(f1)>.004) for(let n=0;n<20;n++){ const f=(f0+f1)/2; if(at_(f)>.004) f1=f; else f0=f; } at_(f1); });
+      if(at_(1)<=.004){ f0=1; f1=1.6; } if(at_(f1)>.004) for(let n=0;n<12;n++){ const f=(f0+f1)/2; if(at_(f)>.004) f1=f; else f0=f; } at_(f1); });
     /* down onto the stool: the lowest of them over its top (the seat of the trousers, the backs of the thighs, measured on
        them) resting on it, not in it; the legs found again for the height, and once more for the thighs as they settle */
     const sx=REGT.x+s*RG_SX, stl=cf(sx,RG_STOOL-sag(sx,REGT.z),REGT.z), sL=stl.length(), sU=stl.clone().divideScalar(sL), shin=new Set(); d.knees.forEach(k=>k.traverse(m=>shin.add(m)));
@@ -6491,7 +6504,7 @@ function poPaint(cv){ const c=cv.getContext('2d'), H=cv.height, W0=736, r=seeded
   const L=document.createElement('canvas'); L.width=W0; L.height=H; const lc=L.getContext('2d'); lc.textAlign='center'; lc.textBaseline='middle';
   const gold=(t,y,f)=>{ lc.font=`900 ${f}px Doto, monospace`; const m=lc.measureText(t).width, fs=m>W0*.86?f*W0*.86/m:f; lc.font=`900 ${fs}px Doto, monospace`; lc.lineWidth=fs*.16; lc.lineJoin='round'; lc.strokeStyle='#3a2a12'; lc.strokeText(t,W0/2,y); lc.fillStyle='#e8c36a'; lc.fillText(t,W0/2,y); };
   gold('STAMPS · PARCELS',H*.77,H*.1); gold('POSTCARDS · POSTAL ORDERS',H*.89,H*.07); c.drawImage(L,0,0);
-  { const im=c.getImageData(0,0,W0,H), D=im.data, LD=lc.getImageData(0,0,W0,H).data; for(let i=0;i<D.length;i+=4) D[i+3]=LD[i+3]>128?255:128; c.putImageData(im,0,0); }
+  glassAlpha(c,L,W0,H);
   /* the door's glass: the room, and a card hanging on a string saying OPEN */
   const X=768, Wd=256, Hd=340; c.save(); c.beginPath(); c.rect(X,0,Wd,Hd); c.clip(); c.fillStyle='#e9dcc0'; c.fillRect(X,0,Wd,Hd); c.fillStyle='#3d5e4a'; c.fillRect(X,Hd*.7,Wd,Hd*.3); c.fillStyle='#8a6448'; c.fillRect(X+Wd*.55,Hd*.25,Wd*.4,Hd*.5);
   c.fillStyle='rgba(233,224,206,.2)'; c.fillRect(X,0,Wd,Hd); c.strokeStyle='#2a2624'; c.lineWidth=2; c.beginPath(); c.moveTo(X+Wd*.3,Hd*.12); c.lineTo(X+Wd*.5,Hd*.02); c.lineTo(X+Wd*.7,Hd*.12); c.stroke();
@@ -7136,7 +7149,7 @@ function pbPaint(cv){ const c=cv.getContext('2d'), H=512, r=seeded(19);
   const L=document.createElement('canvas'); L.width=1024; L.height=H; const lc=L.getContext('2d'); lc.textAlign='center'; lc.textBaseline='middle';
   const gold=(t,x,y,f,wmax)=>{ lc.font=`900 ${f}px Doto, monospace`; const m=lc.measureText(t).width, fs=m>wmax?f*wmax/m:f; lc.font=`900 ${fs}px Doto, monospace`; lc.lineWidth=fs*.16; lc.lineJoin='round'; lc.strokeStyle='#3a2a12'; lc.strokeText(t,x,y); lc.fillStyle='#e8c36a'; lc.fillText(t,x,y); };
   gold('BAR & LOUNGE',310,H*.76,H*.12,560); gold('CEOL GACH AOINE',310,H*.89,H*.065,540); gold('SNUG',756,424*.82,424*.12,220); gold('PUSH',958,164*.8,164*.13,110);
-  c.drawImage(L,0,0); { const im=c.getImageData(0,0,1024,H), D=im.data, LD=lc.getImageData(0,0,1024,H).data; for(let i=0;i<D.length;i+=4) D[i+3]=LD[i+3]>128?255:128; c.putImageData(im,0,0); } }
+  c.drawImage(L,0,0); glassAlpha(c,L,1024,H); }
 /* the door on its hinge (0 shut, up to a quarter turn, into the room); the sign on its rings, swung by the wind */
 function pbDoorPose(){ const d=PUB.m.door; if(!d) return; const [hx,hy,hz]=PUB.m.hinge; d.matrix.multiplyMatrices(PUB.M,pbM.makeTranslation(hx,hy,hz).multiply(pbM2.makeRotationY(-PUB.door))); d.matrixWorldNeedsUpdate=true; }
 function pbSignPose(){ const g=PUB.m.sign; if(!g) return; const [x,y,z]=PUB.m.signAt; g.matrix.multiplyMatrices(PUB.M,pbM.makeTranslation(x,y,z).multiply(pbM2.makeRotationZ(PUB.swing))); g.matrixWorldNeedsUpdate=true; }
@@ -10017,7 +10030,7 @@ function chPaint(cv){ const c=cv.getContext('2d'), H=512;
   const word=(t,x,y,f,wmax,col)=>{ lc.font=`900 ${f}px Doto, monospace`; const m=lc.measureText(t).width, fs=m>wmax?f*wmax/m:f; lc.font=`900 ${fs}px Doto, monospace`; lc.lineWidth=fs*.14; lc.lineJoin='round'; lc.strokeStyle='#0c2a1b'; lc.strokeText(t,x,y); lc.fillStyle=col; lc.fillText(t,x,y); };
   word('FISH & CHIPS',430,H*.74,H*.13,760,'#f3e6c4'); word('SPICE BAGS · CURRY CHIPS',430,H*.87,H*.06,700,'#f3e6c4');
   lc.font='900 44px Doto, monospace'; lc.lineWidth=10; lc.strokeStyle='rgba(255,70,60,.5)'; lc.strokeText('OPEN',946,90); lc.fillStyle='#ff6a5a'; lc.fillText('OPEN',946,90); word('PULL',946,240,30,120,'#f3e6c4');
-  c.drawImage(L,0,0); { const im=c.getImageData(0,0,1024,H), Dd=im.data, LD=lc.getImageData(0,0,1024,H).data; for(let i=0;i<Dd.length;i+=4) Dd[i+3]=LD[i+3]>128?255:128; c.putImageData(im,0,0); } }
+  c.drawImage(L,0,0); glassAlpha(c,L,1024,H); }
 /* the shutter: corrugated steel, and its sign */
 function chShutPaint(cv){ const c=cv.getContext('2d'), W=cv.width, H=cv.height; for(let y=0;y<H;y+=12){ c.fillStyle=(y/12)%2?'#a3a9ac':'#8c9295'; c.fillRect(0,y,W,12); c.fillStyle='rgba(255,255,255,.18)'; c.fillRect(0,y,W,2); }
   c.fillStyle='#f6f1e7'; c.fillRect(W*.24,H*.26,W*.52,H*.42); c.strokeStyle='#174a31'; c.lineWidth=6; c.strokeRect(W*.24+6,H*.26+6,W*.52-12,H*.42-12);
