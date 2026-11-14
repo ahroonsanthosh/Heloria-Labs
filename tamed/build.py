@@ -14,6 +14,8 @@ to) and embedded as base64. three.js r160 is loaded from jsDelivr as a global.
 The deployed site (Tamed at the front, Untamed under untamed/) is written by tools/build.py, which calls write_site() here.
 """
 import argparse, base64, glob, json, os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools'))
+import fonts as FONTS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -144,9 +146,11 @@ def write_site(out, minify=True):
     pfp = lambda p: hashlib.sha1(open(p, 'rb').read()).hexdigest()[:10]
     css, html, app = parts(dict(SITE_LINKS, __AHEAD__=ahead(out)), ['assets/img/%s.webp?v=%s' % (n, pfp(os.path.join(PHOTO_DIR, n + '.webp'))) for n in PEOPLE],
                            'assets/img/land.webp?v=' + pfp(os.path.join(SRC, 'assets', 'land.webp')))
+    css = FONTS.face_css(['doto', 'isans', 'caslon']) + css   # the type from the site itself (see tools/fonts.py)
     if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
         M = minifier(); css, app = M.css(css), M.js(app)
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
+    head = head.replace('<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Instrument+Sans:wght@400..600&family=Libre+Caslon+Display&display=swap">', FONTS.preload(['doto', 'isans', 'caslon'], 'assets/fonts/').rstrip('\n'))
     og = 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
             '<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">\n'

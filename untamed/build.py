@@ -9,7 +9,9 @@
 The deployed site (the walk at the front, Land under untamed/) is written by tools/build.py, which calls write_site() here.
 """
 import hashlib
-import argparse, base64, glob, json, os, shutil
+import argparse, base64, glob, json, os, shutil, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools'))
+import fonts as FONTS
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'untamed', 'src')
@@ -107,6 +109,10 @@ def write_site(out, minify=True):
     os.makedirs(os.path.join(out, 'untamed'), exist_ok=True); os.makedirs(os.path.join(out, 'assets', 'vendor'), exist_ok=True)
     shutil.copytree(os.path.join(SRC, 'assets', 'img'), os.path.join(out, 'assets', 'img'), dirs_exist_ok=True)
     for f in ('three.min.js', 'three.LICENSE.txt'): shutil.copy(os.path.join(SRC, 'assets', 'vendor', f), os.path.join(out, 'assets', 'vendor', f))
+    # the site's type, from the site itself (see tools/fonts.py): both pages and the 404 take it from here
+    os.makedirs(os.path.join(out, 'assets', 'fonts'), exist_ok=True)
+    for f in FONTS.files(): shutil.copy(os.path.join(FONTS.DIR, f), os.path.join(out, 'assets', 'fonts', f))
+    css = FONTS.face_css(['doto']) + css
     # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
     pfp = lambda n: hashlib.sha1(open(os.path.join(SRC, 'assets', 'img', n + '.webp'), 'rb').read()).hexdigest()[:10]
     js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW])).replace('__CAFE__', 'true' if CAFE_LIVE else 'false')
@@ -118,7 +124,7 @@ def write_site(out, minify=True):
     # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
     # the moment the page changes, instead of running yesterday's code for an hour
     fp = lambda t: hashlib.sha1(t.encode('utf-8')).hexdigest()[:10]
-    page = (DOC_HEAD.replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A).replace('{F}', FONTS_CSS) + html
+    page = (DOC_HEAD.replace('<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="{F}">\n', FONTS.preload(['doto'], '{A}fonts/')).replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A) + html
             + '\n<script src="%svendor/three.min.js?v=%s"></script>\n<script src="%suntamed.js?v=%s"></script>\n</body>\n</html>\n'
             % (A, hashlib.sha1(open(os.path.join(SRC, 'assets', 'vendor', 'three.min.js'), 'rb').read()).hexdigest()[:10], A, fp(js)))
     open(os.path.join(out, 'untamed', 'index.html'), 'w', encoding='utf-8').write(page)
