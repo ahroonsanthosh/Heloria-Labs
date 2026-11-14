@@ -75,7 +75,8 @@ function enter(){
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go');
   S.mode='landing'; A.whoosh(false,2.2,.16);
-  setTimeout(()=>{ show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800);
+  /* (on down unless something has already put you on Earth in the meantime: the tests' own straight way in, see earth) */
+  setTimeout(()=>{ if(S.mode!=='landing') return; show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800);
 }
 /* the way in is by itself (see boot). The sound: a browser lets it start only once the page has had a click, a tap or a key.
    Come from the front door, it has (a click there counts here too, in the browsers that carry it to the next page of the
