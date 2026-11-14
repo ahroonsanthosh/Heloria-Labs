@@ -3,7 +3,7 @@
    From the forecourt by day its office door is in view and its tag says Go in. In by a click (a tap) on the door: it swings
    open and knocks shut behind you, and you stand inside in your own eyes, nothing of the street drawn over the room, the
    town's music quieter, the buttons on the screen and nothing new compiled. The room: the engine in the bay, the lockers with
-   the gear, the mess, the board. The two on duty stand in the bay's mouth by day. Read the map (the camera goes up to the
+   the gear, the mess, the board. The two on duty are about the bay's mouth by day (polishing the engine, a clipboard, tea, a word). Read the map (the camera goes up to the
    board, and it is read aloud), try on a helmet (its brim over your eyes a moment, with its knock and the strap's click), ring
    the bell (the drill the engine starts outside: you step up to the bay's mouth to watch it, and back when it is over). Out by
    the button. In again by walking into the door, the W still held: it does nothing in here until let go, and S takes you out
@@ -51,7 +51,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* ---- before: built without an error; nothing of the inside drawn but what is seen through the open bay ---- */
   let s = await state(); const errs = await W((w, F, d) => [F.err, d.fire.err]);
   rec(!errs[0] && !errs[1] && s.st === 'out' && !s.vis && s.roomOut && !s.roomIn && s.slats && s.win, 'before: you are outside, the station and its inside were built without an error, and the inside is drawn only as the street sees it', JSON.stringify({ errs, st: s.st, vis: s.vis, roomOut: s.roomOut }));
-  let c = await crew(); rec(c.every(q => q.vis && q.w === 0 && q.helm && Math.abs(q.z - 1.24) < .05), 'by day the two on duty stand in the bay\'s mouth in their helmets', JSON.stringify(c));
+  let c = await crew(); rec(c.every(q => q.vis && q.w === 0 && q.helm && q.z > 1.18 && q.z < 1.75 && q.x > -1.25 && q.x < .35), 'by day the two on duty are about the bay\'s mouth in their helmets (at the engine\'s nose, the clipboard, a mug, a word)', JSON.stringify(c));
 
   /* ---- from the forecourt: the door in view, its tag Go in; by it the tag says how ---- */
   await W(w => { w.put(.78, 3.4, .78, 0); w.run(40); }); await frames(4);
