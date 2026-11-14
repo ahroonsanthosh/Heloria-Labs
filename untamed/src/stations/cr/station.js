@@ -989,7 +989,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   Gp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([sb1,v3(.125,ky(.86),.108),v3(.128,ky(.985),.012),v3(.105,ky(.88),-.1),v3(.01,ky(.74),-.098),v3(-.105,ky(.6),-.094),v3(-.124,ky(.54),-.02),sb2]),56,.011,5,false).toNonIndexed(),gc.strap,new T.Matrix4());
   const gm=Gp.mesh(); b.add(gm);
   /* what is round him, in his spot's frame: the amp with a lantern on it, his case open in front, the lead between */
-  const Pp=part(), AM=new T.Matrix4().compose(v3(-.5,0,-.02),dmQ.setFromAxisAngle(UPY,.4),v3(1,1,1)), CM=new T.Matrix4().compose(v3(.36,0,.6),dmQ.setFromAxisAngle(UPY,-.5),v3(1,1,1));
+  const Pp=part(), AM=new T.Matrix4().compose(v3(-.5,0,-.02),dmQ.setFromAxisAngle(UPY,.4),v3(1,1,1)), CM=new T.Matrix4().compose(v3(.44,0,.32),dmQ.setFromAxisAngle(UPY,-.06),v3(1,1,1));   // (his case on the pavement, not out over the kerb where the traffic goes)
   const pput=(M,geo,col,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>Pp.geo(geo,col,dmM.multiplyMatrices(M,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,ry,rz,'YXZ')),dmW.set(sx,sy,sz))));
   pput(AM,FG.box,'#2f2b29',0,.15,0,.32,.3,.18); pput(AM,FG.box,'#a99d86',0,.12,.091,.27,.19,.004); pput(AM,FG.box,'#d9d0bc',0,.265,.091,.27,.04,.006);   // the cabinet, its grille and panel
   [-.09,-.05,-.01,.03,.1].forEach(x=>pput(AM,FG.can,'#1e1c1b',x,.265,.097,.009,.012,.009,Math.PI/2)); pput(AM,FG.sph,'#c2412f',.065,.265,.096,.007,.007,.004);   // its knobs, the input and the light
@@ -1013,7 +1013,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   [[AM,.42,.3],[CM,.62,.42]].forEach(([M,sx,sz])=>{ const s=new T.Mesh(SHG,SHM); s.matrixAutoUpdate=false; s.matrix.copy(M).multiply(dmM2.compose(dmV.set(0,.02,0),dmQ.identity(),dmW.set(sx,1,sz))); s.renderOrder=1; s.layers.set(1); spot.add(s); });
   g.traverse(o=>{ if(o.isMesh&&o.material===FIGM) o.material=mat; }); pm.material=mat; DM.pick=[g,pm];
   /* he, his amp and his case are solid; so is the walking grid round them, which was laid out before he arrived */
-  obsAt(spot.matrix,0,0,.34,1.8); obsAt(spot.matrix,-.5,-.02,.22,.6); obsAt(spot.matrix,.36,.6,.3,.4); DM.obs=OBS.slice(-3);
+  obsAt(spot.matrix,0,0,.34,1.8); obsAt(spot.matrix,-.5,-.02,.22,.6); obsAt(spot.matrix,.44,.32,.3,.4); DM.obs=OBS.slice(-3);
   /* the lights: a wire from a band round the lamp post to a slim pole of their own, sagging over his spot, bulbs along it */
   kitTo(); const LP=frameAt(DM.lamp[0],DM.lamp[1],0,standH(...DM.lamp)), PM=frameAt(DM.pole[0],DM.pole[1],0,topH(...DM.pole,.075)), a0=v3(0,2.32,0).applyMatrix4(LP), a1=v3(0,2.3,0).applyMatrix4(PM);
   cyl(LP,'#3c4746',0,2.29,0,.064,.05,'cyl8'); cyl(PM,'#3c4746',0,0,0,.075,.04,'cyl8'); cyl(PM,'#3c4746',0,.04,0,.024,2.28,'cyl8'); put(PM,'sph','#3c4746',0,2.33,0,.034,.034,.034); obs(DM.pole[0],DM.pole[1],.1,2.3); DM.obs.push(OBS[OBS.length-1]);
@@ -8068,9 +8068,11 @@ function tlFree(x,z,r,skip){ if(!walkable(x,z)) return false; for(const o of OBS
 /* a thing of its own in the solids (a vehicle, a walker, the dog, a child), so you, the three of us and the ball go round it */
 function tlSolid(o,on){ const i=OBS.indexOf(o); if(on&&i<0) OBS.push(o); else if(!on&&i>=0) OBS.splice(i,1); }
 /* who is in the road (or near it), in the road's terms: you, the three of us, the walkers, the children, the dog, the school's children */
-function tlWho(){ const L=TL.road; L.length=0; const add=(x,z,r,me)=>{ const q=tlNear(x,z); if(Math.abs(q.lat)<RW+.9) L.push({x,z,r,s:q.s,lat:q.lat,me}); };
-  add(player.x,player.z,.32,true); for(const p of people) add(p.x,p.z,.36); for(const w of TL.feet) if(w.on) add(w.x,w.z,.28); for(const k of TL.kids) if(k.on) add(k.x,k.z,.24);
-  if(TL.dog&&TL.dog.on) add(TL.dog.x,TL.dog.z,.32); for(const k of CIV.kids) if(k.vis) add(k.x,k.z,.24);
+function tlWho(){ const L=TL.road; L.length=0; const add=(x,z,r,who)=>{ const q=tlNear(x,z); if(Math.abs(q.lat)<RW+.9) L.push({x,z,r,s:q.s,lat:q.lat,me:who===player,who}); };
+  if(!tlIn()) add(player.x,player.z,.32,player); for(const p of people) add(p.x,p.z,.36,p); for(const w of TL.feet) if(w.on) add(w.x,w.z,.28,w); for(const k of TL.kids) if(k.on) add(k.x,k.z,.24,k);   // (you indoors are not in the street: where you went in from is not you)
+  if(TL.dog&&TL.dog.on) add(TL.dog.x,TL.dog.z,.32,TL.dog); for(const k of CIV.kids) if(k.vis) add(k.x,k.z,.24,k);
+  /* the landing watched from low in the road: nothing drives through where it is watched from (it stops short until it has gone) */
+  if(CUT.on){ const [x,z]=loc(tlV.copy(st.camP).normalize()); if(st.camP.length()-R-standH(x,z)<2.4) add(x,z,.8,CUT); }
   for(const c of TL.cars) if(c.on) L.push({s:c.s,lat:c.lat,car:c}); }
 /* the way to whoever you are talking to or walking over to: kept clear (see the children, civCorr) */
 const tlCorr=()=>civCorr();
@@ -8109,19 +8111,28 @@ function tlFoot(key){ const g=figure(TL_LOOK[key]), d=g.userData; g.visible=fals
   TL.feet.push(w); return w; }
 function tlShow(w,on){ if(w.on===on) return; w.on=on; w.g.visible=on||TL.warm; tlSolid(w.ob,on&&!TL.warm); if(!on) w.route=null; }
 /* sets off along pts; arrive() when there */
-function tlGo(w,pts,arrive){ w.route=pts; w.ri=0; w.arrive=arrive||null; w.h0=w.h; }
+/* (give: what it does if you keep standing in its way, 'end' for as if there, when that is within reach) */
+function tlGo(w,pts,arrive,give){ w.route=pts; w.ri=0; w.arrive=arrive||null; w.give=give||null; w.meT=0; w.tries=0; w.side=0; w.h0=w.h; }
 /* a way on the ground from (x0, z0) to (x1, z1): straight if it is clear, else round things on the walking grid */
 function tlWay(x0,z0,x1,z1){ if(navClear(x0,z0,x1,z1)) return [{x:x1,z:z1}]; const p=navPath(x0,z0,x1,z1,1.2); return (p||[]).map(([x,z])=>({x,z})).concat([{x:x1,z:z1}]); }
 function tlWalk(w,dt,t){ if(!w.on) return; let sp=0;
   if(w.route&&w.ri<w.route.length){ const q=w.route[w.ri], dx=q.x-w.x, dz=q.z-w.z, L=Math.hypot(dx,dz);
-    if(L<.06){ if(q.go){ const g=q.go; q.go=null; g(); } w.ri++; w.side=0; if(w.ri>=w.route.length){ w.route=null; const f=w.arrive; w.arrive=null; if(f) f(w); } }
+    if(L<.06){ if(q.go){ const g=q.go; q.go=null; g(); } if(!q.side) w.meT=0; w.ri++; w.side=0; if(w.ri>=w.route.length){ w.route=null; const f=w.arrive; w.arrive=null; if(f) f(w); } }
     else { sp=1.05; const k=Math.min(L,sp*dt), nx=w.x+dx/L*k, nz=w.z+dz/L*k;
-      /* never into you, nor across the way to whoever you are talking to or walking over to, nor in front of a vehicle on the move */
-      const me=Math.hypot(nx-player.x,nz-player.z)<.62, Ct=TL.corrT, block=me||(Ct&&civSeg(nx,nz,Ct)<.7&&civSeg(w.x,w.z,Ct)>=.7)||TL.cars.some(c=>c.on&&c.v>.05&&c.obs.some(o=>Math.hypot(nx-o.x,nz-o.z)<o.r+.3));
-      if(block){ sp=0; w.wait+=dt;
-        /* you standing in the way a while: a step round you, on the side away from you */
-        if(me&&w.wait>1.5&&!w.side){ const px=-dz/L, pz=dx/L, sg=((player.x-w.x)*px+(player.z-w.z)*pz)>0?-1:1, sx=w.x+px*sg*.8, sz=w.z+pz*sg*.8; if(tlFree(sx,sz,.2)){ w.route.splice(w.ri,0,{x:sx,z:sz,h:q.h}); w.side=1; w.wait=0; } } }
-      else { w.wait=0; w.fx=damp(w.fx,dx/L,10,dt); w.fz=damp(w.fz,dz/L,10,dt); w.x=nx; w.z=nz; } } }
+      /* never into you (a step nearer you, close by: one away from you is fine), nor across the way to whoever you are talking to
+         or walking over to, nor in front of a vehicle on the move */
+      const dm=Math.hypot(nx-player.x,nz-player.z), me=!tlIn()&&dm<.62&&dm<Math.hypot(w.x-player.x,w.z-player.z), Ct=TL.corrT, block=me||(Ct&&civSeg(nx,nz,Ct)<.7&&civSeg(w.x,w.z,Ct)>=.7)||TL.cars.some(c=>c.on&&c.v>.05&&c.obs.some(o=>Math.hypot(nx-o.x,nz-o.z)<o.r+.3));
+      if(block){ sp=0; w.wait+=dt; if(me) w.meT+=dt;
+        /* you standing in the way a while: a step round you, on the side away from you (or the other, if that is a wall) */
+        if(me&&w.wait>1.5&&!w.side){ const px=-dz/L, pz=dx/L, sg=((player.x-w.x)*px+(player.z-w.z)*pz)>0?-1:1;
+          for(const g of [sg,-sg]){ const sx=w.x+px*g*.8, sz=w.z+pz*g*.8; if(tlFree(sx,sz,.2)&&Math.hypot(sx-player.x,sz-player.z)>.7){ w.route.splice(w.ri,0,{x:sx,z:sz,h:q.h,side:true}); w.side=1; w.wait=0; break; } } } }
+      else { w.wait=0; if(q.side) w.meT+=dt; w.fx=damp(w.fx,dx/L,10,dt); w.fz=damp(w.fz,dz/L,10,dt); w.x=nx; w.z=nz; }
+      /* held up by you a good while (round you and back: you are standing on its way): on to the point after that one, or at the
+         last, what it does then (see tlGo): in from where it is, or back to the vehicle for another time */
+      if(w.meT>6){ w.meT=0; w.side=0; const R_=w.route; let j=w.ri; while(j<R_.length-1&&R_[j].side) j++;
+        if(j<R_.length-1){ if(R_[j].go){ const g=R_[j].go; R_[j].go=null; g(); } w.ri=j+1; }
+        else if(w.give==='end'){ const e=R_[j]; if(Math.hypot(e.x-w.x,e.z-w.z)<1.5||++w.tries>1){ w.route=null; const f=w.arrive; w.arrive=null; w.give=null; if(f) f(w); } else w.ri=j; }
+        else if(w.give){ const g=w.give; w.give=null; g(w); } else w.ri=j; } } }
   /* (a point's h: how far over the ground there, up a step or the town hall's stairs) */
   /* (on plain ground its feet on whatever is under them, a kerb as it reaches it; up the town hall's stairs, smoothed) */
   const q=w.route&&w.ri<w.route.length?w.route[w.ri]:null, up=!!(q&&q.h!=null);
@@ -8177,19 +8188,28 @@ function tlBuildCars(){
       a.position.set(0,.23,z); c.g.add(a); c.axles.push(a); }
     const ck=tlPart(B=>{ B.put(FG.box,'#4a4f53',.05,0,0,.012,.18,.02); B.put(FG.box,'#4a4f53',-.05,0,0,.012,.18,.02); B.put(FG.box,'#2a2624',.08,.09,0,.06,.015,.04); B.put(FG.box,'#2a2624',-.08,-.09,0,.06,.015,.04); });
     ck.position.set(0,.23,0); c.g.add(ck); c.crank=ck; c.wr=.23; c.walker=tlFoot('bike'); c.rider=true; }
-  /* the bus: teal below, cream above, a red band; windows down both sides, its door at the front on the kerb side (folding
-     leaves on hinges, a dark doorway behind), the driver on the right, a passenger in the middle */
+  /* the bus: teal below, cream above, a red band; windows down both sides, its door at the front on the kerb side (two
+     folding leaves, each two panels hinged at the doorway's sides that fold in on themselves, into a dark doorway with its
+     step: the body is open round it), the driver on the right, a passenger in the middle */
   { const c=tlCar({id:'bus',kind:0,dir:-1,len:2.9,wid:1.0,ht:1.75,vmax:1.9}), TE='#2f6f8f', CR='#f1ead8', RD='#c8483a', K='#3a3c3e';
-    c.g.add(tlPart(B=>{ B.put(FG.box,TE,0,.45,0,1.0,.5,2.9); B.put(FG.box,RD,0,.73,0,1.008,.06,2.908); B.put(FG.box,CR,0,1.5,0,1.0,.24,2.9); B.put(FG.box,'#e9e2d0',0,1.66,0,.96,.08,2.85);
+    c.g.add(tlPart(B=>{ B.put(FG.box,TE,-.08,.45,0,.84,.5,2.9); B.put(FG.box,RD,-.082,.73,0,.844,.06,2.908);
+      /* (round the doorway: the side's skin and band up to it and on from it, then the doorway itself, set in: its back, its
+         sides and top, the step and under it; and the posts between it and the windows) */
+      for(const [z,l] of [[-.2875,2.325],[1.3875,.125]]){ B.put(FG.box,TE,.42,.45,z,.16,.5,l); B.put(FG.box,RD,.422,.73,z,.164,.06,l+.004); }
+      B.put(FG.box,'#3a3532',.35,.81,1.1,.01,1.12,.44); [.875,1.325].forEach(z=>B.put(FG.box,'#3a3532',.425,.81,z,.15,1.12,.01)); B.put(FG.box,'#3a3532',.425,1.37,1.1,.15,.01,.44);
+      B.put(FG.box,'#bdb6aa',.425,.27,1.1,.15,.04,.44); B.put(FG.box,'#3a3532',.425,.225,1.1,.15,.05,.44); B.put(FG.box,CR,.475,1.07,.785,.05,.62,.17); B.put(FG.box,CR,.475,1.07,1.365,.05,.62,.07); B.put(FG.box,CR,0,1.5,0,1.0,.24,2.9); B.put(FG.box,'#e9e2d0',0,1.66,0,.96,.08,2.85);
       for(let k=0;k<7;k++){ const z=-1.42+k*.47; [-1,1].forEach(s=>{ if(s>0&&z>.8) return; B.put(FG.box,CR,s*.475,1.07,z,.05,.62,.06); }); }
       [-1,1].forEach(s=>{ B.put(FG.box,CR,s*.475,1.07,1.43,.05,.62,.06); B.put(FG.box,'#fbf6e8',s*.33,.48,1.452,.16,.1,.012); B.put(FG.box,'#d14b3f',s*.4,.52,-1.452,.1,.14,.012); B.put(FG.box,K,s*.54,1.12,1.32,.08,.1,.04); });
       B.put(FG.box,CR,0,1.06,-1.43,.9,.62,.04); B.put(FG.box,K,0,.28,1.465,1.02,.1,.04); B.put(FG.box,K,0,.28,-1.465,1.02,.1,.04); B.put(FG.box,'#2a241d',0,1.45,1.455,.62,.13,.01); B.put(FG.box,'#f2c14e',0,1.45,1.46,.4,.05,.006);
-      B.put(FG.box,'#3a3532',.501,.82,1.1,.006,1.1,.44); B.put(FG.box,'#bdb6aa',.38,.27,1.1,.2,.04,.44);
       B.put(FG.box,K,-.25,.76,1.25,.42,.12,.24); B.put(FG.box,'#5a4a40',-.25,.62,.98,.32,.16,.3); B.put(FG.box,'#5a4a40',-.25,.88,.85,.32,.42,.06);
       for(const z of [-1.0,-.4,.2]) [-.25,.25].forEach(x=>{ B.put(FG.box,'#7a4a4a',x,.62,z,.36,.14,.3); B.put(FG.box,'#7a4a4a',x,.86,z-.14,.36,.38,.06); }); }));
     const gl=tlPart(B=>{ B.put(FG.box,'#ffffff',0,1.07,1.452,.9,.6,.01); [-1,1].forEach(s=>B.put(FG.box,'#ffffff',s*.48,1.07,s>0?-.35:0,.01,.58,s>0?2.1:2.8)); },TLGL); gl.userData.noInk=true; c.g.add(gl);
-    c.leaves=[[.88,1],[1.32,-1]].map(([z,s])=>{ const L=new T.Group(); L.position.set(.505,.25,z); const m=tlPart(B=>{ B.put(FG.box,CR,0,.56,s*.11,.03,1.12,.22); B.put(FG.box,TE,0,.2,s*.11,.032,.4,.2); }); L.add(m);
-      const lg=tlPart(B=>B.put(FG.box,'#ffffff',.002,.82,s*.11,.034,.5,.16),TLGL); lg.userData.noInk=true; L.add(lg); c.g.add(L); return {g:L,s}; });
+    /* each leaf: a panel on its hinge at the doorway's side, and a second hinged to the first (its far edge running in the
+       door's own line, as on a track), so it folds in on itself into the doorway (see tlCars) */
+    c.leaves=[[.885,1],[1.315,-1]].map(([z,s])=>{ const L=new T.Group(), F=new T.Group(), w=.1075; L.position.set(.485,.25,z); F.position.set(0,0,s*w); L.add(F);
+      for(const G of [L,F]){ G.add(tlPart(B=>{ B.put(FG.box,CR,0,.56,s*w/2,.03,1.12,w); B.put(FG.box,TE,0,.2,s*w/2,.032,.4,w-.012); }));
+        const lg=tlPart(B=>B.put(FG.box,'#ffffff',.002,.82,s*w/2,.034,.5,w-.04),TLGL); lg.userData.noInk=true; G.add(lg); }
+      c.g.add(L); return {g:L,f:F,s}; });
     for(const z of [-1.0,1.0]){ const a=tlAxle(.2,.12,.44); a.position.set(0,.2,z); c.g.add(a); c.axles.push(a); }
     c.bust=tlBust(TL_LOOK.bus); c.bust.position.set(-.25,.68-.5*.86,1.0); c.g.add(c.bust);
     const ps=tlBust(TL_LOOK.rider); ps.position.set(.25,.68-.5*.86,-.4); c.g.add(ps); c.pass1=ps;
@@ -8233,7 +8253,7 @@ function tlStops(){ const q=o=>tlNear(o.x,o.z), H=CIV.hall&&CIV.hall.M, PM=PO.M,
   if(H){ const out=tlB(H,0,2.75); TLP.hall=q(out).s; TLP.hallWay=[tlB(H,0,2.75),tlB(H,0,2.32,.14),tlB(H,0,1.62,.42),tlB(H,0,1.0,.425)]; }
   if(PM){ const f=PW.d/2; TLP.po=q(tlB(PM,PW.DX,f+.6)).s; TLP.poWay=[tlB(PM,PW.DX,f+.55,.16),tlB(PM,PW.DX,f+.02,.16)]; }
   if(CM){ const f=CAFE.d/2; TLP.cafe=q({x:CAFE.x-2.6,z:CAFE.z+3.2}).s; TLP.cafeWay=[tlB(CM,0,f+.85),tlB(CM,0,f+.5,.16),tlB(CM,0,f+.02,.16)]; }
-  TLP.rest=q({x:-.6,z:10.9}).s;
+  TLP.rest=q({x:-.6,z:10.9}).s; TLP.zeb=q({x:SPUR[0][0],z:SPUR[0][1]+2}).s; TLP.cam=q({x:CAMC[0],z:CAMC[1]}).s;   // (the zebra: see zebra(); where the landing is watched from, in the road)
   /* the milk: the house by the café, the café, the house by the workshop (the houses the children come from that are still houses) */
   TLP.milk=[]; for(const [hx,hz] of [[7.4,-12],[3,-13.4],[-5.8,13.6]]){ const Hh=HOUSES.find(H_=>{ const [px,pz]=loc(tlV.setFromMatrixPosition(H_.M).normalize()); return Math.hypot(px-hx,pz-hz)<.3; }); if(!Hh) continue;
     const f=Hh.d/2, dx=Hh.dx||0, step=tlB(Hh.M,dx,f+.5,.16), front=tlB(Hh.M,dx,f+1.0), bot=tlB(Hh.M,dx+.28,f+.42,.16);
@@ -8253,11 +8273,35 @@ const tlNight=()=>SKY.h>=23||SKY.h<6.5;
 
 /* ---------- each vehicle, each frame ---------- */
 /* what is in the way ahead: how far it can go before it must stop, and what it is (the band across the road each takes) */
-function tlGap(c){ let gap=99, by=null; const L=TLR.L, lo=Math.min(c.lat,c.latW)-c.hw-.16, hi=Math.max(c.lat,c.latW)+c.hw+.16;
+function tlGap(c){ let gap=99, by=null; const L=TLR.L, a=Math.min(c.lat,c.latW), z=Math.max(c.lat,c.latW);
   for(const b of TL.road){ if(b.car===c) continue; let al=((b.s-c.s)*c.dir%L+L)%L; if(al>L/2) al-=L; const ext=b.car?b.car.hl:b.r; if(al<-(c.hl+ext)||al>c.hl+9+ext) continue;
-    const bl=b.car?b.car.lat-b.car.hw:b.lat-b.r, bh=b.car?b.car.lat+b.car.hw:b.lat+b.r, clo=b.car?Math.min(c.lat,c.latW)-c.hw-.03:lo, chi=b.car?Math.max(c.lat,c.latW)+c.hw+.03:hi;
-    if(bh<clo||bl>chi) continue; if(b.car&&b.car.dir!==c.dir&&al<-.2) continue;
+    let bl, bh, clo, chi;
+    if(b.car){ if(b.car.dir!==c.dir?al<-.2:al<0) continue;   // (one going its way whose middle is behind its own: that one waits, not this)
+      bl=b.car.lat-b.car.hw; bh=b.car.lat+b.car.hw; clo=a-c.hw-.03; chi=z+c.hw+.03; }
+    else { bl=b.lat-b.r; bh=b.lat+b.r;
+      /* someone ahead: the way it takes across the road and a little room (on the pavement a kerb's width is room enough);
+         someone beside it (by its door at the kerb, say): only where it is going, since it is not driving at them */
+      if(al-ext>c.hl-.1){ const m=Math.abs(b.lat)>RW?.04:.16; clo=a-c.hw-m; chi=z+c.hw+m; } else { clo=c.latW-c.hw-.04; chi=c.latW+c.hw+.04; } }
+    if(bh<clo||bl>chi) continue;
     const g=al-c.hl-ext; if(g<gap){ gap=g; by=b; } } return [gap,by]; }
+/* someone in the way of it in its own lane (not only of its pulling in to the kerb); someone on the zebra */
+function tlInLane(c,b){ const m=Math.abs(b.lat)>RW?.04:.16; return b.lat+b.r>=c.lane-c.hw-m&&b.lat-b.r<=c.lane+c.hw+m; }
+const tlZebra=b=>TLP.zeb!=null&&Math.abs(((b.s-TLP.zeb)%TLR.L+TLR.L*1.5)%TLR.L-TLR.L/2)<1.25;
+/* how far c, at s and lat, would be into another vehicle (0: clear of them all) */
+function tlOver(c,s,lat){ let m=0; for(const o of TL.cars){ if(o===c||!o.on) continue; const ds=Math.abs(((o.s-s)%TLR.L+TLR.L*1.5)%TLR.L-TLR.L/2), a=o.hl+c.hl+.02-ds, b=o.hw+c.hw+.02-Math.abs(o.lat-lat); if(a>0&&b>0) m=Math.max(m,Math.min(a,b)); } return m; }
+/* what stands at the kerb, solid (the pillar box, Diarmuid's case), where it is along the road: looked over again now and then,
+   as the market's stalls come and go */
+function tlKerb(){ if(TL.kerb&&TL.kerbT>TL.clk&&TL.kerbN===OBS.length) return TL.kerb; TL.kerbT=TL.clk+2; TL.kerbN=OBS.length; TL.kerb=[];
+  for(const o of OBS){ if(o.tl) continue; const q=tlNear(o.x,o.z); if(Math.abs(q.lat)-o.r<RW+.15) TL.kerb.push({s:q.s,lat:q.lat,r:o.r}); } return TL.kerb; }
+/* going round p: where c drives, out toward the middle by p's width and a little (null: no room for it on the road) */
+function tlSide(c,p){ const u=p.lat*c.dir-p.hw-.1-c.hw; return u<-(RW-.04-c.hw)?null:u*c.dir; }
+/* how much further c has to go to be far enough past p to pull in again */
+function tlPastBy(c,p){ const ah=tlAhead(c,p.s); return Math.max(0,p.hl+c.hl+.7-(ah>TLR.L/2?TLR.L-ah:-ah)); }
+/* whether c may go round p: p ahead of it and going round nothing itself, nobody already going round p or round c, and room
+   beside it (so two never take turns going round each other, out and out off the road) */
+/* another right beside it where its own lane is (it cannot pull in there) */
+const tlBeside=c=>tlOver(c,c.s,c.lane)>0;
+function tlCanPass(c,p){ if(tlAhead(c,p.s)>TLR.L/2||p.pass||tlSide(c,p)==null) return false; for(const o of TL.cars) if(o!==c&&o.on&&(o.pass===p||o.pass===c)) return false; return true; }
 /* nothing coming the other way for a good stretch: room to pass */
 function tlClearPass(c){ for(const o of TL.cars){ if(o===c||!o.on||o.dir===c.dir) continue; let al=((o.s-c.s)*c.dir%TLR.L+TLR.L)%TLR.L; if(al>TLR.L/2) al-=TLR.L; if(al>-2&&al<15) return false; } return true; }
 /* stopping here would stand in the way of you and whoever you are walking to (or on the way you are walking): go round again */
@@ -8271,20 +8315,38 @@ function tlDrive(c,dt,t){ const L=TLR.L; let want=0, lw=c.mode==='stop'&&c.via?c
     c.hold=Math.max(0,(c.hold||0)-c.v*dt); if((c.stopAt===undefined||c.stopAt===null)&&c.hold<=0){ const nx=tlNext(c); c.via=nx; c.stopAt=nx&&nx.s!=null?tlWrap(nx.s):null; c.prevD=null; }
     /* there: at it, or just gone over it (a stop just left, or set behind it, is the next time round) */
     if(c.stopAt!=null){ const d=tlAhead(c,c.stopAt), over=c.prevD!=null&&c.prevD<1.5&&d>L-1.5; c.prevD=d;
-      if(d<.06||over){ if(tlInWay(c,c.stopAt,c.via.lat)){ c.stopAt=null; c.laps=0; c.skip=(c.skip||0)+1; } else { c.mode='stop'; c.t=0; c.v=0; c.s=c.stopAt; c.pass=null; lw=c.via.lat; tlArrive(c); } }
+      if(d<.06||over){ if(c.pass||tlOver(c,c.stopAt,c.via.lat)||tlInWay(c,c.stopAt,c.via.lat)){ c.stopAt=null; c.laps=0; c.skip=(c.skip||0)+1; } else { c.mode='stop'; c.t=0; c.v=0; c.s=c.stopAt; c.pass=null; lw=c.via.lat; tlArrive(c); } }   // (going round something standing at it: its place is taken)
       else { if(d<5) lw=c.via.lat; want=Math.min(want,Math.max(.22,Math.sqrt(2.2*Math.max(0,d-.04)))); } } }
   else if(c.mode==='stop'){ c.t+=dt; if(tlAtStop(c,dt,t)){ c.mode='drive'; c.stopAt=null; lw=c.lane; c.laps=0; c.hold=1.5; } }
-  /* passing something stopped or slow: out toward the middle of the road until it is behind (this comes before the kerb) */
-  if(c.pass&&c.mode==='drive'){ const p=c.pass, side=c.dir*(p.lat*c.dir-p.hw-.1-c.hw); lw=c.dir>0?Math.min(c.lane,side):Math.max(c.lane,side); }
+  /* passing something stopped or slow: out toward the middle of the road until it is behind (this comes before the kerb).
+     (Someone on foot gone round: followed as they are now, and gone from the road, done) */
+  if(c.pass&&c.pass.who){ const e=TL.road.find(b=>b.who===c.pass.who); if(e){ c.pass.s=e.s; c.pass.lat=e.lat; } else c.pass=null; }
+  if(c.pass&&c.mode==='drive'){ const sd=tlSide(c,c.pass); if(sd==null) c.pass=null; else lw=c.dir>0?Math.min(c.lane,sd):Math.max(c.lane,sd); }
+  /* (pulling in, or in its lane, never over anything standing at the kerb beside it: out from it until past, never over the middle) */
+  for(const k of tlKerb()){ const a=((k.s-c.s)*c.dir%L+L*1.5)%L-L/2; if(k.lat*c.dir<=0||a<-(c.hl+k.r+.15)||a>c.hl+k.r+2.5) continue; const u=Math.max(k.lat*c.dir-k.r-c.hw-.03,c.hw+.08); if(lw*c.dir>u) lw=u*c.dir; }   // (a little ahead too: it is already in line as it comes up)
   c.latW=lw;
   /* in the way: slow, and stop well short; behind something stopped or slow, pass it when nothing is coming */
-  const [gap,by]=tlGap(c); if(c.mode==='drive') want=Math.min(want,Math.max(0,(gap-1.15)*1.25));
-  if(c.mode==='drive'&&by&&by.car&&by.car.dir===c.dir&&gap<3.5&&!c.pass&&(by.car.mode!=='drive'||by.car.v<c.vmax*.65)){ c.wait+=dt; if(c.wait>1&&tlClearPass(c)){ c.pass=by.car; c.wait=0; } } else if(!c.pass) c.wait=0;
-  if(c.pass){ const p=c.pass, ah=tlAhead(c,p.s); if(ah>L/2&&L-ah>p.hl+c.hl+.7||!p.on) c.pass=null; else if(by&&by.car&&by.car.dir!==c.dir&&ah<L/2) c.pass=null; }   // (by, or something coming: back in)
+  const [gap,by]=tlGap(c), bc=by&&by.car; if(c.mode==='drive') want=Math.min(want,Math.max(0,(gap-1.15)*1.25));
+  /* (one coming the other way already going round something: room for it to get past and pull in; being gone round: easy) */
+  if(c.mode==='drive'&&bc&&bc.dir!==c.dir&&bc.pass) want=Math.min(want,Math.max(0,(gap-1.35-tlPastBy(bc,bc.pass))*1.25));
+  if(c.mode==='drive'&&TL.cars.some(o=>o.on&&o.pass===c)) want=Math.min(want,c.vmax*.45);
+  /* (already out going round one, and another stopped beyond it: round that one too) */
+  if(c.mode==='drive'&&bc&&bc.dir===c.dir&&gap<3.5&&bc!==c.pass&&(bc.mode!=='drive'||bc.v<c.vmax*.65)&&tlCanPass(c,bc)){ c.wait+=dt; if(c.wait>1&&(c.pass||tlClearPass(c))){ c.pass=bc; c.passed=false; c.wait=0; } } else if(!c.pass) c.wait=0;
+  /* held up by someone on foot: pulling in to its stop where they stand (at the kerb), it leaves that stop for the next time
+     round; someone standing in the road a while (but not on the zebra), it goes round them when nothing is coming */
+  const bp=c.mode==='drive'&&by&&!bc&&gap<1.8&&c.v<.1?by:null; c.hp=bp?(c.hp||0)+dt:0;
+  if(bp&&c.stopAt!=null&&tlAhead(c,c.stopAt)<5&&c.hp>2.5&&!tlInLane(c,bp)){ c.hold=tlAhead(c,c.stopAt)+c.hl+1; c.stopAt=null; c.laps=0; c.skip=(c.skip||0)+1; c.hp=0; }
+  else if(bp&&!c.pass&&c.hp>8&&!tlZebra(bp)){ const p={who:bp.who,s:bp.s,lat:bp.lat,hw:bp.r+.2,hl:bp.r,on:true,mode:'stop',v:0}; if(tlSide(c,p)!=null&&tlClearPass(c)){ c.pass=p; c.passed=false; } }
+  /* (past it, once and for all: back in as soon as nothing is beside it there. Not yet beside it, and something coming or it has
+     got going again: back in behind it. Beside it, or anything else: on past) */
+  if(c.pass){ const p=c.pass, ah=tlAhead(c,p.s), beside=ah>L/2||ah<p.hl+c.hl+.3||tlBeside(c); if(ah>L/2&&L-ah>p.hl+c.hl+.7) c.passed=true;
+    if(!p.on||c.passed&&!tlBeside(c)) c.pass=null; else if(!c.passed&&!beside&&(bc&&bc.dir!==c.dir||p.mode==='drive'&&p.v>c.vmax*.65)) c.pass=null; }
   if(by&&by.me&&gap<4&&c.v>.3&&c.id==='bike'&&c.bell<=0){ c.bell=6; tlSay('bell',.016,c.x,c.z,18); }
   c.bell-=dt;
-  c.v=want<c.v?Math.max(want,c.v-6*dt):Math.min(want,c.v+1.1*dt); c.s=tlWrap(c.s+c.dir*c.v*dt);
-  const dl=clamp(c.latW-c.lat,-.7*dt,.7*dt); c.lat+=dl; c.yaw=damp(c.yaw||0,clamp(c.dir*(dl/Math.max(dt,1e-3))/Math.max(c.v,.7),-.35,.35),6,dt);
+  c.v=want<c.v?Math.max(want,c.v-6*dt):Math.min(want,c.v+1.1*dt);
+  /* (never on into another, nor sideways into one: what is queued keeps its own length and a gap) */
+  if(c.v>0&&tlOver(c,tlWrap(c.s+c.dir*c.v*dt),c.lat)>tlOver(c,c.s,c.lat)) c.v=0; c.s=tlWrap(c.s+c.dir*c.v*dt);
+  let dl=clamp(c.latW-c.lat,-.7*dt,.7*dt); if(dl&&tlOver(c,c.s,c.lat+dl)>tlOver(c,c.s,c.lat)) dl=0; c.lat+=dl; c.yaw=damp(c.yaw||0,clamp(c.dir*(dl/Math.max(dt,1e-3))/Math.max(c.v,.7),-.35,.35),6,dt);
   c.odo=(c.odo||0)+c.v*dt; if(c.odo>TLR.L*.92){ c.odo=0; c.laps++; } }
 /* placed on the road: its frame, its turning wheels, its solid circles, a little bob as it goes */
 function tlPlaceCar(c,dt,t){ const q=tlAt(c.s,c.lat,TLB_); c.x=q.x; c.z=q.z;
@@ -8307,9 +8369,12 @@ function tlAtStop(c,dt,t){ const w=c.walker, T_=c.t, why=c.via&&c.via.why;
     return !open&&T_>Math.max(c.lay,6.6); }
   if(why==='rest'){ c.run=T_<1; const h=SKY.h; if(h>=8&&h<19&&T_>(c.restT||(c.restT=40+tlRnd()*40))){ c.restT=0; c.next='po'; return true; } return false; }
   /* the driver (or the rider) gets out at the kerb, goes in at the door, and comes back */
-  if(c.stage===0){ c.run=T_<.8; if(T_>1.1){ const s=c.dir*(c.hw+.32), p=tlAt(c.s,c.lat+s,TLB_); w.x=p.x; w.z=p.z; w.fx=p.dx*c.dir; w.fz=p.dz*c.dir; w.hy=null; tlShow(w,true);
+  if(c.stage===0){ c.run=T_<.8; if(T_>1.1){ const s=c.dir*(c.hw+.32), p=tlAt(c.s,c.lat+s,TLB_);
+      /* (you standing where the driver gets out: a moment for you to move, then on, for another time round) */
+      if(!tlIn()&&Math.hypot(p.x-player.x,p.z-player.z)<.62){ c.blk=(c.blk||0)+dt; if(c.blk>6){ c.blk=0; c.run=true; if(why==='po') c.next='rest'; return true; } return false; } c.blk=0;
+      w.x=p.x; w.z=p.z; w.fx=p.dx*c.dir; w.fz=p.dz*c.dir; w.hy=null; tlShow(w,true);
       if(c.bust) c.bust.visible=false; if(c.rider) c.ride=false; c.stage=1;
-      if(why==='po'){ c.stage=10; const r=tlAt(c.s-c.dir*(c.hl+.32),c.lat+c.dir*(c.hw*.3),TLB_); tlGo(w,[{x:r.x,z:r.z}],()=>{ c.stage=11; c.t2=0; }); }
+      if(why==='po'){ c.stage=10; const r=tlAt(c.s-c.dir*(c.hl+.32),c.lat+c.dir*(c.hw*.3),TLB_); tlGo(w,[{x:r.x,z:r.z}],()=>{ c.stage=11; c.t2=0; },'end'); }
       else if(why==='milk') c.stage=20; else tlToDoor(c); } return false; }
   if(c.stage===10||c.stage===11){ if(c.stage===11){ c.t2+=dt; if(c.t2>.3&&!c.rearOpen){ c.rearOpen=true; tlSay('doorCreak',.02,c.x,c.z,16,false); } if(c.t2>1.1){ w.carryOn=true; } if(c.t2>1.6){ c.rearOpen=false; tlSay('doorCreak',.02,c.x,c.z,16,false); c.stage=1; tlToDoor(c); } } return false; }
   if(c.stage>=20&&c.stage<30) return tlMilkStop(c,dt);
@@ -8320,19 +8385,22 @@ function tlAtStop(c,dt,t){ const w=c.walker, T_=c.t, why=c.via&&c.via.why;
 /* the walk in: to the pavement, the door, which opens as they come up to it, and in (out of sight); the door shuts behind */
 function tlToDoor(c){ const w=c.walker, why=c.via.why, way=why==='hall'?TLP.hallWay:why==='po'?TLP.poWay:TLP.cafeWay, door=why;
   const pv=tlAt(c.s,c.dir*(RW+SW*.55),{}), pts=[{x:pv.x,z:pv.z},...tlWay(pv.x,pv.z,way[0].x,way[0].z).slice(0,-1),...way.map(p=>({...p}))];
-  const k=pts.length-way.length; pts[k+(why==='hall'?1:0)].go=()=>tlDoor(door,true,w);
-  tlGo(w,pts,()=>{ tlShow(w,false); w.carryOn=false; tlDoor(door,false,w); c.stage=2; c.t2=0; c.stay=why==='po'?7+tlRnd()*4:why==='hall'?30+tlRnd()*30:40+tlRnd()*40; }); }
+  const k=pts.length-way.length; w.opened=false; pts[k+(why==='hall'?1:0)].go=()=>{ w.opened=true; tlDoor(door,true,w); };
+  tlGo(w,pts,()=>{ tlShow(w,false); w.carryOn=false; tlDoor(door,false,w); c.stage=2; c.t2=0; c.stay=why==='po'?7+tlRnd()*4:why==='hall'?30+tlRnd()*30:40+tlRnd()*40; },()=>tlBack(c,()=>{ if(w.opened) tlDoor(door,false,w); })); }
+/* you standing in the doorway (or on the doorstep): back to the vehicle, in, and off; another time */
+function tlBack(c,then){ const w=c.walker, pv=tlAt(c.s,c.dir*(RW+SW*.55),{}), kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),{}); if(then) then();
+  tlGo(w,[...tlWay(w.x,w.z,pv.x,pv.z),{x:kb.x,z:kb.z}],()=>{ tlShow(w,false); w.carryOn=false; if(c.bust) c.bust.visible=true; if(c.rider) c.ride=true; c.t2=0; if(c.id==='milk'){ c.stage=22; } else { c.stage=4; if(c.via.why==='po') c.next='rest'; } },'end'); c.stage=c.id==='milk'?19:3; }
 function tlFromDoor(c){ const w=c.walker, why=c.via.why, way=(why==='hall'?TLP.hallWay:why==='po'?TLP.poWay:TLP.cafeWay).slice().reverse(), door=why, p0=way[0];
   w.x=p0.x; w.z=p0.z; w.hy=null; const pv=tlAt(c.s,c.dir*(RW+SW*.55),{}), kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),{});
   tlDoor(door,true,w); tlShow(w,true); const back=way.slice(1).map(p=>({...p})); back[0].go=()=>tlDoor(door,false,w);
-  tlGo(w,[...back,...tlWay(back[back.length-1].x,back[back.length-1].z,pv.x,pv.z),{x:kb.x,z:kb.z}],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; if(c.rider) c.ride=true; c.stage=4; c.t2=0; });
+  tlGo(w,[...back,...tlWay(back[back.length-1].x,back[back.length-1].z,pv.x,pv.z),{x:kb.x,z:kb.z}],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; if(c.rider) c.ride=true; c.stage=4; c.t2=0; },'end');
   c.stage=3; }
 /* the milkman: the bottles from the back, up to the step, down on it (clink), and back */
 function tlMilkStop(c,dt){ const w=c.walker, m=c.via.m;
   if(c.stage===20){ w.carryOn=true; tlSay('bottles',.013,c.x,c.z,14); const pv=tlAt(c.s,c.dir*(RW+SW*.55),TLB_);
-    tlGo(w,[{x:pv.x,z:pv.z},...tlWay(pv.x,pv.z,m.front.x,m.front.z),{...m.step}],()=>{ c.stage=21; c.t2=0; }); c.stage=19; return false; }
+    tlGo(w,[{x:pv.x,z:pv.z},...tlWay(pv.x,pv.z,m.front.x,m.front.z),{...m.step}],()=>{ c.stage=21; c.t2=0; },()=>tlBack(c)); c.stage=19; return false; }
   if(c.stage===21){ c.t2+=dt; if(c.t2>.5&&w.carryOn){ w.carryOn=false; const b=TL.bottles[TLP.milk.indexOf(m)]; if(b){ b.on=true; b.m.visible=true; } tlSay('bottles',.016,w.x,w.z,14); TL.n.left=(TL.n.left||0)+1; }
-    if(c.t2>1.0){ const kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),TLB_); tlGo(w,[m.front,...tlWay(m.front.x,m.front.z,kb.x,kb.z)],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; c.stage=22; c.t2=0; }); c.stage=19; } return false; }
+    if(c.t2>1.0){ const kb=tlAt(c.s,c.lat+c.dir*(c.hw+.32),TLB_); tlGo(w,[m.front,...tlWay(m.front.x,m.front.z,kb.x,kb.z)],()=>{ tlShow(w,false); if(c.bust) c.bust.visible=true; c.stage=22; c.t2=0; },'end'); c.stage=19; } return false; }
   if(c.stage===22){ c.t2+=dt; if(c.t2>.6){ c.k=(c.k||0)+1; c.stage=0; return true; } }
   return false; }
 
@@ -8362,7 +8430,7 @@ function tlRide(c,t){ const w=c.walker; if(!c.ride||!c.on){ if(!w.on&&!TL.warm) 
    does), goes from doorstep to doorstep, and after the last (or at eight) drives on and is gone */
 function tlMilkLife(c,dt){ const h=SKY.h, win=h>=5.5&&h<8, U=c.u;
   if(!c.on){ if(!win||c.done) return false; const k=c.k??0; if(k>=TLP.milk.length){ c.done=true; return false; }
-    let s0=TLP.milk[k].s-7; for(let j=0;j<10;j++){ const q=tlAt(s0,c.lane,{}); if(!tlSeen(q.x,q.z)) break; s0-=2.5; }
+    let s0=TLP.milk[k].s-7; for(let j=0;j<10;j++){ const q=tlAt(s0,c.lane,{}); if(!tlSeen(q.x,q.z)&&!tlOver(c,tlWrap(s0),c.lane)) break; s0-=2.5; }   // (out of sight, and not on top of another)
     c.s=tlWrap(s0); c.lat=c.latW=c.lane; c.v=0; c.mode='drive'; c.stopAt=null; c.leaving=false; U.value=0; c.fade=1; tlCarShow(c,true); if(c.bust) c.bust.visible=true; TL.n.milkIn=(TL.n.milkIn||0)+1; }
   if(c.fade>0){ U.value=Math.min(1,U.value+dt/1.6); if(U.value>=1) c.fade=0; }
   if(c.mode==='drive'&&((c.k??0)>=TLP.milk.length||!win)&&!c.leaving){ c.leaving=true; c.lt=0; }
@@ -8375,7 +8443,7 @@ function tlCars(dt,t){ tlWho();
   for(const c of TL.cars){ if(c.id==='milk'&&!tlMilkLife(c,dt)) continue; if(!c.on) continue;
     tlDrive(c,dt,t); tlPlaceCar(c,dt,t); if(c.id==='bike') tlRide(c,t);
     if(c.id==='milk'&&c.lamps) c.lamps.visible=c.lamps.visible&&c.u.value>.98;
-    if(c.id==='bus'){ c.door=damp(c.door,c.doorOpen?1:0,c.doorOpen?6:8,dt); for(const L of c.leaves) L.g.rotation.y=-L.s*1.3*c.door; TL.seen.busDoor=Math.max(TL.seen.busDoor||0,c.door); }
+    if(c.id==='bus'){ c.door=damp(c.door,c.doorOpen?1:0,c.doorOpen?6:8,dt); const th=1.35*c.door; for(const L of c.leaves){ L.g.rotation.y=-L.s*th; L.f.rotation.y=2*L.s*th; } TL.seen.busDoor=Math.max(TL.seen.busDoor||0,c.door); }
     if(c.id==='post'){ c.rear=damp(c.rear,c.rearOpen?1:0,6,dt); for(const L of c.leaves) L.g.rotation.y=-L.s*1.7*c.rear; TL.seen.rear=Math.max(TL.seen.rear||0,c.rear); }
     if(c.v>.6) tlSplashAt(c.x,c.z,1.1,c.hw+.1);
     if(c.kind>=0){ const k=c.run&&!tlQuiet()?tlEar(c.x,c.z,20)*(tlIn()?.3:1)*(TALK.p?.7:1)*(c.u?c.u.value:1):0; A.engine(c.id,k,c.kind,clamp(c.v/c.vmax+(c.v<c.vmax*.9&&c.mode==='drive'?.25:0),0,1),k>0?civPan(c.x,c.z):0); TL.seen['eng'+c.id]=Math.max(TL.seen['eng'+c.id]||0,k); } } }
@@ -8581,7 +8649,7 @@ function tlBuildDog(){ const BK='#2a2624', WH='#f3efe6', g=new T.Group(); g.visi
   const tail=new T.Group(); tail.position.set(0,.33,-.2); g.add(tail); tail.add(mk(B=>{ B.put(FG.sph,BK,0,0,-.08,.025,.025,.09,-.6); B.put(FG.sph,WH,0,-.05,-.16,.022,.022,.03,-.6); }));
   const legs=[[1,1],[-1,1],[1,-1],[-1,-1]].map(([s,f])=>{ const q=new T.Group(); q.position.set(s*.055,.22,f*.14); q.add(mk(B=>{ B.put(FG.can,BK,0,-.09,0,.026,.18,.026); B.put(FG.sph,WH,0,-.19,.01,.03,.02,.035); })); g.add(q); return {g:q,s,f}; });
   const sh=new T.Mesh(SHG,SHM); sh.scale.set(.32,1,.55); sh.position.y=.02; sh.renderOrder=1; sh.layers.set(1); g.add(sh);
-  DOG.g=g; DOG.parts={body,head,tail,legs};
+  DOG.g=g; DOG.parts={body,head,tail,legs}; TL.dog=DOG;   /* (so the traffic and the pigeons know where it is) */
   /* its home: the most open of a few patches of grass by the workshop and in the square (what grows round them is less on
      a phone, so it is chosen here, not fixed) */
   const room=([x,z])=>walkable(x,z)?Math.min(...OBS.map(o=>Math.hypot(x-o.x,z-o.z)-o.r),Math.abs(tlNear(x,z).lat)-RW-SW):-9;
@@ -8737,6 +8805,8 @@ function tlPlace(){ const h=SKY.h, night=tlNight(), P=player; TL.h0=h; TL.d0=civ
   { const c=TLA.post; if((h<8||h>=19)&&TLP.rest!=null) park(c,'rest',TLP.rest,0); else { drive(c,s0+20); c.next='po'; } tlCarShow(c,true); }
   { const c=TLA.milk; c.done=false; c.leaving=false; c.fade=0; const n=TLP.milk.length, f=clamp((h-5.5)/2.5,0,1); c.k=h>=5.5&&h<8?Math.min(n-1,Math.floor(f*n)):n; c.mode='drive';
     TL.bottles.forEach((b,i)=>{ b.on=h>=5.5&&h<10&&(i<c.k||h>=8); b.m.visible=b.on; }); if(!(h>=5.5&&h<8)) c.done=true; }
+  /* (none put down on top of another, or where the landing's camera stands in the road: back along its way a little, until clear) */
+  for(const c of TL.cars) if(c.on&&c.mode==='drive') for(let j=0;j<40&&(tlOver(c,c.s,c.lat)||CUT.on&&TLP.cam!=null&&(tlAhead(c,TLP.cam)<16||tlAhead(c,TLP.cam)>L-c.hl-1.5));j++) c.s=tlWrap(c.s-c.dir);
   for(const c of TL.cars){ if(c.on) tlPlaceCar(c,1,0); for(const o of c.obs) tlSolid(o,c.on); }
   /* the children: out at their spots if it is their time, else off */
   for(const k of TL.kids){ tlKidShow(k,false); k.st='off'; k.cool=0; if(tlKidsOn()){ [k.x,k.z]=k.spot; k.ob.x=k.x; k.ob.z=k.z; k.st='play'; tlKidShow(k,true); } }
@@ -8785,7 +8855,7 @@ addEventListener('pointerup',e=>{ const tp=TL.tap; TL.tap=null; if(!tp||tp.id!==
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TL.ok){ try{ tlStep(dt,t); }catch(err){ if(!TL.err){ TL.err=String(err&&err.stack||err); console.error('town life',err); } } } return r; };
   st.enter=function(){ const r=en.apply(this,arguments); if(TL.ok) tlEnter(); return r; };
   st.exit=function(){ if(TL.ok){ tlCarsQuiet(); TL.h0=null; } return ex.apply(this,arguments); }; }
-st._dbg.town={TL,TLA,TLP,TLR,CAT,GUL,PG,POND,DOG,BALL,PUD,get err(){ return TL.err; },place:tlPlace,near:(x,z)=>tlNear(x,z,{}),at:(s,lat)=>tlAt(s,lat,{}),feed:tlFeed,pondL,pondW,
+st._dbg.town={TL,TLA,TLP,TLR,CAT,GUL,PG,POND,DOG,BALL,PUD,get err(){ return TL.err; },place:tlPlace,near:(x,z)=>tlNear(x,z,{}),at:(s,lat)=>tlAt(s,lat,{}),gap:c=>tlGap(c),feed:tlFeed,pondL,pondW,
   run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; G.uTime.value+=1/fps; st.update(1/fps,S.t); } },
   /* where on the screen a point of the town is (x, z, how high) */
   screen(x,z,h=0){ stCam.updateMatrixWorld(); const q=at(x,z,new T.Vector3()).multiplyScalar(R+standH(x,z)+h).project(stCam); return [(q.x*.5+.5)*innerWidth,(-q.y*.5+.5)*innerHeight,q.z]; },
