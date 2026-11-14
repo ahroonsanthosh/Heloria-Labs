@@ -294,7 +294,6 @@ async function boot(){
   const bt=POST.bloom(rtA); POST.comp.uniforms.tScene.value=rtA.texture; POST.comp.uniforms.tBloom.value=bt; POST.pass(POST.comp,null);
   UI.loadStep(1); diag('ready');
   GLATE.vPrev=SC.v;
-  canvas.classList.remove('wait');
   S.ready=true; setTimeout(()=>UI.gateReady(),TEST?0:500);
   setTimeout(ahead,TEST?0:2500);
 }

@@ -67,15 +67,13 @@ if(PRETTY){ try{ history.replaceState(null,'','/land'); }catch(e){} }
 
 /* ---------- enter: the word lifts away like cloud, and the rocket is already coming down through the sky behind it ---------- */
 function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start(); glShow();
+  if(!S.ready||S.mode!=='load') return; A.start();
   const mark=$('#mark'), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go');
   S.mode='landing'; A.whoosh(false,2.2,.16);
   setTimeout(()=>{ show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800);
 }
-/* the world's canvas, kept out of sight behind the loader (see #gl.wait), on show from the moment the loader starts to go */
-function glShow(){ canvas.classList.remove('wait'); }
 /* the way in: a scroll or a swipe (a click, a tap or a key do it too). Coming from the front door you have already clicked,
    and the browser lets the sound start on the scroll. The scroll that begins it is let finish before anything else on the
    page listens to the wheel, so a trackpad's long glide does not run on into the zoom */
@@ -100,7 +98,6 @@ addEventListener('keydown',e=>{ if(S.mode==='load'&&S.ready&&['Enter','Space','A
 /* onto Earth: a flash of white, and it opens on the rocket coming down through the clouds. Should Earth not have been made
    (an error while it was built), the plain page is the way in instead */
 function enterEarth(){ const st=ST.cr; if(!st){ document.documentElement.classList.add('nogl'); return; }
-  glShow();
   S.mode='station'; S.stId='cr'; S.st=st; S.stSnap=true; S.flash=1;
   st.enter(); if(st.cutscene) st.cutscene(); show('#station',true); st.showUI(); }
 window.__onResize=()=>{ window.__crLayout&&window.__crLayout(); };
@@ -131,6 +128,6 @@ requestAnimationFrame(frame);
 boot();
 /* test helper: straight onto Earth with no transitions */
 function earth(){ const st=ST.cr; if(!st||!S.ready) return false;
-  show('#load',false); show('#chrome',true); A.start(); glShow();
+  show('#load',false); show('#chrome',true); A.start();
   S.mode='station'; S.stId='cr'; S.st=st; S.stSnap=true; st.enter(); show('#station',true); st.showUI(); return true; }
 window.__heloria={A,finaleWhite,credits,earth,enterEarth,S,ST,post,renderer,stCam,rtW,postScene,ortho};

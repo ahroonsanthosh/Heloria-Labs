@@ -269,7 +269,10 @@ const A=(()=>{
   /* what a recipe works out itself, sample by sample (the rain, the busker's guitar), is done a piece at a time with the page
      let go on in between: each piece a few milliseconds, so no frame waits on it; but where the page is long in giving it
      back (a page held up by much more than a frame anyway), as long as that, so it is still made soon */
-  const pacer=()=>{ let t0=performance.now(), most=6; return async()=>{ if(performance.now()-t0<most) return; const y=performance.now(); await wait(0); t0=performance.now(); most=t0-y>50?t0-y:6; }; };
+  /* (while the rocket comes down, nothing is made: what is made then waits, so the landing has every frame) */
+  const landing=()=>S.mode==='landing'||document.documentElement.classList.contains('crcut');
+  const pacer=()=>{ let t0=performance.now(), most=6; return async()=>{ if(performance.now()-t0<most&&!landing()) return; const y=performance.now(); await wait(0); const t1=performance.now();
+      while(landing()) await wait(150); t0=performance.now(); most=t1-y>50?t1-y:6; }; };
   const RAINL=loop({name:'rain',sr:22050,P:12,H:2,ref:1,ios:.6,gate:.1,tc:1.4,tcOut:1.8,async make(oc){ const b=bus(oc,.25), sr=oc.sampleRate, n=oc.length, buf=oc.createBuffer(1,n,sr), d=buf.getChannelData(0), L=n/sr;
       let seed=97; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
       /* one hit: a short burst of decaying noise rung through a band-pass at f (Q q), about tau seconds long, at level g */
@@ -476,9 +479,9 @@ const A=(()=>{
            a thread of its own, so the wait is for the longest of them, not for all of them in turn */
         FIRST.slice(1).forEach(r=>render(r)); landMake(); }
       /* the rest (the engine for the last flight, the rain, Diarmuid's guitar, the score up high) once the page is ready, while
-         you read its prompt: the rain and the guitar are worked out a drop and a note at a time on the page itself, and behind
-         the loader that was half a second more of waiting, for sounds heard only later */
-      if(qi>=3&&qi<Q.length&&!S.ready){ setTimeout(go,100); return; }
+         you read its prompt, or once you have landed: the rain and the guitar are worked out a drop and a note at a time on the
+         page itself, and behind the loader that was half a second more of waiting, for sounds heard only later */
+      if(qi>=3&&qi<Q.length&&(!S.ready||landing())){ setTimeout(go,100); return; }
       if(qi<Q.length) render(Q[qi++],go); else { making=false; KEEP.tidy(); } }; setTimeout(go,60); }
   /* ---------- a cutscene's own sound: Earth's launch scene, before the last flight ----------
      Made once, out of sight, as a recording (as the long sounds are), from a list of cues with their times, and played in
