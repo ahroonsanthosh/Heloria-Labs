@@ -18,6 +18,9 @@ const Q=(SMALL||!FINE)?.5:1;
 const show=(sel,on)=>{ $(sel).classList.toggle('off',!on); if(typeof curReset==='function') curReset(); };
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* opened inside the front door (Safari and Firefox on a computer: see landHere in the walk): the front door's sound, which
+   the click there let start, is Land's; Land's links home leave it, and the front door keeps the address */
+const HOST=(()=>{ try{ const h=window.parent!==window&&window.parent.__heloriaHost; return h&&h.ctx?h:null; }catch(e){ return null; } })();
 const angDiff=(a,b)=>{let d=(a-b)%TAU; if(d>Math.PI)d-=TAU; if(d<-Math.PI)d+=TAU; return d;};
 const store={get(k,d){try{const v=localStorage.getItem('heloria.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('heloria.'+k,JSON.stringify(v))}catch(e){}}};   // small things kept between visits (the best darts score)
 const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
@@ -34,7 +37,7 @@ const A=(()=>{
      tap) the whole sound is built again on a fresh context: everything in it is made from n, so nothing is lost */
   let wdT=-1, wdC=-1, wdBad=0, downAt=0;
   function rebuild(){ const old=ctx; if(!old) return; for(const k in n) delete n[k];
-    ctx=null; init(); try{ old.close(); }catch(e){} set(out.gain,muted||away?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
+    ctx=null; init(); try{ if(!HOST||old!==HOST.ctx) old.close(); }catch(e){} set(out.gain,muted||away?0:LOUD,.4); ctx.resume().catch(()=>{}); wdT=-1; wdBad=0; downAt=0; }
   function watch(){ if(!ctx||!on||document.hidden||away){ wdT=-1; return; }
     const now=performance.now();
     if(ctx.state!=='running'){ if(!downAt) downAt=now; ctx.resume().catch(()=>{}); wdT=-1; return; }
@@ -57,7 +60,8 @@ const A=(()=>{
   function init(){
     if(ctx) return;
     try{ if(IOS&&navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // an iPhone: play like media, set before the sound starts (changing it mid-play interrupts it); not on a Mac
-    { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
+    if(HOST&&HOST.ctx.state!=='closed') ctx=HOST.ctx;   // (opened inside the front door: its sound, already let start, is ours; see landHere there)
+    else { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     /* (the sound let start only later than asked: every recording a browser said no to tries again at once, the music and the landing's too, rather than waiting for the next key) */
     /* (once the browser lets it run, whatever held it: the recordings may play, and the sound is on if it was asked for, so a
        start the browser refused before the click that let it cannot leave it off) */
@@ -137,10 +141,11 @@ const A=(()=>{
      engine, not as a few dozen media players. Safari on a Mac can give up on the page when that many media players start
      at once inside a click, and their sound then goes on after the tab is closed. A buffer player does what the mixer asks
      of a media player and no more: play, pause, where it is, its volume and its speed, and that it has ended */
-  const BUFP=/[?&]webaudio(=|&|$)/.test(location.search)||(()=>{ const u=navigator.userAgent; return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Android/.test(u)&&!/iPhone|iPad|iPod/.test(u)&&!(navigator.maxTouchPoints>1); })();
+  const BUFP=!!HOST||/[?&]webaudio(=|&|$)/.test(location.search)||(()=>{ const u=navigator.userAgent; return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR|Android/.test(u)&&!/iPhone|iPad|iPod/.test(u)&&!(navigator.maxTouchPoints>1); })();
   function BufPlayer(get){ this._get=get; this._src=null; this._g=null; this._p=true; this._e=false; this._off=0; this._t0=0; this._r=1; this._v=1; this._m=false; this._ls=[]; this.preload='auto'; this.loop=false; this.preservesPitch=false; this.src=''; }
   BufPlayer.prototype={
     get paused(){ return this._p; }, get ended(){ return this._e; },
+    get seeking(){ return false; }, get readyState(){ return 4; },   // (always all there: so the landing and the launch keep step with it, as with a recording; see landClock)
     get currentTime(){ if(this._p||!ctx) return this._off; return Math.min(this._get().duration,this._off+Math.max(0,ctx.currentTime-this._t0)*this._r); },
     set currentTime(t){ const on=!this._p; if(on) this._halt(); this._off=Math.max(0,+t||0); this._e=false; if(on) this._go(); },
     get playbackRate(){ return this._r; },

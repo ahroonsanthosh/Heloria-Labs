@@ -85,7 +85,8 @@ function enter(){
 
 /* ---------- the loop ---------- */
 let last=performance.now();
-function frame(tn){ const f0=DIAG?performance.now():0; if(TRAIL&&(S.mode!==TRAIL.mode||S.frame%60===0)){ TRAIL.mode=S.mode; TRAIL.add('frame '+S.frame+', '+S.mode+(S.ready?'':' (loading)')+', at '+(S.s||0).toFixed(3)); }
+function frame(tn){ if(S.mode==='land') return;   // (Land opened in this page: the walk is not drawn again, see landHere)
+  const f0=DIAG?performance.now():0; if(TRAIL&&(S.mode!==TRAIL.mode||S.frame%60===0)){ TRAIL.mode=S.mode; TRAIL.add('frame '+S.frame+', '+S.mode+(S.ready?'':' (loading)')+', at '+(S.s||0).toFixed(3)); }
   try{ frameBody(tn); } finally{ if(DIAG) DIAG.js.push(performance.now()-f0); } }
 function frameBody(tn){
   requestAnimationFrame(frame);
@@ -328,6 +329,31 @@ window.__tamed={gal:()=>({stage:GLATE.stage,want:GLATE.want,log:GLATE.log}),galN
   /* and for driving the scroll on a clock of the test's own: one frame of the hand and the walk */
   tick(dt){ S.frame++; scrollTick(dt); VEIL.tick(dt); holdTick(); return warp(SC.v); },
 };
+/* Land, in a browser that does not carry the click that takes you there over to Land's own page (Safari and Firefox on a
+   computer): there Land would have to wait for a click of its own before it could be heard, so it opens inside this page
+   instead, filling it, and the sound this page already has going (that click let it start) is Land's from its first moment:
+   it comes down by itself, heard from the start. It is asked for at once, behind the gate's light, and shown when the page
+   would have changed; the walk then stops drawing and gives its graphics back. The address says /land, and going back
+   brings you to the front door again, as from Land's own page. Chrome and the browsers like it carry the click over, and
+   Land opens there as the page of its own it is; on a phone it keeps its page and its one tap (its edges are the phone's own
+   there). Returns what shows it, or nothing where Land is to open as its own page */
+function landHere(href){
+  if(!window.__LANDIN&&(navigator.userAgentData||matchMedia('(pointer:coarse)').matches)) return null;
+  let same=false; try{ same=new URL(href,location.href).origin===location.origin; }catch(e){}
+  const c=A.ctx; if(!c||c.state==='closed'||!same||!document.body) return null; if(c.state!=='running') c.resume().catch(()=>{});   // (the click itself may be what is starting it)
+  window.__heloriaHost={ctx:c};
+  const f=document.createElement('iframe'); f.src=href; f.title='Land'; f.setAttribute('allow','autoplay; fullscreen; clipboard-write; web-share');
+  f.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;border:0;margin:0;padding:0;z-index:2147483000;background:#EAF4F4;opacity:0;pointer-events:none;transition:opacity .45s ease';
+  document.body.appendChild(f);
+  const title=()=>{ try{ const t=f.contentDocument&&f.contentDocument.title; if(t) document.title=t; }catch(e){} };
+  f.addEventListener('load',title);
+  /* (shown once the gate has gone over to Land's light; should the sound not be running even by then, Land opens as its own
+     page after all, and asks for its click there) */
+  return ()=>{ if(c.state!=='running'){ f.remove(); delete window.__heloriaHost; return false; } S.mode='land'; f.style.opacity='1'; f.style.pointerEvents='auto'; try{ f.contentWindow.focus(); }catch(e){} title();
+    A.handOff(); if(PRETTY){ try{ history.pushState({land:1},'',SITE_ROOT+'land'); }catch(e){} }
+    setTimeout(()=>{ try{ renderer&&renderer.dispose(); renderer&&renderer.forceContextLoss(); }catch(e){} const cv=document.getElementById('gl'); if(cv) cv.style.visibility='hidden'; },600); return true; };
+}
+window.__landHere=landHere;   // (for the tests)
 /* Land is a page of its own: once the front door is in and the browser is idle, Land's script and styles are asked for (at
    the very addresses Land asks for, which the build writes into the page), so going in finds them already kept */
 addEventListener('load',()=>{ const m=document.querySelector('meta[name="heloria-land"]'); if(!m||!m.content||!window.fetch) return;

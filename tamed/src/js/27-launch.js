@@ -113,6 +113,6 @@ function launchTick(dt){
   if(!LAUNCH.hold) LAUNCH.gt+=dt; const t=LAUNCH.gt;   // (hold: only the stills tests stop its clock)
   LAUNCH.camK=RM?0:E.io(clamp(t/1.15,0,1)); LAUNCH.fov=lerp(16,11,sstep(1,2.6,t));
   LAUNCH.dark=sstep(RM?0:.85,RM?1:2.3,t); LAUNCH.near=sstep(0,1.6,t); LAUNCH.wash=LAUNCH.back?0:sstep(2.2,2.75,t);
-  if(!LAUNCH.back&&t>=2.75&&!LAUNCH.left){ LAUNCH.left=true; location.assign(LAUNCH.href); }
+  if(!LAUNCH.back&&t>=2.75&&!LAUNCH.left){ LAUNCH.left=true; const here=landHere(LAUNCH.href); if(!(here&&here())) location.assign(LAUNCH.href); }
   if(LAUNCH.back&&t>=3.4){ LAUNCH.go=false; LAUNCH.ph=L_T+L_GAP-6; S.mode='world'; ui.classList.remove('leaving'); }
 }

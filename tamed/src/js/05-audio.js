@@ -25,6 +25,7 @@ const A=(()=>{
      the context if it was put to sleep and restarts it if its clock has stopped moving */
   let wdT=-1, wdC=-1;
   let away=false;   // you have left the page: see leave() below
+  let gone=false;   // Land opened in this page has the context now (see landHere): the walk's own sound is silent for good, and leaves the context alone
   function watch(){ if(!ctx||!on||document.hidden||away) return;
     if(ctx.state!=='running'){ ctx.resume().catch(()=>{}); wdT=-1; return; }
     const now=performance.now(), c=ctx.currentTime;
@@ -242,10 +243,10 @@ const A=(()=>{
   /* leaving the page: another tab or app, the phone locked, the window minimised or closed. The sound goes with you, at once
      (a phone may freeze the page next, and would play its recordings on in the background), and it comes back when you
      do. Another window only in front of it, the page still showing, is not leaving: the sound plays on, as any player's does */
-  function leave(e){ const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true; if(!ctx) return;   // (the page closing is as final as hidden: everything stops at once)
+  function leave(e){ if(gone) return; const hid=document.hidden||!!(e&&e.type==='pagehide'); away=true; if(!ctx) return;   // (the page closing is as final as hidden: everything stops at once)
     set(n.master.gain,0,hid?.01:.15); MX.tc=.25;
     if(hid){ for(const L of LOOPS) if(L.run) halt(L); MX.v=0; ctx.suspend().catch(()=>{}); } }
-  function back(){ if(!away||document.hidden) return; away=false; for(const L of LOOPS) L.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
+  function back(){ if(gone||!away||document.hidden) return; away=false; for(const L of LOOPS) L.blocked=false;   // (a start cut short by the pause on leaving is not a browser saying no)
     if(!ctx||!on) return; MX.tc=.6; ctx.resume().then(()=>set(n.master.gain,LEVEL,.6)).catch(()=>{}); }
   document.addEventListener('visibilitychange',()=>document.hidden?leave():back());
   addEventListener('pagehide',leave); addEventListener('focus',back);   // (another window only in front, the page still showing: the sound plays on, as any player's does; a page hidden, minimised or closed is silent at once)
@@ -329,7 +330,7 @@ const A=(()=>{
     [[1,1,3.2],[2.005,.22,1.4],[3.01,.07,.7],[4.2,.025,.35]].forEach(([r,k,d])=>{ const o=ctx.createOscillator(), a=ctx.createGain(); o.type='sine'; o.frequency.value=f*r;
       a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g*k,t0+.006); a.gain.exponentialRampToValueAtTime(.0001,t0+d*(1.2-r*.05)); o.connect(a); a.connect(out); o.start(t0); o.stop(t0+d*1.3+.1); }); }
   /* a short sound only once the sound is running: before the browser lets it, it would wait and come all at once */
-  const live=()=>on&&ctx&&ctx.state==='running';
+  const live=()=>on&&!gone&&ctx&&ctx.state==='running';
   /* the pond's sounds answer a hand that has touched the page: never before the first click, tap or key, even where the
      browser lets the sound start by itself */
   let touched=false; ['pointerdown','touchstart','keydown'].forEach(ev=>addEventListener(ev,()=>{ touched=true; },{capture:true,passive:true}));
@@ -389,6 +390,8 @@ const A=(()=>{
 
   return {
     get on(){ return on; }, get ctx(){ return ctx; },
+    /* Land opened in this page: the walk's sound falls silent and stops for good; the context, running, is Land's now */
+    handOff(){ if(gone) return; gone=true; if(!ctx) return; set(n.master.gain,0,.35); for(const L of LOOPS) if(L.run) halt(L); },
     async start(){ try{ init(); on=true; MX.tc=.5; if(away) return; await ctx.resume(); set(n.master.gain,LEVEL,1.2); }catch(e){ on=false; } },
     suspend(v){ if(v) leave(); else back(); },
     /* what the live part sends to the speakers; and, worked out, what the recordings add to it (the meter cannot hear them) */

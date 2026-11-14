@@ -40,7 +40,7 @@ const gateWake=()=>{ if(S.mode!=='gate'||(A.on&&A.ctx&&A.ctx.state==='running'))
 const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leaving){ e.preventDefault(); return; } A.click();
   if(!sameSite(a.getAttribute('href')||'')) return;
   e.preventDefault(); S.leaving=true; CYC.off=true; setHover(v,true); gate.style.setProperty('--out','#EAF4F4');
-  gate.classList.add('leaving'); A.leave(v); setTimeout(()=>location.assign(a.href),RM?120:820); });
+  gate.classList.add('leaving'); A.leave(v); const here=landHere(a.href); setTimeout(()=>{ if(!(here&&here())) location.assign(a.href); },RM?120:820); });
 leaveTo($('#land'),'land');
 /* on a touch screen: Walk and Land in turn, slowly, each with its name lit, then a breath of the plain gate */
 const CYC={off:FINE,i:-1,t:1.2};

@@ -65,7 +65,7 @@ async function boot(){
      get its sound going, as one waking a pair of wireless headphones may need, before the landing waits on a click) */
   let pol=null; try{ pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):null; }catch(e){}
   const t0=performance.now(); if(pol!=='allowed'&&pol!=='disallowed') while(A.waiting&&S.mode==='load'&&performance.now()-t0<1000) await wait(25);
-  if(S.mode!=='load') return; if(pol==='disallowed'||pol!=='allowed'&&A.waiting) askLand(); else enter();
+  if(S.mode!=='load') return; if(!A.waiting||pol==='allowed') enter(); else askLand();   // (its sound already running, as inside the front door: down at once)
 }
 /* (the one line, quiet, where the name was being built: what to do, on a phone or not) */
 function askLand(){ S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask'); }
@@ -76,7 +76,8 @@ document.documentElement.classList.add('landing');
 /* on the site the address says where you are: /land. The page itself lives at untamed/, so its own address is kept to come
    back to; reloading /land goes to the front door */
 const PAGE_URL=location.pathname, PRETTY='__PRETTY__'&&/^\/untamed\/(index\.html)?$/.test(PAGE_URL);   // only where the site is the whole domain
-if(PRETTY){ try{ history.replaceState(null,'','/land'); }catch(e){} }
+if(PRETTY&&!HOST){ try{ history.replaceState(null,'','/land'); }catch(e){} }
+if(HOST) document.querySelectorAll('a[href]').forEach(a=>{ a.target='_top'; });   // (inside the front door: the way home is the whole page's)
 
 /* ---------- enter: the word lifts away like cloud, and the rocket is already coming down through the sky behind it ---------- */
 function enter(){
