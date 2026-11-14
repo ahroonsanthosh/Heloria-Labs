@@ -7900,8 +7900,12 @@ function buildFire(){ if(!FS.M||FS.g) return; const M=FS.M, g=new T.Group(); g.m
     /* the helmet, a piece of its own (off on its shelf at night); and a mug, in the hand in the mess at night */
     const H=part(); ffHelm(H,o.helm); const helm=H.mesh(); d.head.add(helm);
     const Mg=part(); Mg.put(FG.can,['#c4302b','#2e5843'][i],0,-.205,.045,.032,.07,.032); Mg.put(FG.band,['#c4302b','#2e5843'][i],.032,-.205,.045,.022,.03,.03,0,Math.PI/2); const mug=Mg.mesh(); mug.visible=false; d.fore[0].add(mug);
+    /* by day: a cloth in the hand of the first, for the engine's brightwork; a clipboard held at the chest of the second */
+    const Cl=part(); Cl.put(FG.box,'#ece5d3',0,-.215,.03,.085,.022,.07); const cloth=Cl.mesh(); cloth.visible=false; d.fore[1].add(cloth);
+    const Cb=part(); Cb.put(FG.box,'#7d5f40',0,0,0,.17,.23,.012); Cb.put(FG.box,'#f4efe3',0,-.012,.008,.14,.18,.004); Cb.put(FG.box,'#8f959b',0,.1,.012,.06,.025,.01);
+    const clip=Cb.mesh(); clip.position.set(0,.96,.2); clip.rotation.x=-.95; clip.visible=false; d.body.add(clip);
     g.add(f); f.traverse(ink); const [x,z]=FW.REST[i];
-    obs(0,0,.3,1.4); const ob=OBS[OBS.length-1]; return {f,d,i,x,z,yaw:Math.PI,fyaw:Math.PI,ph:i*2,sp:0,ob,blink:2+i,look:0,hold:0,pitch:0,sweep:0,stepD:0,helm,mug,w:0,sit:0,nd:0,wave:0,
+    obs(0,0,.3,1.4); const ob=OBS[OBS.length-1]; return {f,d,i,x,z,yaw:Math.PI,fyaw:Math.PI,ph:i*2,sp:0,ob,blink:2+i,look:0,hold:0,pitch:0,sweep:0,stepD:0,helm,mug,cloth,clip,w:0,sit:0,nd:0,wave:0,ox:0,oz:0,ex:0,day:'',
       rm:wiMat(FSI,{value:0})}; });   // (w: how far along their way in for the night; rm: their colours in the room's light, while you are in)
   /* the branch (the hose's nozzle): brass and black, in the hands of the first */
   { const P=part(); P.put(FG.can,'#2a2624',0,.0,0,.03,.08,.03); P.put(FG.can,'#c9a24a',0,.08,0,.026,.12,.026); P.put(FG.cone,'#c9a24a',0,.2,0,.022,.06,.022); P.put(FG.box,'#2a2624',.035,.06,0,.03,.03,.04);
@@ -7964,6 +7968,11 @@ function fsNear(reach){ const d=Math.hypot(player.x-FS.x,player.z-FS.z); return 
 function fsPan(){ const P=player; mtR.crossVectors(C.f,P.u); tang(P.u,at(FS.x,FS.z,fsV),fsV); return clamp(fsV.dot(mtR),-1,1); }
 /* the paths they run: out to the branch's spot and to hold the hose behind; and back */
 const FS_PATH=[[FW.REST[0],[.34,1.62],[FW.NOZ[0]+.3,FW.NOZ[1]-.02],FW.NOZ],[FW.REST[1],[-.4,1.6],FW.HELP]];
+/* their day by the bay's mouth (see fsPose): [from, to (seconds into a round of 28), what, then where, as a step from their
+   place (x, z) and, for a walk, the step it ends at]. The engine's nose is 16 cm inside the mouth: the polish and the
+   clipboard are a step out in front of it, facing it */
+const FF_DAY=[[[0,1.2,'walk',0,0,-.13,.22],[1.2,12,'polish',-.13,.22],[12,13,'walk',-.13,.22,-.13,.44],[13,14.4,'look',-.13,.44],[14.4,15.4,'walk',-.13,.44,0,0],[15.4,24,'chat',0,0],[24,28,'',0,0]],
+  [[0,1.2,'walk',0,0,-.02,.24],[1.2,9,'clip',-.02,.24],[9,10.2,'walk',-.02,.24,0,0],[10.2,15.4,'mug',0,0],[15.4,24,'chat',0,0],[24,28,'',0,0]]];
 function fsPose(dt,t){ const D=FS.dr, c=FS.dt, open=FS.door>.05||D!=='idle', inR=FSI.on, night=D==='idle'&&FS.doorT===0;
   FS.ff.forEach((q,i)=>{ const f=q.f, d=q.d, Q=FI_IN[i];
     /* in for the night: how far along their way in (0 at the bay's mouth, 1 at their places in the mess). Walked only while
@@ -7976,13 +7985,31 @@ function fsPose(dt,t){ const D=FS.dr, c=FS.dt, open=FS.door>.05||D!=='idle', inR
       gest=q.w>w0&&q.w<w1?Math.sin(Math.PI*(q.w-w0)/(w1-w0)):0; sit=Q.sit?sstep(Q.uS,1,a):0; }
     else { /* where along the way out they are: 0 by the engine, 1 out on the forecourt */
       if(D==='out') u=sstep(.8+i*.15,2.6+i*.1,c); else if(D==='spray'||D==='off') u=1; else if(D==='in') u=1-sstep(.4,2.6-i*.2,c); [x0,z]=cpoly(FS_PATH[i],u); }
-    /* (the first steps aside, by the engine's nose, to let you in through the bay) */
-    q.nd=damp(q.nd,i===0&&!inn&&D==='idle'&&FSI.via==='bay'&&FSI.st==='enter'?-.17:0,5,dt||1); const x=x0+q.nd;
+    /* their day, on the forecourt by the bay's mouth while the door is up: the first gives the engine's nose a polish, steps
+       back to look at it, and has a word with the other; the second goes over the kit on a clipboard, has a mug of tea, and
+       the word with the first. A round of 28 seconds, the two in step for the talk. When the bell goes they come away from
+       whatever they are at onto their way out, not from where they stood */
+    let day='';
+    if(!inn&&D==='idle'&&FS.door>.5){ const ph=((t||0)+(FS.dayT0??(FS.dayT0=Math.random()*28)))%28, P=FF_DAY[i];
+      let tx=0, tz=0; for(const [a,b,k,x1,z1,x2,z2] of P) if(ph>=a&&ph<b){ if(k==='walk'){ const e=sstep(a,b,ph); tx=lerp(x1,x2,e); tz=lerp(z1,z2,e); } else { tx=x1; tz=z1; } day=k; break; }
+      q.ox=damp(q.ox,tx,4,dt||1); q.oz=damp(q.oz,tz,4,dt||1); }
+    else { q.ox=damp(q.ox,0,3,dt||1); q.oz=damp(q.oz,0,3,dt||1); }
+    q.day=day; x0+=q.ox; z+=q.oz;
+    /* (the first steps aside, by the engine's nose, to let you in through the bay; and while they are out with the hose, the
+       one in the office doorway's way steps aside for you to go in or out by it, rather than you walking through them) */
+    q.nd=damp(q.nd,i===0&&!inn&&D==='idle'&&FSI.via==='bay'&&FSI.st==='enter'?-.17:0,5,dt||1);
+    { let want=0; const by=!inn&&D!=='idle'&&(FSI.st==='exit'||FSI.st==='enter'&&FSI.via==='door'), half=.66;
+      if(by&&z>FW.cz+FW.d/2-.2&&z<FW.cz+FW.d/2+1.9){ const rel=x0+q.nd-FW.PDX; if(Math.abs(rel)<half) want=(rel<0?-half:half)-rel; }
+      q.ex=damp(q.ex,want,6,dt||1); }
+    const x=x0+q.nd+q.ex;
     const dx=x0-(q.x0??x0), dz=z-q.z, mv=Math.hypot(dx,dz), sp=dt>0?Math.hypot(x-q.x,dz)/dt:0; q.x0=x0; q.x=x; q.z=z; q.sp=damp(q.sp,sp,10,dt||1);
     /* which way they face: along the way while they go; the first along the water once out, the second toward the first; in
        the mess the way their place faces, and the lockers while they are at them */
     let fy=q.yaw; if(inn){ if(a>1-1e-4||sit>0) fy=Q.ny; else if(gest>0) fy=Math.PI; else if(mv>1e-4) fy=Math.atan2(dx,dz); }
-    else if(mv>1e-4) fy=Math.atan2(dx,dz); else if(u>.98) fy=i?Math.atan2(FW.NOZ[0]-q.x,FW.NOZ[1]-q.z):FW.AIM; else if(u<.02) fy=i?-.3:.25;
+    else if(mv>1e-4&&day!=='polish'&&day!=='clip'&&day!=='look') fy=Math.atan2(dx,dz); else if(u>.98) fy=i?Math.atan2(FW.NOZ[0]-q.x,FW.NOZ[1]-q.z):FW.AIM;
+    else if(day==='polish'||day==='clip'||day==='look') fy=Math.PI;   // (to the engine's nose)
+    else if(day==='chat'){ const o=FS.ff[1-i]; fy=Math.atan2(o.x-q.x,o.z-q.z); }
+    else if(u<.02) fy=i?-.3:.25;
     q.yaw+=angWrap(fy-q.yaw)*Math.min(1,(dt||1)*7);
     const y=z<FW.cz+FW.d/2-.05?FW.FL:fsGroundY(x,z); fsW(x,y,z,fsV); const nU=z<FW.cz+FW.d/2?FS.up:at(...fsXZ(x,z),fsV2); fsD(Math.sin(q.yaw),0,Math.cos(q.yaw),fsV3);
     sT.crossVectors(nU,tang(nU,fsV3,fsV3)).normalize(); Mf.makeBasis(sT,nU,fsV3); f.quaternion.setFromRotationMatrix(Mf); f.position.copy(fsV);
@@ -8007,11 +8034,18 @@ function fsPose(dt,t){ const D=FS.dr, c=FS.dt, open=FS.door>.05||D!=='idle', inR
     else if(inn&&gest>0){ const k=gest; reach(d.arms[0],d.fore[0],fsV2.set(-.1,lerp(.82,1.24,k),lerp(.16,.07,k)),fsV3.set(-.6,-.6,-.4).normalize(),.18,.2); reach(d.arms[1],d.fore[1],fsV2.set(.1,lerp(.82,1.24,k),lerp(.16,.07,k)),fsV3.set(.6,-.6,-.4).normalize(),.18,.2); }
     else if(inn&&q.w>.999){ const cy=(t*.13+i*.37)%1, sip=cy>.78?Math.sin((cy-.78)/.22*Math.PI):0, sat=sit>.5, by=sat?.81:.86, bz=sat?.3:.2;
       reach(d.arms[0],d.fore[0],fsV2.set(lerp(-.1,-.04,sip),lerp(by,1.06,sip),lerp(bz,.15,sip)),fsV3.set(-.6,-.6,-.4).normalize(),.18,.2); if(sat) reach(d.arms[1],d.fore[1],fsV2.set(.12,.8,.3),fsV3.set(.6,-.6,-.4).normalize(),.18,.2); }
+    /* by day: the cloth going round on the engine's nose; the clipboard at the chest, a tick now and then; the mug, and a sip;
+       a hand that talks */
+    else if(day==='polish'){ const w=(t||0)*4.2; reach(d.arms[1],d.fore[1],fsV2.set(.07+.07*Math.cos(w),.95+.055*Math.sin(w),.27),fsV3.set(.6,-.6,-.4).normalize(),.18,.2); reach(d.arms[0],d.fore[0],fsV2.set(-.13,.9,.24),fsV3.set(-.6,-.6,-.4).normalize(),.18,.2); }
+    else if(day==='clip'){ const tk=Math.max(0,Math.sin((t||0)*1.3))**8; reach(d.arms[0],d.fore[0],fsV2.set(-.06,.9,.2),fsV3.set(-.6,-.6,-.4).normalize(),.18,.2); reach(d.arms[1],d.fore[1],fsV2.set(.04+.02*Math.sin((t||0)*.7),.99-.02*tk,.24-.03*tk),fsV3.set(.6,-.6,-.4).normalize(),.18,.2); }
+    else if(day==='mug'){ const cy=((t||0)*.16+i*.37)%1, sip=cy>.72?Math.sin((cy-.72)/.28*Math.PI):0; reach(d.arms[0],d.fore[0],fsV2.set(lerp(-.1,-.04,sip),lerp(.86,1.06,sip),lerp(.2,.15,sip)),fsV3.set(-.6,-.6,-.4).normalize(),.18,.2); }
+    else if(day==='chat'){ const g_=Math.max(0,Math.sin((t||0)*1.1+i*1.7)); reach(d.arms[1],d.fore[1],fsV2.set(.13,.88+.1*g_,.2+.06*g_),fsV3.set(.6,-.6,-.4).normalize(),.18,.2); }
+    q.cloth.visible=day==='polish'||day==='look'; q.clip.visible=day==='clip'; if(!inn) q.mug.visible=day==='mug';
     /* a wave back, when you wave to them (a click or a tap on them, inside) */
     if(q.wave>0){ q.wave-=dt||0; d.arms[1].rotation.set(0,0,1.95); d.fore[1].rotation.set(0,0,.95+Math.sin((t||0)*11)*.38); }
     /* looking about, and at you when you come near; blinking */
     const e=fsL(stCam.position,fsV2), hy=Math.atan2(e.x-q.x,e.z-q.z)-q.yaw, near=Math.hypot(player.x-q.ob.x,player.z-q.ob.z)<6&&D==='idle'; q.look=damp(q.look,near?1:0,3,dt||1);
-    d.head.rotation.y=clamp(angWrap(hy),-.9,.9)*q.look*.8+(1-q.look)*.3*Math.sin(t*.4+i*2); d.head.rotation.x=i===0&&D==='spray'?-.25:0;
+    d.head.rotation.y=clamp(angWrap(hy),-.9,.9)*q.look*.8+(1-q.look)*(day?.06*Math.sin(t*.7+i):.3*Math.sin(t*.4+i*2)); d.head.rotation.x=i===0&&D==='spray'?-.25:(1-q.look)*(day==='polish'?.22:day==='clip'?.5:day==='look'?.12:0);
     q.blink-=dt||0; d.eyes[0].scale.y=q.blink<.12?.15:1; if(q.blink<0) q.blink=2+Math.random()*3; f.updateMatrixWorld(true); });
   FS.branch.visible=open&&FS.ff[0].hold>.05; }
 function fsGroundY(x,z){ const [mx,mz]=fsXZ(x,z); return fsL(at(mx,mz,fsV3).multiplyScalar(R+standH(mx,mz)),fsV3).y; }
