@@ -3179,7 +3179,10 @@ function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight
 let down=null, look=null, hov=null, started=false, cardT=0;
 const stick=$('#crStick',el), stickI=$('#crStick i',el);
 function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
-st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(CAFE.on){ cafeDown(e); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
+/* (a first click on the landing while its sound is still waiting for one, come straight to Land: it starts the sound, it
+   does not skip the landing; the next one does, and the Skip button always does) */
+const cutSoundWaits=e=>A.waiting||A.unlockEv===e;
+st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ if(!cutSoundWaits(e)) skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(CAFE.on){ cafeDown(e); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
 const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
@@ -3247,7 +3250,7 @@ $('#crNot',el).addEventListener('click',e=>{ e.stopPropagation(); closeTalk(); }
 goBtn.addEventListener('click',e=>{ e.stopPropagation(); if(allMet()&&!FIN.on) startFinale(); });
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(FIN.on){ if(FIN.pre){ if(e.code==='Escape'&&!e.repeat) csSkip(); } else if(LKEYS.includes(e.code)) launchHold(true); e.preventDefault(); e.stopImmediatePropagation(); return; }   // the last flight takes no keys but the launch (and Escape, to skip the launch scene)
-  if(CUT.on){ skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if(CUT.on){ if(!cutSoundWaits(e)) skipCut(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   if(TALK.p&&e.code==='Escape'){ closeTalk(); e.stopImmediatePropagation(); return; }
   if(PHS.on&&e.code==='Escape'){ steerSet(false); e.stopImmediatePropagation(); return; }
   if(PC.on&&e.code==='Escape'){ pcOpen(false); e.stopImmediatePropagation(); return; }
@@ -10435,7 +10438,7 @@ st._dbg.chipper={C:CHP,CHD,CHMENU,CHL,CHT,get err(){ return CHP.err; },open:chOp
    board (its middle, width, height); and how loud the bell is rung in here (at your ear: no louder than a footstep) */
 const FIW={EY:1.15,S:[.82,.55],CL:2.84,LOCK:[.45,1.56],SHELF:1.25,LH:1.62,POLE:[.33,-1.05],TBL:[1.35,-.42,.3],TTOP:.735,CH:[[1.35,-.95,0],[1.35,.12,Math.PI]],
   CNT:[1.92,-1.08,.75],CTOP:.9,DESK:[1.45,2.26,.82,1.17],DTOP:.7,BOARD:[-.47,1.45,1.1,.66],BELL:[.31,2.08,-1.71],CLOCK:2.12,SHAFT:[1.63,2.29,-1.87,-1.21],TOP:4.98,
-  LAMP:[[1.35,2.36,-.42,1.0],[-.47,2.74,.45,.85],[.95,2.74,-1.25,.75],[1.6,2.74,.7,.7]],BAYE:[.25,1.22],WAITE:[1.08,.78],MOUTH:[.06,1.2],MAP:[-.674,.645,.62],BELLG:.016};
+  LAMP:[[1.35,2.36,-.42,1.0],[-.47,2.74,.45,.85],[.95,2.74,-1.25,.75],[1.6,2.74,.7,.7]],BAYE:[-3.1,4.6],BAYV:[.5,1.6],WAITE:[1.08,.78],MOUTH:[.06,1.2],MAP:[-.674,.645,.62],BELLG:.016};
 /* their ways in for the night, each from the bay's mouth by the lockers to their place: the first to stand by the lockers,
    the second (the officer) to sit at the table. The moment at the lockers (the helmet off going in, on coming out), how
    fast, which way they face there, and whether they sit */
@@ -10450,7 +10453,7 @@ const FSI=wiRoom({id:'fs',cls:'infs',act:null,at:0,ak:0,ae:'map',ty:0,tp:0,steer
   busy:()=>!FSI.g||wiBusy(), open:()=>true, canLeave:()=>true,
   figY:(x,z)=>doorFloor(x,z,FW.cz+FW.d/2,FW.PDX,.96,FW.FL,(x,z)=>wiGround(FSI,x,z)),
   stepSnd:(x,z,mx,mz)=>A.step(z<FW.cz+FW.d/2||roadDist(mx,mz)<RW+SW?1:0), sndDoor:o=>{ if(FSI.via!=='bay') A.civDoor(o,false); },
-  eye:o=>fiEye(o), fov:()=>cport()?78:62, tagText:()=>'Go in', ui:()=>fiUI(), outdoors:()=>FSI.act==='watch'&&FSI.wph==='bay',
+  eye:o=>fiEye(o), fov:()=>cport()?78:62, tagText:()=>'Go in', ui:()=>fiUI(), outdoors:()=>FSI.act==='watch'&&(FSI.wph==='bay'||FSI.wph==='back'),
   onEnter(){ fiWay(FSI.via); fiEnd(); FSI.ak=0; FSI.lean=0; FSI.qS=false; },
   onWayIn(){ if(FSI.via==='bay'&&FSI.fig[1]<FW.cz+FW.d/2+.32) me.visible=false; },   // (through the bay: the camera takes over before the engine's nose)
   onIn(){ FSI.hf=keys.has('KeyW')||keys.has('ArrowUp'); FSI.hb=keys.has('KeyS')||keys.has('ArrowDown'); FSI.out=0;   /* (the key you walked in on does nothing until it is let go) */
@@ -10666,7 +10669,7 @@ function fiEye(o){ const B=FSI, D=FIW, [sx,sz]=D.S, ln=B.lean*.28;
 /* where your eyes go for each: the board (far enough back to see all of it; on a phone held upright, the map's own sheet), a
    step aside while they come out to the bay, in the bay's mouth beside the engine's nose to watch the drill (the two at work
    in front of you, the water going up over the forecourt), in the station's frame, eased from one to the next */
-function fiActAt(){ const B=FSI, D=FIW, F=FW.FL; if(B.ae==='bay') return [D.BAYE[0],F+D.EY,D.BAYE[1]]; if(B.ae==='wait') return [D.WAITE[0],F+D.EY,D.WAITE[1]];
+function fiActAt(){ const B=FSI, D=FIW, F=FW.FL; if(B.ae==='bay') return [D.BAYE[0],F+D.EY+.35,D.BAYE[1]]; if(B.ae==='wait') return [D.S[0],F+D.EY,D.S[1]];
   const [bz,by,bw,bh]=D.BOARD, vf=B.fov()*Math.PI/360, asp=innerWidth/innerHeight, hf=Math.atan(Math.tan(vf)*asp), all=asp>1, zc=all?bz:D.MAP[0], w_=all?bw:D.MAP[1], h_=all?bh:D.MAP[2];
   const dd=Math.max(w_/2/Math.tan(hf),h_/2/Math.tan(vf))*1.3; return [FW.cx+FW.w/2-FW.t-.05-dd,F+by,zc]; }   // (the room's own lens: the town's is set again each frame before it)
 const fiActEye=o=>wiW(FSI,...FSI.ax,o);
@@ -10698,9 +10701,10 @@ const fiDo=k=>k==='map'?fiMap():k==='helm'?fiHelm():k==='bell'?fiBell():false;
 function fiBack(){ const B=FSI, a=B.act; if(!a) return false;
   if(a==='helm'){ if(B.at<4.6){ B.at=4.6; if(!B.won) B.won=2; } return true; }
   if(a==='map') A.poShuffle(.3);
+  if(a==='watch'){ if(B.wph==='bay'){ B.wph='back'; B.at=0; return true; } if(B.wph==='back') return true; B.dipOut=.38; }   // (out on the forecourt: back in through the dark, as you went out)
   B.act=null; B.wph=''; B.steer=0; B.dragT=0; fiUI(); return true; }
 /* all of it put away at once (going out, or Earth left) */
-function fiEnd(){ const B=FSI; B.act=null; B.wph=''; B.won=0; B.steer=0; B.nod=0; B.at=0; if(B.m.brim) B.m.brim.visible=false; if(B.m.helm&&B.helmAt) B.m.helm.matrix.copy(fiAt(...B.helmAt,0)); fiUI(); }
+function fiEnd(){ const B=FSI; B.act=null; B.wph=''; B.won=0; B.steer=0; B.nod=0; B.at=0; B.dipOut=0; fiDip(0); if(B.m.brim) B.m.brim.visible=false; if(B.m.helm&&B.helmAt) B.m.helm.matrix.copy(fiAt(...B.helmAt,0)); fiUI(); }
 /* what is in the middle of the view (E): the board, the helmet or the bell, if one is near enough to it */
 function fiAim(){ const B=FSI, f_=wiDir(B,B.yaw,B.pitch,wiV2), F=FW.FL; let best=null, bd=.45;
   for(const [k,p] of [['map',[FW.cx+FW.w/2-FW.t-.05,F+FIW.BOARD[1],FIW.BOARD[0]]],['helm',B.helmAt||[0,0,0]],['bell',[FIW.BELL[0],F+FIW.BELL[1]-.15,FIW.BELL[2]]]]){
@@ -10708,21 +10712,26 @@ function fiAim(){ const B=FSI, f_=wiDir(B,B.yaw,B.pitch,wiV2), F=FW.FL; let best
 /* each frame while one is on: the helmet's moments (off the shelf, on, worn, off and back), the bell rung and the drill
    watched from the bay's mouth until it is over; how far the camera has gone to what you look at */
 function fiActs(dt,t){ const B=FSI, a=B.act; B.at+=dt;
-  const want=a==='map'||a==='watch'; B.ak=want?Math.min(1,B.ak+dt/.8):Math.max(0,B.ak-dt/.7);
+  const want=a==='map'||a==='watch'&&(B.wph==='bay'||B.wph==='back'); B.ak=want?Math.min(1,B.ak+dt/.8):Math.max(0,B.ak-dt/.7);
   if(want){ const tg=fiActAt(); if(B.ak<=dt/.8+1e-6) B.ax=tg; else B.ax=B.ax.map((v,i)=>v+(tg[i]-v)*(1-Math.exp(-3.2*dt))); }
   if(B.steer>0){ B.steer-=dt; B.yaw=lhAng(B.yaw,B.ty,1-Math.exp(-5*dt)); B.pitch=damp(B.pitch,B.tp,5,dt); B.dragT=0; }
   B.nod=Math.max(0,B.nod-dt*2.2);
   if(a==='helm'){ const c=B.at; if(c>1.25&&!B.won){ B.won=1; B.nod=1; A.helmet(true); } if(c>4.6&&B.won===1) B.won=2; if(c>5.35&&B.won===2){ B.won=3; A.helmet(false); } if(c>5.6){ B.act=null; B.won=0; fiUI(); } }
   else if(a==='bell'){ const c=B.at;
     if(c>.5&&!B.rung){ B.rung=1; B.bellV+=3.4; if(!fsDrill('bell')) A.fireBell(FIW.BELLG,0); }
-    if(c>1.7){ if(FS.dr!=='idle'){ B.act='watch'; B.wph='wait'; B.ae='wait'; B.at=0; B.wt=0; fiSteer(FIW.MOUTH,0,1.6,FIW.WAITE); fiUI(); } else { B.act=null; fiUI(); } } }
+    if(c>1.7){ if(FS.dr!=='idle'){ B.act='watch'; B.wph='go'; B.at=0; B.wt=0; fiUI(); } else { B.act=null; fiUI(); } } }
   else if(a==='watch'){
-    /* (while they come out, a step aside, following them: up from the mess, to the lockers, past you to the bay's mouth) */
-    if(B.wph==='wait'){ const q_=FS.ff.filter(q=>q.w>0), tg=q_.length?[q_.reduce((s_,q)=>s_+q.x,0)/q_.length,q_.reduce((s_,q)=>s_+q.z,0)/q_.length]:FIW.MOUTH;
-      B.ty=wiYawTo(FIW.WAITE[0],FIW.WAITE[1],tg[0],tg[1]); B.tp=-.06; B.steer=Math.max(B.steer,.25); }
-    /* (once they are out at it and the water is on: up beside the engine's nose, in the bay's mouth, to watch) */
-    if(B.wph==='wait'&&(FS.dr==='spray'||FS.dr==='off'||FS.dr==='in')){ B.wph='bay'; B.ae='bay'; B.at=0; fiSteer([.2,3.0],.03,1.8,FIW.BAYE); fiUI(); }
-    if(FS.dr==='idle'){ B.wt+=dt; if(B.wt>1.2) fiBack(); } else B.wt=0; } }
+    /* the bell rung: a moment's dark as they go for their helmets, and you are out on the forecourt with all of it in view
+       (the station's front with the engine in its bay, the two of them coming out and running the hose, the jet going up
+       and coming down in a shower, the rainbow in it when the sun is behind you). A cut, not a walk: the way out of the
+       bay is through the two of them and the engine */
+    if(B.wph==='go'){ fiDip(sstep(0,.3,B.at)); if(B.at>=.32){ B.wph='bay'; B.ae='bay'; B.ax=fiActAt(); B.ak=1; const y=wiYawTo(FIW.BAYE[0],FIW.BAYE[1],FIW.BAYV[0],FIW.BAYV[1]); B.yaw=B.ty=y; B.pitch=B.tp=.06; B.steer=0; B.at=0; fiUI(); } }
+    else if(B.wph==='bay'){ fiDip(1-sstep(0,.38,B.at)); if(FS.dr==='idle'){ B.wt+=dt; if(B.wt>1.2) fiBack(); } else B.wt=0; }
+    /* and back in the same way, to where you rang it, facing the room as you first saw it (the lockers, the table, the board) */
+    else if(B.wph==='back'){ fiDip(sstep(0,.3,B.at)); if(B.at>=.32){ B.ak=0; B.act=null; B.wph=''; B.ae=''; B.steer=0; B.dragT=0; B.yaw=B.ty=FSI.yaw0; B.pitch=B.tp=0; B.dipOut=.38; fiUI(); } } }
+  if(B.dipOut>0){ B.dipOut=Math.max(0,B.dipOut-dt); fiDip(B.dipOut/.38); } }
+/* the dark between the two (the rooms' own, see the town hall's stair) */
+function fiDip(k){ hiDip(clamp(k,0,1)); }
 /* the helmet you try on: on its shelf; lifted to your head; worn (its brim over your eyes); off and set back on the shelf */
 function fiHelmPose(){ const B=FSI, m=B.m.helm; if(!m) return; const c=B.at, on=B.act==='helm', [hx,hy,hz]=B.helmAt;
   let k=0, vis=true; if(on&&c>.55&&c<1.25) k=E.io((c-.55)/.7); else if(on&&c>=1.25&&c<4.6){ vis=false; k=1; } else if(on&&c>=4.6&&c<5.35) k=1-E.io((c-4.6)/.75);

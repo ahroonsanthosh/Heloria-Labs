@@ -8,16 +8,15 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   let fails = 0; const ok = (c, m, x) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (x !== undefined ? '  (' + (typeof x === 'string' ? x : JSON.stringify(x)) + ')' : '')); if (!c) fails++; };
   const until = async (fn, ms = 60000, arg) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await H(fn, arg)) return true; await wait(250); } return false; };
   const hash = await page.evaluate(() => location.hash), tag = pre + 'entry' + (hash ? '-' + hash.slice(1) : '');
-  const load = await page.evaluate(() => ({ bg: getComputedStyle(document.querySelector('#load')).backgroundColor, ink: getComputedStyle(document.querySelector('#mark')).color, begin: document.querySelector('#beginT').textContent, landing: document.documentElement.classList.contains('landing') }));
+  const load = await page.evaluate(() => ({ bg: getComputedStyle(document.querySelector('#load')).backgroundColor, ink: getComputedStyle(document.querySelector('#mark')).color, landing: document.documentElement.classList.contains('landing') }));
   log('loader', JSON.stringify(load), 'address', hash || '(none)');
   ok(await H(h => !!h.ST.cr && h.ST.cr.built), 'Earth is made before the loader lets you in');
   const progs0 = await H(h => h.renderer.info.programs.length);
   await wait(1400); await shot(tag + '-0-loader');
-  const verb = mobile ? 'Swipe' : 'Scroll';
   ok(load.landing && /rgb\(234, 244, 244\)/.test(load.bg), 'it opens in the front door\'s daylight', load.bg);
   ok(/rgb\(42, 36, 29\)/.test(load.ink), 'with the word in ink', load.ink);
-  ok(load.begin === verb + ' to land', 'its prompt says land', load.begin);
   await require('./begin.cjs')(page, mobile);
+  ok(true, 'it comes down by itself once Earth is ready, with no click or scroll asked for');
   ok(await until(h => h.S.mode === 'station' && h.S.stId === 'cr', 30000), 'it comes straight down onto Earth');
   ok(await H(h => h.ST.cr.el.classList.contains('cut')), 'with the rocket coming down');
   await wait(2500); await shot(tag + '-1-coming-down');

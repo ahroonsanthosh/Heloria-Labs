@@ -118,12 +118,13 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(s.act === 'bell' && f.dr !== 'idle' && f.by === 'bell' && await W(w => w.count('fireBell')) === 1 && Math.abs(s.bell) > .01, (mobile ? 'Ring the bell' : 'B') + ': the bell swings and rings, and the drill starts as it does from the engine outside', JSON.stringify({ act: s.act, dr: f.dr, by: f.by, bell: s.bell }));
   r = await W(w => w.until(F => F.B.act === 'watch', 30 * 3)); s = await state(); f = await fire();
   rec(r.done && f.dr !== 'idle' && f.crew.every(q => q.vis && q.w === 0), 'you watch from a step aside as the two run the hose out', JSON.stringify({ r, eye: s.eye, dr: f.dr }));
-  r = await W(w => w.until(F => F.B.act === 'watch' && F.B.wph === 'bay' && F.B.ak > .99 && F.B.steer <= 0, 30 * 10)); s = await state(); f = await fire();
-  rec(r.done && f.dr === 'spray' && s.eye[2] > 1.1 && s.door < .05 && await W(w => w.count('civDoor')) === 0, 'once the water is on you step up beside the engine\'s nose, in the bay\'s mouth, to watch', JSON.stringify({ r, eye: s.eye, dr: f.dr }));
+  r = await W(w => w.until(F => F.B.act === 'watch' && F.B.wph === 'bay' && F.B.ak > .99, 30 * 3)); s = await state(); f = await fire();
+  rec(r.done && s.eye[2] > 3 && s.door < .05 && await W(w => w.count('civDoor')) === 0, 'a moment\'s dark, and you are out on the forecourt with the station, the engine and the two of them in view', JSON.stringify({ r, eye: s.eye, dr: f.dr }));
+  r = await W(w => w.until((F, d) => d.fire.FS.dr === 'spray', 30 * 10)); rec(r.done && (await state()).act === 'watch', 'and watch them run the hose out until the water is on', JSON.stringify(r));
   await W(w => w.run(30 * 1.5)); await snap(pre + 'fsi-10-drill');
   f = await fire(); rec(f.flow > .9 && f.crew[0].z > 2, 'the water goes up over the forecourt, the first out at the branch', JSON.stringify({ flow: f.flow, crew: f.crew }));
   r = await W(w => w.until((F, d) => d.fire.FS.dr === 'idle' && !F.B.act, 30 * 30)); await W(w => w.run(50)); s = await state();
-  rec(r.done && !s.act && s.eye[2] < .7 && await W(w => w.count('civDoor')) === 0, 'when they have the hose back in you step back by the door', JSON.stringify({ r, act: s.act, eye: s.eye }));
+  rec(r.done && !s.act && s.eye[2] < .7 && await W(w => w.count('civDoor')) === 0, 'when they have the hose back in, back in through the dark to where you rang it', JSON.stringify({ r, act: s.act, eye: s.eye }));
   rec(await progs() === prog0, 'the map, the helmet and the drill compiled nothing new');
 
   /* ---- out by the button ---- */

@@ -81,17 +81,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #mark .c{display:inline-block;transition:transform 1.4s var(--io),opacity 1.2s var(--io),filter 1.2s}
 #load.go #mark .c{transform:translate(var(--tx),var(--ty)) scale(.05);opacity:0;filter:blur(6px)}
 /* the only words on the opening screen: a small prompt that appears once everything is built */
-#begin{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);display:flex;align-items:center;gap:12px;color:var(--ink2);opacity:0;transition:opacity 1.2s var(--ease);white-space:nowrap}
-#begin i{position:relative;width:1px;height:26px;background:var(--hair2);overflow:hidden}
-#begin i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--ink);animation:beginDrip 1.8s var(--io) infinite}
-@keyframes beginDrip{to{top:100%}}
-#begin.nudge{animation:beginNudge .7s var(--io)}   /* a scroll where a click is wanted: the prompt says so */
-@keyframes beginNudge{0%,100%{transform:translateX(-50%) scale(1);color:var(--ink2)}35%{transform:translateX(-50%) scale(1.12);color:var(--ink)}}
-#load.ready #begin{opacity:1}
-#load.wait #begin i::after{animation-duration:.9s}   /* asked in before the last of Earth is made: the line drips faster, coming down */
 #boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
 #load.ready #boot{opacity:0}
-#load.go #begin{opacity:0;transition-duration:.3s}
 #load.ready{cursor:default}
 
 /* ---------- chrome ---------- */

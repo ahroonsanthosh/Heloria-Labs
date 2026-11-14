@@ -24,7 +24,7 @@ const seeded=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Mat
 
 /* ---------- sound: a generative score, not beeps ---------- */
 const A=(()=>{
-  let ctx=null,out,comp,rev,revIn,on=false,muted=false,away=false; const n={};   // away: you have left the page (see leave())
+  let ctx=null,out,comp,rev,revIn,on=false,muted=false,away=false,asked=false; const n={};   // away: you have left the page (see leave())
   const LITE=matchMedia('(pointer: coarse)').matches||Math.min(screen.width,screen.height)<700;
   /* phones: the sound and a heavy 3D scene share a small processor. When the audio can no longer keep up, some phones stop
      sending it to the speaker while the page carries on as if it were playing, and iOS can hand the speaker to something
@@ -671,10 +671,12 @@ const A=(()=>{
     const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+atk); a.gain.exponentialRampToValueAtTime(.0001,t0+dur); s.connect(b); b.connect(a); a.connect(d); s.start(t0,Math.random()*8); s.stop(t0+dur+.05); }
   return {
     get on(){return on&&!muted}, get ctx(){return ctx}, _rebuild:rebuild,
+    /* the sound has been asked for (the page is in), though a browser that waits for a click may have held or refused it */
+    get waiting(){ return asked&&!muted&&!!ctx&&ctx.state!=='running'; },
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
     get busy(){ return making&&performance.now()<30000; },
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
-    async start(){ try{ init(); on=true; await ctx.resume(); set(out.gain,muted||away?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
+    async start(){ asked=true; try{ init(); on=true; await ctx.resume(); set(out.gain,muted||away?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted||away?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
     _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:r(SUB.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),whine:n.ten?r(n.teng.gain.value):0,
@@ -1288,7 +1290,7 @@ const A=(()=>{
 function sndUI(){}
 /* browsers only let audio start from a click, tap or key. A scroll can begin the experience silently; the first
    gesture after that brings the sound in */
-['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(A.on&&A.ctx&&A.ctx.state!=='running') A.start(); },{capture:true,passive:true}));
+['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,e=>{ if(A.waiting){ A.start(); A.unlockEv=e; } },{capture:true,passive:true}));   // (the event that started it, so what it lands on can tell: see the landing)
 
 /* ---------- renderer ---------- */
 const canvas=$('#gl');

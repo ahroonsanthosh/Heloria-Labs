@@ -40,18 +40,12 @@ async function warmEarth(st){ const rt=mkRT(); rt.setSize(64,64);
 async function boot(){
   const mark=$('#mark'), bootEl=$('#boot'); // the mark's weight is the progress bar; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
-  const setP=v=>{ if(!S.prompt) mark.style.fontWeight=Math.round(100+700*v); };
+  const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
   setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
   resize(); setP(.1);
   /* between the parts of Earth, the page's own turn rather than the next frame: a frame due is drawn and a click answered
      all the same, but the build does not stand idle waiting for one (nor for a graphics card busy making shaders) */
-  bootEl.textContent='Building Earth'; await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice;
-  /* the prompt as soon as the town you come down into is built: the rest (its rooms and its life, every shader made and the
-     whole of it drawn once) is finished behind the prompt while you read it, all of it still out of sight, so you are asked
-     in about twice as soon. A click before it is done starts the sound at once and lands the moment it is (see enter) */
-  let built=null; try{ built=ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; }
-  if(built){ await Promise.race([built.catch(()=>{}),new Promise(r=>{ const ck=()=>{ if(!ST.cr||ST.cr.built) r(); else setTimeout(ck,40); }; ck(); })]); promptUp(); }
-  try{ if(built) await built; }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
+  bootEl.textContent='Building Earth'; await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
   const st=ST.cr;
   if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets);
     /* (the graphics card's answer, by now long drawn: where it cannot draw the page's pictures, the plain page instead) */
@@ -60,13 +54,11 @@ async function boot(){
   setP(.9);
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
-  promptUp(); S.ready=true; setTimeout(()=>{ bootEl.textContent=''; },700);   // the build line fades, then goes
-  /* (asked in already: down as soon as the page has drawn a frame or two of its own, so the graphics card has caught up with
-     everything just made and the landing has every frame from its first) */
-  if(S.want){ await nextFrame(); await nextFrame(); enter(); }
+  setP(1); $('#load').classList.add('ready'); S.ready=true;
+  /* and down, by itself: no click asked for. Once the page has drawn a frame or two of its own (the graphics card caught up
+     with everything just made, so the landing has every frame from its first) */
+  await nextFrame(); await nextFrame(); enter();
 }
-/* the prompt: the mark at its full weight, the build line gone, and the way in offered */
-function promptUp(){ if(S.prompt) return; $('#mark').style.fontWeight=800; S.prompt=true; $('#load').classList.add('ready'); }
 
 /* ---------- Land: straight down to Earth, in its own daylight, the colour the front door left you in. Any address of
    this page comes here (the old ones too: #land, and #aetos, where the rocket at the end of the walk used to go) ---------- */
@@ -78,37 +70,19 @@ if(PRETTY){ try{ history.replaceState(null,'','/land'); }catch(e){} }
 
 /* ---------- enter: the word lifts away like cloud, and the rocket is already coming down through the sky behind it ---------- */
 function enter(){
-  if(!S.prompt||S.mode!=='load') return;
-  /* asked in while the last of Earth is still being made behind the prompt: the sound starts now (only a click, a tap or a key
-     may start it), the prompt says it is coming down, and it does the moment Earth is ready (see boot) */
-  if(!S.ready){ if(!S.want){ S.want=true; A.start(); $('#beginT').textContent='Landing'; $('#load').classList.add('wait'); } return; }
-  A.start();
+  if(!S.ready||S.mode!=='load') return; A.start();
   const mark=$('#mark'), cx=innerWidth/2, cy=innerHeight/2;
   $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
   $('#load').classList.add('go');
   S.mode='landing'; A.whoosh(false,2.2,.16);
   setTimeout(()=>{ show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800);
 }
-/* the way in: a scroll or a swipe (a click, a tap or a key do it too). Coming from the front door you have already clicked,
-   and the browser lets the sound start on the scroll. The scroll that begins it is let finish before anything else on the
-   page listens to the wheel, so a trackpad's long glide does not run on into the zoom */
-/* a browser only lets sound start inside a click, a tap or a key (a scroll is not one), and this is a page of its own, so the
-   click at the front door does not count here: the landing would come down in silence and the music start at your first key.
-   So on a computer it asks for a click, unless this browser already lets the sound start without one (it has been clicked
-   here, or it allows it) and a scroll will do; a scroll that cannot start the sound only nudges the prompt */
-const soundFree=()=>{ if(navigator.userActivation&&navigator.userActivation.hasBeenActive) return true; if(A.ctx) return A.ctx.state==='running';
-  try{ if(navigator.getAutoplayPolicy) return navigator.getAutoplayPolicy('audiocontext')==='allowed'; }catch(e){}
-  try{ const AC=window.AudioContext||window.webkitAudioContext, c=new AC(), ok=c.state==='running'; c.close(); return ok; }catch(e){ return false; } };
-const SCROLL_OK=FINE&&soundFree();
-$('#beginT').textContent=(FINE?(SCROLL_OK?'Scroll':'Click'):'Swipe')+' to land';
-{ let wheelT=0, t0=0, nudgeT=0; addEventListener('wheel',e=>{ const now=performance.now(); if(S.wheelSettle&&now-wheelT>260&&now-t0>2600) S.wheelSettle=false; wheelT=now;
-    if(S.mode!=='load'||!S.prompt||Math.abs(e.deltaY)<4) return;
-    if(!SCROLL_OK&&!soundFree()){ if(now-nudgeT>900){ nudgeT=now; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); } return; }
-    S.wheelSettle=true; t0=now; enter(); },{passive:true,capture:true}); }
-{ let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
-  addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.prompt||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
-$('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.prompt) enter(); });
-addEventListener('keydown',e=>{ if(S.mode==='load'&&S.prompt&&['Enter','Space','ArrowDown','PageDown'].includes(e.code)){ e.preventDefault(); enter(); } });
+/* the way in is by itself (see boot). The sound: a browser lets it start only once the page has had a click, a tap or a key.
+   Come from the front door, it has (a click there counts here too, in the browsers that carry it to the next page of the
+   same site), and the landing is heard from its first moment. Come straight here (a bookmark, a reload, or a browser that
+   does not carry it), a click, a tap or a key while it loads or as it comes down starts it then, in step with the landing,
+   and a first click on the landing starts the sound rather than skipping it (see the landing) */
+['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode==='load'&&!A.on) A.start(); },{capture:true,passive:true}));
 
 /* onto Earth: a flash of white, and it opens on the rocket coming down through the clouds. Should Earth not have been made
    (an error while it was built), the plain page is the way in instead */
