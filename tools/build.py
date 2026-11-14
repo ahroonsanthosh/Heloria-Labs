@@ -32,14 +32,14 @@ def load(name, path):
 # round it, so the inner ones drop the outer Cache-Control (the ! lines) before setting their own
 # The rest is security: the browser keeps to https, a page loads nothing but its own files, the fonts and the sound it makes
 # itself (blob:), and Cloudflare's visitor count (its beacon script, which reports to this site or to Cloudflare), the weather
-# where the visitor probably is (Earth asks MET Norway once a visit, for a city worked out from the time zone), no other site can frame it, and
+# where the visitor probably is (Earth asks MET Norway once a visit, for a city worked out from the time zone), no other site can frame it (the front door may: Land opens inside it in Safari and Firefox, see landHere in the walk), and
 # it asks for none of the device's sensors (tested with no violations on every page and station)
 HEADERS = """/*
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com https://api.met.no; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com https://api.met.no; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   Permissions-Policy: accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
