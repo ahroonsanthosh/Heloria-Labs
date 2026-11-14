@@ -15,7 +15,8 @@ for (let i = 0; i < args.length; i++) { if (args[i].startsWith('--')) { const k 
 const W = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const out = opt.out || '/tmp/heloria-shots'; fs.mkdirSync(out, { recursive: true });
-  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+  /* (--real-autoplay: the browser's own rule, sound only after a click, a tap or a key, as a visitor's browser has it) */
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...(opt['real-autoplay'] ? ['--autoplay-policy=document-user-activation-required'] : ['--autoplay-policy=no-user-gesture-required'])] });
   const mobile = !!opt.mobile; const vp = mobile ? { width: 390, height: 844 } : { width: +(opt.w || 1280), height: +(opt.h || 800) };
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });

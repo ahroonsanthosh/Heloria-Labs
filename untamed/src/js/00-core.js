@@ -58,6 +58,8 @@ const A=(()=>{
     if(ctx) return;
     try{ if(IOS&&navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // an iPhone: play like media, set before the sound starts (changing it mid-play interrupts it); not on a Mac
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
+    /* (the sound let start only later than asked: every recording a browser said no to tries again at once, the music and the landing's too, rather than waiting for the next key) */
+    try{ ctx.addEventListener('statechange',()=>{ if(ctx.state==='running') for(const r of LOOPS) r.blocked=false; }); }catch(e){}
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;

@@ -85,6 +85,8 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #begin i{position:relative;width:1px;height:26px;background:var(--hair2);overflow:hidden}
 #begin i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--ink);animation:beginDrip 1.8s var(--io) infinite}
 @keyframes beginDrip{to{top:100%}}
+#begin.nudge{animation:beginNudge .7s var(--io)}   /* a scroll where a click is wanted: the prompt says so */
+@keyframes beginNudge{0%,100%{transform:translateX(-50%) scale(1);color:var(--ink2)}35%{transform:translateX(-50%) scale(1.12);color:var(--ink)}}
 #load.ready #begin{opacity:1}
 #boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
 #load.ready #boot{opacity:0}

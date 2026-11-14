@@ -64,9 +64,19 @@ function enter(){
 /* the way in: a scroll or a swipe (a click, a tap or a key do it too). Coming from the front door you have already clicked,
    and the browser lets the sound start on the scroll. The scroll that begins it is let finish before anything else on the
    page listens to the wheel, so a trackpad's long glide does not run on into the zoom */
-$('#beginT').textContent=(FINE?'Scroll':'Swipe')+' to land';
-{ let wheelT=0, t0=0; addEventListener('wheel',e=>{ const now=performance.now(); if(S.wheelSettle&&now-wheelT>260&&now-t0>2600) S.wheelSettle=false; wheelT=now;
-    if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return; S.wheelSettle=true; t0=now; enter(); },{passive:true,capture:true}); }
+/* a browser only lets sound start inside a click, a tap or a key (a scroll is not one), and this is a page of its own, so the
+   click at the front door does not count here: the landing would come down in silence and the music start at your first key.
+   So on a computer it asks for a click, unless this browser already lets the sound start without one (it has been clicked
+   here, or it allows it) and a scroll will do; a scroll that cannot start the sound only nudges the prompt */
+const soundFree=()=>{ if(navigator.userActivation&&navigator.userActivation.hasBeenActive) return true; if(A.ctx) return A.ctx.state==='running';
+  try{ if(navigator.getAutoplayPolicy) return navigator.getAutoplayPolicy('audiocontext')==='allowed'; }catch(e){}
+  try{ const AC=window.AudioContext||window.webkitAudioContext, c=new AC(), ok=c.state==='running'; c.close(); return ok; }catch(e){ return false; } };
+const SCROLL_OK=FINE&&soundFree();
+$('#beginT').textContent=(FINE?(SCROLL_OK?'Scroll':'Click'):'Swipe')+' to land';
+{ let wheelT=0, t0=0, nudgeT=0; addEventListener('wheel',e=>{ const now=performance.now(); if(S.wheelSettle&&now-wheelT>260&&now-t0>2600) S.wheelSettle=false; wheelT=now;
+    if(S.mode!=='load'||!S.ready||Math.abs(e.deltaY)<4) return;
+    if(!SCROLL_OK&&!soundFree()){ if(now-nudgeT>900){ nudgeT=now; const b=$('#begin'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); } return; }
+    S.wheelSettle=true; t0=now; enter(); },{passive:true,capture:true}); }
 { let y0=null; addEventListener('touchstart',e=>{ if(S.mode==='load') y0=e.touches[0].clientY; },{passive:true});
   addEventListener('touchend',e=>{ if(S.mode!=='load'||!S.ready||y0===null) return; const dy=y0-(e.changedTouches[0]?.clientY??y0); y0=null; if(dy>20||Math.abs(dy)<8) enter(); },{passive:true}); }
 $('#load').addEventListener('click',()=>{ if(S.mode==='load'&&S.ready) enter(); });
