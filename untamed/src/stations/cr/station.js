@@ -718,12 +718,18 @@ const FG={sph:new T.SphereGeometry(1,14,10).toNonIndexed(), ball:new T.Icosahedr
   band:new T.TorusGeometry(1,.06,6,26,Math.PI).toNonIndexed()};
 const v3=(x=0,y=0,z=0)=>new T.Vector3(x,y,z), fM=new T.Matrix4(), fNM=new T.Matrix3(), fQ=new T.Quaternion(), fE=new T.Euler(), fT=v3(), fS=v3(), fX=v3(1,0,0), fY=v3(0,1,0);
 const tint=(c,k)=>C3(c).clone().lerp(C3(k>0?'#ffffff':'#000000'),Math.abs(k));
-function part(){ const P=[],N=[],C=[], o={};
+/* (its corners kept in typed arrays from the start, grown as needed, and handed to the mesh as they are: no list of numbers
+   grown a push at a time, then copied over at the end, for each of the hundred-odd people and things made of parts) */
+function part(){ let P=new Float32Array(2304), N=new Float32Array(2304), C=new Float32Array(2304), n=0; const o={};
+  const grow=()=>{ const L=P.length*2, g=a=>{ const b=new Float32Array(L); b.set(a); return b; }; P=g(P); N=g(N); C=g(C); };
   /* one triangle, turned to face the way its normals point */
   /* (the turn of b-a to c-a against the normals' sum, written out as subVectors, cross, add and dot work it out) */
   o.tri=(a,na,b,nb,c,nc,col)=>{ const ux=b.x-a.x, uy=b.y-a.y, uz=b.z-a.z, wx=c.x-a.x, wy=c.y-a.y, wz=c.z-a.z;
     if((uy*wz-uz*wy)*(na.x+nb.x+nc.x)+(uz*wx-ux*wz)*(na.y+nb.y+nc.y)+(ux*wy-uy*wx)*(na.z+nb.z+nc.z)<0){ let t=b; b=c; c=t; t=nb; nb=nc; nc=t; } const k=C3R(col);
-    P.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); N.push(na.x,na.y,na.z,nb.x,nb.y,nb.z,nc.x,nc.y,nc.z); C.push(k.r,k.g,k.b,k.r,k.g,k.b,k.r,k.g,k.b); };
+    if(n+9>P.length) grow(); const i=n; n+=9;
+    P[i]=a.x; P[i+1]=a.y; P[i+2]=a.z; P[i+3]=b.x; P[i+4]=b.y; P[i+5]=b.z; P[i+6]=c.x; P[i+7]=c.y; P[i+8]=c.z;
+    N[i]=na.x; N[i+1]=na.y; N[i+2]=na.z; N[i+3]=nb.x; N[i+4]=nb.y; N[i+5]=nb.z; N[i+6]=nc.x; N[i+7]=nc.y; N[i+8]=nc.z;
+    const r=k.r, gg=k.g, bb=k.b; C[i]=r; C[i+1]=gg; C[i+2]=bb; C[i+3]=r; C[i+4]=gg; C[i+5]=bb; C[i+6]=r; C[i+7]=gg; C[i+8]=bb; };
   /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap */
   o.grid=(G,col,wrap)=>{ for(let i=0;i<G.length-1;i++) for(let j=0;j<G[i].length-(wrap?0:1);j++){ const j2=(j+1)%G[i].length, a=G[i][j], b=G[i][j2], c=G[i+1][j2], d=G[i+1][j];
     o.tri(a.p,a.n,b.p,b.n,c.p,c.n,col); o.tri(a.p,a.n,c.p,c.n,d.p,d.n,col); } };
@@ -740,8 +746,8 @@ function part(){ const P=[],N=[],C=[], o={};
   o.put=(g,col,x,y,z,sx,sy=sx,sz=sx,rx=0,ry=0,rz=0)=>o.geo(g,col,fM.compose(fT.set(x,y,z),fQ.setFromEuler(fE.set(rx,ry,rz,'YXZ')),fS.set(sx,sy,sz)));
   o.along=(g,col,p,a,b,c)=>o.geo(g,col,fM.makeBasis(a,b,c).setPosition(p));
   /* the mesh, its origin at (x,y,z), so that it scales about there */
-  o.mesh=(x=0,y=0,z=0)=>{ for(let i=0;i<P.length;i+=3){ P[i]-=x; P[i+1]-=y; P[i+2]-=z; } const g=new T.BufferGeometry();
-    g.setAttribute('position',new T.Float32BufferAttribute(P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(N,3)); g.setAttribute('color',new T.Float32BufferAttribute(C,3));
+  o.mesh=(x=0,y=0,z=0)=>{ for(let i=0;i<n;i+=3){ P[i]-=x; P[i+1]-=y; P[i+2]-=z; } const g=new T.BufferGeometry();
+    g.setAttribute('position',new T.BufferAttribute(P.slice(0,n),3)); g.setAttribute('normal',new T.BufferAttribute(N.slice(0,n),3)); g.setAttribute('color',new T.BufferAttribute(C.slice(0,n),3));
     const m=new T.Mesh(g,FIGM); m.position.set(x,y,z); return m; };
   return o; }
 /* a tube through rings [y, half width, half depth, forward], all the way round or from angle a0 to a1 (0 is the front) */
@@ -1258,12 +1264,19 @@ const MKS_F=`uniform sampler2D uMap; uniform float uGlow; varying vec3 vN; varyi
 /* (uWind: the one wind, see the sky alive: a span is blown out to the side it blows toward, as much as it blows across it) */
 const MK_SW=`uniform float uTime,uSway; uniform vec4 uWind; attribute vec4 aSw; attribute float aPh; vec3 swing(){ return aSw.xyz*aSw.w*(uSway*(sin(uTime*1.25+aPh)+.35*sin(uTime*2.7+aPh*1.7))+.07*uWind.w*dot(uWind.xyz,aSw.xyz)); }`;
 /* several meshes (each with its own matrix) as one: positions, normals and whatever else they all have */
-function mktMerge(list,keys=['color']){ const P=[],N=[],X=keys.map(()=>[]), nm=new T.Matrix3(), v=new T.Vector3();
-  for(const [g0,M] of list){ const g=g0.index?g0.toNonIndexed():g0, p=g.attributes.position, q=g.attributes.normal; nm.getNormalMatrix(M);
-    for(let i=0;i<p.count;i++){ v.fromBufferAttribute(p,i).applyMatrix4(M); P.push(v.x,v.y,v.z); v.fromBufferAttribute(q,i).applyMatrix3(nm).normalize(); N.push(v.x,v.y,v.z);
-      keys.forEach((k,j)=>{ const a=g.attributes[k]; for(let c=0;c<a.itemSize;c++) X[j].push(a.array[i*a.itemSize+c]); }); } }
-  const o=new T.BufferGeometry(); o.setAttribute('position',new T.Float32BufferAttribute(P,3)); o.setAttribute('normal',new T.Float32BufferAttribute(N,3));
-  keys.forEach((k,j)=>o.setAttribute(k,new T.Float32BufferAttribute(X[j],list[0][0].attributes[k].itemSize))); return o; }
+/* (the whole size worked out first, every corner then written straight into its place: no list grown a push at a time) */
+function mktMerge(list,keys=['color']){ const nm=new T.Matrix3(), v=new T.Vector3(), gs=list.map(([g0])=>g0.index?g0.toNonIndexed():g0);
+  let tot=0; for(const g of gs) tot+=g.attributes.position.count; const sz=keys.map(k=>list[0][0].attributes[k].itemSize);
+  const P=new Float32Array(tot*3), N=new Float32Array(tot*3), X=sz.map(s=>new Float32Array(tot*s)); let o0=0;
+  list.forEach(([,M],gi)=>{ const g=gs[gi], p=g.attributes.position, q=g.attributes.normal, n=p.count; nm.getNormalMatrix(M); const e=M.elements, m=nm.elements;
+    for(let i=0;i<n;i++){ const x=p.getX(i), y=p.getY(i), z=p.getZ(i), w=1/(e[3]*x+e[7]*y+e[11]*z+e[15]), j=(o0+i)*3;
+      P[j]=(e[0]*x+e[4]*y+e[8]*z+e[12])*w; P[j+1]=(e[1]*x+e[5]*y+e[9]*z+e[13])*w; P[j+2]=(e[2]*x+e[6]*y+e[10]*z+e[14])*w;
+      const nx=q.getX(i), ny=q.getY(i), nz=q.getZ(i), ax=m[0]*nx+m[3]*ny+m[6]*nz, ay=m[1]*nx+m[4]*ny+m[7]*nz, az=m[2]*nx+m[5]*ny+m[8]*nz, s=1/(Math.sqrt(ax*ax+ay*ay+az*az)||1);
+      N[j]=ax*s; N[j+1]=ay*s; N[j+2]=az*s; }
+    keys.forEach((k,kj)=>{ const a=g.attributes[k], is=a.itemSize, X_=X[kj]; for(let i=0;i<n;i++) for(let c=0;c<is;c++) X_[(o0+i)*is+c]=a.array[i*is+c]; });
+    o0+=n; });
+  const o=new T.BufferGeometry(); o.setAttribute('position',new T.BufferAttribute(P,3)); o.setAttribute('normal',new T.BufferAttribute(N,3));
+  keys.forEach((k,j)=>o.setAttribute(k,new T.BufferAttribute(X[j],sz[j]))); return o; }
 /* what is solid while the market is up: a circle, or a row of them along a stall */
 function mktObs(x,z,r,h=1.2){ const o={x,z,r,r0:r,h}; MKT.obs.push(o); return o; }
 function mktRect(M,lx,lz,w,d,h){ const n=Math.max(1,Math.ceil(w/d)); for(let k=0;k<n;k++){ const t=(n===1?0:(k/(n-1)-.5))*(w-d), [x,z]=loc(V.set(lx+t,0,lz).applyMatrix4(M).normalize()); mktObs(x,z,d/2+.12,h); } }
@@ -4645,9 +4658,10 @@ const KIDS=[{shirt:'#e9584a',pants:'#2f3a56',shoes:'#f2efe8',skin:'#f1c9a5',hair
 const KACT=['hop','hop','chase','chase','climb','ball'], KSC=.6;
 function civKid(i){ const g=figure(Object.assign({build:.92,arm:.95,depth:.68},KIDS[i])), d=g.userData;
   /* the head and its eyes in one mesh (they do not blink), and a bigger head for a child */
-  const hm=d.head.children.find(o=>o.isMesh&&o!==d.eyes[0]), em=d.eyes[0], ey=em.position.y, a=hm.geometry.attributes, b=em.geometry.attributes, P=[...a.position.array], N=[...a.normal.array], C=[...a.color.array];
-  for(let k=0;k<b.position.count;k++){ P.push(b.position.getX(k),b.position.getY(k)+ey,b.position.getZ(k)); N.push(b.normal.getX(k),b.normal.getY(k),b.normal.getZ(k)); C.push(b.color.getX(k),b.color.getY(k),b.color.getZ(k)); }
-  const ng=new T.BufferGeometry(); ng.setAttribute('position',new T.Float32BufferAttribute(P,3)); ng.setAttribute('normal',new T.Float32BufferAttribute(N,3)); ng.setAttribute('color',new T.Float32BufferAttribute(C,3)); hm.geometry.dispose(); hm.geometry=ng;
+  const hm=d.head.children.find(o=>o.isMesh&&o!==d.eyes[0]), em=d.eyes[0], ey=em.position.y, a=hm.geometry.attributes, b=em.geometry.attributes, na=a.position.count, nb=b.position.count, P=new Float32Array((na+nb)*3), N=new Float32Array((na+nb)*3), C=new Float32Array((na+nb)*3);
+  P.set(a.position.array); N.set(a.normal.array); C.set(a.color.array);
+  for(let k=0;k<nb;k++){ const j=(na+k)*3; P[j]=b.position.getX(k); P[j+1]=b.position.getY(k)+ey; P[j+2]=b.position.getZ(k); N[j]=b.normal.getX(k); N[j+1]=b.normal.getY(k); N[j+2]=b.normal.getZ(k); C[j]=b.color.getX(k); C[j+1]=b.color.getY(k); C[j+2]=b.color.getZ(k); }
+  const ng=new T.BufferGeometry(); ng.setAttribute('position',new T.BufferAttribute(P,3)); ng.setAttribute('normal',new T.BufferAttribute(N,3)); ng.setAttribute('color',new T.BufferAttribute(C,3)); hm.geometry.dispose(); hm.geometry=ng;
   d.head.remove(em); em.geometry.dispose(); d.eyes=[]; d.head.scale.setScalar(1.2); g.scale.setScalar(KSC); g.visible=false; g.traverse(o=>{ if(o.isMesh) o.userData.dyn=true; }); sc.add(g);
   return {g,d,i,vis:false,x:0,z:0,lx:0,lz:0,u:new T.Vector3(0,1,0),f:new T.Vector3(0,0,1),fx:0,fz:1,y:0,mode:'gone',tm:1e9,r:null,s:0,lat:0,v:0,sp:1.02+(i%3)*.09,run:false,ph:i*1.7,stepD:0,home:i%3,act:KACT[i],a:{},wp:[],wave:0,wt:0,pose:null}; }
 /* the ways between the houses and the school: from a door out to the pavement, round the pavement the shorter way, to the
@@ -6610,89 +6624,89 @@ const POWHO={guest:true,i:3,first:'Bríd',name:'Bríd',pitch:BRID.pitch,x:0,z:0,
 const POSE={rest:[0,0,-.12],write:[-.62,.12,-1.05],pad:[-1.02,.18,-.38],up:[-1.85,.12,-1.2],down:[-1.25,.12,-.16],take:[-1.1,-.14,-.28],hold:[-.95,-.12,-.75],drop:[-1.45,-.2,-.25]};
 
 /* ---------- building it: the room, the counter and all on it, the walls, Bríd, the stamp, your card, the clock's hands ---------- */
-function buildPO(){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t, F=PW.FL, iw=w/2-t, id=d/2-t, top=PW.h-.04, I=new T.Matrix4(), rnd=seeded(53), CT=PW.CT;
+async function buildPO(step=lateNo){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t, F=PW.FL, iw=w/2-t, id=d/2-t, top=PW.h-.04, I=new T.Matrix4(), rnd=seeded(53), CT=PW.CT;
   PO.up.copy(poD(0,1,0)); PU.uCU.value.copy(PO.up); PO.c0.copy(poW(0,1.4,0));
-  const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; const mat=poMat();
-  const add=(m,ink=true)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); PO.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=POINK; m.userData.shdM=m.material; INK.push(m); } return m; };
-  const up=poD(0,1,0), rod=(Mx,c,a,b,r)=>{ const v=poV.subVectors(b,a), L=v.length(); poQ.setFromUnitVectors(UPY,v.divideScalar(L||1)); poM.compose(poV2.addVectors(a,b).multiplyScalar(.5),poQ,poS.set(r,L,r)); kadd(GEO.cyl8,c,poM2.multiplyMatrices(Mx,poM)); };
-  const V=(x,y,z)=>new T.Vector3(x,y,z), torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
-  const parcel=(Mx,x,y,z,w_,h_,d_,ry=0,c='#b98b58')=>{ const B=poTf(Mx,x,y,z,ry); box(B,c,0,0,0,w_,h_,d_); box(B,'#efe7d6',0,h_,0,.012,.004,d_+.004); box(B,'#efe7d6',0,h_,0,w_+.004,.004,.012); box(B,'#f6f1e7',w_*.15,h_+.001,d_*.1,w_*.35,.002,d_*.3); };
-  const env=(Mx,x,y,z,ry,c)=>box(poTf(Mx,x,y,z,ry),c,0,0,0,.09,.004,.06);
-  kitTo('poin');
-  /* ---- the room: a chequered floor, green panelling to the dado and cream plaster over it, a boarded ceiling ---- */
-  for(let i=0;i<12;i++) for(let j=0;j<9;j++){ const x0=-iw+i*2*iw/12, x1=x0+2*iw/12, z0=-id+j*2*id/9, z1=z0+2*id/9; kquad(poW(x0,F+.004,z0),poW(x1,F+.004,z0),poW(x1,F+.004,z1),poW(x0,F+.004,z1),up,(i+j)%2?'#efe6d2':'#4f7a62'); }
-  const fh=[[PW.DX,PW.DW,0,PW.DH],[PW.WX,PW.WW,PW.WS,PW.WH]], li=(c,y0,y1,th,o=0)=>{
+  await step(); const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; const mat=poMat();
+  await step(); const add=(m,ink=true)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; g.add(m); PO.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=POINK; m.userData.shdM=m.material; INK.push(m); } return m; };
+  await step(); const up=poD(0,1,0), rod=(Mx,c,a,b,r)=>{ const v=poV.subVectors(b,a), L=v.length(); poQ.setFromUnitVectors(UPY,v.divideScalar(L||1)); poM.compose(poV2.addVectors(a,b).multiplyScalar(.5),poQ,poS.set(r,L,r)); kadd(GEO.cyl8,c,poM2.multiplyMatrices(Mx,poM)); };
+  await step(); const V=(x,y,z)=>new T.Vector3(x,y,z), torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
+  await step(); const parcel=(Mx,x,y,z,w_,h_,d_,ry=0,c='#b98b58')=>{ const B=poTf(Mx,x,y,z,ry); box(B,c,0,0,0,w_,h_,d_); box(B,'#efe7d6',0,h_,0,.012,.004,d_+.004); box(B,'#efe7d6',0,h_,0,w_+.004,.004,.012); box(B,'#f6f1e7',w_*.15,h_+.001,d_*.1,w_*.35,.002,d_*.3); };
+  await step(); const env=(Mx,x,y,z,ry,c)=>box(poTf(Mx,x,y,z,ry),c,0,0,0,.09,.004,.06);
+  await step(); kitTo('poin');
+  await step(); /* ---- the room: a chequered floor, green panelling to the dado and cream plaster over it, a boarded ceiling ---- */
+  await step(); for(let i=0;i<12;i++) for(let j=0;j<9;j++){ const x0=-iw+i*2*iw/12, x1=x0+2*iw/12, z0=-id+j*2*id/9, z1=z0+2*id/9; kquad(poW(x0,F+.004,z0),poW(x1,F+.004,z0),poW(x1,F+.004,z1),poW(x0,F+.004,z1),up,(i+j)%2?'#efe6d2':'#4f7a62'); }
+  await step(); const fh=[[PW.DX,PW.DW,0,PW.DH],[PW.WX,PW.WW,PW.WS,PW.WH]], li=(c,y0,y1,th,o=0)=>{
     slab(M,c,'x',id-th/2-o,2*iw,th,y0,y1,fh); slab(M,c,'x',-id+th/2+o,2*iw,th,y0,y1,[]); slab(M,c,'z',iw-th/2-o,2*id-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-iw+th/2+o,2*id-2*(th+o),th,y0,y1,[]); };
-  li('#3d5e4a',F,F+.82,.025); li('#efe4cc',F+.82,top,.025); li('#7a5a3e',F+.8,F+.86,.05,.01); li('#2b4537',F,F+.06,.04,.01);
-  box(M,'#e6dcc6',0,top,0,2*iw,.04,2*id); for(let k=-3;k<=3;k++) box(M,'#cfc2a6',k*.52,top-.05,0,.05,.05,2*id); li('#d9cdb2',top-.08,top,.04,.01);
-  [-1,1].forEach(s=>box(M,'#7a5a3e',PW.DX+s*(PW.DW/2+.035),F,id-.03,.07,PW.DH-F+.07,.04)); box(M,'#7a5a3e',PW.DX,PW.DH,id-.03,PW.DW+.14,.07,.04);   // the door's frame inside
-  box(M,'#5b4636',PW.DX,F,id-.34,.7,.012,.4);   // the mat
-  /* the window inside: its frame and a deep sill with a display on it (a plant, a toy post van, cards on a little stand) */
-  box(M,'#2e5843',PW.WX,PW.WS-.02,id-.1,PW.WW+.1,.04,.24); [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*(PW.WW/2+.02),PW.WS,id-.03,.05,PW.WH-PW.WS,.05)); box(M,'#2e5843',PW.WX,PW.WH-.03,id-.03,PW.WW+.1,.06,.05);
-  [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*PW.WW/6,PW.WS,id-.01,.03,PW.WH-PW.WS,.03)); box(M,'#2e5843',PW.WX,PW.WH-.36,id-.01,PW.WW,.03,.03);
-  { const S0=PW.WS+.02; cyl(M,'#b0603e',-1.38,S0,id-.12,.06,.09); for(let k=0;k<6;k++) put(M,'blob',LEAF[k%3],-1.38+Math.cos(k*1.1)*.05,S0+.13+(k%2)*.05,id-.12+Math.sin(k*1.1)*.04,.065,.06,.065);
+  await step(); li('#3d5e4a',F,F+.82,.025); li('#efe4cc',F+.82,top,.025); li('#7a5a3e',F+.8,F+.86,.05,.01); li('#2b4537',F,F+.06,.04,.01);
+  await step(); box(M,'#e6dcc6',0,top,0,2*iw,.04,2*id); for(let k=-3;k<=3;k++) box(M,'#cfc2a6',k*.52,top-.05,0,.05,.05,2*id); li('#d9cdb2',top-.08,top,.04,.01);
+  await step(); [-1,1].forEach(s=>box(M,'#7a5a3e',PW.DX+s*(PW.DW/2+.035),F,id-.03,.07,PW.DH-F+.07,.04)); box(M,'#7a5a3e',PW.DX,PW.DH,id-.03,PW.DW+.14,.07,.04);   // the door's frame inside
+  await step(); box(M,'#5b4636',PW.DX,F,id-.34,.7,.012,.4);   // the mat
+  await step(); /* the window inside: its frame and a deep sill with a display on it (a plant, a toy post van, cards on a little stand) */
+  await step(); box(M,'#2e5843',PW.WX,PW.WS-.02,id-.1,PW.WW+.1,.04,.24); [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*(PW.WW/2+.02),PW.WS,id-.03,.05,PW.WH-PW.WS,.05)); box(M,'#2e5843',PW.WX,PW.WH-.03,id-.03,PW.WW+.1,.06,.05);
+  await step(); [-1,1].forEach(s=>box(M,'#2e5843',PW.WX+s*PW.WW/6,PW.WS,id-.01,.03,PW.WH-PW.WS,.03)); box(M,'#2e5843',PW.WX,PW.WH-.36,id-.01,PW.WW,.03,.03);
+  await step(); { const S0=PW.WS+.02; cyl(M,'#b0603e',-1.38,S0,id-.12,.06,.09); for(let k=0;k<6;k++) put(M,'blob',LEAF[k%3],-1.38+Math.cos(k*1.1)*.05,S0+.13+(k%2)*.05,id-.12+Math.sin(k*1.1)*.04,.065,.06,.065);
     const vn=poTf(M,-.55,S0,id-.12,.3); box(vn,PO_RED,0,.03,0,.2,.1,.09); box(vn,PO_RED,.06,.13,0,.08,.06,.09); box(vn,'#9fc3d6',.09,.14,0,.03,.04,.092); [-1,1].forEach(sx=>[-1,1].forEach(sz=>cyl(poTf(vn,sx*.06,.03,sz*.048,0,Math.PI/2),'#2a2826',0,-.006,0,.022,.012,'cyl8'))); box(vn,'#d9b45a',-.03,.08,.046,.06,.03,.002);
     for(let k=0;k<4;k++){ const cx=.0+k*.09; box(poTf(M,cx,S0,id-.15,0,-.35),['#f6f1e7','#9fc3d6','#f6d26b','#e9744f'][k],0,0,0,.075,.1,.006); } }
-  /* ---- the counter: panelled, a pale top, a flap you could lift at the right; on your side of it the scale, the stamp
+  await step(); /* ---- the counter: panelled, a pale top, a flap you could lift at the right; on your side of it the scale, the stamp
      rack, the forms and a pen on its chain, the bell to ring, a jar of sweets; on hers the ledger, her tea, the ink pad ---- */
-  const cz=-.42, cd=.48, cx0=-iw, cx1=iw, top_=F+.74;
-  box(M,'#7a5236',(cx0+cx1)/2,F,cz,cx1-cx0,.74,cd); for(let k=0;k<17;k++){ const x=cx0+.12+k*(cx1-cx0-.24)/16; box(M,k%2?'#835a3f':'#6f4a33',x,F+.06,cz+cd/2,.2,.58,.012); }
-  box(M,'#5d3e2c',(cx0+cx1)/2,F,cz+cd/2+.005,cx1-cx0,.06,.012); box(M,'#a8794f',(cx0+cx1)/2,top_,cz,cx1-cx0+.04,.045,cd+.08); box(M,'#8a5a3a',(cx0+cx1)/2,top_,cz+cd/2+.04,cx1-cx0+.04,.045,.012);
-  box(M,'#94663f',.92,top_+.046,cz,.4,.006,cd+.06); [.72,1.12].forEach(x=>box(M,'#5d3e2c',x,top_+.046,cz,.008,.004,cd+.06)); [-.12,.12].forEach(z=>cyl(poTf(M,1.115,top_+.03,cz+z,0,0,Math.PI/2),'#c9a24a',0,-.02,0,.012,.04,'cyl8'));
-  box(M,'#c9a24a',(cx0+cx1)/2,F+.1,cz+cd/2+.06,cx1-cx0-.2,.022,.022); [-1.5,-.4,.6,1.6].forEach(x=>box(M,'#c9a24a',x,F,cz+cd/2+.05,.022,.1,.022));   // a brass foot rail
-  /* a letter scale: its base, the column, the pan, and the dial */
-  { const B=sub(M,-1.18,top_+.045,cz+.02); box(B,'#3a3634',0,0,0,.2,.04,.16); cyl(B,'#c9a24a',0,.04,0,.018,.09,'cyl8'); cyl(B,'#d9b45a',0,.13,0,.09,.012); cyl(B,'#c9a24a',0,.142,0,.094,.006);
+  await step(); const cz=-.42, cd=.48, cx0=-iw, cx1=iw, top_=F+.74;
+  await step(); box(M,'#7a5236',(cx0+cx1)/2,F,cz,cx1-cx0,.74,cd); for(let k=0;k<17;k++){ const x=cx0+.12+k*(cx1-cx0-.24)/16; box(M,k%2?'#835a3f':'#6f4a33',x,F+.06,cz+cd/2,.2,.58,.012); }
+  await step(); box(M,'#5d3e2c',(cx0+cx1)/2,F,cz+cd/2+.005,cx1-cx0,.06,.012); box(M,'#a8794f',(cx0+cx1)/2,top_,cz,cx1-cx0+.04,.045,cd+.08); box(M,'#8a5a3a',(cx0+cx1)/2,top_,cz+cd/2+.04,cx1-cx0+.04,.045,.012);
+  await step(); box(M,'#94663f',.92,top_+.046,cz,.4,.006,cd+.06); [.72,1.12].forEach(x=>box(M,'#5d3e2c',x,top_+.046,cz,.008,.004,cd+.06)); [-.12,.12].forEach(z=>cyl(poTf(M,1.115,top_+.03,cz+z,0,0,Math.PI/2),'#c9a24a',0,-.02,0,.012,.04,'cyl8'));
+  await step(); box(M,'#c9a24a',(cx0+cx1)/2,F+.1,cz+cd/2+.06,cx1-cx0-.2,.022,.022); [-1.5,-.4,.6,1.6].forEach(x=>box(M,'#c9a24a',x,F,cz+cd/2+.05,.022,.1,.022));   // a brass foot rail
+  await step(); /* a letter scale: its base, the column, the pan, and the dial */
+  await step(); { const B=sub(M,-1.18,top_+.045,cz+.02); box(B,'#3a3634',0,0,0,.2,.04,.16); cyl(B,'#c9a24a',0,.04,0,.018,.09,'cyl8'); cyl(B,'#d9b45a',0,.13,0,.09,.012); cyl(B,'#c9a24a',0,.142,0,.094,.006);
     box(B,'#3a3634',0,.04,.07,.13,.12,.02); cyl(poTf(B,0,.1,.081,0,Math.PI/2),'#f6f1e7',0,0,0,.05,.006); box(poTf(B,0,.1,.086,0,0,.5),'#c4302b',0,-.002,0,.004,.04,.002); env(B,0,.148,0,.3,'#f6f1e7'); }
-  /* the stamp rack: a stepped stand with sheets of stamps in rows */
-  { const B=sub(M,-1.6,top_+.045,cz+.04,.2); for(let k=0;k<3;k++){ box(B,'#6b4a36',0,0,-.06+k*.05,.24,.04+k*.06,.05); for(let s=0;s<3;s++){ box(poTf(B,-.075+s*.075,.04+k*.06,-.04+k*.05,0,-.5),['#e9744f','#5d8fc0','#6fa25f','#f6d26b','#b9a2e0','#cf4a36'][(k*3+s)%6],0,0,0,.06,.07,.004);
+  await step(); /* the stamp rack: a stepped stand with sheets of stamps in rows */
+  await step(); { const B=sub(M,-1.6,top_+.045,cz+.04,.2); for(let k=0;k<3;k++){ box(B,'#6b4a36',0,0,-.06+k*.05,.24,.04+k*.06,.05); for(let s=0;s<3;s++){ box(poTf(B,-.075+s*.075,.04+k*.06,-.04+k*.05,0,-.5),['#e9744f','#5d8fc0','#6fa25f','#f6d26b','#b9a2e0','#cf4a36'][(k*3+s)%6],0,0,0,.06,.07,.004);
       box(poTf(B,-.075+s*.075,.04+k*.06,-.037+k*.05,0,-.5),'#fbf6ec',0,.01,0,.05,.05,.002); } } }
-  /* forms in a tray and a pen on its chain; the bell; a jar of sweets */
-  { const B=sub(M,-.8,top_+.045,cz+.12,-.1); box(B,'#8a6448',0,0,0,.26,.03,.18); for(let k=0;k<5;k++) box(B,k%2?'#f6f1e7':'#e9f0ea',0,.03+k*.004,0,.21,.004,.14); box(poTf(B,.2,.006,.05,.6),'#2a2624',0,0,0,.12,.012,.012); for(let k=0;k<6;k++) put(B,'sph','#c9a24a',.16-k*.025,.008,.08+k*.012,.006,.006,.006); }
-  { const B=sub(M,.42,top_+.045,cz+.1); cyl(B,'#2a2624',0,0,0,.05,.012); put(B,'sph','#d9b45a',0,.02,0,.045,.04,.045); put(B,'sph','#d9b45a',0,.065,0,.01,.012,.01); }
-  { const B=sub(M,.6,top_+.045,cz+.05); cyl(B,'#e2ecee',0,0,0,.06,.15); for(let k=0;k<9;k++) put(B,'sph',['#e9744f','#f6d26b','#cf4a36','#6fa25f','#f19bb0'][k%5],Math.cos(k*2.2)*.035,.03+(k%3)*.035,Math.sin(k*2.2)*.035,.022,.022,.022); cyl(B,'#c9a24a',0,.15,0,.064,.02); }
-  /* on her side: the ledger open by her, her tea, a pile of letters with an elastic band, the ink pad (found in its place below) */
-  { const B=sub(M,-.84,top_+.045,cz-.13,.15); box(B,'#3a5a7a',0,0,0,.34,.012,.24); box(poTf(B,-.085,.012,0,0,0,.05),'#f6f1e7',0,0,0,.16,.008,.22); box(poTf(B,.085,.012,0,0,0,-.05),'#f6f1e7',0,0,0,.16,.008,.22); for(let k=0;k<6;k++) box(B,'#9aa0a3',-.085,.022,-.08+k*.03,.12,.002,.004); }
-  { const B=sub(M,.55,top_+.045,cz-.14); cyl(B,'#5d7f6a',0,0,0,.035,.08); cyl(B,'#6b4a33',0,.07,0,.031,.006); torus(poTf(B,.035,.045,0,0,0,-Math.PI/2),'#5d7f6a',.02,.006,10,Math.PI); }
-  { const B=sub(M,.28,top_+.045,cz-.16,.2); for(let k=0;k<6;k++) box(poTf(B,0,k*.008,0,(k%3-1)*.06),k%2?'#f6f1e7':'#dbe6ec',0,0,0,.16,.008,.11); box(B,'#cf4a36',0,0,0,.012,.05,.115); }
-  /* ---- behind her: the back cupboards, the pigeonholes over them, the post office boxes, the clock, the shelves of parcels,
+  await step(); /* forms in a tray and a pen on its chain; the bell; a jar of sweets */
+  await step(); { const B=sub(M,-.8,top_+.045,cz+.12,-.1); box(B,'#8a6448',0,0,0,.26,.03,.18); for(let k=0;k<5;k++) box(B,k%2?'#f6f1e7':'#e9f0ea',0,.03+k*.004,0,.21,.004,.14); box(poTf(B,.2,.006,.05,.6),'#2a2624',0,0,0,.12,.012,.012); for(let k=0;k<6;k++) put(B,'sph','#c9a24a',.16-k*.025,.008,.08+k*.012,.006,.006,.006); }
+  await step(); { const B=sub(M,.42,top_+.045,cz+.1); cyl(B,'#2a2624',0,0,0,.05,.012); put(B,'sph','#d9b45a',0,.02,0,.045,.04,.045); put(B,'sph','#d9b45a',0,.065,0,.01,.012,.01); }
+  await step(); { const B=sub(M,.6,top_+.045,cz+.05); cyl(B,'#e2ecee',0,0,0,.06,.15); for(let k=0;k<9;k++) put(B,'sph',['#e9744f','#f6d26b','#cf4a36','#6fa25f','#f19bb0'][k%5],Math.cos(k*2.2)*.035,.03+(k%3)*.035,Math.sin(k*2.2)*.035,.022,.022,.022); cyl(B,'#c9a24a',0,.15,0,.064,.02); }
+  await step(); /* on her side: the ledger open by her, her tea, a pile of letters with an elastic band, the ink pad (found in its place below) */
+  await step(); { const B=sub(M,-.84,top_+.045,cz-.13,.15); box(B,'#3a5a7a',0,0,0,.34,.012,.24); box(poTf(B,-.085,.012,0,0,0,.05),'#f6f1e7',0,0,0,.16,.008,.22); box(poTf(B,.085,.012,0,0,0,-.05),'#f6f1e7',0,0,0,.16,.008,.22); for(let k=0;k<6;k++) box(B,'#9aa0a3',-.085,.022,-.08+k*.03,.12,.002,.004); }
+  await step(); { const B=sub(M,.55,top_+.045,cz-.14); cyl(B,'#5d7f6a',0,0,0,.035,.08); cyl(B,'#6b4a33',0,.07,0,.031,.006); torus(poTf(B,.035,.045,0,0,0,-Math.PI/2),'#5d7f6a',.02,.006,10,Math.PI); }
+  await step(); { const B=sub(M,.28,top_+.045,cz-.16,.2); for(let k=0;k<6;k++) box(poTf(B,0,k*.008,0,(k%3-1)*.06),k%2?'#f6f1e7':'#dbe6ec',0,0,0,.16,.008,.11); box(B,'#cf4a36',0,0,0,.012,.05,.115); }
+  await step(); /* ---- behind her: the back cupboards, the pigeonholes over them, the post office boxes, the clock, the shelves of parcels,
      the radio, the sack; a calendar, a sorting tray ---- */
-  const bz=-id+.12;
-  box(M,'#6b4a36',0,F,bz,2*iw,.78,.24); for(let k=0;k<6;k++) box(M,'#5a3d2c',-iw+.32+k*(2*iw-.64)/5,F+.08,bz+.121,.5,.56,.012); box(M,'#a8794f',0,F+.78,bz,2*iw,.035,.27);
-  { const x0=-1.76, x1=-.24, y0=F+1.0, y1=F+1.86, nc=8, nr=5, cw_=(x1-x0)/nc, ch=(y1-y0)/nr, z=-id+.11;
+  await step(); const bz=-id+.12;
+  await step(); box(M,'#6b4a36',0,F,bz,2*iw,.78,.24); for(let k=0;k<6;k++) box(M,'#5a3d2c',-iw+.32+k*(2*iw-.64)/5,F+.08,bz+.121,.5,.56,.012); box(M,'#a8794f',0,F+.78,bz,2*iw,.035,.27);
+  await step(); { const x0=-1.76, x1=-.24, y0=F+1.0, y1=F+1.86, nc=8, nr=5, cw_=(x1-x0)/nc, ch=(y1-y0)/nr, z=-id+.11;
     box(M,'#7a5a3e',(x0+x1)/2,y0-.02,z,x1-x0+.04,.03,.22); box(M,'#7a5a3e',(x0+x1)/2,y1,z,x1-x0+.04,.03,.22); box(M,'#5a3d2c',(x0+x1)/2,y0,-id+.005,x1-x0,y1-y0,.01);
     for(let i=0;i<=nc;i++) box(M,'#8a6448',x0+i*cw_,y0,z,.014,y1-y0,.22); for(let j=1;j<nr;j++) box(M,'#8a6448',(x0+x1)/2,y0+j*ch,z,x1-x0,.012,.22);
     for(let i=0;i<nc;i++) for(let j=0;j<nr;j++){ const k=rnd(); if(k<.35) continue; const n=1+Math.floor(rnd()*3); for(let q=0;q<n;q++){ const lx=x0+(i+.5)*cw_+(rnd()-.5)*.03, ly=y0+j*ch+.014+q*.012;
       box(poTf(M,lx,ly,z+.04+rnd()*.03,0,-.08-rnd()*.2,(rnd()-.5)*.1),['#f6f1e7','#dbe6ec','#f3e3c3','#e9f0ea'][Math.floor(rnd()*4)],0,0,0,cw_*.78,.006,.15); } } }
-  { const x0=.24, nc=4, nr=4, bw=.15, bh=.13, y0=F+1.02, z=-id+.03; box(M,'#7a5a3e',x0+nc*bw/2,y0-.02,z,nc*bw+.05,nr*bh+.05,.05);
+  await step(); { const x0=.24, nc=4, nr=4, bw=.15, bh=.13, y0=F+1.02, z=-id+.03; box(M,'#7a5a3e',x0+nc*bw/2,y0-.02,z,nc*bw+.05,nr*bh+.05,.05);
     for(let i=0;i<nc;i++) for(let j=0;j<nr;j++){ const cx=x0+(i+.5)*bw, cy=y0+j*bh; box(M,'#c9a24a',cx,cy+.01,z+.025,bw-.022,bh-.022,.012); box(M,'#8a6a2a',cx,cy+bh*.55,z+.032,.04,.012,.004); put(M,'sph','#5a4628',cx+bw*.3,cy+bh*.35,z+.034,.008,.008,.006); } }
-  /* the clock: a round face in a dark wooden rim over the boxes (its hands are their own: see below) */
-  const CK=[.54,F+1.92,-id+.03]; cyl(poTf(M,CK[0],CK[1],CK[2]-.02,0,Math.PI/2),'#4a3424',0,0,0,.2,.05); cyl(poTf(M,CK[0],CK[1],CK[2]+.032,0,Math.PI/2),'#fbf6ec',0,-.003,0,.17,.006);
-  for(let k=0;k<12;k++){ const a=k/12*TAU; box(poTf(M,CK[0]+Math.sin(a)*.145,CK[1]+Math.cos(a)*.145,CK[2]+.036,0,0,-a),'#2a241d',0,-.012,0,k%3?.008:.016,.026,.004); }
-  /* shelves of parcels on the right-hand wall */
-  for(let k=0;k<3;k++){ const y=F+.95+k*.42; box(M,'#8a6448',iw-.16,y,-1.0,.32,.03,.62); box(M,'#6b4a36',iw-.16,y-.08,-.72,.32,.08,.025);
+  await step(); /* the clock: a round face in a dark wooden rim over the boxes (its hands are their own: see below) */
+  await step(); const CK=[.54,F+1.92,-id+.03]; cyl(poTf(M,CK[0],CK[1],CK[2]-.02,0,Math.PI/2),'#4a3424',0,0,0,.2,.05); cyl(poTf(M,CK[0],CK[1],CK[2]+.032,0,Math.PI/2),'#fbf6ec',0,-.003,0,.17,.006);
+  await step(); for(let k=0;k<12;k++){ const a=k/12*TAU; box(poTf(M,CK[0]+Math.sin(a)*.145,CK[1]+Math.cos(a)*.145,CK[2]+.036,0,0,-a),'#2a241d',0,-.012,0,k%3?.008:.016,.026,.004); }
+  await step(); /* shelves of parcels on the right-hand wall */
+  await step(); for(let k=0;k<3;k++){ const y=F+.95+k*.42; box(M,'#8a6448',iw-.16,y,-1.0,.32,.03,.62); box(M,'#6b4a36',iw-.16,y-.08,-.72,.32,.08,.025);
     for(let q=0;q<3;q++){ const pw_=.12+rnd()*.12, ph=.1+rnd()*.14; parcel(M,iw-.16+(rnd()-.5)*.06,y+.03,-1.2+q*.2,.22,ph,pw_,(rnd()-.5)*.3,['#b98b58','#a77a4c','#c49a66'][q]); } }
-  /* the radio on the back counter, a sorting tray of letters, a kettle and a biscuit tin */
-  { const B=sub(M,-.25,F+.815,bz); box(B,'#8a5a3a',0,0,0,.26,.16,.12); box(B,'#e8d9b8',-.04,.03,.061,.12,.09,.004); cyl(poTf(B,.08,.08,.062,0,Math.PI/2),'#2a2624',0,0,0,.025,.012); box(B,'#2a2624',0,.16,0,.12,.012,.02); }
-  { const B=sub(M,-1.1,F+.815,bz,.05); box(B,'#a8794f',0,0,0,.42,.07,.2); for(let k=0;k<14;k++) box(poTf(B,-.18+k*.026,.01,0,0,-.2),k%3?'#f6f1e7':'#dbe6ec',0,0,0,.004,.09,.14); }
-  { const B=sub(M,1.25,F+.815,bz); cyl(B,'#d9dbd6',0,0,0,.075,.14); put(B,'sph','#d9dbd6',0,.14,0,.075,.04,.075); put(B,'sph','#2a2624',0,.19,0,.02,.016,.02); box(poTf(B,.08,.06,0,0,0,-.6),'#d9dbd6',0,0,0,.08,.016,.016);
+  await step(); /* the radio on the back counter, a sorting tray of letters, a kettle and a biscuit tin */
+  await step(); { const B=sub(M,-.25,F+.815,bz); box(B,'#8a5a3a',0,0,0,.26,.16,.12); box(B,'#e8d9b8',-.04,.03,.061,.12,.09,.004); cyl(poTf(B,.08,.08,.062,0,Math.PI/2),'#2a2624',0,0,0,.025,.012); box(B,'#2a2624',0,.16,0,.12,.012,.02); }
+  await step(); { const B=sub(M,-1.1,F+.815,bz,.05); box(B,'#a8794f',0,0,0,.42,.07,.2); for(let k=0;k<14;k++) box(poTf(B,-.18+k*.026,.01,0,0,-.2),k%3?'#f6f1e7':'#dbe6ec',0,0,0,.004,.09,.14); }
+  await step(); { const B=sub(M,1.25,F+.815,bz); cyl(B,'#d9dbd6',0,0,0,.075,.14); put(B,'sph','#d9dbd6',0,.14,0,.075,.04,.075); put(B,'sph','#2a2624',0,.19,0,.02,.016,.02); box(poTf(B,.08,.06,0,0,0,-.6),'#d9dbd6',0,0,0,.08,.016,.016);
     cyl(B,'#cf4a36',-.22,0,0,.08,.09); cyl(B,'#e8c36a',-.22,.09,0,.082,.012); }
-  /* a calendar on the back wall, and the sack on its frame by the shelves */
-  { const [sx,sz]=PW.SACK, B=sub(M,sx,F,sz); [-1,1].forEach(a=>[-1,1].forEach(b=>rod(B,'#4a4f53',V(a*.2,0,b*.18),V(a*.18,.72,b*.16),.012)));
+  await step(); /* a calendar on the back wall, and the sack on its frame by the shelves */
+  await step(); { const [sx,sz]=PW.SACK, B=sub(M,sx,F,sz); [-1,1].forEach(a=>[-1,1].forEach(b=>rod(B,'#4a4f53',V(a*.2,0,b*.18),V(a*.18,.72,b*.16),.012)));
     box(B,'#4a4f53',0,.7,-.17,.4,.02,.02); box(B,'#4a4f53',0,.7,.17,.4,.02,.02); box(B,'#4a4f53',-.19,.7,0,.02,.02,.36); box(B,'#4a4f53',.19,.7,0,.02,.02,.36);
     kadd(new T.LatheGeometry([[0,.05],[.12,.06],[.17,.18],[.18,.42],[.17,.62],[.18,.72],[.2,.76]].map(([r,y])=>new T.Vector2(r,y)),18).toNonIndexed(),'#c8b48a',B);
     for(let k=0;k<4;k++) box(poTf(B,-.12+k*.08,.72,(k%2-.5)*.08,(k-1.5)*.3,.3*(k%2?1:-1)),k%2?'#f6f1e7':'#dbe6ec',0,0,0,.09,.004,.06); box(B,'#efe7d6',0,.35,.18,.16,.12,.004); box(B,'#2a241d',0,.4,.183,.1,.012,.002); }
-  /* ---- your side: the notice board on the left wall, a bench under it, the card rack by the window, parcels by the door,
+  await step(); /* ---- your side: the notice board on the left wall, a bench under it, the card rack by the window, parcels by the door,
      a poster, St Brigid's cross over the door ---- */
-  { box(M,'#5d3e2c',-iw+.015,F+.4,.55,.03,.04,.95); box(M,'#5d3e2c',-iw+.02,F+.06,.55,.04,.36,.95); box(M,'#b8834f',-iw+.2,F+.42,.55,.4,.04,.95); [-1,1].forEach(s=>box(M,'#5d3e2c',-iw+.34,F,.55+s*.4,.05,.42,.05)); }
-  { const B=sub(M,-.98,F,1.02); cyl(B,'#3a3634',0,0,0,.15,.02); cyl(B,'#4a4f53',0,0,0,.012,1.15,'cyl8'); for(let k=0;k<4;k++){ const y=.55+k*.15; for(let s=0;s<6;s++){ const a=s/6*TAU+k*.4; box(poTf(B,Math.sin(a)*.1,y,Math.cos(a)*.1,a,-.12),['#9fc3d6','#f6d26b','#e9744f','#f6f1e7','#6fa25f','#f19bb0'][(s+k)%6],0,0,0,.08,.11,.004); } } }
-  parcel(M,1.58,F,.2,.3,.2,.34,.1); parcel(M,1.6,F+.2,.18,.24,.16,.26,-.15,'#a77a4c'); parcel(M,1.56,F+.36,.2,.16,.1,.18,.3,'#c49a66');
-  { const B=sub(M,PW.DX,PW.DH+.18,id-.035); for(let k=0;k<4;k++){ const a=k*Math.PI/2; box(poTf(B,Math.sin(a)*.07,Math.cos(a)*.07,0,0,0,-a),'#d6b66a',0,-.06,0,.022,.2,.012); box(poTf(B,Math.sin(a)*.16,Math.cos(a)*.16,0,0,0,-a),'#b8954a',0,-.01,0,.03,.02,.014); } box(B,'#c9a24a',0,-.03,.004,.06,.06,.016); }
-  /* ---- the lamps: green enamel shades on cords, two over the counter, one over the room ---- */
-  const LAMPS_=[[-1.0,top-.62,-.28],[.9,top-.62,-.28],[-.1,top-.55,.85]];
+  await step(); { box(M,'#5d3e2c',-iw+.015,F+.4,.55,.03,.04,.95); box(M,'#5d3e2c',-iw+.02,F+.06,.55,.04,.36,.95); box(M,'#b8834f',-iw+.2,F+.42,.55,.4,.04,.95); [-1,1].forEach(s=>box(M,'#5d3e2c',-iw+.34,F,.55+s*.4,.05,.42,.05)); }
+  await step(); { const B=sub(M,-.98,F,1.02); cyl(B,'#3a3634',0,0,0,.15,.02); cyl(B,'#4a4f53',0,0,0,.012,1.15,'cyl8'); for(let k=0;k<4;k++){ const y=.55+k*.15; for(let s=0;s<6;s++){ const a=s/6*TAU+k*.4; box(poTf(B,Math.sin(a)*.1,y,Math.cos(a)*.1,a,-.12),['#9fc3d6','#f6d26b','#e9744f','#f6f1e7','#6fa25f','#f19bb0'][(s+k)%6],0,0,0,.08,.11,.004); } } }
+  await step(); parcel(M,1.58,F,.2,.3,.2,.34,.1); parcel(M,1.6,F+.2,.18,.24,.16,.26,-.15,'#a77a4c'); parcel(M,1.56,F+.36,.2,.16,.1,.18,.3,'#c49a66');
+  await step(); { const B=sub(M,PW.DX,PW.DH+.18,id-.035); for(let k=0;k<4;k++){ const a=k*Math.PI/2; box(poTf(B,Math.sin(a)*.07,Math.cos(a)*.07,0,0,0,-a),'#d6b66a',0,-.06,0,.022,.2,.012); box(poTf(B,Math.sin(a)*.16,Math.cos(a)*.16,0,0,0,-a),'#b8954a',0,-.01,0,.03,.02,.014); } box(B,'#c9a24a',0,-.03,.004,.06,.06,.016); }
+  await step(); /* ---- the lamps: green enamel shades on cords, two over the counter, one over the room ---- */
+  await step(); const LAMPS_=[[-1.0,top-.62,-.28],[.9,top-.62,-.28],[-.1,top-.55,.85]];
   LAMPS_.forEach(([x,y,z])=>{ cyl(M,'#2a2624',x,y+.1,z,.006,top-y-.1,'cyl8'); put(M,'cone','#2f5a45',x,y+.06,z,.15,.13,.15); put(M,'sph','#fff2c4',x,y,z,.05,.05,.05); });
-  kitTo(); PO.m.room=add(new T.Mesh(kgeo('poin'),mat));
-  /* ---- the pictures: the notice board, the poster, the calendar and the counter's sign, painted on one canvas ---- */
-  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const draw=()=>{ poBoards(cv); tx.needsUpdate=true; }; draw();
+  await step(); kitTo(); PO.m.room=add(new T.Mesh(kgeo('poin'),mat));
+  await step(); /* ---- the pictures: the notice board, the poster, the calendar and the counter's sign, painted on one canvas ---- */
+  await step(); { const cv=document.createElement('canvas'); cv.width=1024; cv.height=512; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; const draw=()=>{ poBoards(cv); tx.needsUpdate=true; }; draw();
     dotoLater(draw);
     const P=[], N=[], U=[], quad=(a,b,c_,d_,n,u0,v0,u1,v1)=>{ /* (wound to face the room) */ for(const [p,u,v] of [[a,u0,v0],[c_,u1,v1],[b,u1,v0],[a,u0,v0],[d_,u0,v1],[c_,u1,v1]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); U.push(u/1024,1-v/512); } };
     const wallX=(x,z0,z1,y0,y1,s,u0,v0,u1,v1)=>quad(poW(x,y1,z0),poW(x,y1,z1),poW(x,y0,z1),poW(x,y0,z0),poD(s,0,0),u0,v0,u1,v1);
@@ -6705,32 +6719,32 @@ function buildPO(){ if(!PO.M||PO.g) return; const M=PO.M, w=PW.w, d=PW.d, t=PW.t
     PO.m.boards=add(new T.Mesh(gg,poBoard(tx))); PO.btx=tx;
     /* the board's cork and frame, the poster's frame */
     kitTo('pofr'); box(M,'#6b4a36',-iw+.02,F+.97,.57,.03,.82,1.1); box(M,'#c49a66',-iw+.025,F+1.0,.57,.03,.76,1.02); box(M,'#3a2a20',iw-.02,F+.98,.7,.03,.86,.6); kitTo(); add(new T.Mesh(kgeo('pofr'),mat)); }
-  /* ---- the clock's hands: their own, so they keep the time (the time of day here, as the sky has it) ---- */
-  { const hm=(L,wd)=>{ kitTo('pohand'); box(new T.Matrix4(),'#2a241d',0,-.015,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pohand'),mat)); }; PO.m.hh=hm(.1,.014); PO.m.mh=hm(.14,.009); PO.ck=CK; }
-  /* ---- Bríd ---- */
-  /* (she stands back from the window: the sun that comes in at it never reaches her, so none is drawn on her, only the lamps) */
-  { const f=figure(BRID), bm=poMat(); bm.uniforms.uLitA={value:new T.Vector3()}; f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=bm; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=POINK; o.userData.shdM=o.material; INK.push(o); PO.meshes.push(o); });
+  await step(); /* ---- the clock's hands: their own, so they keep the time (the time of day here, as the sky has it) ---- */
+  await step(); { const hm=(L,wd)=>{ kitTo('pohand'); box(new T.Matrix4(),'#2a241d',0,-.015,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pohand'),mat)); }; PO.m.hh=hm(.1,.014); PO.m.mh=hm(.14,.009); PO.ck=CK; }
+  await step(); /* ---- Bríd ---- */
+  await step(); /* (she stands back from the window: the sun that comes in at it never reaches her, so none is drawn on her, only the lamps) */
+  await step(); { const f=await figureA(BRID,step), bm=poMat(); bm.uniforms.uLitA={value:new T.Vector3()}; f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=bm; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=POINK; o.userData.shdM=o.material; INK.push(o); PO.meshes.push(o); });
     g.add(f); PO.bk.fig=f; }
-  /* ---- the rubber stamp: a turned wooden handle with a knob, its block, the rubber under it; and the ink pad, in its tin ---- */
-  { kitTo('postamp'); cyl(I,'#3a2a20',0,0,0,.034,.012); cyl(I,'#8a5a3a',0,.012,0,.03,.03); cyl(I,'#b8834f',0,.042,0,.012,.06,'cyl8'); put(I,'sph','#b8834f',0,.11,0,.026,.022,.026); kitTo(); PO.m.stamp=add(new T.Mesh(kgeo('postamp'),mat)); }
-  { kitTo('popad'); box(I,'#2c4f9e',0,0,0,.13,.018,.09); box(I,'#3a1c22',0,.018,0,.11,.004,.07); box(poTf(I,0,.02,-.045,0,-1.9),'#2c4f9e',0,0,0,.13,.004,.09); kitTo(); PO.m.pad=add(new T.Mesh(kgeo('popad'),mat)); }
-  /* ---- your card, on the counter while it is posted: your own picture, and the postmark once it is stamped ---- */
-  { const cv=document.createElement('canvas'); cv.width=cv.height=512; PO.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PO.ctx=tx; const c=cv.getContext('2d'); c.fillStyle=PC_PAPER; c.fillRect(0,0,512,512);
+  await step(); /* ---- the rubber stamp: a turned wooden handle with a knob, its block, the rubber under it; and the ink pad, in its tin ---- */
+  await step(); { kitTo('postamp'); cyl(I,'#3a2a20',0,0,0,.034,.012); cyl(I,'#8a5a3a',0,.012,0,.03,.03); cyl(I,'#b8834f',0,.042,0,.012,.06,'cyl8'); put(I,'sph','#b8834f',0,.11,0,.026,.022,.026); kitTo(); PO.m.stamp=add(new T.Mesh(kgeo('postamp'),mat)); }
+  await step(); { kitTo('popad'); box(I,'#2c4f9e',0,0,0,.13,.018,.09); box(I,'#3a1c22',0,.018,0,.11,.004,.07); box(poTf(I,0,.02,-.045,0,-1.9),'#2c4f9e',0,0,0,.13,.004,.09); kitTo(); PO.m.pad=add(new T.Mesh(kgeo('popad'),mat)); }
+  await step(); /* ---- your card, on the counter while it is posted: your own picture, and the postmark once it is stamped ---- */
+  await step(); { const cv=document.createElement('canvas'); cv.width=cv.height=512; PO.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PO.ctx=tx; const c=cv.getContext('2d'); c.fillStyle=PC_PAPER; c.fillRect(0,0,512,512);
     const cm=add(new T.Mesh(new T.PlaneGeometry(1,1).rotateX(-Math.PI/2),poBoard(tx))); PO.m.card=cm; PO.card={p:new T.Vector3(),k:0,at:'none',from:new T.Vector3(),s:[.19,.127],tilt:0}; }
-  /* ---- the lamps, for the light ---- */
+  await step(); /* ---- the lamps, for the light ---- */
   LAMPS_.forEach((p,i)=>{ poW(p[0],p[1]-.05,p[2],poV); PU.uCL.value[i].set(poV.x,poV.y,poV.z,i<2?1:.9); }); poW(PW.WX,2.35,id-.15,poV); PU.uCL.value[3].set(poV.x,poV.y,poV.z,0);
-  /* ---- what a click finds: the shop's front and the pillar box from the street (boxes, never drawn) ---- */
-  PO.pick=new T.Mesh(new T.BoxGeometry(w-.1,2.7,.5)); PO.pick.matrixAutoUpdate=false; PO.pick.matrixWorld.copy(M).multiply(poM.makeTranslation(-.12,1.35,d/2+.15));
-  PO.pickBox=new T.Mesh(new T.BoxGeometry(.6,1.35,.6)); PO.pickBox.matrixAutoUpdate=false; PO.pickBox.matrixWorld.copy(poBoxM(M)).multiply(poM.makeTranslation(0,.68,0));
-  PO.pickIn=new T.Mesh(new T.BoxGeometry(1.2,1.5,.9)); PO.pickIn.matrixAutoUpdate=false; PO.pickIn.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BK[0],F+.75,cz-.1));
-  PO.pickOut=new T.Mesh(new T.BoxGeometry(PW.DW,PW.DH-F,.3)); PO.pickOut.matrixAutoUpdate=false; PO.pickOut.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.DX,(PW.DH+F)/2,id));
-  try{ renderer.initTexture&&[PO.btx,PO.ctx].forEach(tx=>renderer.initTexture(tx)); }catch(e){}
+  await step(); /* ---- what a click finds: the shop's front and the pillar box from the street (boxes, never drawn) ---- */
+  await step(); PO.pick=new T.Mesh(new T.BoxGeometry(w-.1,2.7,.5)); PO.pick.matrixAutoUpdate=false; PO.pick.matrixWorld.copy(M).multiply(poM.makeTranslation(-.12,1.35,d/2+.15));
+  await step(); PO.pickBox=new T.Mesh(new T.BoxGeometry(.6,1.35,.6)); PO.pickBox.matrixAutoUpdate=false; PO.pickBox.matrixWorld.copy(poBoxM(M)).multiply(poM.makeTranslation(0,.68,0));
+  await step(); PO.pickIn=new T.Mesh(new T.BoxGeometry(1.2,1.5,.9)); PO.pickIn.matrixAutoUpdate=false; PO.pickIn.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.BK[0],F+.75,cz-.1));
+  await step(); PO.pickOut=new T.Mesh(new T.BoxGeometry(PW.DW,PW.DH-F,.3)); PO.pickOut.matrixAutoUpdate=false; PO.pickOut.matrixWorld.copy(M).multiply(poM.makeTranslation(PW.DX,(PW.DH+F)/2,id));
+  await step(); if(!LATE.busy||LATE.now){ try{ renderer.initTexture&&[PO.btx,PO.ctx].forEach(tx=>renderer.initTexture(tx)); }catch(e){} }
   sc.add(g); PO.g=g;
-  /* where your card is stamped, and the ink pad to her right (her hands reach them: see poReach) */
-  PO.at.card=[.02,-.52]; PO.at.pad=[-.3,-.5]; PO.at.top=F+.74+.045;
+  await step(); /* where your card is stamped, and the ink pad to her right (her hands reach them: see poReach) */
+  await step(); PO.at.card=[.02,-.52]; PO.at.pad=[-.3,-.5]; PO.at.top=F+.74+.045;
   PO.m.pad.matrix.multiplyMatrices(M,poM.makeTranslation(PO.at.pad[0],PO.at.top,PO.at.pad[1])); poRest(); poPose(0,0,true);
   POWHO.dir.copy(at(...poXZ(PW.BK[0],PW.BK[1]))); [POWHO.x,POWHO.z]=poXZ(PW.BK[0],PW.BK[1]);
-  /* no rain or snow falls in here: the streaks round the camera are not drawn while you are inside */ }
+  await step(); /* no rain or snow falls in here: the streaks round the camera are not drawn while you are inside */ }
 /* the pictures: the notice board (notices pinned on cork), a poster, the calendar, the counter's sign */
 function poBoards(cv){ const c=cv.getContext('2d'), r=seeded(21), ink='#2a241d', F_=(s,w=900)=>`${w} ${s}px Doto, monospace`, M_=s=>`600 ${s}px ui-monospace, Menlo, monospace`;
   c.fillStyle='#c49a66'; c.fillRect(0,0,512,384); for(let i=0;i<500;i++){ c.fillStyle=`rgba(90,60,30,${r()*.18})`; c.fillRect(r()*512,r()*384,2,2); }
@@ -7048,7 +7062,9 @@ addEventListener('keyup',e=>{ if(e.code==='Escape'&&S.st===st&&S.mode==='station
 /* built after the town (and everything in it) is; stepped after the town has moved you; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
   st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame());   // (a frame before it)
-    try{ buildPO(); }catch(err){ PO.err=String(err&&err.stack||err); console.warn('post office',err); } };
+    /* (its room after you land, see LATE: its door, its window and its post box are the street's, made with the town) */
+    late('post office',step=>lateRoom(async after=>{ try{ await buildPO(step); if(after&&PO.g){ PO.warm=false; poCull(true); PO.g.visible=false; } }
+      catch(err){ PO.err=String(err&&err.stack||err); console.warn('post office',err); kitTo(); } },step)); };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) poStep(dt,t); return r; };
   st.enter=function(){ poReset(); return en.apply(this,arguments); }; st.exit=function(){ poReset(true); return ex.apply(this,arguments); };
   st.finaleEnd=function(){ const r=fe.apply(this,arguments); poReset(); return r; };
@@ -7258,52 +7274,52 @@ function pbVest(f,o,col){ const W=o.build||1, D=(o.depth||.7)/.7, B=part(), R=[[
 /* ---------- building it: the room, the bar and all on it, the fire, the snug, the session's corner, the dartboard and its
    chalkboard, the pictures, Tadhg, the three who play, the darts. After the trees are laid out; then what stands outside
    is made solid and the walking grid round the pub made again ---------- */
-function buildPub(){ if(!PUB.M||PUB.g) return; const M=PUB.M, w=PB.w, d=PB.d, t=PB.t, F=PB.FL, iw=w/2-t, id=d/2-t, top=PB.h-.04, I=new T.Matrix4(), rnd=seeded(61);
+async function buildPub(step=lateNo){ if(!PUB.M||PUB.g) return; const M=PUB.M, w=PB.w, d=PB.d, t=PB.t, F=PB.FL, iw=w/2-t, id=d/2-t, top=PB.h-.04, I=new T.Matrix4(), rnd=seeded(61);
   PUB.up.copy(pbD(0,1,0)); PBU.uCU.value.copy(PUB.up); PUB.c0.copy(pbW(0,1.4,0));
-  const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; const mat=pbMat();
-  const add=(m,ink=true,par=g)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; par.add(m); PUB.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=PBINK; m.userData.shdM=m.material; INK.push(m); } return m; };
-  const up=pbD(0,1,0), V=(x,y,z)=>new T.Vector3(x,y,z), torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
-  const rod=(Mx,c,a,b,r)=>{ const v=pbV.subVectors(b,a), L=v.length(); pbQ.setFromUnitVectors(UPY,v.divideScalar(L||1)); pbM.compose(pbV2.addVectors(a,b).multiplyScalar(.5),pbQ,pbS.set(r,L,r)); kadd(GEO.cyl8,c,pbM2.multiplyMatrices(Mx,pbM)); };
-  const bottle=(Mx,x,y,z,c,h_=.2)=>{ cyl(Mx,c,x,y,z,.026,h_*.66); put(Mx,'sph',c,x,y+h_*.66,z,.026,.03,.026); cyl(Mx,c,x,y+h_*.7,z,.01,h_*.3,'cyl8'); cyl(Mx,'#c9b98a',x,y+h_,z,.011,.012,'cyl8'); };
-  const pint=(Mx,x,y,z,stout=true)=>{ cyl(Mx,'#e2ecee',x,y,z,.028,.12); cyl(Mx,stout?'#1d1a18':'#d9a03a',x,y+.004,z,.026,stout?.096:.1); cyl(Mx,stout?'#f1e6c8':'#fbf3e0',x,y+.1,z,.027,.016); };
-  const chair=(Mx,x,z,ry,c='#6b4430')=>{ const B=pbTf(Mx,x,F,z,ry); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(B,c,a*.14,0,b*.14,.035,.3,.035)); box(B,c,0,.3,0,.33,.03,.33);
+  await step(); const g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; const mat=pbMat();
+  await step(); const add=(m,ink=true,par=g)=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; par.add(m); PUB.meshes.push(m); if(ink){ m.userData.noInk=true; m.userData.col=m.material; m.userData.inkM=PBINK; m.userData.shdM=m.material; INK.push(m); } return m; };
+  await step(); const up=pbD(0,1,0), V=(x,y,z)=>new T.Vector3(x,y,z), torus=(Mx,c,r,tb,seg=18,arc=TAU)=>kadd(new T.TorusGeometry(r,tb,6,seg,arc).toNonIndexed(),c,Mx);
+  await step(); const rod=(Mx,c,a,b,r)=>{ const v=pbV.subVectors(b,a), L=v.length(); pbQ.setFromUnitVectors(UPY,v.divideScalar(L||1)); pbM.compose(pbV2.addVectors(a,b).multiplyScalar(.5),pbQ,pbS.set(r,L,r)); kadd(GEO.cyl8,c,pbM2.multiplyMatrices(Mx,pbM)); };
+  await step(); const bottle=(Mx,x,y,z,c,h_=.2)=>{ cyl(Mx,c,x,y,z,.026,h_*.66); put(Mx,'sph',c,x,y+h_*.66,z,.026,.03,.026); cyl(Mx,c,x,y+h_*.7,z,.01,h_*.3,'cyl8'); cyl(Mx,'#c9b98a',x,y+h_,z,.011,.012,'cyl8'); };
+  await step(); const pint=(Mx,x,y,z,stout=true)=>{ cyl(Mx,'#e2ecee',x,y,z,.028,.12); cyl(Mx,stout?'#1d1a18':'#d9a03a',x,y+.004,z,.026,stout?.096:.1); cyl(Mx,stout?'#f1e6c8':'#fbf3e0',x,y+.1,z,.027,.016); };
+  await step(); const chair=(Mx,x,z,ry,c='#6b4430')=>{ const B=pbTf(Mx,x,F,z,ry); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(B,c,a*.14,0,b*.14,.035,.3,.035)); box(B,c,0,.3,0,.33,.03,.33);
     [-1,1].forEach(a=>box(B,c,a*.14,.33,-.15,.035,.34,.035)); box(B,c,0,.62,-.15,.31,.06,.03); for(let k=-1;k<=1;k++) box(B,c,k*.07,.36,-.15,.02,.26,.02); return B; };   // (low, as a session's chairs are)
-  kitTo('pbin');
-  /* ---- the room: dark boards on the floor, panelling to the dado and warm paper over it, a cream ceiling with dark beams ---- */
-  for(let i=0;i<14;i++){ const z0=-id+i*2*id/14, z1=z0+2*id/14; for(let j=0;j<3;j++){ const x0=-iw+j*2*iw/3+(i%2?.3:0), x1=Math.min(iw,x0+2*iw/3), xa=Math.max(-iw,x0);
+  await step(); kitTo('pbin');
+  await step(); /* ---- the room: dark boards on the floor, panelling to the dado and warm paper over it, a cream ceiling with dark beams ---- */
+  await step(); for(let i=0;i<14;i++){ const z0=-id+i*2*id/14, z1=z0+2*id/14; for(let j=0;j<3;j++){ const x0=-iw+j*2*iw/3+(i%2?.3:0), x1=Math.min(iw,x0+2*iw/3), xa=Math.max(-iw,x0);
       kquad(pbW(xa,F+.004,z0),pbW(x1,F+.004,z0),pbW(x1,F+.004,z1),pbW(xa,F+.004,z1),up,['#5a3a28','#4f3324','#634030'][(i+j)%3]); if(i%2&&j===0) kquad(pbW(-iw,F+.004,z0),pbW(xa,F+.004,z0),pbW(xa,F+.004,z1),pbW(-iw,F+.004,z1),up,'#4f3324'); } }
-  const fh=[[PB.DX,PB.DW,0,PB.DH],[PB.WX,PB.WW,PB.WS,PB.WH],[PB.W2X,PB.W2W,PB.WS,PB.WH]], li=(c,y0,y1,th,o=0)=>{
+  await step(); const fh=[[PB.DX,PB.DW,0,PB.DH],[PB.WX,PB.WW,PB.WS,PB.WH],[PB.W2X,PB.W2W,PB.WS,PB.WH]], li=(c,y0,y1,th,o=0)=>{
     slab(M,c,'x',id-th/2-o,2*iw,th,y0,y1,fh); slab(M,c,'x',-id+th/2+o,2*iw,th,y0,y1,[]); slab(M,c,'z',iw-th/2-o,2*id-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-iw+th/2+o,2*id-2*(th+o),th,y0,y1,[]); };
-  li('#5a3426',F,F+.9,.025); li('#c99f6c',F+.9,top,.025); li('#3e2418',F+.88,F+.95,.05,.01); li('#2e1a12',F,F+.07,.04,.01); li('#e0c9a0',top-.12,top,.03,.01);
-  for(let k=0;k<14;k++){ const x=-iw+.14+k*(2*iw-.28)/13; box(M,'#4a2a1e',x,F+.1,-id+.03,.012,.7,.012); box(M,'#4a2a1e',x,F+.1,id-.03,.012,.7,.012); }   // the panels' beads
-  box(M,'#e6d6b6',0,top,0,2*iw,.04,2*id); for(const bx of [-1.38,-.46,.46,1.38]) box(M,'#3e2418',bx,top-.11,0,.12,.11,2*id);
-  [-1,1].forEach(s=>box(M,'#3e2418',PB.DX+s*(PB.DW/2+.035),F,id-.03,.07,PB.DH-F+.07,.04)); box(M,'#3e2418',PB.DX,PB.DH,id-.03,PB.DW+.14,.07,.04);   // the door's frame inside
-  for(const [cx,ww] of [[PB.WX,PB.WW],[PB.W2X,PB.W2W]]){ box(M,'#3e2418',cx,PB.WS-.02,id-.1,ww+.1,.04,.22); [-1,1].forEach(s=>box(M,'#3e2418',cx+s*(ww/2+.02),PB.WS,id-.03,.05,PB.WH-PB.WS,.05)); box(M,'#3e2418',cx,PB.WH-.03,id-.03,ww+.1,.06,.05);
+  await step(); li('#5a3426',F,F+.9,.025); li('#c99f6c',F+.9,top,.025); li('#3e2418',F+.88,F+.95,.05,.01); li('#2e1a12',F,F+.07,.04,.01); li('#e0c9a0',top-.12,top,.03,.01);
+  await step(); for(let k=0;k<14;k++){ const x=-iw+.14+k*(2*iw-.28)/13; box(M,'#4a2a1e',x,F+.1,-id+.03,.012,.7,.012); box(M,'#4a2a1e',x,F+.1,id-.03,.012,.7,.012); }   // the panels' beads
+  await step(); box(M,'#e6d6b6',0,top,0,2*iw,.04,2*id); for(const bx of [-1.38,-.46,.46,1.38]) box(M,'#3e2418',bx,top-.11,0,.12,.11,2*id);
+  await step(); [-1,1].forEach(s=>box(M,'#3e2418',PB.DX+s*(PB.DW/2+.035),F,id-.03,.07,PB.DH-F+.07,.04)); box(M,'#3e2418',PB.DX,PB.DH,id-.03,PB.DW+.14,.07,.04);   // the door's frame inside
+  await step(); for(const [cx,ww] of [[PB.WX,PB.WW],[PB.W2X,PB.W2W]]){ box(M,'#3e2418',cx,PB.WS-.02,id-.1,ww+.1,.04,.22); [-1,1].forEach(s=>box(M,'#3e2418',cx+s*(ww/2+.02),PB.WS,id-.03,.05,PB.WH-PB.WS,.05)); box(M,'#3e2418',cx,PB.WH-.03,id-.03,ww+.1,.06,.05);
     box(M,'#3e2418',cx,PB.WH-.38,id-.01,ww,.03,.03); }
-  box(M,'#5b3a2a',PB.DX,F,id-.36,.72,.012,.42);   // the mat
-  /* ---- the bar: a panelled front, its top, a brass rail; on it the taps, a drip tray, glasses, a pint for you ---- */
-  const [bx0,bx1,bz,bd]=PB.BAR, bxm=(bx0+bx1)/2, btop=F+.78;
-  box(M,'#5e2e20',bxm,F,bz,bx1-bx0,.78,bd); for(let k=0;k<11;k++){ const x=bx0+.1+k*(bx1-bx0-.2)/10; box(M,k%2?'#6b3424':'#55291c',x,F+.08,bz+bd/2,.17,.58,.012); }
-  box(M,'#3a1f15',bxm,F,bz+bd/2+.005,bx1-bx0,.07,.012); box(M,'#7a4a2e',bxm,btop,bz,bx1-bx0+.06,.05,bd+.1); box(M,'#5a3420',bxm,btop,bz+bd/2+.05,bx1-bx0+.06,.05,.014);
-  box(M,'#c9a24a',bxm,F+.1,bz+bd/2+.07,bx1-bx0-.1,.024,.024); for(const x of [bx0+.25,bxm-.3,bxm+.4,bx1-.2]) box(M,'#c9a24a',x,F,bz+bd/2+.06,.022,.11,.022);
-  box(M,'#6b3e28',bx1-.18,btop+.051,bz,.34,.005,bd+.08); [bx1-.35,bx1-.01].forEach(x=>box(M,'#3a1f15',x,btop+.05,bz,.008,.006,bd+.08));   // the flap
-  { const tz=bz-.05; box(M,'#2a2624',-.7,btop+.05,tz,.62,.014,.11); for(let k=0;k<12;k++) box(M,'#4a4644',-.98+k*.05,btop+.064,tz,.008,.003,.09);
+  await step(); box(M,'#5b3a2a',PB.DX,F,id-.36,.72,.012,.42);   // the mat
+  await step(); /* ---- the bar: a panelled front, its top, a brass rail; on it the taps, a drip tray, glasses, a pint for you ---- */
+  await step(); const [bx0,bx1,bz,bd]=PB.BAR, bxm=(bx0+bx1)/2, btop=F+.78;
+  await step(); box(M,'#5e2e20',bxm,F,bz,bx1-bx0,.78,bd); for(let k=0;k<11;k++){ const x=bx0+.1+k*(bx1-bx0-.2)/10; box(M,k%2?'#6b3424':'#55291c',x,F+.08,bz+bd/2,.17,.58,.012); }
+  await step(); box(M,'#3a1f15',bxm,F,bz+bd/2+.005,bx1-bx0,.07,.012); box(M,'#7a4a2e',bxm,btop,bz,bx1-bx0+.06,.05,bd+.1); box(M,'#5a3420',bxm,btop,bz+bd/2+.05,bx1-bx0+.06,.05,.014);
+  await step(); box(M,'#c9a24a',bxm,F+.1,bz+bd/2+.07,bx1-bx0-.1,.024,.024); for(const x of [bx0+.25,bxm-.3,bxm+.4,bx1-.2]) box(M,'#c9a24a',x,F,bz+bd/2+.06,.022,.11,.022);
+  await step(); box(M,'#6b3e28',bx1-.18,btop+.051,bz,.34,.005,bd+.08); [bx1-.35,bx1-.01].forEach(x=>box(M,'#3a1f15',x,btop+.05,bz,.008,.006,bd+.08));   // the flap
+  await step(); { const tz=bz-.05; box(M,'#2a2624',-.7,btop+.05,tz,.62,.014,.11); for(let k=0;k<12;k++) box(M,'#4a4644',-.98+k*.05,btop+.064,tz,.008,.003,.09);
     [['#141414','#f1e6c8'],['#d9b45a','#f6eedc'],['#8e2a24','#e9d6b0'],['#3f7a4a','#e9e2c8']].forEach(([hc,bc],k)=>{ const x=-.92+k*.15;
       cyl(M,'#c9a24a',x,btop+.05,tz-.07,.018,.24); box(M,'#c9a24a',x,btop+.24,tz-.07,.02,.02,.1); cyl(M,'#c9a24a',x,btop+.17,tz-.02,.008,.07,'cyl8');
       cyl(M,hc,x,btop+.29,tz-.07,.016,.14); cyl(M,bc,x,btop+.37,tz-.07,.017,.025); put(M,'sph',hc,x,btop+.44,tz-.07,.019,.019,.019); } ); }
-  pint(M,-.3,btop+.05,bz+.15); pint(M,.38,btop+.05,bz+.1,false); pint(M,-1.2,btop+.05,bz+.12);
-  { const B=sub(M,.12,btop+.05,bz-.05); for(let k=0;k<4;k++) cyl(B,'#d8e4e6',(k%2)*.07,0,Math.floor(k/2)*.07,.027,.11); }   // clean glasses, waiting
-  [-.95,-.62,.3].forEach(x=>{ const B=sub(M,x,F,bz+bd/2+.24); cyl(B,'#3a3330',0,0,0,.13,.02); cyl(B,'#3a3330',0,0,0,.02,.66,'cyl8'); torus(pbTf(B,0,.26,0,0,Math.PI/2),'#3a3330',.1,.01); cyl(B,'#7a2a20',0,.66,0,.15,.06); });
-  /* ---- the back bar: cupboards, a top, shelves of bottles either side of the mirror, glasses upside down, the clock over it ---- */
-  const bk=-id+.12; box(M,'#4a2a1e',bxm,F,bk,bx1-bx0,.8,.24); for(let k=0;k<5;k++) box(M,'#3e2418',bx0+.24+k*(bx1-bx0-.48)/4,F+.08,bk+.121,.36,.6,.012); box(M,'#6b3e28',bxm,F+.8,bk,bx1-bx0+.04,.035,.27);
-  box(M,'#3a2016',-.3,F+.84,-id+.02,.6,.82,.03); box(M,'#a9bcbe',-.3,F+.88,-id+.04,.52,.74,.008); box(M,'#c9a24a',-.3,F+1.62,-id+.04,.58,.03,.012);
-  for(let s=0;s<2;s++){ const xa=s?.1:bx0+.02, xb=s?bx1-.02:-.7; for(let k=0;k<2;k++){ const y=F+1.06+k*.38; box(M,'#5a3420',(xa+xb)/2,y,-id+.1,xb-xa,.025,.17);
+  await step(); pint(M,-.3,btop+.05,bz+.15); pint(M,.38,btop+.05,bz+.1,false); pint(M,-1.2,btop+.05,bz+.12);
+  await step(); { const B=sub(M,.12,btop+.05,bz-.05); for(let k=0;k<4;k++) cyl(B,'#d8e4e6',(k%2)*.07,0,Math.floor(k/2)*.07,.027,.11); }   // clean glasses, waiting
+  await step(); [-.95,-.62,.3].forEach(x=>{ const B=sub(M,x,F,bz+bd/2+.24); cyl(B,'#3a3330',0,0,0,.13,.02); cyl(B,'#3a3330',0,0,0,.02,.66,'cyl8'); torus(pbTf(B,0,.26,0,0,Math.PI/2),'#3a3330',.1,.01); cyl(B,'#7a2a20',0,.66,0,.15,.06); });
+  await step(); /* ---- the back bar: cupboards, a top, shelves of bottles either side of the mirror, glasses upside down, the clock over it ---- */
+  await step(); const bk=-id+.12; box(M,'#4a2a1e',bxm,F,bk,bx1-bx0,.8,.24); for(let k=0;k<5;k++) box(M,'#3e2418',bx0+.24+k*(bx1-bx0-.48)/4,F+.08,bk+.121,.36,.6,.012); box(M,'#6b3e28',bxm,F+.8,bk,bx1-bx0+.04,.035,.27);
+  await step(); box(M,'#3a2016',-.3,F+.84,-id+.02,.6,.82,.03); box(M,'#a9bcbe',-.3,F+.88,-id+.04,.52,.74,.008); box(M,'#c9a24a',-.3,F+1.62,-id+.04,.58,.03,.012);
+  await step(); for(let s=0;s<2;s++){ const xa=s?.1:bx0+.02, xb=s?bx1-.02:-.7; for(let k=0;k<2;k++){ const y=F+1.06+k*.38; box(M,'#5a3420',(xa+xb)/2,y,-id+.1,xb-xa,.025,.17);
       const n=Math.floor((xb-xa)/.075); for(let i=0;i<n;i++){ const x=xa+.04+i*.075; if(k===1&&i%3===2){ cyl(M,'#d8e4e6',x,y+.025,-id+.1,.026,.09); continue; } bottle(M,x,y+.025,-id+.1,['#2f6b3a','#8a4a1c','#c9a85a','#e8e2d0','#5a2a1a','#4a5d8a'][Math.floor(rnd()*6)],.17+rnd()*.07); } } }
-  box(M,'#2a2624',.45,F+.835,bk,.24,.14,.18); box(M,'#c9a24a',.45,F+.975,bk-.02,.2,.05,.12); for(let k=0;k<6;k++) box(M,'#e9e2d0',.38+(k%3)*.06,F+.9,bk+.092,.04,.025,.01);   // the till
-  const CK=[-.3,top-.3,-id+.03]; cyl(pbTf(M,CK[0],CK[1],CK[2]-.02,0,Math.PI/2),'#3a2016',0,0,0,.16,.05); cyl(pbTf(M,CK[0],CK[1],CK[2]+.032,0,Math.PI/2),'#f3e9d2',0,-.003,0,.135,.006);
-  for(let k=0;k<12;k++){ const a=k/12*TAU; box(pbTf(M,CK[0]+Math.sin(a)*.115,CK[1]+Math.cos(a)*.115,CK[2]+.036,0,0,-a),'#2a241d',0,-.01,0,k%3?.006:.013,.02,.004); }
-  /* ---- the fire: the chimney breast, the grate and its logs under a mantel with a clock and two candles; a stone hearth ---- */
-  { const [fx,fz]=PB.FIRE, cb=-iw+.24, xm=(-iw+cb)/2; [-1,1].forEach(s=>box(M,'#b8a68a',xm,F,fz+s*.38,.24,top-F,.19)); box(M,'#b8a68a',xm,F+.6,fz,.24,top-F-.6,.6); box(M,'#1c1614',-iw+.03,F,fz,.04,.6,.58); box(M,'#2a2220',xm,F+.57,fz,.24,.03,.58); box(M,'#2a2220',cb-.02,F+.6,fz,.06,.07,.7);
+  await step(); box(M,'#2a2624',.45,F+.835,bk,.24,.14,.18); box(M,'#c9a24a',.45,F+.975,bk-.02,.2,.05,.12); for(let k=0;k<6;k++) box(M,'#e9e2d0',.38+(k%3)*.06,F+.9,bk+.092,.04,.025,.01);   // the till
+  await step(); const CK=[-.3,top-.3,-id+.03]; cyl(pbTf(M,CK[0],CK[1],CK[2]-.02,0,Math.PI/2),'#3a2016',0,0,0,.16,.05); cyl(pbTf(M,CK[0],CK[1],CK[2]+.032,0,Math.PI/2),'#f3e9d2',0,-.003,0,.135,.006);
+  await step(); for(let k=0;k<12;k++){ const a=k/12*TAU; box(pbTf(M,CK[0]+Math.sin(a)*.115,CK[1]+Math.cos(a)*.115,CK[2]+.036,0,0,-a),'#2a241d',0,-.01,0,k%3?.006:.013,.02,.004); }
+  await step(); /* ---- the fire: the chimney breast, the grate and its logs under a mantel with a clock and two candles; a stone hearth ---- */
+  await step(); { const [fx,fz]=PB.FIRE, cb=-iw+.24, xm=(-iw+cb)/2; [-1,1].forEach(s=>box(M,'#b8a68a',xm,F,fz+s*.38,.24,top-F,.19)); box(M,'#b8a68a',xm,F+.6,fz,.24,top-F-.6,.6); box(M,'#1c1614',-iw+.03,F,fz,.04,.6,.58); box(M,'#2a2220',xm,F+.57,fz,.24,.03,.58); box(M,'#2a2220',cb-.02,F+.6,fz,.06,.07,.7);
     box(M,'#8e8478',cb+.14,F,fz,.3,.03,.86); box(M,'#5a3420',cb+.02,F+.82,fz,.14,.05,1.0); box(M,'#3e2418',cb+.01,F+.66,fz-.38,.06,.16,.06); box(M,'#3e2418',cb+.01,F+.66,fz+.38,.06,.16,.06);
     for(let k=0;k<5;k++) box(M,'#2a2624',cb-.08,F+.06+k*.04,fz,.012,.012,.42); box(M,'#2a2624',cb-.1,F+.04,fz,.16,.012,.44);
     [[0,.06,0,.35],[.03,.1,.07,-.3],[-.03,.09,-.06,.2]].forEach(([ox,oy,oz,ry])=>put(M,'cyl8','#6b4428',cb-.1+ox,F+oy,fz+oz,.035,.32,.035,ry,0,Math.PI/2));
@@ -7312,27 +7328,27 @@ function buildPub(){ if(!PUB.M||PUB.g) return; const M=PUB.M, w=PB.w, d=PB.d, t=
     box(M,'#3a2016',cb+.07,F+.87,fz,.1,.16,.2); cyl(pbTf(M,cb+.12,F+.96,fz,0,0,Math.PI/2),'#f3e9d2',0,-.005,0,.06,.01);
     box(M,'#7a2a20',cb+.45,F+.004,fz,.5,.006,.44); box(M,'#c9a24a',cb+.45,F+.008,fz,.42,.003,.36);   // a rug
     PUB.fireAt=[cb-.1,F+.12,fz]; }
-  /* ---- the snug: a high-backed settle along the end wall, its little table and a stool, a screen of wood and frosted glass ---- */
-  { const z0=.5, z1=id-.04, sx=-iw; box(M,'#5a3420',sx+.2,F,(z0+z1)/2,.36,.42,z1-z0); box(M,'#7a2a20',sx+.2,F+.42,(z0+z1)/2,.34,.05,z1-z0-.04); box(M,'#4a2a1e',sx+.03,F+.42,(z0+z1)/2,.05,1.05,z1-z0);
+  await step(); /* ---- the snug: a high-backed settle along the end wall, its little table and a stool, a screen of wood and frosted glass ---- */
+  await step(); { const z0=.5, z1=id-.04, sx=-iw; box(M,'#5a3420',sx+.2,F,(z0+z1)/2,.36,.42,z1-z0); box(M,'#7a2a20',sx+.2,F+.42,(z0+z1)/2,.34,.05,z1-z0-.04); box(M,'#4a2a1e',sx+.03,F+.42,(z0+z1)/2,.05,1.05,z1-z0);
     box(M,'#4a2a1e',sx+.2,F,z0-.02,.4,1.32,.05); const [tx_,tz_]=[-1.3,.86]; cyl(M,'#3a2016',tx_,F,tz_,.12,.03); cyl(M,'#3a2016',tx_,F,tz_,.03,.6,'cyl8'); cyl(M,'#6b3e28',tx_,F+.6,tz_,.22,.04);
     pint(M,tx_-.06,F+.64,tz_+.04); pint(M,tx_+.08,F+.64,tz_-.05,false); cyl(M,'#5a3420',-1.0,F,.7,.14,.4); cyl(M,'#7a2a20',-1.0,F+.4,.7,.15,.04);
     const px=-.84; box(M,'#4a2a1e',px,F,(z0+id)/2+.02,.05,.86,id-z0-.02); box(M,'#d6e2e0',px,F+.86,(z0+id)/2+.02,.025,.54,id-z0-.12); box(M,'#3e2418',px,F+1.4,(z0+id)/2+.02,.06,.05,id-z0-.02); box(M,'#3e2418',px,F+.84,(z0+id)/2+.02,.06,.04,id-z0-.02); }
-  /* ---- the session's corner: a little table and three chairs, and the instruments left there (taken up on a market night) ---- */
-  const [sx_,sz_]=[1.45,-.6]; cyl(M,'#3a2016',sx_,F,sz_,.12,.03); cyl(M,'#3a2016',sx_,F,sz_,.03,.58,'cyl8'); cyl(M,'#6b3e28',sx_,F+.58,sz_,.2,.035); pint(M,sx_-.06,F+.615,sz_+.05); pint(M,sx_+.07,F+.615,sz_-.04);
+  await step(); /* ---- the session's corner: a little table and three chairs, and the instruments left there (taken up on a market night) ---- */
+  await step(); const [sx_,sz_]=[1.45,-.6]; cyl(M,'#3a2016',sx_,F,sz_,.12,.03); cyl(M,'#3a2016',sx_,F,sz_,.03,.58,'cyl8'); cyl(M,'#6b3e28',sx_,F+.58,sz_,.2,.035); pint(M,sx_-.06,F+.615,sz_+.05); pint(M,sx_+.07,F+.615,sz_-.04);
   PB_MUS.forEach(m=>{ const [cx,cz]=m.at, [fx,fz]=m.face; m.yaw=Math.atan2(fx,fz); chair(M,cx-fx*.05,cz-fz*.05,m.yaw); });
-  /* ---- the dartboard on the end wall: its backboard, the board's black edge (the board itself is its own), the line on the
+  await step(); /* ---- the dartboard on the end wall: its backboard, the board's black edge (the board itself is its own), the line on the
      floor, and the lamp over it; and the chalkboard beside it ---- */
-  { const B=sub(M,iw,0,PB.BZ); box(B,'#2a1a12',-.012,PB.BY-.31,0,.024,.62,.62); box(B,'#3a2016',-.016,PB.BY-.33,-.33,.03,.66,.03); box(B,'#3a2016',-.016,PB.BY-.33,.33,.03,.66,.03); box(B,'#3a2016',-.016,PB.BY+.31,0,.03,.03,.66); box(B,'#3a2016',-.016,PB.BY-.33,0,.03,.03,.66);
+  await step(); { const B=sub(M,iw,0,PB.BZ); box(B,'#2a1a12',-.012,PB.BY-.31,0,.024,.62,.62); box(B,'#3a2016',-.016,PB.BY-.33,-.33,.03,.66,.03); box(B,'#3a2016',-.016,PB.BY-.33,.33,.03,.66,.03); box(B,'#3a2016',-.016,PB.BY+.31,0,.03,.03,.66); box(B,'#3a2016',-.016,PB.BY-.33,0,.03,.03,.66);
     cyl(pbTf(B,-.03,PB.BY,0,0,0,Math.PI/2),'#1c1a18',0,-.016,0,PB.BR,.032,'cyl'); box(M,'#c9a24a',PB.OCHE,F+.004,PB.BZ,.04,.006,.5);
     box(B,'#c9a24a',-.02,PB.BY+.4,0,.04,.04,.04); rod(M,'#c9a24a',V(iw-.02,PB.BY+.42,PB.BZ),V(iw-.24,PB.BY+.52,PB.BZ),.008); put(pbTf(M,iw-.27,PB.BY+.47,PB.BZ,0,0,.9),'cone','#7a2a20',0,0,0,.06,.09,.06); put(M,'sph','#fff2c4',iw-.29,PB.BY+.45,PB.BZ,.02,.02,.02);
     box(M,'#3e2418',iw-.015,F+1.2,-.2,.03,.56,.47); }
-  /* ---- the lamps: amber glass shades over the bar on their cords, and a wall lamp by the snug ---- */
-  const LMP=[[-.85,top-.62,PB.BAR[2]],[.25,top-.62,PB.BAR[2]]]; LMP.forEach(([x,y,z])=>{ cyl(M,'#2a2624',x,y+.1,z,.006,top-y-.1,'cyl8'); put(M,'cone','#c98a3a',x,y+.06,z,.13,.12,.13); put(M,'sph','#fff2c4',x,y,z,.045,.045,.045); });
-  { const B=sub(M,-iw+.02,F+1.62,.3); box(B,'#c9a24a',.02,0,0,.04,.08,.06); put(B,'cone','#c98a3a',.1,.12,0,.06,.1,.06); put(B,'sph','#fff2c4',.1,.1,0,.03,.03,.03); }
-  kitTo(); PUB.m.room=add(new T.Mesh(kgeo('pbin'),mat));
-  /* ---- the pictures (the team, the lighthouse, a launch, the jersey, the town over the mantel, a mirror, the session's
+  await step(); /* ---- the lamps: amber glass shades over the bar on their cords, and a wall lamp by the snug ---- */
+  await step(); const LMP=[[-.85,top-.62,PB.BAR[2]],[.25,top-.62,PB.BAR[2]]]; LMP.forEach(([x,y,z])=>{ cyl(M,'#2a2624',x,y+.1,z,.006,top-y-.1,'cyl8'); put(M,'cone','#c98a3a',x,y+.06,z,.13,.12,.13); put(M,'sph','#fff2c4',x,y,z,.045,.045,.045); });
+  await step(); { const B=sub(M,-iw+.02,F+1.62,.3); box(B,'#c9a24a',.02,0,0,.04,.08,.06); put(B,'cone','#c98a3a',.1,.12,0,.06,.1,.06); put(B,'sph','#fff2c4',.1,.1,0,.03,.03,.03); }
+  await step(); kitTo(); PUB.m.room=add(new T.Mesh(kgeo('pbin'),mat));
+  await step(); /* ---- the pictures (the team, the lighthouse, a launch, the jersey, the town over the mantel, a mirror, the session's
      note), the dartboard and the chalkboard: each on a canvas, read from the room ---- */
-  { const {tx}=pbCanvas(1024,512,pbBoards), P=[], N=[], U=[], quad=(a,b,c_,d_,n,u0,v0,u1,v1)=>{ for(const [p,u,v] of [[a,u0,v0],[c_,u1,v1],[b,u1,v0],[a,u0,v0],[d_,u0,v1],[c_,u1,v1]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); U.push(u/1024,1-v/512); } };
+  await step(); { const {tx}=pbCanvas(1024,512,pbBoards), P=[], N=[], U=[], quad=(a,b,c_,d_,n,u0,v0,u1,v1)=>{ for(const [p,u,v] of [[a,u0,v0],[c_,u1,v1],[b,u1,v0],[a,u0,v0],[d_,u0,v1],[c_,u1,v1]]){ P.push(p.x,p.y,p.z); N.push(n.x,n.y,n.z); U.push(u/1024,1-v/512); } };
     const wallX=(x,z0,z1,y0,y1,s,u0,v0,u1,v1)=>quad(pbW(x,y1,z0),pbW(x,y1,z1),pbW(x,y0,z1),pbW(x,y0,z0),pbD(s,0,0),u0,v0,u1,v1);
     const wallZ=(z,x0,x1,y0,y1,s,u0,v0,u1,v1)=>quad(pbW(x0,y1,z),pbW(x1,y1,z),pbW(x1,y0,z),pbW(x0,y0,z),pbD(0,0,s),u0,v0,u1,v1);
     wallX(-iw+.046,1.24,.86,F+1.5,F+1.98,1,0,0,256,320);   // the team, over the snug (read from the room: on this wall that is from the window back)
@@ -7347,51 +7363,51 @@ function buildPub(){ if(!PUB.M||PUB.g) return; const M=PUB.M, w=PB.w, d=PB.d, t=
     kitTo('pbfr'); for(const [x,z0,z1,y0,y1] of [[-iw+.025,.84,1.26,F+1.48,F+2.0],[-iw+.025,.42,.8,F+1.54,F+2.0],[iw-.025,-1.16,-.78,F+1.5,F+1.88]]) box(M,'#2a1a12',x,y0,(z0+z1)/2,.03,y1-y0,z1-z0);
     box(M,'#3a2016',-iw+.25,F+1.1,PB.FIRE[1],.03,.34,.86); box(M,'#2a1a12',1.37,F+1.46,-id+.025,.54,.6,.03); box(M,'#c9a24a',-1.1,F+1.48,-id+.025,.52,.44,.03); box(M,'#3a2016',.91,F+1.16,-id+.025,.3,.3,.03);
     kitTo(); add(new T.Mesh(kgeo('pbfr'),mat)); }
-  { const {tx}=pbCanvas(512,512,pbDartboard), bm=new T.Mesh(new T.CircleGeometry(PB.BR,64),pbBoard(tx)); bm.matrix.copy(M).multiply(pbM.makeTranslation(PB.BX,PB.BY,PB.BZ)).multiply(pbM2.makeRotationY(-Math.PI/2)); PUB.m.board=add(bm); PUB.dtx=tx; }
-  { const cv=document.createElement('canvas'); cv.width=256; cv.height=320; PUB.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PUB.chtx=tx; pbChalk();
+  await step(); { const {tx}=pbCanvas(512,512,pbDartboard), bm=new T.Mesh(new T.CircleGeometry(PB.BR,64),pbBoard(tx)); bm.matrix.copy(M).multiply(pbM.makeTranslation(PB.BX,PB.BY,PB.BZ)).multiply(pbM2.makeRotationY(-Math.PI/2)); PUB.m.board=add(bm); PUB.dtx=tx; }
+  await step(); { const cv=document.createElement('canvas'); cv.width=256; cv.height=320; PUB.ccv=cv; const tx=new T.CanvasTexture(cv); tx.anisotropy=4; PUB.chtx=tx; pbChalk();
     dotoLater(pbChalk);
     const cm=new T.Mesh(new T.PlaneGeometry(.4,.5),pbBoard(tx)); cm.matrix.copy(M).multiply(pbM.makeTranslation(iw-.032,F+1.48,-.2)).multiply(pbM2.makeRotationY(-Math.PI/2)); PUB.m.chalk=add(cm); }
-  /* ---- the clock's hands (keeping the time, as the post office's do) ---- */
-  { const hm=(L,wd)=>{ kitTo('pbhand'); box(new T.Matrix4(),'#2a241d',0,-.012,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pbhand'),mat)); }; PUB.m.hh=hm(.075,.012); PUB.m.mh=hm(.105,.008); PUB.ck=CK; }
-  /* ---- the fire's flames: tongues of flat colour, never inked, that lick and flicker ---- */
-  { const fl=[]; [['#ff8a2a',.07,.2,-.06],['#ffb347',.06,.17,.07],['#ff8a2a',.05,.14,.0],['#ffe08a',.04,.11,-.02],['#ffd36a',.035,.09,.08]].forEach(([c,r,h_,dz],i)=>{
+  await step(); /* ---- the clock's hands (keeping the time, as the post office's do) ---- */
+  await step(); { const hm=(L,wd)=>{ kitTo('pbhand'); box(new T.Matrix4(),'#2a241d',0,-.012,0,wd,L,.006); kitTo(); return add(new T.Mesh(kgeo('pbhand'),mat)); }; PUB.m.hh=hm(.075,.012); PUB.m.mh=hm(.105,.008); PUB.ck=CK; }
+  await step(); /* ---- the fire's flames: tongues of flat colour, never inked, that lick and flicker ---- */
+  await step(); { const fl=[]; [['#ff8a2a',.07,.2,-.06],['#ffb347',.06,.17,.07],['#ff8a2a',.05,.14,.0],['#ffe08a',.04,.11,-.02],['#ffd36a',.035,.09,.08]].forEach(([c,r,h_,dz],i)=>{
       const m=new T.Mesh(GEO.cone8,flatMat(c)); m.layers.set(1); m.matrixAutoUpdate=false; m.frustumCulled=false; m.userData.noInk=true; g.add(m); PUB.meshes.push(m); fl.push({m,r,h:h_,dz,ph:i*1.7}); }); PUB.fl=fl; }
-  /* ---- the instruments, left on the chairs and the table ---- */
-  { kitTo('pbinst'); const [a,b,c]=PB_MUS;
+  await step(); /* ---- the instruments, left on the chairs and the table ---- */
+  await step(); { kitTo('pbinst'); const [a,b,c]=PB_MUS;
     { const B=pbTf(M,a.at[0]-a.face[0]*.05,F+.335,a.at[1]-a.face[1]*.05,a.yaw+.4); pbFiddle(B); box(pbTf(B,.03,.012,.05,.15),'#5a3420',0,0,0,.006,.006,.5); }
     { const B=pbTf(M,b.at[0]+b.face[0]*.26,F,b.at[1]+b.face[1]*.26,b.yaw); pbDrum(pbTf(B,0,.19,0,0,Math.PI/2-.3)); }
     { const B=pbTf(M,sx_+.05,F+.615,sz_+.12,.6); pbWhistle(pbTf(B,0,.01,0,0,0,Math.PI/2)); }
     kitTo(); PUB.m.inst=add(new T.Mesh(kgeo('pbinst'),mat)); }
-  /* ---- Tadhg ---- */
-  { const f=figure(TADHG); pbVest(f,TADHG,'#2b2f36'); const bm=pbMat(); bm.uniforms.uLitA={value:new T.Vector3()};
+  await step(); /* ---- Tadhg ---- */
+  await step(); { const f=await figureA(TADHG,step); pbVest(f,TADHG,'#2b2f36'); const bm=pbMat(); bm.uniforms.uLitA={value:new T.Vector3()};
     { const B=part(); B.put(FG.box,'#e9e4d6',.13*TADHG.build,.95,0,.08,.016,.24,0,0,.2); f.userData.body.add(B.mesh()); }   // a bar towel over his shoulder
     { const C=part(); C.put(FG.can,'#d8e4e6',0,0,0,.028,.11,.028); C.put(FG.box,'#f3efe6',.02,.03,.03,.05,.07,.02); const cm=C.mesh(); f.userData.fore[1].add(cm); cm.position.set(0,-.21,.04); PUB.bk.glass=cm; }   // the glass he polishes
     f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=bm; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=PBINK; o.userData.shdM=o.material; INK.push(o); PUB.meshes.push(o); });
     g.add(f); PUB.bk.fig=f; }
-  /* ---- the three who play, sitting in, each with their instrument in hand; seen only on a market night ---- */
-  { const bm=pbMat(); bm.uniforms.uLitA={value:new T.Vector3()};
-    PB_MUS.forEach((m,i)=>{ const f=figure({...m.look,knee:true}), d=f.userData; d.body.position.y=-.06;   // (sitting: the hips on the seat, the knees bent, the feet on the floor)
+  await step(); /* ---- the three who play, sitting in, each with their instrument in hand; seen only on a market night ---- */
+  await step(); { const bm=pbMat(); bm.uniforms.uLitA={value:new T.Vector3()};
+    for(let i=0;i<PB_MUS.length;i++){ const m=PB_MUS[i]; await step(); const f=await figureA({...m.look,knee:true},step), d=f.userData; d.body.position.y=-.06;   // (sitting: the hips on the seat, the knees bent, the feet on the floor)
        d.legs.forEach((l,j)=>{ l.rotation.set(j?-1.48:-1.4,0,(j?1:-1)*.07); d.knees[j].rotation.x=j?1.36:1.25; });
       const I_=part(); if(m.key==='fiddle'){ pbPart(I_,pbFiddle); const im=I_.mesh(); d.head.add(im); im.position.set(.1,-.13,.07); im.rotation.set(.15,.55,-.25); const B=part(); B.put(FG.box,'#5a3420',0,-.21,.25,.006,.006,.52); B.put(FG.box,'#efe6d0',.0,-.225,.25,.004,.012,.48); d.fore[0].add(B.mesh()); }
       else if(m.key==='bodhran'){ pbPart(I_,pbDrum); const im=I_.mesh(); d.body.add(im); im.position.set(.1,.6,.26); im.rotation.order='YXZ'; im.rotation.set(Math.PI/2,-.4,0); const B=part(); B.put(FG.can,'#3a2016',0,-.2,.05,.008,.16,.008,Math.PI/2); d.fore[0].add(B.mesh()); }
       else { pbPart(I_,pbWhistle); const im=I_.mesh(); d.head.add(im); im.position.set(0,-.17,.3); im.rotation.set(-1.05,0,0); }
       f.traverse(o=>{ if(!o.isMesh||o.material===SHM) return; o.material=bm; o.frustumCulled=false; o.userData.noInk=true; o.userData.col=o.material; o.userData.inkM=PBINK; o.userData.shdM=o.material; INK.push(o); PUB.meshes.push(o); });
-      f.matrixAutoUpdate=false; f.matrix.copy(M).multiply(pbM.compose(pbV.set(m.at[0],F-.11,m.at[1]),pbQ.setFromAxisAngle(UPY,m.yaw),pbS.set(1,1,1))); g.add(f); f.updateMatrixWorld(true); PUB.mus.push({m,f,d,i,ph:i*1.3,blink:2+i}); }); }
-  /* ---- your three darts (and where they are: in your hand, flying, or in the board) ---- */
-  { kitTo('pbdart'); const I_=new T.Matrix4(); put(I_,'cone8','#c9cdd2',-.012,0,0,.0025,.024,.0025,0,0,-Math.PI/2); put(I_,'cyl8','#9aa0a6',-.047,0,0,.0065,.046,.0065,0,0,Math.PI/2);
+      f.matrixAutoUpdate=false; f.matrix.copy(M).multiply(pbM.compose(pbV.set(m.at[0],F-.11,m.at[1]),pbQ.setFromAxisAngle(UPY,m.yaw),pbS.set(1,1,1))); g.add(f); f.updateMatrixWorld(true); PUB.mus.push({m,f,d,i,ph:i*1.3,blink:2+i}); } }
+  await step(); /* ---- your three darts (and where they are: in your hand, flying, or in the board) ---- */
+  await step(); { kitTo('pbdart'); const I_=new T.Matrix4(); put(I_,'cone8','#c9cdd2',-.012,0,0,.0025,.024,.0025,0,0,-Math.PI/2); put(I_,'cyl8','#9aa0a6',-.047,0,0,.0065,.046,.0065,0,0,Math.PI/2);
     for(let k=0;k<4;k++) put(I_,'cyl8','#6b7076',-.04+k*.01,0,0,.0068,.002,.0068,0,0,Math.PI/2); put(I_,'cyl8','#2a2624',-.087,0,0,.003,.036,.003,0,0,Math.PI/2);
     for(let k=0;k<3;k++){ const a=k/3*TAU; box(pbTf(I_,-.122,0,0,0,a),k?'#fbf6ec':'#ef8a3c',0,-.0005,0,.034,.001,.03); }
     kitTo(); const dg=kgeo('pbdart'); PUB.dt.darts=[0,1,2].map(i=>{ const m=add(new T.Mesh(dg,mat)); m.visible=false; return {m,st:'hand',k:0,from:new T.Vector3(),to:new T.Vector3(),tilt:[0,0],vib:0,s:null}; }); }
-  /* ---- the lamps, for the light: over the bar, the fire, over the board ---- */
+  await step(); /* ---- the lamps, for the light: over the bar, the fire, over the board ---- */
   LMP.forEach((p,i)=>{ pbW(p[0],p[1]-.05,p[2],pbV); PBU.uCL.value[i].set(pbV.x,pbV.y,pbV.z,1); }); pbW(...PUB.fireAt,pbV); pbV.addScaledVector(PUB.up,.15); PBU.uCL.value[2].set(pbV.x,pbV.y,pbV.z,.8);
   pbW(iw-.3,PB.BY+.42,PB.BZ,pbV); PBU.uCL.value[3].set(pbV.x,pbV.y,pbV.z,.7);
-  /* ---- what a click finds: the front from the street; inside Tadhg, the board and the door (boxes, never drawn) ---- */
-  const pk=(w_,h_,d_,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w_,h_,d_)); m.matrixAutoUpdate=false; m.matrixWorld.copy(M).multiply(pbM.makeTranslation(x,y,z)); return m; };
-  PUB.pick=pk(w-.1,2.7,.5,0,1.35,d/2+.15); PUB.pickIn=pk(.9,1.4,.7,PB.BK[0],F+.75,PB.BAR[2]-.15); PUB.pickBoard=pk(.12,.7,.7,iw-.06,PB.BY,PB.BZ); PUB.pickOut=pk(PB.DW,PB.DH-F,.3,PB.DX,(PB.DH+F)/2,id);
-  try{ renderer.initTexture&&[PUB.btx,PUB.dtx,PUB.chtx].forEach(tx=>renderer.initTexture(tx)); }catch(e){}
+  await step(); /* ---- what a click finds: the front from the street; inside Tadhg, the board and the door (boxes, never drawn) ---- */
+  await step(); const pk=(w_,h_,d_,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w_,h_,d_)); m.matrixAutoUpdate=false; m.matrixWorld.copy(M).multiply(pbM.makeTranslation(x,y,z)); return m; };
+  await step(); PUB.pick=pk(w-.1,2.7,.5,0,1.35,d/2+.15); PUB.pickIn=pk(.9,1.4,.7,PB.BK[0],F+.75,PB.BAR[2]-.15); PUB.pickBoard=pk(.12,.7,.7,iw-.06,PB.BY,PB.BZ); PUB.pickOut=pk(PB.DW,PB.DH-F,.3,PB.DX,(PB.DH+F)/2,id);
+  await step(); if(!LATE.busy||LATE.now){ try{ renderer.initTexture&&[PUB.btx,PUB.dtx,PUB.chtx].forEach(tx=>renderer.initTexture(tx)); }catch(e){} }
   sc.add(g); PUB.g=g;
   PBWHO.dir.copy(at(...pbXZ(PB.BK[0],PB.BK[1]))); [PBWHO.x,PBWHO.z]=pbXZ(PB.BK[0],PB.BK[1]);
-  PUB.dt.best=Math.max(PUB.dt.best,pbStored()); pbRest(); pbPose(0,0,true); pbChalk();
+  await step(); PUB.dt.best=Math.max(PUB.dt.best,pbStored()); pbRest(); pbPose(0,0,true); pbChalk();
   pbSolids(); }
 /* the instruments, drawn into a builder at a frame: the fiddle (its body, neck, scroll, the bridge and tailpiece), the
    bodhrán (its rim, the skin, the cross-bar inside) and the whistle */
@@ -7745,7 +7761,9 @@ addEventListener('keyup',e=>{ if(e.code!=='Escape') return; if(PUB.escK){ PUB.es
 /* built after the town (and its trees) are; stepped after the town has moved you; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
   st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame());   // (a quiet frame before it: Earth may be made in parts after the loader)
-    try{ buildPub(); }catch(err){ PUB.err=String(err&&err.stack||err); console.warn('pub',err); } };
+    /* (its room after you land, see LATE: its door, its windows and its sign are the street's, made with the town) */
+    late('pub',step=>lateRoom(async after=>{ try{ await buildPub(step); if(after&&PUB.g){ PUB.warm=false; pbCull(true); PUB.g.visible=false; } }
+      catch(err){ PUB.err=String(err&&err.stack||err); console.warn('pub',err); kitTo(); } },step)); };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) pbStep(dt,t); return r; };
   st.enter=function(){ pbReset(); PUB.dt.best=Math.max(PUB.dt.best,pbStored()); return en.apply(this,arguments); }; st.exit=function(){ pbReset(true); return ex.apply(this,arguments); };
   st.finaleEnd=function(){ const r=fe.apply(this,arguments); pbReset(); return r; };

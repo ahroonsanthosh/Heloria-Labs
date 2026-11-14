@@ -16,7 +16,7 @@ module.exports = async ({ page, H, wait, log }) => {
 
   /* behind the loader */
   const s0 = await L();
-  rec(s0.left.includes('civic inside') && s0.left.includes('lh') && !s0.busy && !s0.log.length, 'behind the loader the hall, the school and the lighthouse rooms are left for after the landing', JSON.stringify(s0.left));
+  rec(['civic inside', 'lh', 'post office', 'pub'].every(n => s0.left.includes(n)) && !s0.busy && !s0.log.length, 'behind the loader the rooms of the hall, the school, the lighthouse, the post office and the pub are left for after the landing', JSON.stringify(s0.left));
   rec(s0.left[s0.left.length - 1] === 'market people', 'by day the night market\'s people too, last of all', JSON.stringify(s0.left));
   const mk0 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, obs: M.obs.length }; });
   rec(mk0.figs === 0 && mk0.obs > 0, 'their places on the square are kept from the start', JSON.stringify(mk0));
@@ -42,7 +42,7 @@ module.exports = async ({ page, H, wait, log }) => {
   rec(!tried || tried.lh === undefined || tried.lh === false, 'nor the lighthouse', JSON.stringify(tried && tried.lh));
 
   const s1 = await L();
-  rec(!s1.left.length && !s1.busy && s1.log.length === 3, 'once you are down they are all built', JSON.stringify(s1.log));
+  rec(!s1.left.length && !s1.busy && s1.log.length === 6, 'once you are down they are all built', JSON.stringify(s1.log));
   const mk1 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, placed: M.figs.every(f => f.g.parent === M.g), obs: M.obs.length, open: h.ST.cr._dbg.market.open(), vis: M.g.visible }; });
   rec(mk1.figs === 7 && mk1.placed && mk1.obs === mk0.obs && !mk1.open && !mk1.vis, 'the market\'s seven people are there, in their places, out of sight till evening', JSON.stringify(mk1));
   rec((s1.tops[2] || 0) < 50 && s1.max < 400, 'a little at a time: the page is held only briefly at once by the building (a hitch or two on this busy machine aside)', JSON.stringify(s1.tops) + ' ms, the longest at ' + JSON.stringify(s1.at) + ', in ' + s1.slices + ' turns; the longest wait on the graphics card ' + s1.gmax + ' ms (this machine\'s software drawing: seconds behind; on a graphics card, nothing)');
@@ -68,7 +68,14 @@ module.exports = async ({ page, H, wait, log }) => {
   await frames(); const lh = await H(h => { const B = h.ST.cr._dbg.lighthouse.L; return { st: B.st, vis: B.g.visible, log: !!B.logTx, progs: h.renderer.info.programs.length }; });
   rec(inLh && lh.st === 'in' && lh.vis && lh.log, 'and the lighthouse, the keeper\'s log on his desk', JSON.stringify(lh));
   rec(lh.progs === p0, 'going into the lighthouse compiles nothing new', p0 + ' then ' + lh.progs);
-  await H(h => h.ST.cr._dbg.lighthouse.reset());
+  await H(h => h.ST.cr._dbg.lighthouse.reset()); await frames();
+  for (const [k, name] of [['po', 'the post office, Bríd behind her counter'], ['pub', 'the pub']]) {
+    const ok = await H((h, k) => h.ST.cr._dbg[k].enter(), k);
+    for (let i = 0; i < 3000 && (await H((h, k) => h.ST.cr._dbg[k].P.st, k)) !== 'in'; i++) await wait(250);
+    await frames(); const q = await H((h, k) => { const B = h.ST.cr._dbg[k].P; return { st: B.st, vis: B.g.visible, progs: h.renderer.info.programs.length }; }, k);
+    rec(ok && q.st === 'in' && q.vis, 'and ' + name, JSON.stringify(q));
+    rec(q.progs === p0, 'going into ' + name.split(',')[0] + ' compiles nothing new', p0 + ' then ' + q.progs);
+    await H((h, k) => h.ST.cr._dbg[k].reset(), k); await frames(); }
 
   console.log(`RESULT ${pass} passed, ${fail} failed` + (failed.length ? ': ' + failed.join(' | ') : ''));
 };

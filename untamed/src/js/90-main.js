@@ -16,8 +16,13 @@ async function compileQuiet(sc,cam,sets){ try{
    yet be changed before it is first drawn (the rain is made dry in the workshop), and would then be made twice */
 function sendShaders(sc,cam){ try{ sc.traverse=sc.traverseVisible; intoTarget(()=>renderer.compile(sc,cam)); renderer.getContext().flush(); }catch(e){} finally{ delete sc.traverse; } }
 /* the other ways a world is drawn (its ink, its shadow), of what is shown now, sent off without waiting */
-function sendSets(sc,cam,sets){ if(sets) intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||hasLight(o)) return;
-  for(const f of sets){ const m=f(o); if(m&&m!==o.material){ const m0=o.material; o.material=m; try{ renderer.compile(o,cam,sc); }catch(e){} finally{ o.material=m0; } } } })); }
+/* (each way of drawing a thing sent once, not once for every thing drawn that way; and each sent on its own, not as a scene
+   searched through for lights (a world with none: the town has its own light, in its shaders) or with its children sent again) */
+function sendSets(sc,cam,sets){ if(!sets) return; let lit=false; sc.traverse(o=>{ if(o.isLight) lit=true; }); const done=new Set();
+  intoTarget(()=>sc.traverseVisible(o=>{ if(!o.material||Array.isArray(o.material)||(lit&&hasLight(o))) return;
+    for(const f of sets){ const m=f(o); if(!m||m===o.material) continue; const g=o.geometry, k=m.uuid+(o.isInstancedMesh?'i':'')+(o.isSkinnedMesh?'s':'')+(g?Object.keys(g.attributes).join()+'|'+Object.keys(g.morphAttributes||{}).join():'');
+      if(done.has(k)) continue; done.add(k); const m0=o.material, kids=o.children; o.material=m; o.children=[];
+      try{ renderer.compile(o,cam,lit?sc:null); }catch(e){} finally{ o.material=m0; o.children=kids; } } })); }
 /* the page's next turn: whatever is waiting (a frame to draw, a click) goes first, then straight on */
 const nextSlice=()=>new Promise(r=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); });
 /* every shader sent off so far is made (at once, where the browser makes them as they are first drawn with) */
