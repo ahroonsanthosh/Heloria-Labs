@@ -38,10 +38,14 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const H = (fn, arg) => page.evaluate(([src, a]) => (0, eval)('(' + src + ')')(window.__heloria, a), [fn.toString(), arg]);
   const log = (...a) => console.log(...a);
   await page.goto('file://' + path.resolve(opt.html) + (opt.query ? '?' + opt.query : '') + (opt.hash ? '#' + opt.hash : ''));   // --hash land / aetos: the old addresses; --query time=21:30 and the like
-  await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 600000 });   // (Earth is all made behind the loader: on a busy machine's software drawing that can take minutes)
+  /* (--real-autoplay: what the test itself asks the page must not count as a click: Playwright's own evaluate does, so the
+     wait and the scenario's look use a plain evaluate that is not a gesture, given to the scenario as quiet()) */
+  let cdp = null; const quiet = async expr => { if (!cdp) cdp = await page.context().newCDPSession(page); const r = await cdp.send('Runtime.evaluate', { expression: '(' + expr + ')()', returnByValue: true, userGesture: false, awaitPromise: true }); return r.result ? r.result.value : undefined; };
+  if (opt['real-autoplay']) { const t0 = Date.now(); while (!(await quiet('() => !!(window.__heloria && window.__heloria.S.ready)'))) { if (Date.now() - t0 > 600000) throw new Error('not ready'); await W(250); } }
+  else await page.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 600000 });   // (Earth is all made behind the loader: on a busy machine's software drawing that can take minutes)
   if (opt.earth) { await H(h => h.earth()); await W(+(opt.settle || 3000));
     if (!opt.scenario) await shot((mobile ? 'm-' : '') + 'earth'); }
-  if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile }); }
+  if (opt.scenario) { const fn = require(path.resolve(opt.scenario)); await fn({ page, shot, wait: W, H, vp, log, mobile, quiet }); }
   console.log(errors.length ? 'ERRORS ' + errors.length : 'NO ERRORS');
   await b.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });

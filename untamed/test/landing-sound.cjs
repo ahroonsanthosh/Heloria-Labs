@@ -5,23 +5,24 @@
    the prompt, so the landing never comes down in silence; on a phone a swipe or a tap. The way in starts the sound: the
    landing's own recording plays from the moment the rocket is coming down, and the town's music is up by the touchdown,
    not at your first key afterwards. */
-module.exports = async ({ page, shot, wait, log, mobile }) => {
+module.exports = async ({ page, shot, wait, log, mobile, quiet }) => {
   let pass = 0, fail = 0; const failed = [];
   const rec = (ok, name, info) => { if (ok) pass++; else { fail++; failed.push(name); } console.log((ok ? 'PASS ' : 'FAIL ') + name + (info ? '  (' + info + ')' : '')); };
   const until = async (fn, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await page.evaluate(fn)) return true; await wait(120); } return false; };
   const pre = mobile ? 'm-' : '';
 
-  rec(await until(() => document.querySelector('#load').classList.contains('ready'), 600000), 'the opening screen gets ready');
+  /* (until the way in, the page is only looked at quietly: the test's own questions must not count as a click) */
+  const untilQ = async (expr, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await quiet(expr)) return true; await wait(150); } return false; };
+  rec(await untilQ("() => document.querySelector('#load').classList.contains('ready')", 600000), 'the opening screen gets ready');
   await wait(1400);
-  const cue = await page.evaluate(() => document.querySelector('#beginT').textContent);
+  const cue = await quiet("() => document.querySelector('#beginT').textContent");
   rec(mobile ? /^swipe to land$/i.test(cue) : /^click to land$/i.test(cue), mobile ? 'on a phone it asks for a swipe' : 'on a computer it asks for a click (a scroll cannot start the sound on a page of its own)', cue);
-  rec(await page.evaluate(() => !window.__heloria.A.ctx || window.__heloria.A.ctx.state !== 'running'), 'before the way in, no sound has started (as on a visitor\'s browser)');
+  rec(await quiet("() => !window.__heloria.A.ctx || window.__heloria.A.ctx.state !== 'running'"), 'before the way in, no sound has started (as on a visitor\'s browser)');
   await shot(pre + 'ls-1-opening');
-
   if (!mobile) {
     await page.mouse.move(640, 400); await page.mouse.wheel(0, 240); await wait(1000);
-    const s = await page.evaluate(() => ({ mode: window.__heloria.S.mode, nudge: document.querySelector('#begin').classList.contains('nudge') }));
-    rec(s.mode === 'load' && s.nudge, 'a scroll does not start a silent landing: it nudges the prompt', JSON.stringify(s));
+    const s = JSON.parse(await quiet("() => JSON.stringify({ mode: window.__heloria.S.mode, nudge: document.querySelector('#begin').classList.contains('nudge'), act: !!(navigator.userActivation && navigator.userActivation.hasBeenActive) })"));
+    rec(s.mode === 'load' && s.nudge && !s.act, 'a scroll does not start a silent landing: it nudges the prompt', JSON.stringify(s));
     await page.mouse.click(640, 400);
   } else await page.tap('#begin');
   rec(await until(() => window.__heloria.S.mode !== 'load', 10000), mobile ? 'a tap goes in' : 'a click goes in');
