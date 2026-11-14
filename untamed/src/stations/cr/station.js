@@ -844,7 +844,11 @@ function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F
    height, depth, how much the jaw narrows, how far the chin comes forward); funnel and zip make a quarter-zip (funnel: how far
    open its collar is), polo a polo's collar and buttons; under is the shirt collar showing beneath; watch on the left wrist;
    mous(tache), goatee, cheeks, mouth; prop is the thing we carry for our project */
-function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); const W=o.build||1, Aw=o.arm||W, sk=o.skin, sh=o.shirt;
+/* (made in parts: the torso, the legs, the arms, the head, the face, the hair; all at once by figure, or a part at a time by
+   figureA, with the frame drawn between, for someone built after you land) */
+function figure(o){ const it=figureG(o); let r; while(!(r=it.next()).done); return r.value; }
+async function figureA(o,step=lateStep){ const it=figureG(o); let r; while(!(r=it.next()).done) await step(); return r.value; }
+function* figureG(o){ const g=new T.Group(), body=new T.Group(); g.add(body); const W=o.build||1, Aw=o.arm||W, sk=o.skin, sh=o.shirt;
   const bd=part();
   bd.put(FG.sph,o.pants,0,.53,0,.138*W,.09,.088);
   // the top, hem to neck: in at the waist, out at the chest, round over the shoulders; a band at the hem
@@ -870,7 +874,7 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
     blot(bd,TS,[[-.013,.97],[.013,.97],[.013,.865],[-.013,.865]],o.polo,.003); [.94,.9].forEach(y=>{ const q=TS(0,y,.006); bd.put(FG.sph,'#59534d',q.p.x,q.p.y,q.p.z,.0065,.0065,.004); }); }
   if(o.logo) blot(bd,TS,oval(.075*W,.86,.011,.006,8),o.logo,.003);
   if(o.pack){ bd.put(FG.box,o.pack,0,.79,-.17,.24,.3,.12); bd.put(FG.box,tint(o.pack,-.3),0,.93,-.205,.2,.05,.06); [-1,1].forEach(s=>bd.put(FG.box,tint(o.pack,-.3),s*.085,.83,0,.028,.2,.235)); }   // and its straps
-  body.add(bd.mesh());
+  body.add(bd.mesh()); yield;
   // legs: trousers tapering to the ankle; and shoes: a sole rounded at the toe and the heel, a low toe and a heel cup on it,
   // laces down the front, and the hem of the trousers resting on top. Toes turn out a touch, as people stand
   const sole=o.sole||tint(o.shoes,-.35), lt=C3(o.shoes), lace=o.lace||tint(o.shoes,lt.r*.3+lt.g*.59+lt.b*.11>.55?-.28:.42);
@@ -889,7 +893,7 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
     K.put(FG.tube,tint(o.pants,-.12),0,-.432,0,.06,.01,.062);
     l.add(L.mesh()); if(o.knee){ const km=K.mesh(0,-.22,0); l.add(km); knees.push(km); } body.add(l); return l; });
   // arms: a rounded shoulder and the upper arm in one piece, the forearm and hand in another, so a wave can bend at the elbow
-  const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
+  yield; const fore=[], arms=[-1,1].map(s=>{ const a=new T.Group(); a.position.set(s*.2*W,.9,0); const U=part(), sl=o.short?sk:sh;
     U.put(FG.sph,sh,0,-.012,0,.049*Aw);
     if(o.short){ U.put(FG.limb,sh,0,-.055,0,.058*Aw,.11,.058*Aw); U.put(FG.tube,sh,0,-.104,0,.047*Aw,.014,.047*Aw); U.put(FG.limb,sk,0,-.14,0,.045*Aw,.09,.045*Aw); }
     else U.put(FG.limb,sh,0,-.09,0,.049*Aw,.18,.049*Aw);
@@ -902,12 +906,13 @@ function figure(o){ const g=new T.Group(), body=new T.Group(); g.add(body); cons
       Fm.put(FG.can,'#f4f0e8',0,-.15,z,.03,.17,.03); Fm.put(FG.cone,'#f4f0e8',0,-.03,z,.03,.07,.03); Fm.put(FG.can,'#ef8a3c',0,-.105,z,.032,.022,.032);
       [-1,1].forEach(k=>Fm.put(FG.box,'#ffc392',k*.038,-.222,z,.03,.045,.008)); }
     fa.add(Fm.mesh()); fore.push(fa); body.add(a); return a; });
+  yield;
   // the head
   const head=new T.Group(); head.position.y=1.165; body.add(head); const H=part(), E=part(), hd=o.head||[.152,.172,.16,.14,.024], f=headF(...hd);
-  H.grid(skin(f),sk,true);
+  H.grid(skin(f),sk,true); yield;
   [-1,1].forEach(s=>H.put(FG.sph,sk,s*hd[0]*.97,-.022,-.008,.02,.038,.028,0,s*.35));   // ears
-  const ey=face(H,E,f,o);
-  HAIR[o.hair](H,f,o.hairC);
+  const ey=face(H,E,f,o); yield;
+  HAIR[o.hair](H,f,o.hairC); yield;
   if(o.prop==='headset'){ const hc='#2a2c31';   // Kríos: a headset, its band behind his hair, the mic at his mouth
     H.put(FG.band,hc,0,.0,-.01,hd[0]+.035,.225,.225,-.55); [-1,1].forEach(s=>{ H.put(FG.sph,hc,s*(hd[0]+.03),-.02,-.004,.024,.046,.042); H.put(FG.can,'#4a4d54',s*(hd[0]+.05),-.02,-.004,.03,.006,.03,0,0,Math.PI/2); });
     const m0=v3(-(hd[0]+.04),-.04,.03), mq=onFace(f,-.036,ey-.075,.016).p, L=mq.clone().sub(m0), mid=m0.clone().add(mq).multiplyScalar(.5), s1=v3().crossVectors(L,fY).normalize().multiplyScalar(.006), s2=v3().crossVectors(L,s1).normalize().multiplyScalar(.006);
@@ -1273,7 +1278,9 @@ const MKT_PEOPLE=[
   {id:'cart1',look:{shirt:'#e3b04a',pants:'#2f3640',shoes:'#6b4a33',skin:'#f0c9a8',hair:'tousled',hairC:'#b5793f',pack:'#5b6b7d'},arm:1,act:'queue',at:[-4.05,.95],to:[-4.2,1.75]},
   {id:'table1',look:{shirt:'#6d5a8c',crew:true,pants:'#2b2d33',shoes:'#c94f3d',skin:'#c48c66',hair:'short',hairC:'#2a1d16',glasses:'#2a2420'},arm:0,act:'eat',hold:'chips',at:[-2.0,4.82],to:[-1.5,5.0],dry:true},
   {id:'table2',look:{shirt:'#d8cbb2',funnel:.5,zip:'#6b6257',under:'#b04a3a',pants:'#4a4f5a',shoes:'#2b2b2e',skin:'#9c6646',hair:'curly',hairC:'#1b1411'},arm:1,act:'sip',hold:'cup',at:[-1.02,4.78],to:[-1.5,5.0],dry:true}];
-function mktFigure(o){ const g=figure(o.look), d=g.userData, u={value:0}, mat=mktMat(u,{fig:true}); g.updateMatrixWorld(true);
+/* (and a part at a time, for the market made after you land) */
+async function mktFigureA(o,step){ const g=await figureA(o.look,step); await step(); return mktFigure(o,g); }
+function mktFigure(o,g0){ const g=g0||figure(o.look), d=g.userData, u={value:0}, mat=mktMat(u,{fig:true}); g.updateMatrixWorld(true);
   const keep=d.arms[o.arm], under=(m,r)=>{ for(let q=m;q;q=q.parent) if(q===r) return true; return false; }, rel=(m,r)=>new T.Matrix4().copy(r.matrixWorld).invert().multiply(m.matrixWorld);
   const B=[], Hd=[]; d.body.traverse(m=>{ if(!m.isMesh) return; if(under(m,d.head)) Hd.push([m.geometry,rel(m,d.head)]); else if(!under(m,keep)) B.push([m.geometry,rel(m,d.body)]); });
   /* the extras, each a part in the frame of what it goes with */
@@ -1416,11 +1423,18 @@ async function buildMarket(gap){ const g=new T.Group(); MKT.g=g; g.visible=false
     MKT.smoke={m:sm,src:[FL,HP],up:[FL.clone().normalize(),HP.clone().normalize()],side:new T.Vector3().crossVectors(FL.clone().normalize(),new T.Vector3(0,0,1)).normalize(),
       p:Array.from({length:N},(_,i)=>({t:9,life:1,s:i%3===2?1:0,x:0,z:0})),k:0}; }
   await gap();
-  /* the people: the two at the stalls, two in the queue for chips, one at the cart, two at the high table */
-  MKT_PEOPLE.forEach(o=>{ const f=mktFigure(o); let x, z, h, u, fw;
+  /* the people: the two at the stalls, two in the queue for chips, one at the cart, two at the high table. Their places are
+     kept now (the square's walking grid and what else is set out round it keep clear of them); by day, the market shut and
+     not about to open, they themselves are made after you land (see LATE), out of sight until evening as they always are */
+  const spots=MKT_PEOPLE.map(o=>{ let x, z, h, u, fw, ob=null;
     if(o.van){ const p=V.set(o.van[0],.4,o.van[1]).applyMatrix4(VM); u=p.clone().normalize(); [x,z]=loc(u); h=p.length()-R; fw=tang(u,V2.set(0,0,1).transformDirection(VM),new T.Vector3()); }
-    else { [x,z]=o.at; u=at(x,z); h=standH(x,z); fw=tang(u,at(o.to[0],o.to[1]),new T.Vector3()); f.ob=mktObs(x,z,.3,1.3); }
-    standOn(f.g,u,fw,h); f.x=x; f.z=z; f.dir=u.clone(); g.add(f.g); MKT.figs.push(f); });
+    else { [x,z]=o.at; u=at(x,z); h=standH(x,z); fw=tang(u,at(o.to[0],o.to[1]),new T.Vector3()); ob=mktObs(x,z,.3,1.3); }
+    return {o,x,z,h,u,fw,ob}; });
+  const place=f=>{ const q=spots[MKT.figs.length]; if(q.ob) f.ob=q.ob; standOn(f.g,q.u,q.fw,q.h); f.x=q.x; f.z=q.z; f.dir=q.u.clone(); g.add(f.g); MKT.figs.push(f); return f; };
+  if(SKY.h>=MKT.OPEN-.5||SKY.h<MKT.SHUT) for(const q of spots) place(mktFigure(q.o));
+  else late('market people',async step=>{ const after=!!S.ready, made=[]; for(const q of spots){ made.push(place(await mktFigureA(q.o,step))); await step(); }
+    if(PF.figs) for(const f of made) PF.figs.push(f.g);   // (their breath on a cold night, as everyone's: see the sky alive)
+    if(after&&!LATE.now) await lateWarm(made.map(f=>f.g),step); },-1);
   /* Diarmuid's big amp: a two-speaker cabinet with the head on top, beside him past his little amp (away from the pub's
      corner and its barrel table), and a lead from his little amp into it, along the ground behind */
   { const Pp=part(), AM=new T.Matrix4().compose(v3(-1.1,0,-.4),dmQ.setFromAxisAngle(UPY,.35),v3(1,1,1));
@@ -3089,6 +3103,45 @@ function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]
   const a=lp[(bi-2+lp.length)%lp.length], b=lp[(bi+2)%lp.length], c=lp[bi], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz), ux=tx/L, uz=tz/L, up=at(c[0],c[1]);
   for(let k=-2;k<=2;k++){ const lat=k*.42, x0=c[0]-uz*lat, z0=c[1]+ux*lat; const Pq=(al,dl)=>at(x0+ux*al-uz*dl,z0+uz*al+ux*dl,new T.Vector3()).multiplyScalar(R+ROADH+.008);
     for(let m=0;m<4;m++){ const a0=-.9+m*.45, a1=a0+.45; kquad(Pq(a0,-.12),Pq(a1,-.12),Pq(a1,.12),Pq(a0,.12),up,'#f1ecdf'); } } }   // (in four, so it lies on the road all the way across)
+
+/* ---------- built after you land: the rooms you have not gone into yet, a little at a time between the frames, so the loader
+   waits only for what is out in the open. A part is built, the frame is drawn, and on; never more than a few thousandths of a
+   second at a time (lateStep). Each room is made ready to be drawn as it is finished (lateWarm), and nothing of one can be
+   gone into or tapped until it is all there. In the tests (and anything else built behind the loader) they are built
+   straight away, at the end of the build, as they always were ---------- */
+const LATE={q:[],busy:false,now:false,ms:4,s0:0,lt:0,tr:window.__LATE_TR?[]:null,max:0,at:null,slices:0,log:[],cur:null,t0:0,t1:0,calm:0,n:0};
+const lateNo=()=>{};
+function late(name,fn,pri=0){ LATE.q.push({name,fn,pri}); LATE.q.sort((a,b)=>b.pri-a.pri); }   // (pri: the rooms you might walk into first; what is out of sight till evening last)
+/* between two parts: on at once while this turn has time left, else the next frame drawn first (and the kit being filled,
+   put back as it was: something else may fill another in the meantime) */
+function lateStep(force){ LATE.n++; const t=performance.now(); if(LATE.tr){ const w=(new Error().stack.split('\n')[2]||'').match(/:(\d+):(\d+)\)?$/); LATE.tr.push([LATE.cur,LATE.n,+(t-LATE.lt).toFixed(1),w?+w[1]:0]); LATE.lt=performance.now(); } if(LATE.now||!force&&t-LATE.s0<LATE.ms) return; return lateYield(t); }
+async function lateYield(t){ const d=t-LATE.s0; if(d>LATE.max){ LATE.max=d; LATE.at=[LATE.cur,LATE.n]; } LATE.slices++;
+  const kp=KP, kn=KN, kc=KC, gk=GRD&&GRD.kit;
+  await new Promise(r=>requestAnimationFrame(()=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); }));
+  KP=kp; KN=kn; KC=kc; if(GRD) GRD.kit=gk; LATE.s0=LATE.lt=performance.now(); }
+async function lateRun(){ if(LATE.busy||!LATE.q.length) return; LATE.busy=true; LATE.t0=LATE.s0=LATE.lt=performance.now();
+  while(LATE.q.length){ const j=LATE.q.shift(), t0=performance.now(); LATE.cur=j.name; LATE.n=0;
+    try{ await j.fn(lateStep); }catch(err){ console.warn('late: '+j.name,err); kitTo(); }
+    LATE.log.push([j.name,Math.round(performance.now()-t0),LATE.n]); }
+  LATE.cur=null; LATE.busy=false; LATE.t1=performance.now(); }
+/* all of it now, nothing waited for */
+async function lateFlush(){ LATE.now=true; try{ while(LATE.busy) await new Promise(r=>setTimeout(r,0)); await lateRun(); } finally{ LATE.now=false; } }
+/* a room built late: what it adds to the world found and made ready to draw. Built behind the loader instead (the tests),
+   it is drawn once there with the rest, as it always was (after: false) */
+async function lateRoom(build,step){ const was=new Set(sc.children), after=!!S.ready; await build(after); if(!after||LATE.now) return;
+  await lateWarm(sc.children.filter(o=>!was.has(o)),step); }
+/* so the first time it is drawn holds nothing up: each of its shaders made (in the background, where the browser can, and
+   then looked over, one a turn), its pictures sent to the graphics card, one a turn, and its shapes sent by drawing each
+   part once, small, out of sight */
+async function lateWarm(objs,step){ const P=renderer.properties, mats=[], seen=new Set(), texs=new Set(), progs=new Set(), sets=st.matSets||[];
+  const look=(o,m)=>{ if(!m||Array.isArray(m)) return; const k=m.uuid+(o.isInstancedMesh?'i':'')+(o.isSkinnedMesh?'s':''); if(seen.has(k)) return; seen.add(k); mats.push([o,m]);
+    for(const n in m){ const v=m[n]; if(v&&v.isTexture) texs.add(v); } if(m.uniforms) for(const n in m.uniforms){ const v=m.uniforms[n]&&m.uniforms[n].value; if(v&&v.isTexture) texs.add(v); } };
+  for(const g of objs) g.traverse(o=>{ if(!o.material) return; look(o,o.material); for(const f of sets) look(o,f(o)); });
+  for(const [o,m] of mats){ const m0=o.material; o.material=m; try{ intoTarget(()=>renderer.compile(o,stCam)); }catch(e){} finally{ o.material=m0; }
+    const pr=P.get(m).currentProgram; if(pr) progs.add(pr); await step(); }
+  for(const pr of progs){ for(let k=0;k<240&&pr.isReady&&!pr.isReady();k++) await step(true); try{ pr.getUniforms(); pr.getAttributes(); }catch(e){} await step(); }
+  for(const t of texs){ try{ renderer.initTexture(t); }catch(e){} await step(); }
+  for(const g of objs) for(const c of g.isMesh?[g]:g.children){ if(!c.visible) continue; try{ intoTarget(()=>renderer.render(c,stCam)); }catch(e){} await step(); } }
 
 /* ---------- build, in steps so the loader keeps breathing ---------- */
 st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the page's turn (see st.pace, set behind the loader), else the next frame
@@ -4797,7 +4850,9 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||CIV.card<0||e.
 /* built after the town; stepped after the town has moved you and placed its camera; put back with it */
 { const b=st.build, up=st.update, en=st.enter, ex=st.exit;
   st.build=async function(){ await b.apply(this,arguments); try{ await buildCivic(); }catch(err){ CIV.err=String(err&&err.stack||err); console.warn('civic',err); }
-    try{ if(CIV.ok) await buildCivIn(()=>st.pace?st.pace():nextFrame()); }catch(err){ HSI.err=String(err&&err.stack||err); console.warn('civic inside',err); kitTo(); } };
+    /* (the hall's front doors are the street's: made now, with the hall outside; the two rooms after you land, see LATE) */
+    if(CIV.ok){ try{ HSI.leaves0=[-1,1].map(s=>hiLeaf(CIV.hall.M,s)); for(const L of HSI.leaves0) L.mi.visible=false; }catch(err){ HSI.err=String(err&&err.stack||err); console.warn('hall doors',err); kitTo(); }
+      late('civic inside',step=>lateRoom(async after=>{ try{ await buildCivIn(step,after); }catch(err){ HSI.err=String(err&&err.stack||err); console.warn('civic inside',err); kitTo(); } },step)); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&CIV.ok) civStep(dt,t); if(st.built&&HSI.ok) hiStep(dt,t); return r; };
   st.enter=function(){ CIV.h0=null; CIV.chime=null; civCard(-1); hiReset(); return en.apply(this,arguments); };
   st.exit=function(){ civCard(-1); CIV.chime=null; hiReset(true); return ex.apply(this,arguments); }; }
@@ -4923,7 +4978,8 @@ function hiInv(g){ const p=g.attributes.position.array, n=g.attributes.normal.ar
 /* a canvas texture, drawn now (again when the lettering's font arrives), sent to the graphics chip at once */
 function hiCanvas(w,h,draw){ const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const tx=new T.CanvasTexture(cv); tx.anisotropy=4;
   const go=()=>{ draw(cv.getContext('2d'),w,h,cv); tx.needsUpdate=true; }; go(); dotoLater(go);
-  try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} return {cv,tx,go}; }
+  if(!LATE.busy||LATE.now){ try{ renderer.initTexture&&renderer.initTexture(tx); }catch(e){} }   // (built after you land: sent with the room's other pictures, a turn each, see lateWarm)
+  return {cv,tx,go}; }
 const hiFont=(px,w=900)=>`${w} ${px}px Doto, ui-monospace, Menlo, monospace`;
 /* a figure in a room's light: every piece of it (but its soft shadow) in the room's material, drawn into the ink as the
    room is; the barista is made the same way */
@@ -4936,39 +4992,39 @@ function hiTwin(src,mat){ const map=new Map(), cp=o=>{ const n=o.isMesh?new T.Me
 function hiStand(B,f,x,z,a,y=0){ f.position.copy(hiP(B.M,x,B.F+y,z)); hiQ2.setFromRotationMatrix(B.M); f.quaternion.copy(hiQ2).multiply(hiQ.setFromAxisAngle(UPY,a)); f.updateMatrix(); }
 
 /* ---------- the town hall's hall ---------- */
-function hiBuildHall(){ const H=CIV.hall, M=H.M, F=HH.FL, ix=HH.IX, iz=HH.IZ, top=HH.CH, rr=seeded(41);
-  const B=HSI.hall=hiRoom('hall',M,HU,HH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c);
-  kitTo('hhall');
-  /* ---- oak boards running in from the door, a red runner up the middle; dark panelling to the dado rail and warm plaster
+async function hiBuildHall(step=lateNo){ const H=CIV.hall, M=H.M, F=HH.FL, ix=HH.IX, iz=HH.IZ, top=HH.CH, rr=seeded(41);
+  await step(); const B=HSI.hall=hiRoom('hall',M,HU,HH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c);
+  await step(); kitTo('hhall');
+  await step(); /* ---- oak boards running in from the door, a red runner up the middle; dark panelling to the dado rail and warm plaster
      over it, a picture rail, a moulded cornice; a ceiling with roses where the lamps hang, and the hatch the stair goes up to ---- */
-  for(let i=0;i<16;i++){ const x0=-ix+i*2*ix/16, x1=x0+2*ix/16; let z=-iz+(i%3)*.17; if(z>-iz) fq(x0+.003,-iz,x1-.003,z-.004,F,'#9c6b45');
+  await step(); for(let i=0;i<16;i++){ const x0=-ix+i*2*ix/16, x1=x0+2*ix/16; let z=-iz+(i%3)*.17; if(z>-iz) fq(x0+.003,-iz,x1-.003,z-.004,F,'#9c6b45');
     while(z<iz){ const z1=Math.min(iz,z+.55+rr()*.8); fq(x0+.003,z,x1-.003,z1-.004,F,['#9c6b45','#a87650','#93633f','#a3714b'][Math.floor(rr()*4)]); z=z1; } }
   fq(-.25,-1.05,.25,1.22,F+.004,'#a8372e'); [-1,1].forEach(s=>fq(s*.25-.025,-1.05,s*.25+.025,1.22,F+.005,'#d9b45a'));
-  const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,HH.dw+.004,y0-1,HH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
+  await step(); const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,HH.dw+.004,y0-1,HH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
   lin('#3f5648',F,F+.56,.03); lin('#6b4c34',F+.54,F+.6,.045); lin('#efe2c4',F+.58,top,.02); lin('#2f4038',F,F+.08,.045); lin('#6b4c34',2.62,2.66,.035); lin('#f6efdf',top-.12,top,.06);
-  /* raised panels along the panelling, but where the door is */
-  for(const [ax,s] of [['x',1],['x',-1],['z',1],['z',-1]]){ const L=ax==='x'?ix:iz; for(let u=-L+.3;u<L-.2;u+=.42){ if(ax==='x'&&s>0&&Math.abs(u)<HH.dw/2+.2) continue;
+  await step(); /* raised panels along the panelling, but where the door is */
+  await step(); for(const [ax,s] of [['x',1],['x',-1],['z',1],['z',-1]]){ const L=ax==='x'?ix:iz; for(let u=-L+.3;u<L-.2;u+=.42){ if(ax==='x'&&s>0&&Math.abs(u)<HH.dw/2+.2) continue;
       if(ax==='x') box(M,'#4a6353',u,F+.13,s*(iz-.035),.3,.33,.012); else box(M,'#4a6353',s*(ix-.035),F+.13,u,.012,.33,.3); } }
   box(M,'#f4ecd9',0,top,0,2*ix+.04,.04,2*iz+.04);
-  { const [sx,sz]=HH.ST; box(M,'#241e1a',sx,top-.006,sz,.84,.008,.84); [-1,1].forEach(s=>{ box(M,'#6b4c34',sx+s*.43,top-.03,sz,.04,.03,.9); box(M,'#6b4c34',sx,top-.03,sz+s*.43,.9,.03,.04); }); }
-  /* ---- the windows, from inside, where they are outside: tall below, short above; curtains at the lower ones on the ends ---- */
-  const W=(x,y,z,ry,tw,th,cur)=>{ const Wm=sub(M,x,y,z,ry); hiWin(Wm,tw,th,'#f3efe6','#8a6448'); if(cur) for(let k=0;k<3;k++) box(Wm,k%2?'#7a2a26':'#8c302b',cur*(tw/2+.1+k*.035),-th/2-.12,.04+k*.012,.04,th+.32,.03); };   // (cur: the side the curtain is drawn back to, away from the noticeboard or the plaques between the windows)
+  await step(); { const [sx,sz]=HH.ST; box(M,'#241e1a',sx,top-.006,sz,.84,.008,.84); [-1,1].forEach(s=>{ box(M,'#6b4c34',sx+s*.43,top-.03,sz,.04,.03,.9); box(M,'#6b4c34',sx,top-.03,sz+s*.43,.9,.03,.04); }); }
+  await step(); /* ---- the windows, from inside, where they are outside: tall below, short above; curtains at the lower ones on the ends ---- */
+  await step(); const W=(x,y,z,ry,tw,th,cur)=>{ const Wm=sub(M,x,y,z,ry); hiWin(Wm,tw,th,'#f3efe6','#8a6448'); if(cur) for(let k=0;k<3;k++) box(Wm,k%2?'#7a2a26':'#8c302b',cur*(tw/2+.1+k*.035),-th/2-.12,.04+k*.012,.04,th+.32,.03); };   // (cur: the side the curtain is drawn back to, away from the noticeboard or the plaques between the windows)
   W(1.13,1.5,iz-.02,Math.PI,.5,.85); [-1.13,0,1.13].forEach(x=>W(x,2.88,iz-.02,Math.PI,.5,.6));
-  [-.85,.85].forEach(x=>{ W(x,1.5,-iz+.02,0,.5,.85); W(x,2.88,-iz+.02,0,.5,.6); });
-  [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ W(s*(ix-.02),1.5,z,-s*Math.PI/2,.5,.85,Math.sign(z)*s); W(s*(ix-.02),2.88,z,-s*Math.PI/2,.5,.6); }));
-  /* radiators under the end windows, cream, with their pipes */
-  [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ if(s>0&&z<0) return; const Rm=sub(M,s*(ix-.08),F+.1,z,-s*Math.PI/2); box(Rm,'#ece4d2',0,0,0,.5,.36,.05); for(let k=0;k<8;k++) box(Rm,'#f6efe0',-.21+k*.06,.02,.03,.025,.32,.02); cyl(Rm,'#b8b0a0',-.27,-.1,0,.012,.1,'cyl8'); }));
-  /* ---- the spiral stair up into the tower: a newel floor to ceiling, oak treads on iron brackets, balusters and a rail ---- */
-  { const [sx,sz,sr]=HH.ST, n=16, rise=(top-.16-F)/n, K='#2f3a36', a0=-1.25, da=TAU*1.02/n, rail=[];
+  await step(); [-.85,.85].forEach(x=>{ W(x,1.5,-iz+.02,0,.5,.85); W(x,2.88,-iz+.02,0,.5,.6); });
+  await step(); [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ W(s*(ix-.02),1.5,z,-s*Math.PI/2,.5,.85,Math.sign(z)*s); W(s*(ix-.02),2.88,z,-s*Math.PI/2,.5,.6); }));
+  await step(); /* radiators under the end windows, cream, with their pipes */
+  await step(); [-1,1].forEach(s=>[-.6,.6].forEach(z=>{ if(s>0&&z<0) return; const Rm=sub(M,s*(ix-.08),F+.1,z,-s*Math.PI/2); box(Rm,'#ece4d2',0,0,0,.5,.36,.05); for(let k=0;k<8;k++) box(Rm,'#f6efe0',-.21+k*.06,.02,.03,.025,.32,.02); cyl(Rm,'#b8b0a0',-.27,-.1,0,.012,.1,'cyl8'); }));
+  await step(); /* ---- the spiral stair up into the tower: a newel floor to ceiling, oak treads on iron brackets, balusters and a rail ---- */
+  await step(); { const [sx,sz,sr]=HH.ST, n=16, rise=(top-.16-F)/n, K='#2f3a36', a0=-1.25, da=TAU*1.02/n, rail=[];
     cyl(M,K,sx,F,sz,.045,top-F-.02,'cyl8'); cyl(M,K,sx,F,sz,.08,.05,'cyl8');
     for(let k=0;k<n;k++){ const a=a0+k*da, y=F+rise*(k+1), Tt=hiTf(M,sx,y,sz,a); box(Tt,'#9a6a44',sr*.5+.03,-.035,0,sr+.02,.035,.19); box(Tt,K,sr*.5+.03,-.06,0,sr,.025,.05);
       const bx=sx+Math.cos(a)*(sr+.02), bz=sz-Math.sin(a)*(sr+.02); hiRod(M,K,new T.Vector3(bx,y,bz),new T.Vector3(bx,y+.72,bz),.009); rail.push([bx,y+.74,bz]); }
     hiTube(M,'#5a3d2c',rail,.018,64); hiRod(M,K,new T.Vector3(...rail[0]),new T.Vector3(rail[0][0],F,rail[0][2]),.014);
     cyl(M,'#b8913e',rail[0][0],rail[0][1]-.01,rail[0][2],.026,.04,'cyl8');
     hiHit(B,'stair',sr*2+.1,2.1,sr*2+.1,hiTf(M,sx,F+1.05,sz)); B.stair={x:sx,z:sz,r:sr,a0,da,n,rise}; }
-  /* ---- the counter: panelled, a polished top; on it the visitor book on its stand, the bell to ring for service, a stamp
+  await step(); /* ---- the counter: panelled, a polished top; on it the visitor book on its stand, the bell to ring for service, a stamp
      and its pad, forms, a pot of pens, and the reading lamp; a filing cabinet behind, a fern on it ---- */
-  { const [x0,x1,z0,z1]=HH.DK, h=.82, cx=(x0+x1)/2, cz=(z0+z1)/2, T_=F+h;
+  await step(); { const [x0,x1,z0,z1]=HH.DK, h=.82, cx=(x0+x1)/2, cz=(z0+z1)/2, T_=F+h;
     box(M,'#6b4a36',cx,F,cz,x1-x0,h-.04,z1-z0); box(M,'#8a5f40',cx-.01,T_-.045,cz,x1-x0+.07,.045,z1-z0+.06); box(M,'#3a2e27',x0-.002,F,cz,.01,.08,z1-z0);
     for(let k=0;k<4;k++) box(M,'#7b5440',x0-.008,F+.16,z0+.13+k*(z1-z0-.26)/3,.012,.5,.2);
     { const L=hiTf(M,1.03,T_,.56,0,0,.42); box(L,'#5a3d2c',0,0,0,.2,.03,.32); B.bookAt=[1.03,T_+.04,.56]; }
@@ -4983,58 +5039,58 @@ function hiBuildHall(){ const H=CIV.hall, M=H.M, F=HH.FL, ix=HH.IX, iz=HH.IZ, to
     cyl(M,'#b65a3e',1.47,F+.72,-.18,.07,.12); for(let k=0;k<7;k++) put(M,'blob',LEAF[1+(k%3)],1.47+Math.cos(k*.9)*.08,F+.88+(k%3)*.04,-.18+Math.sin(k*.9)*.08,.07,.05,.07,k);
     /* a leaflet rack on the front of the counter */
     { const Rk=sub(M,x0-.03,F+.62,.42,-Math.PI/2); box(Rk,'#5a3d2c',0,0,0,.26,.04,.04); [['#ef8a3c',-.08],['#5cae6e',0],['#3f7fd0',.08]].forEach(([c,x])=>box(Rk,c,x,.02,.01,.07,.11,.008)); } }
-  /* ---- the partners' plaques again, on the wall behind the counter ---- */
-  { const PM=sub(M,ix-.022,0,0,-Math.PI/2); box(PM,'#efe9dc',0,1.75,-.005,.62,1.25,.02); CPQ.forEach(([y,pw,ph])=>box(PM,'#8e6d2b',0,y+.92-ph/2-.012,.004,pw+.024,ph+.024,.012));
+  await step(); /* ---- the partners' plaques again, on the wall behind the counter ---- */
+  await step(); { const PM=sub(M,ix-.022,0,0,-Math.PI/2); box(PM,'#efe9dc',0,1.75,-.005,.62,1.25,.02); CPQ.forEach(([y,pw,ph])=>box(PM,'#8e6d2b',0,y+.92-ph/2-.012,.004,pw+.024,ph+.024,.012));
     B.plq=CPQ.map(([y,pw,ph],i)=>{ hiHit(B,'plaque',pw+.06,ph+.06,.1,hiTf(PM,0,y+.92,0),{i}); return y+.92; });
     hiAdd(B,new T.Mesh(ciQuads(CPQ.map(([y,pw,ph],i)=>({M:PM,x:0,y:y+.92,z:.012,w:pw,h:ph,u0:0,u1:1,v0:1-CPV[i][1]/1024,v1:1-CPV[i][0]/1024}))),hiBoard(HU,ciCanvas(512,1024,ciPlaques),.25))); }
-  /* ---- the noticeboard: cork in an oak frame, the notes pinned on it (a texture, so a tap can say which note) ---- */
-  { const NM=sub(M,-ix+.022,1.66,0,Math.PI/2); box(NM,'#6b4a36',0,-.37,0,.74,.76,.03); B.nbC=hiCanvas(512,512,hiNotes);
+  await step(); /* ---- the noticeboard: cork in an oak frame, the notes pinned on it (a texture, so a tap can say which note) ---- */
+  await step(); { const NM=sub(M,-ix+.022,1.66,0,Math.PI/2); box(NM,'#6b4a36',0,-.37,0,.74,.76,.03); B.nbC=hiCanvas(512,512,hiNotes);
     B.nb=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.66,.68),hiBoard(HU,B.nbC.tx,.3))); B.nb.matrix.copy(NM).multiply(hiM.makeTranslation(0,0,.032)); B.nb.matrixWorld.copy(B.nb.matrix); }
-  /* ---- the round table and the model of the town on it ---- */
-  { const [tx,tz,tr]=HH.TB, ty=F+HH.TBH;
+  await step(); /* ---- the round table and the model of the town on it ---- */
+  await step(); { const [tx,tz,tr]=HH.TB, ty=F+HH.TBH;
     cyl(M,'#5a3d2c',tx,F,tz,.26,.04); cyl(M,'#6b4a36',tx,F+.04,tz,.075,HH.TBH-.09); cyl(M,'#5a3d2c',tx,ty-.09,tz,.32,.05); cyl(M,'#7a5238',tx,ty-.04,tz,tr+.03,.04); cyl(M,'#3a2e27',tx,ty,tz,tr-.005,.012);
     for(let k=0;k<4;k++){ const a=k*Math.PI/2+.4; hiRod(M,'#5a3d2c',new T.Vector3(tx+Math.cos(a)*.24,F+.03,tz+Math.sin(a)*.24),new T.Vector3(tx+Math.cos(a)*.07,F+.32,tz+Math.sin(a)*.07),.022); }
-    const s=(tr-.06)/23.5; B.mdl={x:tx,y:ty+.012,z:tz,s,r:tr-.04,yaw:H.yaw}; hiModel(M,B.mdl);
+    const s=(tr-.06)/23.5; B.mdl={x:tx,y:ty+.012,z:tz,s,r:tr-.04,yaw:H.yaw}; await hiModel(M,B.mdl,step);
     hiHit(B,'model',2*tr,.03,2*tr,hiTf(M,tx,ty+.012,tz)); B.mdlHit=B.picks[B.picks.length-1].m; }   // (its top where the island's ground is, so a tap finds what it is on)
-  /* ---- the back wall: a bench to wait on, the town's crest over it; the flag in its stand in the corner; a big fern ---- */
+  await step(); /* ---- the back wall: a bench to wait on, the town's crest over it; the flag in its stand in the corner; a big fern ---- */
   box(M,'#7a5238',-.02,F+.36,-iz+.2,.95,.05,.3); [-1,1].forEach(s=>{ box(M,'#5a3d2c',-.02+s*.42,F,-iz+.1,.05,.38,.05); box(M,'#5a3d2c',-.02+s*.42,F,-iz+.3,.05,.38,.05); });
   box(M,'#7a5238',-.02,F+.62,-iz+.06,.95,.28,.04);
-  { const CM=sub(M,-.02,2.0,-iz+.025,0); box(CM,'#b8913e',0,-.3,0,.5,.6,.025); B.crest=hiCanvas(256,320,hiCrest);
+  await step(); { const CM=sub(M,-.02,2.0,-iz+.025,0); box(CM,'#b8913e',0,-.3,0,.5,.6,.025); B.crest=hiCanvas(256,320,hiCrest);
     const m=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.44,.54),hiBoard(HU,B.crest.tx,.2))); m.matrix.copy(CM).multiply(hiM.makeTranslation(0,0,.016)); }
-  { const fx=-1.36, fz=-1.02; cyl(M,'#3a2e27',fx,F,fz,.12,.05); cyl(M,'#5a3d2c',fx,F+.05,fz,.03,.12,'cyl8'); cyl(M,'#5a3d2c',fx,F,fz,.014,2.05,'cyl8'); put(M,'cone','#d9b45a',fx,F+2.1,fz,.03,.09,.03); put(M,'sph','#d9b45a',fx,F+2.05,fz,.025,.025,.025);
+  await step(); { const fx=-1.36, fz=-1.02; cyl(M,'#3a2e27',fx,F,fz,.12,.05); cyl(M,'#5a3d2c',fx,F+.05,fz,.03,.12,'cyl8'); cyl(M,'#5a3d2c',fx,F,fz,.014,2.05,'cyl8'); put(M,'cone','#d9b45a',fx,F+2.1,fz,.03,.09,.03); put(M,'sph','#d9b45a',fx,F+2.05,fz,.025,.025,.025);
     /* the tricolour hanging from the pole in folds: green at the pole, then white and orange */
     const C_=['#1f9a63','#f5f2ea','#f08a3a'].map(C3), NX=12, NY=8, out=new T.Vector3(.62,0,.78).normalize(), Pt=(u,v)=>new T.Vector3(fx+out.x*u*.62,F+1.98-v*.52-u*u*.42,fz+out.z*u*.62).add(hiV3.set(-out.z,0,out.x).multiplyScalar(.035*Math.sin(u*9+v*1.4)*(.3+u)));
     const G_=[]; for(let j=0;j<=NY;j++){ G_[j]=[]; for(let i=0;i<=NX;i++) G_[j][i]=Pt(i/NX,j/NY); }
     for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){ const a=hiP(M,...G_[j][i].toArray()), b=hiP(M,...G_[j][i+1].toArray()), c=hiP(M,...G_[j+1][i+1].toArray()), d=hiP(M,...G_[j+1][i].toArray());
       const n=hiV1.subVectors(b,a).cross(hiV2.subVectors(d,a)).normalize(); kquad(a,b,c,d,n.clone(),C_[Math.floor(i/(NX/3))]); kquad(a,b,c,d,n.clone().negate(),C_[Math.floor(i/(NX/3))]); } }
   cyl(M,'#b65a3e',.62,F,-1.08,.13,.22); for(let k=0;k<9;k++) put(M,'blob',LEAF[k%4],.62+Math.cos(k*1.7)*.12,F+.32+(k%4)*.09,-1.08+Math.sin(k*1.7)*.1,.11,.09,.11,k);
-  /* ---- by the door: a coat stand with a hat and a scarf, an umbrella stand; the wall clock over the door ---- */
-  { const cx=-1.36, cz=1.0; cyl(M,'#3a2e27',cx,F,cz,.13,.03); cyl(M,'#5a3d2c',cx,F,cz,.018,1.55,'cyl8'); for(let k=0;k<4;k++){ const a=k*Math.PI/2+.3; hiRod(M,'#5a3d2c',new T.Vector3(cx,F+1.45,cz),new T.Vector3(cx+Math.cos(a)*.12,F+1.55,cz+Math.sin(a)*.12),.01); }
+  await step(); /* ---- by the door: a coat stand with a hat and a scarf, an umbrella stand; the wall clock over the door ---- */
+  await step(); { const cx=-1.36, cz=1.0; cyl(M,'#3a2e27',cx,F,cz,.13,.03); cyl(M,'#5a3d2c',cx,F,cz,.018,1.55,'cyl8'); for(let k=0;k<4;k++){ const a=k*Math.PI/2+.3; hiRod(M,'#5a3d2c',new T.Vector3(cx,F+1.45,cz),new T.Vector3(cx+Math.cos(a)*.12,F+1.55,cz+Math.sin(a)*.12),.01); }
     cyl(M,'#3a3d4a',cx+.08,F+1.5,cz,.07,.07); cyl(M,'#3a3d4a',cx+.08,F+1.5,cz,.1,.01); box(M,'#c8473a',cx-.06,F+1.0,cz+.02,.05,.5,.12); box(M,'#d9b45a',cx-.06,F+1.02,cz+.02,.052,.04,.122);
     cyl(M,'#7a8a6a',-1.02,F,1.1,.08,.36); hiRod(M,'#2c4f9e',new T.Vector3(-1.02,F+.05,1.1),new T.Vector3(-1.0,F+.62,1.08),.012); hiRod(M,'#2a2624',new T.Vector3(-1.03,F+.05,1.11),new T.Vector3(-1.07,F+.66,1.14),.012);
     put(M,'cone','#2c4f9e',-1.0,F+.5,1.08,.04,.16,.04); }
-  { const CW=sub(M,0,2.58,iz-.025,Math.PI); put(CW,'cyl','#3a2e27',0,0,.01,.19,.02,.19,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
+  await step(); { const CW=sub(M,0,2.58,iz-.025,Math.PI); put(CW,'cyl','#3a2e27',0,0,.01,.19,.02,.19,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
     const m=hiAdd(B,new T.Mesh(new T.CircleGeometry(.17,32),hiBoard(HU,B.clockC.tx,.3))); m.matrix.copy(CW).multiply(hiM.makeTranslation(0,0,.022)); B.clockFr=CW; }
-  /* ---- the lamps: two glass globes hanging from roses, the reading lamp; where each is, for the light ---- */
-  B.lamps=[[-.72,-.08],[.45,.3]].map(([x,z])=>{ const y=top-.72; cyl(M,'#f6efdf',x,top-.03,z,.11,.03); hiRod(M,'#2a2624',new T.Vector3(x,top-.03,z),new T.Vector3(x,y+.1,z),.005); cyl(M,'#b8913e',x,y+.08,z,.035,.04,'cyl8'); put(M,'sph',HBULB,x,y,z,.1,.1,.1); return hiP(M,x,y-.02,z); });
-  kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hhall'),hiMat(HU))); delete KITS.hhall;
-  /* the clock's hands over the door, the visitor book's pages: their own meshes, as they change */
-  B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.01,0,.012,i?.145:.1,.005); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),hiMat(HU))); }); delete KITS.hhand;
-  { const [bx,by,bz]=B.bookAt, BM=hiTf(M,bx,by,bz,0,0,.42); B.bookC=hiCanvas(512,320,hiBookDraw);
+  await step(); /* ---- the lamps: two glass globes hanging from roses, the reading lamp; where each is, for the light ---- */
+  await step(); B.lamps=[[-.72,-.08],[.45,.3]].map(([x,z])=>{ const y=top-.72; cyl(M,'#f6efdf',x,top-.03,z,.11,.03); hiRod(M,'#2a2624',new T.Vector3(x,top-.03,z),new T.Vector3(x,y+.1,z),.005); cyl(M,'#b8913e',x,y+.08,z,.035,.04,'cyl8'); put(M,'sph',HBULB,x,y,z,.1,.1,.1); return hiP(M,x,y-.02,z); });
+  await step(); kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hhall'),hiMat(HU))); delete KITS.hhall;
+  await step(); /* the clock's hands over the door, the visitor book's pages: their own meshes, as they change */
+  await step(); B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.01,0,.012,i?.145:.1,.005); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),hiMat(HU))); }); delete KITS.hhand;
+  await step(); { const [bx,by,bz]=B.bookAt, BM=hiTf(M,bx,by,bz,0,0,.42); B.bookC=hiCanvas(512,320,hiBookDraw);
     kitTo('hbook'); box(hiTf(BM,0,0,0,Math.PI/2),'#7a2a26',0,-.012,0,.3,.012,.2); kitTo(); hiAdd(B,new T.Mesh(kgeo('hbook'),hiMat(HU))); delete KITS.hbook;
     const pg=hiAdd(B,new T.Mesh(new T.PlaneGeometry(.29,.19),hiBoard(HU,B.bookC.tx,.35))); pg.matrix.copy(BM).multiply(hiM.makeTranslation(0,.002,0)).multiply(hiM2.makeBasis(hiV1.set(0,0,1),hiV2.set(1,0,0),hiV3.set(0,1,0))); pg.matrixWorld.copy(pg.matrix);
     hiHit(B,'book',.24,.12,.34,hiTf(M,bx,by+.02,bz)); }
-  /* ---- Séamus, the clerk: a cardigan over a shirt and tie, grey hair and glasses, behind the counter ---- */
-  { const f=figure({shirt:'#3e5a76',crew:true,under:'#f2efe6',pants:'#2f3137',shoes:'#2b2b2e',skin:'#e0ac85',hair:'wavy',hairC:'#c9c3b8',glasses:'#2a241d',mous:true,mouth:'smile',cheeks:true,build:1.02,head:[.152,.174,.16,.15,.026]});
+  await step(); /* ---- Séamus, the clerk: a cardigan over a shirt and tie, grey hair and glasses, behind the counter ---- */
+  await step(); { const f=await figureA({shirt:'#3e5a76',crew:true,under:'#f2efe6',pants:'#2f3137',shoes:'#2b2b2e',skin:'#e0ac85',hair:'wavy',hairC:'#c9c3b8',glasses:'#2a241d',mous:true,mouth:'smile',cheeks:true,build:1.02,head:[.152,.174,.16,.15,.026]});
     hiFigure(B,f,hiMat(HU)); B.clerk={f,d:f.userData,x:HH.CLK[0],z:HH.CLK[1],a:-Math.PI/2,ph:0,wave:0,wt:0,write:0,stamp:9,look:0};
     hiHit(B,'clerk',.5,1.4,.5,hiTf(M,HH.CLK[0],F+.7,HH.CLK[1])); }
-  /* where the lamps are, how bright: the two globes, the reading lamp, the hatch, and by day the street at the open door */
-  B.L=[B.lamps[0],B.lamps[1],B.lampD,hiP(M,HH.ST[0],top-.3,HH.ST[1]),hiP(M,0,1.6,iz+.9)];
-  /* the doors: each leaf the town's colours outside and the room's inside, swinging in on its hinge */
-  B.leaves=[-1,1].map(s=>{ const lf=hiLeaf(M,s); return lf; });
+  await step(); /* where the lamps are, how bright: the two globes, the reading lamp, the hatch, and by day the street at the open door */
+  await step(); B.L=[B.lamps[0],B.lamps[1],B.lampD,hiP(M,HH.ST[0],top-.3,HH.ST[1]),hiP(M,0,1.6,iz+.9)];
+  await step(); /* the doors: each leaf the town's colours outside and the room's inside, swinging in on its hinge */
+  await step(); B.leaves=HSI.leaves0||[-1,1].map(s=>hiLeaf(M,s));
   hiHit(B,'door',HH.dw,HH.dh-F,.3,hiTf(M,0,(HH.dh+F)/2,iz+.05));
-  B.front=hiHit(B,'front',3.6,4.8,1.4,hiTf(M,0,2.4,1.55)); B.picks.pop();   // (the hall from the street: a click there walks you over and in)
-  hiBuildClock(B);
+  await step(); B.front=hiHit(B,'front',3.6,4.8,1.4,hiTf(M,0,2.4,1.55)); B.picks.pop();   // (the hall from the street: a click there walks you over and in)
+  await hiBuildClock(B,step);
   return B; }
 /* a leaf of the hall's double door: s -1 the left, 1 the right (as you face it from the street); panelled both sides, brass handles */
 function hiLeaf(M,s){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g); const w=HH.dw/2-.01, h=HH.dh-HH.FL-.02, I=new T.Matrix4();
@@ -5051,25 +5107,25 @@ function hiLeaf(M,s){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g)
    every 60 cm, the heights a little more than to scale so the island stands up off its sea), the roads and paths on it, every
    house where it stands, the trees, and each landmark in small; all turned the way the town lies from here. o: where its
    middle is on the table (in the hall's frame), how big a metre is, how far it reaches, which way the hall faces ---------- */
-function hiModel(M,o){ const s=o.s, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw), VS=1.6, up=hiD(M,0,1,0), R2=(o.r/s)**2;
+async function hiModel(M,o,step=lateNo){ const s=o.s, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw), VS=1.6, up=hiD(M,0,1,0), R2=(o.r/s)**2;
   const lx=(x,z)=>o.x+s*(x*cy-z*sy), lz=(x,z)=>o.z+s*(x*sy+z*cy), P=(x,z,y)=>hiP(M,lx(x,z),o.y+y,lz(x,z));
   const yh=h=>(Math.max(h,WATER-.04)-WATER)*s*VS, SEA=.004, LAND=SEA+yh(0);
   const at_=(x,z,ry=0)=>hiTf(M,lx(x,z),o.y+LAND,lz(x,z),ry);
   cyl(M,'#4f9fbb',o.x,o.y,o.z,o.r,SEA);   // the sea, out to the table's edge
   const st=.6, n=Math.ceil(23.6/st);
-  for(let j=-n;j<n;j++) for(let i=-n;i<n;i++){ const x0=i*st, z0=j*st, x1=x0+st, z1=z0+st, cx=x0+st/2, cz=z0+st/2; if(cx*cx+cz*cz>R2*.96) continue;
+  for(let j=-n;j<n;j++){ await step(); for(let i=-n;i<n;i++){ const x0=i*st, z0=j*st, x1=x0+st, z1=z0+st, cx=x0+st/2, cz=z0+st/2; if(cx*cx+cz*cz>R2*.96) continue;
     const h=[grid(GH,x0,z0),grid(GH,x1,z0),grid(GH,x1,z1),grid(GH,x0,z1)]; if(Math.max(...h)<WATER+.02) continue;
     const a=P(x0,z0,SEA+yh(h[0])), b=P(x1,z0,SEA+yh(h[1])), c=P(x1,z1,SEA+yh(h[2])), d=P(x0,z1,SEA+yh(h[3]));
     const nn=new T.Vector3().subVectors(d,a).cross(hiV2.subVectors(b,a)).normalize(); if(nn.dot(up)<0) nn.negate();
     const hm=Math.min(...h), rd=roadDist(cx,cz), pd=pathDist(cx,cz); let col=(i+j)&1?'#8fc06f':'#88ba69';
     if(hm<-.12) col=(i+j)&1?'#b9ad98':'#aea28d'; else if(grid(GB,cx,cz)>.4&&hm<-.01||grid(GL,cx,cz)<.02) col='#e8d9aa';
     if(pd<.05) col='#d9c79c'; if(rd<RW+SW) col='#e6e0d3'; if(rd<RW) col='#8e969a'; if(Math.hypot(cx-PAD[0],cz-PAD[1])<2.4) col='#c9c3b8';
-    kquad(a,b,c,d,nn,col); }
-  /* the trees, a little larger than they are, so they read */
+    kquad(a,b,c,d,nn,col); } }
+  await step(); /* the trees, a little larger than they are, so they read */
   for(const [x,z,ts] of TREES){ if(x*x+z*z>R2) continue; const Tm=at_(x,z), k=s*ts*1.15; cyl(Tm,'#7a5a42',0,0,0,.12*k,1.2*k,'cyl8'); put(Tm,'blob',LEAF[Math.abs(Math.round(x*7+z*3))%4],0,1.75*k,0,.8*k,.7*k,.8*k,x); }
-  /* every house where it stands, turned as it is: its door and two windows (lit at night) toward its road */
+  await step(); /* every house where it stands, turned as it is: its door and two windows (lit at night) toward its road */
   const HC=[[-13.3,-3.2,'#f1e2c6','#c8664b'],[-13,3.8,'#cfe0e6','#4f6f8f'],[-5.8,13.6,'#f3d9c4','#9a5340'],[-10.6,10.4,'#e9d3b0','#7d5a8f'],[7.4,-12,'#dfe6ef','#c8664b']];
-  for(const Hh of HOUSES){ hiV1.setFromMatrixPosition(Hh.M); const [hx,hz]=loc(hiV2.copy(hiV1).normalize()), [fx,fz]=loc(hiV3.set(0,0,1).applyMatrix4(Hh.M).normalize());
+  for(const Hh of HOUSES){ await step(); hiV1.setFromMatrixPosition(Hh.M); const [hx,hz]=loc(hiV2.copy(hiV1).normalize()), [fx,fz]=loc(hiV3.set(0,0,1).applyMatrix4(Hh.M).normalize());
     const dmx=fx-hx, dmz=fz-hz, HM=at_(hx,hz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)), w=Hh.w*s, d=Hh.d*s, h=Hh.h*s;
     let wall='#f3e6cc', roof='#c8664b'; const q=HC.find(q=>Math.hypot(q[0]-hx,q[1]-hz)<.6); if(q){ wall=q[2]; roof=q[3]; }
     if(Hh.M===CIV.hall.M){ const SWc='#ddd5c3';   /* the hall: its tower and green spire, and a red pin in it: you are here */
@@ -5080,19 +5136,19 @@ function hiModel(M,o){ const s=o.s, cy=Math.cos(o.yaw), sy=Math.sin(o.yaw), VS=1
     if(GAR.M&&Hh.M===GAR.M){ wall='#c9d5d1'; roof='#59646a'; cyl(HM,'#8c9599',1.4*s,h+.26*s,-.7*s,.08*s,3*s,'cyl8'); put(HM,'sph','#ff8a2a',1.4*s,h+3.3*s,-.7*s,.2*s,.2*s,.2*s); }
     box(HM,wall,0,0,0,w,h,d); if(Hh.flat) box(HM,roof,0,h,0,w+.3*s,.22*s,d+.3*s); else put(HM,'prism',roof,0,h,0,d+.62*s,1.2*s,w+.5*s,Math.PI/2);
     box(HM,'#6e4a3a',Hh.dx*s,0,d/2,.62*s,1.2*s,.006); [-.3,.3].forEach(k=>box(HM,HLIT,k*w,1.15*s,d/2,.5*s,.5*s,.008)); }
-  /* the landmarks in small: Kríos's glass in the square, Aetos's dish on its rocks, Pharos striped on the cliff, Ogive and its
+  await step(); /* the landmarks in small: Kríos's glass in the square, Aetos's dish on its rocks, Pharos striped on the cliff, Ogive and its
      tower; the rocket on the pad; the jetty; the bench and the kite on the cliff */
-  if(INST.kr){ const K_=at_(INST.kr.x,INST.kr.z); cyl(K_,'#c9c1b3',0,0,0,1.55*s,.16*s); cyl(K_,'#ddd6c8',0,.16*s,0,1.28*s,.14*s); cyl(K_,'#e9e3d7',0,.3*s,0,.34*s,1.1*s); put(K_,'sph','#bcd8e6',0,2.05*s,0,.75*s,.75*s,.75*s); }
-  if(INST.ae){ const A_=at_(INST.ae.x,INST.ae.z); put(A_,'rock','#a49e94',0,.5*s,0,1.5*s,1.1*s,1.4*s); cyl(A_,'#9aa3ab',0,.9*s,0,.12*s,1.9*s,'cyl8'); put(A_,'sph','#f2f4f2',0,2.9*s,.1*s,.85*s,.35*s,.85*s,0,-.5); }
-  if(INST.ph){ const P_=at_(INST.ph.x,INST.ph.z); cyl(P_,'#bdb5a8',0,0,0,1.15*s,.5*s); for(let k=0;k<6;k++) put(P_,'tcyl',k%2?'#cf4a36':'#f4efe6',0,(.5+k*.72+.36)*s,0,(.84-k*.06)*s,.72*s,(.84-k*.06)*s);
+  await step(); if(INST.kr){ const K_=at_(INST.kr.x,INST.kr.z); cyl(K_,'#c9c1b3',0,0,0,1.55*s,.16*s); cyl(K_,'#ddd6c8',0,.16*s,0,1.28*s,.14*s); cyl(K_,'#e9e3d7',0,.3*s,0,.34*s,1.1*s); put(K_,'sph','#bcd8e6',0,2.05*s,0,.75*s,.75*s,.75*s); }
+  await step(); if(INST.ae){ const A_=at_(INST.ae.x,INST.ae.z); put(A_,'rock','#a49e94',0,.5*s,0,1.5*s,1.1*s,1.4*s); cyl(A_,'#9aa3ab',0,.9*s,0,.12*s,1.9*s,'cyl8'); put(A_,'sph','#f2f4f2',0,2.9*s,.1*s,.85*s,.35*s,.85*s,0,-.5); }
+  await step(); if(INST.ph){ const P_=at_(INST.ph.x,INST.ph.z); cyl(P_,'#bdb5a8',0,0,0,1.15*s,.5*s); for(let k=0;k<6;k++) put(P_,'tcyl',k%2?'#cf4a36':'#f4efe6',0,(.5+k*.72+.36)*s,0,(.84-k*.06)*s,.72*s,(.84-k*.06)*s);
     cyl(P_,'#3e4448',0,4.82*s,0,.92*s,.1*s); cyl(P_,'#e7f1ef',0,4.92*s,0,.5*s,.62*s); put(P_,'cone','#cf4a36',0,5.84*s,0,.66*s,.6*s,.66*s); }
-  if(INST.og){ const O_=at_(INST.og.x,INST.og.z); box(O_,'#c3bdb2',0,0,0,3.2*s,.22*s,3.2*s); cyl(O_,'#f4f0e8',0,.5*s,0,.3*s,2.5*s); put(O_,'cone','#ef8a3c',0,3.4*s,0,.3*s,.84*s,.3*s); box(O_,'#c8664b',1.15*s,.22*s,0,.64*s,4*s,.64*s); }
-  { const D_=at_(PAD[0],PAD[1]); cyl(D_,'#c9c3b8',0,0,0,2.35*s,.1*s); cyl(D_,'#f4ede0',0,.1*s,0,.8*s,3*s); put(D_,'cone','#f4ede0',0,3.9*s,0,.8*s,1.8*s,.8*s); [0,1,2,3].forEach(k=>box(hiTf(D_,0,0,0,k*Math.PI/2+.4),'#f2b28a',.9*s,.1*s,0,.9*s,1.2*s,.08*s)); }
-  { const [a,b]=JETTY, [mx,mz]=[(a[0]+b[0])/2,(a[1]+b[1])/2], dmx=b[0]-a[0], dmz=b[1]-a[1]; box(at_(mx,mz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)),'#b48a5c',0,-.3*s,0,1.2*s,.35*s,Math.hypot(dmx,dmz)*s); }
-  { const C_=at_(CLF.x,CLF.z,CLF.yaw-o.yaw); box(C_,'#b8834f',0,0,0,1.5*s,.5*s,.5*s); box(hiTf(C_,.8*s,.4*s,-.6*s,0,0,.3),'#ef8a3c',0,0,0,.5*s,.8*s,.05*s); } }
+  await step(); if(INST.og){ const O_=at_(INST.og.x,INST.og.z); box(O_,'#c3bdb2',0,0,0,3.2*s,.22*s,3.2*s); cyl(O_,'#f4f0e8',0,.5*s,0,.3*s,2.5*s); put(O_,'cone','#ef8a3c',0,3.4*s,0,.3*s,.84*s,.3*s); box(O_,'#c8664b',1.15*s,.22*s,0,.64*s,4*s,.64*s); }
+  await step(); { const D_=at_(PAD[0],PAD[1]); cyl(D_,'#c9c3b8',0,0,0,2.35*s,.1*s); cyl(D_,'#f4ede0',0,.1*s,0,.8*s,3*s); put(D_,'cone','#f4ede0',0,3.9*s,0,.8*s,1.8*s,.8*s); [0,1,2,3].forEach(k=>box(hiTf(D_,0,0,0,k*Math.PI/2+.4),'#f2b28a',.9*s,.1*s,0,.9*s,1.2*s,.08*s)); }
+  await step(); { const [a,b]=JETTY, [mx,mz]=[(a[0]+b[0])/2,(a[1]+b[1])/2], dmx=b[0]-a[0], dmz=b[1]-a[1]; box(at_(mx,mz,Math.atan2(dmx*cy-dmz*sy,dmx*sy+dmz*cy)),'#b48a5c',0,-.3*s,0,1.2*s,.35*s,Math.hypot(dmx,dmz)*s); }
+  await step(); { const C_=at_(CLF.x,CLF.z,CLF.yaw-o.yaw); box(C_,'#b8834f',0,0,0,1.5*s,.5*s,.5*s); box(hiTf(C_,.8*s,.4*s,-.6*s,0,0,.3),'#ef8a3c',0,0,0,.5*s,.8*s,.05*s); } }
 /* ---------- what is drawn on canvas: the noticeboard, the crest over the bench, the visitor book's pages ---------- */
 function hiWrap(c,t,x,y,w,lh){ const ws=t.split(' '); let line='', yy=y; for(const wd of ws){ const tt=line?line+' '+wd:wd; if(c.measureText(tt).width>w&&line){ c.fillText(line,x,yy); line=wd; yy+=lh; } else line=tt; } if(line) c.fillText(line,x,yy); return yy; }
-function hiNotes(c,W,H){ const r=seeded(17); c.fillStyle='#b98a5a'; c.fillRect(0,0,W,H); for(let i=0;i<2600;i++){ c.fillStyle=`rgba(${r()<.5?'90,60,30':'230,200,160'},${.12+r()*.2})`; c.fillRect(r()*W,r()*H,1.5+r()*2,1.5+r()*2); }   // cork
+function hiNotes(c,W,H){ const r=seeded(17); c.fillStyle='#b98a5a'; c.fillRect(0,0,W,H); for(let i=0;i<2600;i++){ c.fillStyle=r()<.5?'#5a3c1e':'#e6c8a0'; c.globalAlpha=.12+r()*.2; c.fillRect(r()*W,r()*H,1.5+r()*2,1.5+r()*2); } c.globalAlpha=1;   // cork
   for(const q of HNOTES){ const x=q.x*W, y=q.y*H, w=q.w*W, h=q.h*H; c.save(); c.translate(x+w/2,y+h/2); c.rotate(q.r); c.fillStyle='rgba(40,25,10,.25)'; c.fillRect(-w/2+4,-h/2+5,w,h); c.fillStyle=q.c; c.fillRect(-w/2,-h/2,w,h);
     c.fillStyle='#2a241d'; c.textAlign='left'; c.textBaseline='top'; c.font=hiFont(Math.round(w*.12)); hiWrap(c,q.h1,-w/2+12,-h/2+18,w-24,w*.13); c.font=hiFont(Math.round(w*.072),800);
     hiWrap(c,q.t,-w/2+12,-h/2+18+w*.3,w-24,w*.085); c.fillStyle='#c8473a'; c.beginPath(); c.arc(0,-h/2+8,7,0,TAU); c.fill(); c.fillStyle='#f6d0c8'; c.beginPath(); c.arc(-2,-h/2+6,2.5,0,TAU); c.fill(); c.restore(); } }
@@ -5116,53 +5172,54 @@ function hiBookDraw(c,W,H){ c.fillStyle='#f6efdc'; c.fillRect(0,0,W,H); c.fillSt
 function hiGearGeo(r,n,th,c,sp=4){ kitTo('hgear'); const I=new T.Matrix4(); hiTorus(I,c,r*.86,r*.07,Math.max(18,n),TAU);
   for(let k=0;k<n;k++){ const a=k/n*TAU; box(hiTf(I,Math.cos(a)*r*.95,Math.sin(a)*r*.95,0,0,0,a),c,0,-.0045,0,r*.15,.009,th); }
   for(let k=0;k<sp;k++) box(hiTf(I,0,0,0,0,0,k/sp*TAU),c,r*.43,-.006,0,r*.84,.012,th*.7); put(I,'cyl',c,0,0,0,r*.18,th*1.6,r*.18,0,Math.PI/2); kitTo(); const g=kgeo('hgear'); delete KITS.hgear; return g; }
-function hiBuildClock(B){ const M=B.M, K=HH.K, cx=K.x, cz=K.z, hw=K.w, fl=K.fl, top=K.top, g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g); B.kg=g;
-  const up=B.up, dn=hiD(M,0,-1,0), fq=(xa,za,xb,zb,y,c,n=up)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),n,c), V=(x,y,z)=>new T.Vector3(x,y,z), mat=hiMat(KU);
-  kitTo('hclock');
-  /* boards underfoot (the trap you came up by standing open), plaster between timber posts, boards overhead open to the belfry */
-  for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(x0>cx+.1&&z0>cz+.1) continue; fq(x0+.003,z0,x1-.003,z1,fl,i%2?'#8a6448':'#93694a'); } }
+async function hiBuildClock(B,step=lateNo){ const M=B.M, K=HH.K, cx=K.x, cz=K.z, hw=K.w, fl=K.fl, top=K.top, g=new T.Group(); g.matrixAutoUpdate=false; g.visible=false; sc.add(g); B.kg=g;
+  await step(); const up=B.up, dn=hiD(M,0,-1,0), fq=(xa,za,xb,zb,y,c,n=up)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),n,c), V=(x,y,z)=>new T.Vector3(x,y,z), mat=hiMat(KU);
+  await step(); kitTo('hclock');
+  await step(); /* boards underfoot (the trap you came up by standing open), plaster between timber posts, boards overhead open to the belfry */
+  await step(); for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(x0>cx+.1&&z0>cz+.1) continue; fq(x0+.003,z0,x1-.003,z1,fl,i%2?'#8a6448':'#93694a'); } }
   fq(cx+.167,cz+.167,cx+hw,cz+hw,fl-.003,'#1c1714'); box(hiTf(M,cx+.333,fl,cz+.167,0,-1.79,0),'#7a5238',0,-.0125,.165,.32,.025,.33); [-1,1].forEach(s=>box(M,'#6b4c34',cx+.333+s*.13,fl-.3,cz+.45,.03,.62,.03));
   slab(M,'#d8cfbc','x',cz+hw+.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','x',cz-hw-.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx+hw+.01,2*hw,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx-hw-.01,2*hw,.02,fl,top,[]);
-  for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#6b4c34',cx+sx*(hw-.03),fl,cz+sz*(hw-.03),.06,top-fl,.06);
-  [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>box(M,'#6b4c34',cx+a*(hw-.03),top-.12,cz+b*(hw-.03),a?.06:2*hw,.1,b?.06:2*hw));
-  for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(Math.abs(x0+hw/6-cx)<.3&&Math.abs(z0+hw/6-cz)<.3) continue; fq(x0,z0,x1,z1,top,i%2?'#7a5a40':'#86644a',dn); } }
-  /* the dials from behind: frosted glass, an iron bezel and cross, and the motion work at the middle of each */
-  B.dials=[0,1,2,3].map(k=>{ const D=hiTf(M,cx,5.88,cz,k*Math.PI/2).multiply(hiM.makeTranslation(0,0,hw-.006)).multiply(hiM2.makeRotationY(Math.PI));
+  await step(); for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#6b4c34',cx+sx*(hw-.03),fl,cz+sz*(hw-.03),.06,top-fl,.06);
+  await step(); [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>box(M,'#6b4c34',cx+a*(hw-.03),top-.12,cz+b*(hw-.03),a?.06:2*hw,.1,b?.06:2*hw));
+  await step(); for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(Math.abs(x0+hw/6-cx)<.3&&Math.abs(z0+hw/6-cz)<.3) continue; fq(x0,z0,x1,z1,top,i%2?'#7a5a40':'#86644a',dn); } }
+  await step(); /* the dials from behind: frosted glass, an iron bezel and cross, and the motion work at the middle of each */
+  B.dials=[]; for(let k=0;k<4;k++){ await step(); const D=hiTf(M,cx,5.88,cz,k*Math.PI/2).multiply(hiM.makeTranslation(0,0,hw-.006)).multiply(hiM2.makeRotationY(Math.PI));
     put(D,'cyl',HPANE,0,0,0,.37,.008,.37,0,Math.PI/2); hiTorus(D,'#3e4448',.37,.02,32); box(D,'#3e4448',0,-.37,-.012,.024,.74,.014); box(D,'#3e4448',-.37,-.012,-.012,.74,.024,.014);
-    put(D,'cyl','#2f3336',0,0,-.03,.05,.05,.05,0,Math.PI/2); put(D,'cyl','#c9a24a',.07,-.05,-.04,.045,.012,.045,0,Math.PI/2); return D; });
-  /* the bed on its trestles, the frame's two iron plates, the barrels and the arbors across them */
+    put(D,'cyl','#2f3336',0,0,-.03,.05,.05,.05,0,Math.PI/2); put(D,'cyl','#c9a24a',.07,-.05,-.04,.045,.012,.045,0,Math.PI/2); B.dials.push(D); }
+  await step(); /* the bed on its trestles, the frame's two iron plates, the barrels and the arbors across them */
   box(M,'#5a3d2c',cx,fl,cz,.06,.3,.5); [-1,1].forEach(s=>{ box(M,'#5a3d2c',cx+s*.24,fl,cz,.05,.33,.42); box(M,'#5a3d2c',cx+s*.24,fl+.15,cz,.05,.04,.5); });
   box(M,'#2f3336',cx,fl+.33,cz,.56,.04,.32);
-  [-1,1].forEach(s=>{ const z=cz+s*.12; box(M,'#2f3336',cx,fl+.37,z,.52,.025,.018); [-1,0,1].forEach(k=>box(M,'#2f3336',cx+k*.22,fl+.37,z,.025,.6,.018)); box(M,'#2f3336',cx,fl+.95,z,.5,.025,.018); });
+  await step(); [-1,1].forEach(s=>{ const z=cz+s*.12; box(M,'#2f3336',cx,fl+.37,z,.52,.025,.018); [-1,0,1].forEach(k=>box(M,'#2f3336',cx+k*.22,fl+.37,z,.025,.6,.018)); box(M,'#2f3336',cx,fl+.95,z,.5,.025,.018); });
   put(M,'cyl','#7a5a40',cx-.08,5.3,cz,.065,.2,.065,0,Math.PI/2); for(let k=0;k<5;k++) put(M,'cyl','#9aa0a3',cx-.08,5.3,cz-.08+k*.04,.068,.008,.068,0,Math.PI/2);
   put(M,'cyl','#7a5a40',cx+.15,5.24,cz,.05,.2,.05,0,Math.PI/2);
-  for(const [x,y] of [[-.08,5.3],[.1,5.42],[.02,5.56],[-.1,5.6],[.15,5.24],[.18,5.62]]) hiRod(M,'#9aa0a3',V(cx+x,y,cz-.14),V(cx+x,y,cz+.14),.008);
-  /* the weights: one for the going, one for the striking, on cables up to their pulleys and back to the barrels */
-  for(const [wx,wz,wy,bx,by] of [[-.33,-.33,5.02,-.08,5.36],[.33,-.33,4.92,.15,5.29]]){ cyl(M,'#3a3d40',cx+wx,wy,cz+wz,.055,.24); put(M,'sph','#3a3d40',cx+wx,wy+.25,cz+wz,.02,.02,.02);
+  await step(); for(const [x,y] of [[-.08,5.3],[.1,5.42],[.02,5.56],[-.1,5.6],[.15,5.24],[.18,5.62]]) hiRod(M,'#9aa0a3',V(cx+x,y,cz-.14),V(cx+x,y,cz+.14),.008);
+  await step(); /* the weights: one for the going, one for the striking, on cables up to their pulleys and back to the barrels */
+  await step(); for(const [wx,wz,wy,bx,by] of [[-.33,-.33,5.02,-.08,5.36],[.33,-.33,4.92,.15,5.29]]){ cyl(M,'#3a3d40',cx+wx,wy,cz+wz,.055,.24); put(M,'sph','#3a3d40',cx+wx,wy+.25,cz+wz,.02,.02,.02);
     hiRod(M,'#2a2624',V(cx+wx,wy+.26,cz+wz),V(cx+wx,top-.07,cz+wz),.003); put(M,'cyl','#6b6f72',cx+wx,top-.06,cz+wz,.035,.02,.035,0,0,Math.PI/2); hiRod(M,'#2a2624',V(cx+wx,top-.04,cz+wz),V(cx+bx,by,cz),.003); }
-  /* the rods out to the dials meet in a gearbox in the middle, at the height of the faces */
+  await step(); /* the rods out to the dials meet in a gearbox in the middle, at the height of the faces */
   box(M,'#b8913e',cx,5.83,cz,.1,.1,.1); box(M,'#2f3336',cx,5.67,cz,.04,.16,.04);
-  /* the bulb on its flex, an oil can and a rag on the floor, a stool */
+  await step(); /* the bulb on its flex, an oil can and a rag on the floor, a stool */
   hiRod(M,'#2a2624',V(cx-.25,top,cz+.25),V(cx-.25,top-.28,cz+.25),.004); put(M,'sph',HBULB,cx-.25,top-.31,cz+.25,.035,.04,.035); cyl(M,'#2a2624',cx-.25,top-.29,cz+.25,.014,.03,'cyl8');
   cyl(M,'#c8473a',cx+.37,fl,cz-.38,.04,.08); hiRod(M,'#c8473a',V(cx+.37,fl+.08,cz-.38),V(cx+.33,fl+.16,cz-.32),.008); box(M,'#d9cdb4',cx+.3,fl,cz-.25,.12,.006,.09,.6);
   cyl(M,'#7a5238',cx-.34,fl+.28,cz+.32,.09,.03); for(let k=0;k<3;k++){ const a=k/3*TAU; hiRod(M,'#5a3d2c',V(cx-.34+Math.cos(a)*.05,fl+.28,cz+.32+Math.sin(a)*.05),V(cx-.34+Math.cos(a)*.1,fl,cz+.32+Math.sin(a)*.1),.01); }
-  kitTo(); hiAdd(B,new T.Mesh(kgeo('hclock'),mat),true,g); delete KITS.hclock;
-  /* what turns: each built where its axle is, along the frame's z (the dials' rods along their own) */
-  const part_=(geo,Mx)=>{ const m=hiAdd(B,new T.Mesh(geo,mat),true,g); m.userData.M0=Mx; m.matrix.copy(Mx); return m; };
-  const AX=(x,y,z,ry=0)=>hiTf(M,cx+x,y,cz+z,ry);
-  B.gear={great:part_(hiGearGeo(.13,40,.02,'#c9a24a',5),AX(-.08,5.3,0)),centre:part_(hiGearGeo(.085,32,.018,'#c9a24a'),AX(.1,5.42,.03)),third:part_(hiGearGeo(.06,24,.015,'#c9a24a'),AX(.02,5.56,-.03)),
-    escape:part_(hiGearGeo(.05,30,.012,'#b9bfc2',3),AX(-.1,5.6,.05)),strike:part_(hiGearGeo(.07,28,.016,'#c9a24a'),AX(.15,5.24,.05))};
-  kitTo('hpart'); box(new T.Matrix4(),'#2f3336',-.004,-.01,0,.008,.025,.014); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.045,-.05,0),.004); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(.045,-.05,0),.004); kitTo();
+  await step(); kitTo(); hiAdd(B,new T.Mesh(kgeo('hclock'),mat),true,g); delete KITS.hclock;
+  await step(); /* what turns: each built where its axle is, along the frame's z (the dials' rods along their own) */
+  await step(); const part_=(geo,Mx)=>{ const m=hiAdd(B,new T.Mesh(geo,mat),true,g); m.userData.M0=Mx; m.matrix.copy(Mx); return m; };
+  await step(); const AX=(x,y,z,ry=0)=>hiTf(M,cx+x,y,cz+z,ry);
+  B.gear={}; await step(); B.gear.great=part_(hiGearGeo(.13,40,.02,'#c9a24a',5),AX(-.08,5.3,0)); await step(); B.gear.centre=part_(hiGearGeo(.085,32,.018,'#c9a24a'),AX(.1,5.42,.03));
+  await step(); B.gear.third=part_(hiGearGeo(.06,24,.015,'#c9a24a'),AX(.02,5.56,-.03)); await step(); B.gear.escape=part_(hiGearGeo(.05,30,.012,'#b9bfc2',3),AX(-.1,5.6,.05));
+  await step(); B.gear.strike=part_(hiGearGeo(.07,28,.016,'#c9a24a'),AX(.15,5.24,.05));
+  await step(); kitTo('hpart'); box(new T.Matrix4(),'#2f3336',-.004,-.01,0,.008,.025,.014); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.045,-.05,0),.004); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(.045,-.05,0),.004); kitTo();
   B.gear.anchor=part_(kgeo('hpart'),AX(-.1,5.665,.06));
-  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,0),V(0,-.78,0),.005); put(new T.Matrix4(),'cyl','#c9a24a',0,-.8,0,.06,.016,.06,0,Math.PI/2); kitTo(); B.gear.pend=part_(kgeo('hpart'),AX(-.1,5.72,.075));
-  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,-.03),V(0,0,.03),.004); [-1,1].forEach(s=>box(new T.Matrix4(),'#b9bfc2',0,-.002,s*.0,.1,.004,.03,0,0,s>0?0:Math.PI/2)); kitTo(); B.gear.fly=part_(kgeo('hpart'),AX(.18,5.62,0,0));
-  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,-.12,0),V(0,.12,0),.007); kitTo(); B.gear.up=part_(kgeo('hpart'),AX(0,5.71,0));
-  kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,.05),V(0,0,hw-.04),.007); box(new T.Matrix4(),'#c9a24a',-.015,-.015,.06,.03,.03,.01); kitTo(); const rg=kgeo('hpart');
+  await step(); kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,0),V(0,-.78,0),.005); put(new T.Matrix4(),'cyl','#c9a24a',0,-.8,0,.06,.016,.06,0,Math.PI/2); kitTo(); B.gear.pend=part_(kgeo('hpart'),AX(-.1,5.72,.075));
+  await step(); kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,-.03),V(0,0,.03),.004); [-1,1].forEach(s=>box(new T.Matrix4(),'#b9bfc2',0,-.002,s*.0,.1,.004,.03,0,0,s>0?0:Math.PI/2)); kitTo(); B.gear.fly=part_(kgeo('hpart'),AX(.18,5.62,0,0));
+  await step(); kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,-.12,0),V(0,.12,0),.007); kitTo(); B.gear.up=part_(kgeo('hpart'),AX(0,5.71,0));
+  await step(); kitTo('hpart'); hiRod(new T.Matrix4(),'#9aa0a3',V(0,0,.05),V(0,0,hw-.04),.007); box(new T.Matrix4(),'#c9a24a',-.015,-.015,.06,.03,.03,.01); kitTo(); const rg=kgeo('hpart');
   B.gear.rods=[0,1,2,3].map(k=>part_(rg,AX(0,5.88,0,k*Math.PI/2))); delete KITS.hpart;
-  /* the hammer, up in the belfry over the hole: it lifts away from the bell and falls on it, once for each hour */
-  kitTo('hpart'); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.13,.11,0),.008); put(new T.Matrix4(),'cyl','#3a3d40',-.14,.12,0,.03,.07,.03,0,Math.PI/2); put(new T.Matrix4(),'cyl','#2f3336',0,0,0,.02,.06,.02,0,Math.PI/2); kitTo();
+  await step(); /* the hammer, up in the belfry over the hole: it lifts away from the bell and falls on it, once for each hour */
+  await step(); kitTo('hpart'); hiRod(new T.Matrix4(),'#2f3336',V(0,0,0),V(-.13,.11,0),.008); put(new T.Matrix4(),'cyl','#3a3d40',-.14,.12,0,.03,.07,.03,0,Math.PI/2); put(new T.Matrix4(),'cyl','#2f3336',0,0,0,.02,.06,.02,0,Math.PI/2); kitTo();
   B.gear.hammer=part_(kgeo('hpart'),AX(.36,6.63,0)); delete KITS.hpart; hiRod(M,'#2a2624',V(cx+.3,6.66,cz),V(cx+.18,5.3,cz+.08),.0025);
-  B.KL=[hiP(M,cx-.25,top-.33,cz+.25),hiP(M,cx,top+.3,cz)];
+  await step(); B.KL=[hiP(M,cx-.25,top-.33,cz+.25),hiP(M,cx,top+.3,cz)];
   hiHit(B,'trap',.4,.3,.36,hiTf(M,cx+.27,fl+.05,cz+.3)); B.picks[B.picks.length-1].clock=true; }
 
 /* ---------- the classroom ---------- */
@@ -5187,55 +5244,55 @@ function hiPosters(c,W,H){ c.fillStyle='#fbf6ec'; c.fillRect(0,0,W,H); c.fillSty
 function hiGlobeTex(c,W,H){ c.fillStyle='#3f8fc0'; c.fillRect(0,0,W,H); const r=seeded(37), land=(x,y,rx,ry,k)=>{ c.fillStyle=k?'#d9c27a':'#6fae5a'; c.beginPath(); for(let i=0;i<=24;i++){ const a=i/24*TAU, q=1+.25*Math.sin(a*3+x)+.15*Math.cos(a*5+y); c.lineTo(x+Math.cos(a)*rx*q,y+Math.sin(a)*ry*q); } c.fill(); };
   [[90,80,50,40],[120,170,28,52],[260,70,70,36],[280,160,40,46],[400,90,56,34],[430,190,30,20],[200,240,90,12]].forEach(([x,y,a,b],i)=>{ land(x,y,a,b,0); if(i%3===1) land(x+5,y+8,a*.4,b*.35,1); });
   c.strokeStyle='rgba(255,255,255,.35)'; c.lineWidth=1.5; for(let k=1;k<6;k++){ c.beginPath(); c.moveTo(0,k*H/6); c.lineTo(W,k*H/6); c.stroke(); } for(let k=0;k<12;k++){ c.beginPath(); c.moveTo(k*W/12,0); c.lineTo(k*W/12,H); c.stroke(); } }
-function hiBuildSchool(){ const S_=CIV.school, M=S_.B, F=SCH.FL, ix=SCH.IX, iz=SCH.IZ, top=SCH.CH, rr=seeded(43), V=(x,y,z)=>new T.Vector3(x,y,z), I=new T.Matrix4();
-  const B=HSI.school=hiRoom('school',M,SU,SCH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c), mat=hiMat(SU);
-  kitTo('hschool');
-  /* ---- honey boards across the room; a teal dado, pale yellow walls, the alphabet along the top; a white ceiling with two strip lights ---- */
-  for(let j=0;j<10;j++){ const z0=-iz+j*2*iz/10, z1=z0+2*iz/10; let x=-ix+(j%3)*.3; if(x>-ix) fq(-ix,z0+.003,x-.004,z1-.003,F,'#c99a62');
+async function hiBuildSchool(step=lateNo){ const S_=CIV.school, M=S_.B, F=SCH.FL, ix=SCH.IX, iz=SCH.IZ, top=SCH.CH, rr=seeded(43), V=(x,y,z)=>new T.Vector3(x,y,z), I=new T.Matrix4();
+  await step(); const B=HSI.school=hiRoom('school',M,SU,SCH), up=B.up, fq=(xa,za,xb,zb,y,c)=>kquad(hiP(M,xa,y,za),hiP(M,xb,y,za),hiP(M,xb,y,zb),hiP(M,xa,y,zb),up,c), mat=hiMat(SU);
+  await step(); kitTo('hschool');
+  await step(); /* ---- honey boards across the room; a teal dado, pale yellow walls, the alphabet along the top; a white ceiling with two strip lights ---- */
+  await step(); for(let j=0;j<10;j++){ const z0=-iz+j*2*iz/10, z1=z0+2*iz/10; let x=-ix+(j%3)*.3; if(x>-ix) fq(-ix,z0+.003,x-.004,z1-.003,F,'#c99a62');
     while(x<ix){ const x1=Math.min(ix,x+.7+rr()*.9); fq(x,z0+.003,x1-.004,z1-.003,F,['#c99a62','#d1a46c','#bf9058','#cda068'][Math.floor(rr()*4)]); x=x1; } }
-  const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,SCH.dw+.004,y0-1,SCH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
+  await step(); const lin=(c,y0,y1,th,o=0)=>{ slab(M,c,'x',iz-th/2-o,2*ix,th,y0,y1,[[0,SCH.dw+.004,y0-1,SCH.dh]]); slab(M,c,'x',-iz+th/2+o,2*ix,th,y0,y1,[]); slab(M,c,'z',ix-th/2-o,2*iz-2*(th+o),th,y0,y1,[]); slab(M,c,'z',-ix+th/2+o,2*iz-2*(th+o),th,y0,y1,[]); };
   lin('#7fb5a8',F,F+.6,.03); lin('#f2f0e6',F+.58,F+.64,.04); lin('#f6ebcf',F+.62,top,.02); lin('#4f8a8b',F,F+.07,.04);
   box(M,'#f7f4ec',0,top,0,2*ix+.04,.04,2*iz+.04);
-  [-.85,.85].forEach((x,i)=>{ box(M,'#e6e7e2',x,top-.05,0,.1,.05,1.3); box(M,'#c9cbc6',x,top-.054,0,.08,.006,1.24); put(M,'cyl',HTUBE[i],x,top-.075,0,.022,1.2,.022,0,Math.PI/2); });
-  /* ---- the windows, the paintings round them, cress on the sills ---- */
-  const W=(x,z,ry,tw)=>{ const Wm=sub(M,x,1.4,z,ry); hiWin(Wm,tw,.9,'#fbf6ec','#d1a46c'); return Wm; };
-  [-1.25,1.25].forEach(x=>{ const Wm=W(x,iz-.02,Math.PI,1); for(let k=0;k<3;k++){ cyl(Wm,'#c8664b',-.3+k*.3,-.495,.08,.04,.06); put(Wm,'blob','#7fbf5a',-.3+k*.3,-.42,.08,.04,.03,.04,k); } });
-  [-1,1].forEach(s=>W(s*(ix-.02),0,-s*Math.PI/2,.9));
-  /* ---- the blackboard, its ledge, chalk on it; the clock over it ---- */
-  { const [x0,x1,y0,y1]=SCH.BD, bw=x1-x0, bh=y1-y0; box(M,'#8a6448',0,y0-.03,-iz+.015,bw+.08,bh+.06,.03); box(M,'#8a6448',0,y0-.04,-iz+.06,bw+.08,.025,.08);
+  await step(); [-.85,.85].forEach((x,i)=>{ box(M,'#e6e7e2',x,top-.05,0,.1,.05,1.3); box(M,'#c9cbc6',x,top-.054,0,.08,.006,1.24); put(M,'cyl',HTUBE[i],x,top-.075,0,.022,1.2,.022,0,Math.PI/2); });
+  await step(); /* ---- the windows, the paintings round them, cress on the sills ---- */
+  await step(); const W=(x,z,ry,tw)=>{ const Wm=sub(M,x,1.4,z,ry); hiWin(Wm,tw,.9,'#fbf6ec','#d1a46c'); return Wm; };
+  await step(); [-1.25,1.25].forEach(x=>{ const Wm=W(x,iz-.02,Math.PI,1); for(let k=0;k<3;k++){ cyl(Wm,'#c8664b',-.3+k*.3,-.495,.08,.04,.06); put(Wm,'blob','#7fbf5a',-.3+k*.3,-.42,.08,.04,.03,.04,k); } });
+  await step(); [-1,1].forEach(s=>W(s*(ix-.02),0,-s*Math.PI/2,.9));
+  await step(); /* ---- the blackboard, its ledge, chalk on it; the clock over it ---- */
+  await step(); { const [x0,x1,y0,y1]=SCH.BD, bw=x1-x0, bh=y1-y0; box(M,'#8a6448',0,y0-.03,-iz+.015,bw+.08,bh+.06,.03); box(M,'#8a6448',0,y0-.04,-iz+.06,bw+.08,.025,.08);
     [[.2,'#fbf8f0'],[.26,'#f7d046'],[.31,'#f08cae'],[-.5,'#fbf8f0']].forEach(([x,c])=>put(M,'cyl',c,x,y0-.006,-iz+.07,.008,.06,.008,.3,0,Math.PI/2));
     B.bdC=hiCanvas(768,376,hiBoardDraw); B.board=hiAdd(B,new T.Mesh(new T.PlaneGeometry(bw,bh),hiBoard(SU,B.bdC.tx,.32))); B.board.matrix.copy(sub(M,0,(y0+y1)/2,-iz+.032,0)); B.board.matrixWorld.copy(B.board.matrix);
     B.bd={x0,x1,y0,y1,z:-iz+.036,chalk:0,dirty:false,last:null,wipe:null}; }
-  { const CW=sub(M,0,1.86,-iz+.02,0); put(CW,'cyl','#2f5a8a',0,0,.01,.125,.02,.125,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
+  await step(); { const CW=sub(M,0,1.86,-iz+.02,0); put(CW,'cyl','#2f5a8a',0,0,.01,.125,.02,.125,0,Math.PI/2); B.clockC=hiCanvas(512,512,(c,w)=>clockFace(c,w));
     const m=hiAdd(B,new T.Mesh(new T.CircleGeometry(.11,32),hiBoard(SU,B.clockC.tx,.3))); m.matrix.copy(CW).multiply(hiM.makeTranslation(0,0,.022)); B.clockFr=CW; }
-  { const fr=hiCanvas(2048,64,hiFrieze), m=hiAdd(B,new T.Mesh(new T.PlaneGeometry(3.6,.2),hiBoard(SU,fr.tx,.3))); m.matrix.copy(sub(M,0,2.2,-iz+.025,0)); }
-  /* ---- the teacher's desk: a pedestal of drawers, the register, a pile of exercise books, a mug of pencils, an apple; the globe ---- */
-  { const tx=-1.5, tz=-.78, ty=F+.62; box(M,'#b07a52',tx,ty-.03,tz,.58,.035,.4); box(M,'#9a6844',tx+.18,F,tz,.2,ty-F-.03,.36); for(let k=0;k<3;k++) box(M,'#d9b45a',tx+.18,F+.12+k*.17,tz+.185,.06,.015,.01);
+  await step(); { const fr=hiCanvas(2048,64,hiFrieze), m=hiAdd(B,new T.Mesh(new T.PlaneGeometry(3.6,.2),hiBoard(SU,fr.tx,.3))); m.matrix.copy(sub(M,0,2.2,-iz+.025,0)); }
+  await step(); /* ---- the teacher's desk: a pedestal of drawers, the register, a pile of exercise books, a mug of pencils, an apple; the globe ---- */
+  await step(); { const tx=-1.5, tz=-.78, ty=F+.62; box(M,'#b07a52',tx,ty-.03,tz,.58,.035,.4); box(M,'#9a6844',tx+.18,F,tz,.2,ty-F-.03,.36); for(let k=0;k<3;k++) box(M,'#d9b45a',tx+.18,F+.12+k*.17,tz+.185,.06,.015,.01);
     [[-1,-1],[-1,1]].forEach(([a,b])=>box(M,'#9a6844',tx+a*.26,F,tz+b*.17,.03,ty-F-.03,.03)); box(M,'#3f6a9a',tx-.05,ty,tz+.06,.2,.02,.14,.1);
     for(let k=0;k<6;k++) box(M,HXY[k],tx+.12+(rr()-.5)*.01,ty+k*.011,tz-.06,.15,.011,.2,rr()*.3-.15); cyl(M,'#f4efe6',tx-.2,ty,tz-.1,.03,.08); [0,1,2].forEach(k=>hiRod(M,HXY[k*2],V(tx-.2+(k-1)*.01,ty+.04,tz-.1),V(tx-.2+(k-1)*.02,ty+.14,tz-.1+(k-1)*.01),.004));
     put(M,'sph','#d8443a',tx+.2,ty+.03,tz+.12,.03,.028,.03); hiRod(M,'#5a3d2c',V(tx+.2,ty+.055,tz+.12),V(tx+.205,ty+.075,tz+.12),.003);
     cyl(M,'#5a3d2c',-1.62,ty,-.82,.05,.015); hiTorus(hiTf(M,-1.62,ty+.13,-.82,Math.PI/2,0,.41),'#c9a24a',.105,.006,20,Math.PI); hiRod(M,'#c9a24a',V(-1.62,ty,-.82),V(-1.62,ty+.03,-.82),.008);
     B.globeAt=hiTf(M,-1.62,ty+.13,-.82); B.globe={a:0,v:.35,M0:hiTf(M,-1.62,ty+.13,-.82,0,0,.41)}; hiHit(B,'globe',.24,.24,.24,B.globeAt); }
-  /* ---- the six desks, two rows of three, each with its book and pencil (the chairs are their own: they are tucked in, pulled
+  await step(); /* ---- the six desks, two rows of three, each with its book and pencil (the chairs are their own: they are tucked in, pulled
      out or up on the desks) ---- */
-  B.seats=[]; SCH.DZ.forEach((z,r)=>SCH.DX.forEach((x,c)=>{ const k=r*3+c, h=.4; box(M,'#e8d6b4',x,F+h,z,.46,.025,.3); box(M,'#3f6f9f',x,F+h-.09,z,.44,.012,.26); box(M,'#3f6f9f',x,F+h-.09,z-.13,.44,.09,.012);
+  await step(); B.seats=[]; SCH.DZ.forEach((z,r)=>SCH.DX.forEach((x,c)=>{ const k=r*3+c, h=.4; box(M,'#e8d6b4',x,F+h,z,.46,.025,.3); box(M,'#3f6f9f',x,F+h-.09,z,.44,.012,.26); box(M,'#3f6f9f',x,F+h-.09,z-.13,.44,.09,.012);
     for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#3f6f9f',x+sx*.2,F,z+sz*.12,.02,h,.02);
     box(M,HXY[(k*3)%8],x-.08,F+h+.025,z+.02,.16,.008,.12,.12*(k%2?1:-1)); box(M,'#fbf8f0',x-.08,F+h+.033,z+.02,.14,.002,.1,.12*(k%2?1:-1)); hiRod(M,'#f2c14e',V(x+.06,F+h+.03,z),V(x+.16,F+h+.03,z+.03),.004);
     B.seats.push({x,z,k}); }));
-  /* ---- the reading corner: a round rug, a low bookcase, two beanbags, a bear ---- */
+  await step(); /* ---- the reading corner: a round rug, a low bookcase, two beanbags, a bear ---- */
   cyl(M,'#e9744f',-1.45,F,.74,.4,.006); cyl(M,'#f2c14e',-1.45,F,.74,.3,.008); cyl(M,'#5cae6e',-1.45,F,.74,.18,.01);
-  { box(M,'#c99a62',-ix+.12,F,.72,.22,.52,.62); for(let s=0;s<2;s++){ box(M,'#b5885a',-ix+.13,F+.04+s*.25,.72,.2,.02,.58); let z=.44; while(z<.98){ const w=.025+rr()*.03, h=.14+rr()*.07; box(M,HXY[Math.floor(rr()*8)],-ix+.12,F+.06+s*.25,z+w/2,.15,h,w,0,0,(rr()-.5)*.1); z+=w+.004; } } }
+  await step(); { box(M,'#c99a62',-ix+.12,F,.72,.22,.52,.62); for(let s=0;s<2;s++){ box(M,'#b5885a',-ix+.13,F+.04+s*.25,.72,.2,.02,.58); let z=.44; while(z<.98){ const w=.025+rr()*.03, h=.14+rr()*.07; box(M,HXY[Math.floor(rr()*8)],-ix+.12,F+.06+s*.25,z+w/2,.15,h,w,0,0,(rr()-.5)*.1); z+=w+.004; } } }
   put(M,'blob','#f2c14e',-1.3,F+.11,.5,.17,.12,.17); put(M,'blob','#5cae6e',-1.12,F+.11,.9,.17,.12,.17,1);
-  { const bx=-1.14, bz=.9, by=F+.22; put(M,'sph','#b07a52',bx,by+.07,bz,.07,.08,.06); put(M,'sph','#b07a52',bx,by+.18,bz,.055,.05,.05); [-1,1].forEach(s=>{ put(M,'sph','#b07a52',bx+s*.04,by+.23,bz,.02,.02,.015); put(M,'sph','#b07a52',bx+s*.065,by+.06,bz+.03,.025,.02,.025); });
+  await step(); { const bx=-1.14, bz=.9, by=F+.22; put(M,'sph','#b07a52',bx,by+.07,bz,.07,.08,.06); put(M,'sph','#b07a52',bx,by+.18,bz,.055,.05,.05); [-1,1].forEach(s=>{ put(M,'sph','#b07a52',bx+s*.04,by+.23,bz,.02,.02,.015); put(M,'sph','#b07a52',bx+s*.065,by+.06,bz+.03,.025,.02,.025); });
     put(M,'sph','#2a241d',bx,by+.18,bz+.05,.01,.01,.008); box(M,'#d9483b',bx,by+.12,bz+.01,.07,.02,.06); }
-  /* ---- the xylophone on its low table, the bars bright, two beaters ---- */
-  { const [xx,z0,dz]=SCH.XY, ty=F+.32; box(M,'#b07a52',xx,ty-.025,-.25,.32,.025,.78); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#9a6844',xx+a*.14,F,-.25+b*.36,.03,ty-F-.025,.03));
+  await step(); /* ---- the xylophone on its low table, the bars bright, two beaters ---- */
+  await step(); { const [xx,z0,dz]=SCH.XY, ty=F+.32; box(M,'#b07a52',xx,ty-.025,-.25,.32,.025,.78); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#9a6844',xx+a*.14,F,-.25+b*.36,.03,ty-F-.025,.03));
     [-.07,.07].forEach(o=>box(M,'#5a3d2c',xx+o,ty,-.25,.025,.03,.64)); B.xylo=[]; for(let i=0;i<8;i++){ const z=.03-i*dz, L=.27-i*.016; kitTo('hbar'); box(I,HXY[i],0,0,0,L,.014,.055); put(I,'cyl','#fbf6ec',-L/2+.025,.0145,0,.006,.002,.006); put(I,'cyl','#fbf6ec',L/2-.025,.0145,0,.006,.002,.006); kitTo('hschool');
       const M0=hiTf(M,xx,ty+.03,z), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); m.userData.M0=M0; B.xylo.push({m,M0,z,t:9}); hiHit(B,'xylo',L,.02,dz*.95,hiTf(M,xx,ty+.04,z),{i}); }   // (each bar's tap no taller than the bar, or the one before it, seen from the side, takes taps meant for it)
     delete KITS.hbar; B.mallet=[0,1].map(s=>{ kitTo('hbar'); hiRod(I,'#d9b45a',V(0,0,0),V(0,0,.2),.005); put(I,'sph',s?'#e9584a':'#3f7fd0',0,0,.21,.016,.016,.016); kitTo('hschool');
       const M0=hiTf(M,xx+.11-s*.02,ty+.05,z0-.08-s*.04,-.2+s*.1,-.2), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); return {m,M0,t:9,i:0}; }); delete KITS.hbar; }
-  /* ---- the science table: the model rocket on its pad, a microscope, cress growing, a bean in a jar, a magnifier, a magnet ---- */
-  { const [x0,x1,z0,z1]=SCH.SCI, cx=(x0+x1)/2, cz=(z0+z1)/2, ty=F+.5; box(M,'#d9cfb8',cx,ty-.03,cz,x1-x0,.03,z1-z0); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#5c8fb0',cx+a*(x1-x0-.06)/2,F,cz+b*(z1-z0-.06)/2,.03,ty-F-.03,.03));
+  await step(); /* ---- the science table: the model rocket on its pad, a microscope, cress growing, a bean in a jar, a magnifier, a magnet ---- */
+  await step(); { const [x0,x1,z0,z1]=SCH.SCI, cx=(x0+x1)/2, cz=(z0+z1)/2, ty=F+.5; box(M,'#d9cfb8',cx,ty-.03,cz,x1-x0,.03,z1-z0); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#5c8fb0',cx+a*(x1-x0-.06)/2,F,cz+b*(z1-z0-.06)/2,.03,ty-F-.03,.03));
     box(M,'#5c8fb0',cx,F+.12,cz,x1-x0-.06,.02,z1-z0-.06); box(M,'#3a3d40',1.62,ty,-.42,.14,.02,.14); hiRod(M,'#9aa0a3',V(1.62,ty+.02,-.38),V(1.62,ty+.34,-.38),.003);
     { const mx=1.66, mz=.0; box(M,'#2f3336',mx,ty,mz,.1,.02,.08); hiRod(M,'#2f3336',V(mx+.03,ty+.02,mz),V(mx+.03,ty+.17,mz),.012); hiRod(M,'#e9e6dc',V(mx,ty+.2,mz),V(mx-.03,ty+.1,mz),.02); box(M,'#9aa0a3',mx-.02,ty+.07,mz,.06,.008,.06); }
     [[1.52,.24],[1.62,.3],[1.74,.22]].forEach(([x,z],k)=>{ cyl(M,'#c8664b',x,ty,z,.035,.05); put(M,'blob','#86c25a',x,ty+.06,z,.03,.02,.03,k); });
@@ -5243,8 +5300,8 @@ function hiBuildSchool(){ const S_=CIV.school, M=S_.B, F=SCH.FL, ix=SCH.IX, iz=S
     hiTorus(hiTf(M,1.56,ty+.008,-.15,0,Math.PI/2,0),'#2a2624',.035,.006,16); hiRod(M,'#2a2624',V(1.6,ty+.008,-.13),V(1.66,ty+.008,-.1),.008);
     box(M,'#d9483b',1.75,ty,-.18,.08,.015,.03); box(M,'#f4f0e8',1.79,ty+.0001,-.18,.02,.0152,.03);
     B.rkAt=[1.62,ty+.02,-.42]; B.rk={st:'pad',t:0,y:0,x:0,sw:0}; }
-  /* ---- Nibbles' cupboard and cage: a tray, bars, a little house, his bowl and bottle; the wheel and Nibbles himself are their own ---- */
-  { const [hx,hz]=SCH.HAM, ty=F+.46; box(M,'#c99a62',hx,F,hz,.48,ty-F,.46); [-1,1].forEach(s=>{ box(M,'#d1a46c',hx-.244,F+.04,hz+s*.11,.008,ty-F-.08,.2); box(M,'#d9b45a',hx-.25,F+.26,hz+s*.03,.01,.04,.01); });
+  await step(); /* ---- Nibbles' cupboard and cage: a tray, bars, a little house, his bowl and bottle; the wheel and Nibbles himself are their own ---- */
+  await step(); { const [hx,hz]=SCH.HAM, ty=F+.46; box(M,'#c99a62',hx,F,hz,.48,ty-F,.46); [-1,1].forEach(s=>{ box(M,'#d1a46c',hx-.244,F+.04,hz+s*.11,.008,ty-F-.08,.2); box(M,'#d9b45a',hx-.25,F+.26,hz+s*.03,.01,.04,.01); });
     box(M,'#3f7fd0',hx,ty,hz,.28,.045,.46); box(M,'#f3e3b8',hx,ty+.045,hz,.26,.008,.44);
     for(let k=0;k<=12;k++){ const z=hz-.22+k*.44/12; [-1,1].forEach(s=>box(M,'#c9ccca',hx+s*.135,ty+.045,z,.004,.24,.004)); } for(let k=0;k<=6;k++){ const x=hx-.13+k*.26/6; [-1,1].forEach(s=>box(M,'#c9ccca',x,ty+.045,hz+s*.225,.004,.24,.004)); }
     box(M,'#c9ccca',hx,ty+.285,hz,.28,.006,.46); [-1,1].forEach(s=>box(M,'#c9ccca',hx,ty+.285,hz+s*.1,.28,.012,.006));
@@ -5252,53 +5309,55 @@ function hiBuildSchool(){ const S_=CIV.school, M=S_.B, F=SCH.FL, ix=SCH.IX, iz=S
     cyl(M,'#dfe9ea',hx+.12,ty+.1,hz-.02,.018,.12); hiRod(M,'#9aa0a3',V(hx+.12,ty+.1,hz-.02),V(hx+.1,ty+.07,hz-.02),.003);
     hiRod(M,'#9aa0a3',V(hx-.04,ty+.05,hz-.13),V(hx-.04,ty+.14,hz-.13),.006); B.hamAt={x:hx,y:ty+.05,z:hz}; B.ham={st:'run',t:0,a:0,v:9,look:0,seen:0,px:hx,pz:hz-.13,rev:0};
     hiHit(B,'hamster',.3,.3,.48,hiTf(M,hx,ty+.15,hz)); }
-  /* ---- the bell rope by the door, up through the ceiling to the bell on the roof ---- */
-  { const rx=1.22, rz=-.12; box(M,'#5a3d2c',rx,top-.04,rz,.1,.04,.1); put(M,'cyl','#3a3d40',rx,top-.07,rz,.035,.02,.035,0,0,Math.PI/2); B.ropeAt=[rx,rz]; B.rope={t:9,n:0}; hiHit(B,'rope',.12,1.3,.12,hiTf(M,rx,1.75,rz)); }
-  /* ---- coat pegs by the door, the children's bags on them; the paintings and posters on the walls ---- */
-  [[-.62,'#3f7fd0'],[-.48,'#e9873a'],[.5,'#5cae6e'],[.64,'#f2c14e']].forEach(([x,c])=>{ const P_=sub(M,x,1.18,iz-.02,Math.PI); box(P_,'#b5885a',0,0,.02,.04,.04,.06); box(P_,c,0,-.26,.05,.12,.2,.06); box(P_,tint(c,-.3),0,-.08,.05,.02,.1,.01); });
+  await step(); /* ---- the bell rope by the door, up through the ceiling to the bell on the roof ---- */
+  await step(); { const rx=1.22, rz=-.12; box(M,'#5a3d2c',rx,top-.04,rz,.1,.04,.1); put(M,'cyl','#3a3d40',rx,top-.07,rz,.035,.02,.035,0,0,Math.PI/2); B.ropeAt=[rx,rz]; B.rope={t:9,n:0}; hiHit(B,'rope',.12,1.3,.12,hiTf(M,rx,1.75,rz)); }
+  await step(); /* ---- coat pegs by the door, the children's bags on them; the paintings and posters on the walls ---- */
+  await step(); [[-.62,'#3f7fd0'],[-.48,'#e9873a'],[.5,'#5cae6e'],[.64,'#f2c14e']].forEach(([x,c])=>{ const P_=sub(M,x,1.18,iz-.02,Math.PI); box(P_,'#b5885a',0,0,.02,.04,.04,.06); box(P_,c,0,-.26,.05,.12,.2,.06); box(P_,tint(c,-.3),0,-.08,.05,.02,.1,.01); });
   box(M,'#b5885a',0,1.16,iz-.03,1.6,.06,.03);
-  { const pt=ciCanvas(512,256,paintings), ps=hiCanvas(768,512,hiPosters), Q=[], Qp=[], q=(Mw,x,y,i,s=.24)=>{ Q.push({M:Mw,x,y,z:.005,w:s,h:s*.88,u0:(i%4)/4+.004,u1:(i%4+1)/4-.004,v0:1-(Math.floor(i/4)+1)/2+.008,v1:1-Math.floor(i/4)/2-.008}); };
+  await step(); { const pt=ciCanvas(512,256,paintings), ps=hiCanvas(768,512,hiPosters), Q=[], Qp=[], q=(Mw,x,y,i,s=.24)=>{ Q.push({M:Mw,x,y,z:.005,w:s,h:s*.88,u0:(i%4)/4+.004,u1:(i%4+1)/4-.004,v0:1-(Math.floor(i/4)+1)/2+.008,v1:1-Math.floor(i/4)/2-.008}); };
     const L_=sub(M,-ix+.02,0,0,Math.PI/2), R_=sub(M,ix-.02,0,0,-Math.PI/2), F_=sub(M,0,0,iz-.02,Math.PI);
     q(L_,-.72,1.55,0); q(L_,-.72,1.18,3,.2); q(L_,.62,1.62,7); q(L_,.92,1.3,2,.2); q(R_,-.75,1.55,4); q(R_,-.74,1.16,1,.2); q(R_,.66,1.55,6); q(F_,-.25,2.05,5,.2); q(F_,.25,2.05,0,.2);
     hiAdd(B,new T.Mesh(ciQuads(Q),hiBoard(SU,pt,.3))); Qp.push({M:R_,x:-.85,y:2.0,z:.005,w:.42,h:.28,u0:.5,u1:1,v0:0,v1:1},{M:L_,x:.0,y:2.08,z:.005,w:.36,h:.24,u0:0,u1:.5,v0:0,v1:1});
     hiAdd(B,new T.Mesh(ciQuads(Qp),hiBoard(SU,ps.tx,.3))); try{ renderer.initTexture&&renderer.initTexture(pt); }catch(e){} }
-  kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hschool'),mat)); delete KITS.hschool;
-  /* ---- what moves: the chairs, the duster, the globe, the rocket and its parachute, the wheel and Nibbles, the bell rope, the clock's hands ---- */
-  B.chairs=B.seats.map((q,k)=>{ kitTo('hchair'); const c=HXY[(k*5+1)%8]; box(I,c,0,.24,0,.27,.025,.24); box(I,c,0,.27,.11,.27,.18,.02); for(const sx of [-1,1]) for(const sz of [-1,1]) box(I,'#9aa0a3',sx*.115,0,sz*.1,.016,.245,.016); kitTo();
+  await step(); kitTo(); B.kit=hiAdd(B,new T.Mesh(kgeo('hschool'),mat)); delete KITS.hschool;
+  await step(); /* ---- what moves: the chairs, the duster, the globe, the rocket and its parachute, the wheel and Nibbles, the bell rope, the clock's hands ---- */
+  await step(); B.chairs=B.seats.map((q,k)=>{ kitTo('hchair'); const c=HXY[(k*5+1)%8]; box(I,c,0,.24,0,.27,.025,.24); box(I,c,0,.27,.11,.27,.18,.02); for(const sx of [-1,1]) for(const sz of [-1,1]) box(I,'#9aa0a3',sx*.115,0,sz*.1,.016,.245,.016); kitTo();
     const m=hiAdd(B,new T.Mesh(kgeo('hchair'),mat)); return {m,q,z:.17,up:0}; }); delete KITS.hchair;
-  kitTo('hpart'); box(I,'#b07a52',0,0,-.02,.13,.035,.045); box(I,'#d9d4c8',0,-.008,-.02,.13,.01,.045); kitTo(); B.duster=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.dusterM0=hiTf(M,.55,SCH.BD[2]-.007,-iz+.06); B.duster.matrix.copy(B.dusterM0); delete KITS.hpart;
+  await step(); kitTo('hpart'); box(I,'#b07a52',0,0,-.02,.13,.035,.045); box(I,'#d9d4c8',0,-.008,-.02,.13,.01,.045); kitTo(); B.duster=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.dusterM0=hiTf(M,.55,SCH.BD[2]-.007,-iz+.06); B.duster.matrix.copy(B.dusterM0); delete KITS.hpart;
   hiHit(B,'duster',.2,.08,.1,hiTf(M,.55,SCH.BD[2]-.01,-iz+.07));
-  B.globeM=hiAdd(B,new T.Mesh(new T.SphereGeometry(.09,28,18),hiBoard(SU,hiCanvas(512,256,hiGlobeTex).tx,.25)));
-  kitTo('hpart'); cyl(I,'#f4f0e8',0,0,0,.02,.2); put(I,'cone','#ef8a3c',0,.24,0,.02,.07,.02); cyl(I,'#ef8a3c',0,.13,0,.0205,.02); for(let k=0;k<3;k++){ const a=k/3*TAU; box(hiTf(I,0,0,0,a),'#ef8a3c',.03,0,0,.04,.06,.004); } kitTo();
-  B.rocket=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart;
-  kitTo('hpart'); kadd(new T.SphereGeometry(.16,16,6,0,TAU,0,Math.PI/2).toNonIndexed(),'#ef8a3c',I); kadd(hiInv(new T.SphereGeometry(.157,16,6,0,TAU,0,Math.PI/2).toNonIndexed()),'#fbf6ec',I);   // (its inside, seen from below)
-  for(let k=0;k<6;k++){ const a=k/6*TAU; hiRod(I,'#f4f0e8',V(Math.cos(a)*.15,.02,Math.sin(a)*.15),V(0,-.24,0),.0015); } kitTo(); B.chute=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.chute.visible=false; delete KITS.hpart;
+  await step(); B.globeM=hiAdd(B,new T.Mesh(new T.SphereGeometry(.09,28,18),hiBoard(SU,hiCanvas(512,256,hiGlobeTex).tx,.25)));
+  await step(); kitTo('hpart'); cyl(I,'#f4f0e8',0,0,0,.02,.2); put(I,'cone','#ef8a3c',0,.24,0,.02,.07,.02); cyl(I,'#ef8a3c',0,.13,0,.0205,.02); for(let k=0;k<3;k++){ const a=k/3*TAU; box(hiTf(I,0,0,0,a),'#ef8a3c',.03,0,0,.04,.06,.004); } kitTo();
+  await step(); B.rocket=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart;
+  await step(); kitTo('hpart'); kadd(new T.SphereGeometry(.16,16,6,0,TAU,0,Math.PI/2).toNonIndexed(),'#ef8a3c',I); kadd(hiInv(new T.SphereGeometry(.157,16,6,0,TAU,0,Math.PI/2).toNonIndexed()),'#fbf6ec',I);   // (its inside, seen from below)
+  await step(); for(let k=0;k<6;k++){ const a=k/6*TAU; hiRod(I,'#f4f0e8',V(Math.cos(a)*.15,.02,Math.sin(a)*.15),V(0,-.24,0),.0015); } kitTo(); B.chute=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.chute.visible=false; delete KITS.hpart;
   hiHit(B,'rocket',.12,.36,.12,hiTf(M,B.rkAt[0],B.rkAt[1]+.15,B.rkAt[2]));
-  kitTo('hpart'); hiTorus(I,'#9aa0a3',.075,.005,22); for(let k=0;k<12;k++){ const a=k/12*TAU; box(I,'#9aa0a3',Math.cos(a)*.075,Math.sin(a)*.075-.0015,0,.004,.003,.05); } for(let k=0;k<4;k++) box(hiTf(I,0,0,0,0,0,k*Math.PI/4),'#9aa0a3',0,-.002,-.024,.15,.004,.004); kitTo();
-  B.wheel=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.wheelM0=hiTf(M,B.hamAt.x-.04,B.hamAt.y+.09,B.hamAt.z-.13,Math.PI/2); delete KITS.hpart;
-  { const P_=part(), C1='#d9a066', C2='#fbf2e2'; P_.put(FG.sph,C1,0,.035,0,.045,.035,.055); P_.put(FG.sph,C2,0,.025,.008,.036,.024,.044); P_.put(FG.sph,'#f2b8a0',-.02,.008,.035,.01,.008,.012); P_.put(FG.sph,'#f2b8a0',.02,.008,.035,.01,.008,.012);
+  await step(); kitTo('hpart'); hiTorus(I,'#9aa0a3',.075,.005,22); for(let k=0;k<12;k++){ const a=k/12*TAU; box(I,'#9aa0a3',Math.cos(a)*.075,Math.sin(a)*.075-.0015,0,.004,.003,.05); } for(let k=0;k<4;k++) box(hiTf(I,0,0,0,0,0,k*Math.PI/4),'#9aa0a3',0,-.002,-.024,.15,.004,.004); kitTo();
+  await step(); B.wheel=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); B.wheelM0=hiTf(M,B.hamAt.x-.04,B.hamAt.y+.09,B.hamAt.z-.13,Math.PI/2); delete KITS.hpart;
+  await step(); { const P_=part(), C1='#d9a066', C2='#fbf2e2'; P_.put(FG.sph,C1,0,.035,0,.045,.035,.055); P_.put(FG.sph,C2,0,.025,.008,.036,.024,.044); P_.put(FG.sph,'#f2b8a0',-.02,.008,.035,.01,.008,.012); P_.put(FG.sph,'#f2b8a0',.02,.008,.035,.01,.008,.012);
     const hb=P_.mesh(); const H_=part(); H_.put(FG.sph,C1,0,0,0,.032,.03,.034); H_.put(FG.sph,C2,0,-.008,.018,.022,.016,.018); [-1,1].forEach(s=>{ H_.put(FG.sph,'#e8a08a',s*.022,.025,-.004,.012,.013,.006); H_.put(FG.sph,'#1c1714',s*.014,.008,.028,.006,.007,.005); });
     H_.put(FG.sph,'#f08cae',0,-.002,.036,.006,.005,.005); const hh=H_.mesh(0,0,0); hh.position.set(0,.045,.05); hb.add(hh); const hg=new T.Group(); hg.add(hb); hiFigure(B,hg,mat); B.hamG=hg; B.hamHead=hh; B.hamBody=hb; }
-  B.ropeM=(()=>{ kitTo('hpart'); hiRod(I,'#d9c49a',V(0,0,0),V(0,top-1.25,0),.006); for(let k=0;k<6;k++) cyl(I,['#d9483b','#fbf6ec','#3f7fd0'][k%3],0,-.2+k*.035,0,.024,.035); kitTo(); const m=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart; return m; })();
-  B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.008,0,.01,i?.095:.065,.004); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),mat)); }); delete KITS.hhand;
-  /* ---- the inside of the door, which swings out with it (the door itself is the street's: see schoolHouse) ---- */
-  { kitTo('hpart'); box(I,'#e9a23b',.37,0,-.03,.74,1.6,.008); box(I,'#f2bd63',.37,.93,-.037,.5,.5,.004); box(I,'#f2bd63',.37,.225,-.037,.5,.45,.004); put(I,'sph','#5a4a3a',.66,.82,-.045,.025,.025,.025); kitTo();
+  await step(); B.ropeM=(()=>{ kitTo('hpart'); hiRod(I,'#d9c49a',V(0,0,0),V(0,top-1.25,0),.006); for(let k=0;k<6;k++) cyl(I,['#d9483b','#fbf6ec','#3f7fd0'][k%3],0,-.2+k*.035,0,.024,.035); kitTo(); const m=hiAdd(B,new T.Mesh(kgeo('hpart'),mat)); delete KITS.hpart; return m; })();
+  await step(); B.handM=[0,1].map(i=>{ kitTo('hhand'); box(new T.Matrix4(),'#2a2624',0,-.008,0,.01,i?.095:.065,.004); kitTo(); return hiAdd(B,new T.Mesh(kgeo('hhand'),mat)); }); delete KITS.hhand;
+  await step(); /* ---- the inside of the door, which swings out with it (the door itself is the street's: see schoolHouse) ---- */
+  await step(); { kitTo('hpart'); box(I,'#e9a23b',.37,0,-.03,.74,1.6,.008); box(I,'#f2bd63',.37,.93,-.037,.5,.5,.004); box(I,'#f2bd63',.37,.225,-.037,.5,.45,.004); put(I,'sph','#5a4a3a',.66,.82,-.045,.025,.025,.025); kitTo();
     const m=new T.Mesh(kgeo('hpart'),mat); delete KITS.hpart; m.frustumCulled=false; CIV.door.add(m); m.userData.noInk=true; m.userData.col=mat; m.userData.inkM=GINK; m.userData.shdM=mat; INK.push(m); B.inLeaf=m; }
-  /* ---- Ms Kavanagh: a rust cardigan, auburn curls, glasses on ---- */
-  { const f=figure({shirt:'#c8643f',crew:true,under:'#f3efe6',pants:'#3d4a5c',shoes:'#6b4a36',skin:'#f1c9a5',hair:'curly',hairC:'#8a4a2a',glasses:'#5a3d2c',mouth:'smile',cheeks:true,build:.9,arm:.92,head:[.146,.176,.158,.17,.026]});
+  await step(); /* ---- Ms Kavanagh: a rust cardigan, auburn curls, glasses on ---- */
+  await step(); { const f=await figureA({shirt:'#c8643f',crew:true,under:'#f3efe6',pants:'#3d4a5c',shoes:'#6b4a36',skin:'#f1c9a5',hair:'curly',hairC:'#8a4a2a',glasses:'#5a3d2c',mouth:'smile',cheeks:true,build:.9,arm:.92,head:[.146,.176,.158,.17,.026]});
     hiFigure(B,f,mat); B.teach={f,d:f.userData,x:SCH.TCH[0],z:SCH.TCH[1],a:.35,ph:0,wave:0,wt:0,point:0}; hiHit(B,'teacher',.45,1.4,.45,hiTf(M,SCH.TCH[0],F+.7,SCH.TCH[1])); }
-  /* ---- the six of them at their desks, in lessons: the same children as in the yard ---- */
-  B.kids=CIV.kids.map((k,i)=>{ const f=hiTwin(k.g,mat); hiFigure(B,f,mat); f.visible=false; const q=B.seats[i]; hiHit(B,'kid',.3,.5,.3,hiTf(M,q.x,F+.4,q.z+.27),{i}); return {f,d:f.userData,q,i,ph:i*1.3,hand:0,ht:6+i*3.7,look:0,wave:0}; });
-  B.L=[hiP(M,-.85,top-.12,0),hiP(M,.85,top-.12,0),hiP(M,-1.5,1.4,-.7),hiP(M,1.5,1.6,.1),hiP(M,0,1.4,iz+1.0)];
+  await step(); /* ---- the six of them at their desks, in lessons: the same children as in the yard ---- */
+  await step(); B.kids=CIV.kids.map((k,i)=>{ const f=hiTwin(k.g,mat); hiFigure(B,f,mat); f.visible=false; const q=B.seats[i]; hiHit(B,'kid',.3,.5,.3,hiTf(M,q.x,F+.4,q.z+.27),{i}); return {f,d:f.userData,q,i,ph:i*1.3,hand:0,ht:6+i*3.7,look:0,wave:0}; });
+  await step(); B.L=[hiP(M,-.85,top-.12,0),hiP(M,.85,top-.12,0),hiP(M,-1.5,1.4,-.7),hiP(M,1.5,1.6,.1),hiP(M,0,1.4,iz+1.0)];
   hiHit(B,'door',SCH.dw,SCH.dh-F,.3,hiTf(M,0,(SCH.dh+F)/2,iz+.05));
-  B.front=hiHit(B,'front',4.2,3.4,1.6,hiTf(M,0,1.7,1.2)); B.picks.pop();
+  await step(); B.front=hiHit(B,'front',4.2,3.4,1.6,hiTf(M,0,1.7,1.2)); B.picks.pop();
   return B; }
 
 /* built after the town and the children (the classroom's children are the yard's), a room at a time; then drawn the once, out
    of sight, as Earth is made ready, so nothing about them is new when you go in */
-async function buildCivIn(gap){ hiBookLoad(); hiBuildHall(); await gap(); hiBuildSchool(); await gap();
+async function buildCivIn(gap,after){ hiBookLoad(); await hiBuildHall(gap); await gap(); await hiBuildSchool(gap); await gap();
   for(const B of [HSI.hall,HSI.school]){ B.ap=hiXZ(B.M,...B.WAY[0]); B.D=B.id==='hall'?1.4:1.2; B.U.uGU.value.copy(B.up); for(let i=0;i<5;i++) B.U.uGL.value[i].set(B.L[i].x,B.L[i].y,B.L[i].z,0); }
-  KU.uGU.value.copy(HSI.hall.up); $('#crLabels',el).appendChild(hiTag); HSI.ok=true; hiWarmShow(true); hiHallStep(.016,0); hiSchoolStep(.016,0); baked=false; }
+  KU.uGU.value.copy(HSI.hall.up); $('#crLabels',el).appendChild(hiTag); HSI.ok=true;
+  /* (built behind the loader: drawn once there with the rest; built after you land, made ready to draw by lateWarm instead) */
+  if(after){ HSI.warm=false; hiWarmShow(false); } else hiWarmShow(true); hiHallStep(.016,0); hiSchoolStep(.016,0); if(!after) baked=false; }
 function hiWarmShow(on){ const H=HSI.hall, Sc=HSI.school; H.g.visible=H.kg.visible=Sc.g.visible=on; hiInLeaves(H,on); hiInLeaves(Sc,on); Sc.kids.forEach(k=>{ k.f.visible=on; }); }
 
 /* ---------- where you are, and the way over ---------- */
@@ -5624,7 +5683,7 @@ function hiTagUpdate(live){ const P=player; let on=false, can=false, Bn=null;
       if(on) hiTag.style.transform=`translate(${((hiV1.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hiV1.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
   HSI.tagB=on?Bn:null; if(on!==HSI.tagOn){ HSI.tagOn=on; hiTag.classList.toggle('on',on); } if(can!==HSI.tagCan){ HSI.tagCan=can; hiTag.classList.toggle('can',can); } }
 /* from the street: the front of the hall or the school, as far as the length of the square, never from round the back */
-function hiFront(e,far){ hiNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); hiRay.setFromCamera(hiNdc,stCam); let best=null, bd=1e9;
+function hiFront(e,far){ if(!HSI.ok) return far?1e9:null; hiNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); hiRay.setFromCamera(hiNdc,stCam); let best=null, bd=1e9;
   for(const B of [HSI.hall,HSI.school]){ hiV1.copy(stCam.position).applyMatrix4(B.Mi); if(hiV1.z<B.D-.2||hiV1.length()>26) continue; const h=hiRay.intersectObject(B.front,false)[0]; if(h&&h.distance<bd){ bd=h.distance; best=B.id; } }
   return far?(best?bd:1e9):best; }
 /* the bench and the kite on the cliff stand behind the hall, and the workshop may stand behind one or the other as you see
@@ -9517,7 +9576,7 @@ function wiWayOut(B,dt,t){ const c=B.t+=dt, P=player, TO=B.OUT;
     B.curve=null; wiSet(B,'out'); B.cp.copy(B.endP); B.cl.copy(B.endL); B.cu.copy(P.u); me.visible=true; B.onOut(); } }
 
 /* ---------- each frame, after the town has moved you and placed its camera: the door, the camera, the lens, the music ---------- */
-function wiStep(B,dt,t){ if(!B.g) return false;
+function wiStep(B,dt,t){ if(!B.g||B.late) return false;
   if(FIN.on||CUT.on){ if(B.st!=='out'||B.k>0||B.g.visible||B.door>.001) wiReset(B); wiTag(B,false); B.quiet(); return false; }
   B.you=wiYou(B); B.dd=Math.hypot(B.you.x-B.DX,B.you.z-B.AP[1]);
   if(B.st==='go') wiGoing(B,dt); else if(B.st==='enter') wiWayIn(B,dt,t); else if(B.st==='exit') wiWayOut(B,dt,t); else if(B.st==='in') B.inside(dt,t); else wiOutside(B);
@@ -9560,11 +9619,11 @@ function wiPick(B,e,list){ wiNdc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerH
 function wiFront(B,e){ if(!B.pick||stCam.position.distanceTo(B.c0)>26||wiL(B,stCam.position,wiV).z<B.F0) return false; return wiPick(B,e,[['front',B.pick]])==='front'; }
 { const op=st.onPointer; st.onPointer=function(e){ if(!FIN.on&&!CUT.on){ const B=WI.find(b=>b.on&&b.g);
       if(B){ B.touchy=e.pointerType!=='mouse'; B.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,moved:false}; return; }
-      for(const b of WI) if(b.g) b.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; }
+      for(const b of WI) if(b.g&&!b.late) b.tap={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false,touch:e.pointerType!=='mouse',talk:!!TALK.p}; }
     return op.call(this,e); }; }
 let wiCurOn=false;
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return; let lab=null, mine=false;
-  for(const B of WI){ if(!B.g) continue; const Dg=B.drag, tp=B.tap;
+  for(const B of WI){ if(!B.g||B.late) continue; const Dg=B.drag, tp=B.tap;
     if(tp&&e.pointerId===tp.id&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>(tp.touch?8:13)) tp.moved=true;
     if(Dg&&e.pointerId===Dg.id){ if(Math.hypot(e.clientX-Dg.x,e.clientY-Dg.y)>(e.pointerType==='mouse'?6:9)) Dg.moved=true;
       if(Dg.moved&&B.st==='in'){ B.look(e.clientX-Dg.lx,e.clientY-Dg.ly); B.dragT=0; } Dg.lx=e.clientX; Dg.ly=e.clientY; return; }
@@ -9582,14 +9641,20 @@ addEventListener('pointercancel',()=>{ for(const B of WI){ B.drag=null; B.tap=nu
 addEventListener('pointerdown',()=>{ for(const B of WI) B.kb=false; },true);
 /* keys: E or Enter by the door takes you in; inside, each room's own; Escape (and S) takes you out */
 addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on) return; const k=e.code, ctl=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button,input');
-  for(const B of WI){ if(!B.g) continue;
+  for(const B of WI){ if(!B.g||B.late) continue;
     if(B.on){ B.touchy=false; if(B.key(e,k,ctl)){ e.preventDefault(); e.stopImmediatePropagation(); } return; }
     if(B.st==='go'&&k==='Escape'){ wiSet(B,'out'); player.path=null; e.preventDefault(); e.stopImmediatePropagation(); return; }
     if((k==='KeyE'||k==='Enter')&&!e.repeat&&!ctl&&B.st==='out'&&!B.busy()&&B.open()&&wiAtDoor(B,1.2)&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<3.4)){ B.kb=true; if(wiGo(B)){ e.preventDefault(); e.stopImmediatePropagation(); return; } } } },true);
 const wiBusy=()=>!!TALK.p||CUT.on||FIN.on||PHS.on||GLN.t>=0||CAFE.on||GAR.on||PO.on||PO.st!=='out'||PO.bx.st!=='idle'||PUB.on||HSI.on||CL.st!=='idle'||CL.k!=='home'||PC.on||!pcCard.hidden||WI.some(b=>b.on);
-/* built after the town, its trees, the pub and the fire station; stepped after the town has moved you; put back with it */
-function wiWire(B,build,step){ const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
-  st.build=async function(){ await b.apply(this,arguments); await (st.pace?st.pace():nextFrame()); try{ build(); }catch(err){ B.err=String(err&&err.stack||err); console.warn(B.id,err); kitTo(); } };
+/* built after the town, its trees, the pub and the fire station; stepped after the town has moved you; put back with it.
+   outside: a room built after you land (see LATE): what of it is out in the street (its steps, the grass round them) made
+   now, with the town, and the room itself later, nothing of it to be gone into until it is all there (B.late) */
+function wiWire(B,build,step,outside){ const b=st.build, up=st.update, en=st.enter, ex=st.exit, fe=st.finaleEnd;
+  st.build=async function(){ await b.apply(this,arguments);
+    if(outside){ try{ outside(); }catch(err){ B.err=String(err&&err.stack||err); console.warn(B.id,err); }
+      late(B.id,stp=>lateRoom(async after=>{ B.late=true; try{ await build(stp); if(after&&B.g){ B.warm=false; B.cull(true); B.g.visible=false; } }
+        catch(err){ B.err=String(err&&err.stack||err); console.warn(B.id,err); kitTo(); } finally{ B.late=false; } },stp)); return; }
+    await (st.pace?st.pace():nextFrame()); try{ build(); }catch(err){ B.err=String(err&&err.stack||err); console.warn(B.id,err); kitTo(); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) step(dt,t); return r; };
   st.enter=function(){ wiReset(B); return en.apply(this,arguments); }; st.exit=function(){ wiReset(B,true); return ex.apply(this,arguments); };
   st.finaleEnd=function(){ const r=fe.apply(this,arguments); wiReset(B); return r; };
@@ -9629,7 +9694,7 @@ const LHI=wiRoom({id:'lh',cls:'inlh',at:'foot',mv:null,ga:0,walk:0,log:0,logOn:f
   DX:0,F:1.76,F0:1.76,DZ:[1.95,2.45,.3],AP:LHD.AP,S:LHD.S,yaw0:-.62,p0:.1,pP:.06,IN:3.4,OUT:3.0,tagY:[1.55,2.05],tagZ:1.12,
   wayIn:[[0,2.0],[0,1.3],[0,.72],LHD.S], camIn:[[0,LHD.FL+1.7,3.05],[0,LHD.FL+LHD.EY+.12,1.4],[0,LHD.FL+LHD.EY+.06,.72]], lookIn:[[0,1.7,.5],[0,1.75,-.3]],
   wayOut:[[0,.75],[0,1.3],[0,2.0],LHD.AP], camOut:[[0,LHD.FL+LHD.EY+.1,.75],[0,LHD.FL+LHD.EY+.2,1.45]],
-  busy:()=>!LHI.g||wiBusy(), open:()=>true, canLeave:()=>LHI.at==='foot'&&!LHI.mv,
+  busy:()=>!LHI.g||LHI.late||wiBusy(), open:()=>true, canLeave:()=>LHI.at==='foot'&&!LHI.mv,
   figY:(x,z)=>Math.hypot(x,z)<1.15?LHD.FL:Math.abs(x)<=.47&&z<1.47?.33:Math.abs(x)<=.47&&z<1.76?Math.max(.17,wiGround(LHI,x,z)):wiGround(LHI,x,z),   /* (the round plinth; the two steps up to the door as they are built, .94 wide; the ground beside them) */
   stepSnd:(x,z,mx,mz)=>A.step(z<1.76||roadDist(mx,mz)<RW+SW?1:0), sndDoor:o=>A.civDoor(o,true),
   eye:o=>lhEye(o), fov:()=>cport()?76:64, tagText:()=>'Go in', ui:()=>lhUI(), outdoors:()=>LHI.at==='gal'||!!(LHI.mv&&LHI.mv.k==='back'),
@@ -9721,75 +9786,75 @@ function lhChart(){ const c=LHI.logC.getContext('2d'), y0=640; c.fillStyle='#e9d
 
 /* ---------- building the inside: the floors, the walls, the stair, the keeper's room, the lamp room and its lens. After
    the trees are laid out (the steps are made solid, and the walking grid round them made again) ---------- */
-function buildLighthouse(){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M=B.M, rin=lhRin, kr=rin(D.FK)+.012, rnd=seeded(83);
+async function buildLighthouse(step=lateNo){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M=B.M, rin=lhRin, kr=rin(D.FK)+.012, rnd=seeded(83);
   B.up.copy(wiD(B,0,1,0)); B.U.uCU.value.copy(B.up); B.c0=wiW(B,0,1.2,0);
-  const g=B.g=new T.Group(); g.matrixAutoUpdate=false; g.visible=true; sc.add(g); const mat=wiMat(B), noSun=m=>{ m.uniforms.uLitA={value:new T.Vector3()}; return m; }; noSun(mat);
-  const P=(r,a,y)=>[Math.sin(a)*r,y,Math.cos(a)*r];
-  /* a flat ring's pieces, from r0 to r1, round from a0 to a1, at y (its colours in turn) */
-  const fan=(y,r0,r1,a0,a1,n,cols)=>{ for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n; wiQuad(B,P(r0,t0,y),P(r1,t0,y),P(r1,t1,y),P(r0,t1,y),cols[i%cols.length]); } };
-  /* a wedge: a tread, a step of the floor's edge (a0 to a1, r0 to r1, its top at y, th thick) */
-  const wedge=(a0,a1,r0,r1,y,th,c,c2)=>{ const n=3; for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n;
+  await step(); const g=B.g=new T.Group(); g.matrixAutoUpdate=false; g.visible=true; sc.add(g); const mat=wiMat(B), noSun=m=>{ m.uniforms.uLitA={value:new T.Vector3()}; return m; }; noSun(mat);
+  await step(); const P=(r,a,y)=>[Math.sin(a)*r,y,Math.cos(a)*r];
+  await step(); /* a flat ring's pieces, from r0 to r1, round from a0 to a1, at y (its colours in turn) */
+  await step(); const fan=(y,r0,r1,a0,a1,n,cols)=>{ for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n; wiQuad(B,P(r0,t0,y),P(r1,t0,y),P(r1,t1,y),P(r0,t1,y),cols[i%cols.length]); } };
+  await step(); /* a wedge: a tread, a step of the floor's edge (a0 to a1, r0 to r1, its top at y, th thick) */
+  await step(); const wedge=(a0,a1,r0,r1,y,th,c,c2)=>{ const n=3; for(let i=0;i<n;i++){ const t0=a0+(a1-a0)*i/n, t1=a0+(a1-a0)*(i+1)/n;
       wiQuad(B,P(r0,t0,y),P(r1,t0,y),P(r1,t1,y),P(r0,t1,y),c); wiQuad(B,P(r0,t0,y-th),P(r1,t0,y-th),P(r1,t1,y-th),P(r0,t1,y-th),c2||c); wiQuad(B,P(r1,t0,y),P(r1,t1,y),P(r1,t1,y-th),P(r1,t0,y-th),c2||c); }
     wiQuad(B,P(r0,a0,y),P(r1,a0,y),P(r1,a0,y-th),P(r0,a0,y-th),c2||c); wiQuad(B,P(r0,a1,y),P(r1,a1,y),P(r1,a1,y-th),P(r0,a1,y-th),c2||c); };
-  kitTo('lhin');
-  /* ---- the walls: whitewash over stone, a dark skirting, the keeper's room panelled to the dado; the lower wall open where
+  await step(); kitTo('lhin');
+  await step(); /* ---- the walls: whitewash over stone, a dark skirting, the keeper's room panelled to the dado; the lower wall open where
      the door is, its reveal and the stone round it as deep as the wall ---- */
-  const prof=(y0,y1,n,o=0)=>{ const Q=[]; for(let i=0;i<=n;i++){ const y=y0+(y1-y0)*i/n; Q.push(new T.Vector2(rin(y)-o,y)); } return Q; };
+  await step(); const prof=(y0,y1,n,o=0)=>{ const Q=[]; for(let i=0;i<=n;i++){ const y=y0+(y1-y0)*i/n; Q.push(new T.Vector2(rin(y)-o,y)); } return Q; };
   kadd(new T.LatheGeometry(prof(D.FL,D.DH,4),32,D.G,TAU-2*D.G).toNonIndexed(),'#ebe4d3',M); kadd(new T.LatheGeometry(prof(D.DH,D.CK,10),32).toNonIndexed(),'#ebe4d3',M);
   kadd(new T.LatheGeometry(prof(D.FL,D.FL+.12,1,.006),32,D.G,TAU-2*D.G).toNonIndexed(),'#3f4a45',M);
-  for(let y=D.FL+.3;y<D.CK-.1;y+=.3){ const lo=y<D.DH+.02; kadd(new T.LatheGeometry(prof(y,y+.014,1,.002),32,lo?D.G:0,lo?TAU-2*D.G:TAU).toNonIndexed(),'#dcd3c0',M); }   // the stone's courses under the whitewash
+  await step(); for(let y=D.FL+.3;y<D.CK-.1;y+=.3){ const lo=y<D.DH+.02; kadd(new T.LatheGeometry(prof(y,y+.014,1,.002),32,lo?D.G:0,lo?TAU-2*D.G:TAU).toNonIndexed(),'#dcd3c0',M); }   // the stone's courses under the whitewash
   kadd(new T.LatheGeometry(prof(D.FK,D.FK+.86,2,.008),32,D.HL[1]-TAU,D.HL[0]-D.HL[1]+TAU).toNonIndexed(),'#8a6446',M); kadd(new T.LatheGeometry(prof(D.FK+.84,D.FK+.9,1,.016),32,D.HL[1]-TAU,D.HL[0]-D.HL[1]+TAU).toNonIndexed(),'#5e4230',M);
-  [-1,1].forEach(s=>box(M,'#d6cfc2',s*(D.DW/2+.03)-s*.013,D.FL,.74,.06,D.DH-D.FL,.42)); box(M,'#d6cfc2',0,D.DH-.012,.74,D.DW+.12,.06,.42);
-  /* ---- the floors: flags at the foot; the keeper's boards (open over the stair, its edge showing), the ceiling over him,
+  await step(); [-1,1].forEach(s=>box(M,'#d6cfc2',s*(D.DW/2+.03)-s*.013,D.FL,.74,.06,D.DH-D.FL,.42)); box(M,'#d6cfc2',0,D.DH-.012,.74,D.DW+.12,.06,.42);
+  await step(); /* ---- the floors: flags at the foot; the keeper's boards (open over the stair, its edge showing), the ceiling over him,
      and the lamp room's iron plates, each open where the ladder comes through, the hatch between them lined ---- */
   fan(D.FL+.003,0,.42,0,TAU,7,['#a8a094','#9d958a','#b3ab9e']); fan(D.FL+.003,.42,rin(D.FL)+.01,.2,TAU+.2,13,['#9f978b','#b1a99c','#a59d91']);
-  const a0=D.HL[1], a1=D.HL[0]+TAU; fan(D.FK,.075,kr,a0,a1,16,['#8a6446','#7d5a3e','#94704f']); fan(D.FK-.08,.075,kr,a0,a1,8,['#6b4c34']);
+  await step(); const a0=D.HL[1], a1=D.HL[0]+TAU; fan(D.FK,.075,kr,a0,a1,16,['#8a6446','#7d5a3e','#94704f']); fan(D.FK-.08,.075,kr,a0,a1,8,['#6b4c34']);
   wiQuad(B,P(.075,a0,D.FK),P(kr,a0,D.FK),P(kr,a0,D.FK-.08),P(.075,a0,D.FK-.08),'#5e4230'); wiQuad(B,P(.075,a1,D.FK),P(kr,a1,D.FK),P(kr,a1,D.FK-.08),P(.075,a1,D.FK-.08),'#5e4230');
-  const hatch=(y,r2,cols,lid)=>{ const h0=D.TL-D.HG, h1=D.TL+D.HG; fan(y,0,D.HR[0],0,TAU,8,cols); fan(y,D.HR[0],D.HR[1],h1,h0+TAU,12,cols); fan(y,D.HR[1],r2,0,TAU,16,cols); };
+  await step(); const hatch=(y,r2,cols,lid)=>{ const h0=D.TL-D.HG, h1=D.TL+D.HG; fan(y,0,D.HR[0],0,TAU,8,cols); fan(y,D.HR[0],D.HR[1],h1,h0+TAU,12,cols); fan(y,D.HR[1],r2,0,TAU,16,cols); };
   hatch(D.CK,rin(D.CK)+.012,['#efe8d8','#e6dfcf']); hatch(D.FT+.003,D.LR-.004,['#6d6f70','#626465']);
-  for(const [r,s] of [[D.HR[0],1],[D.HR[1],-1]]) for(let i=0;i<4;i++){ const t0=D.TL-D.HG+2*D.HG*i/4, t1=D.TL-D.HG+2*D.HG*(i+1)/4; wiQuad(B,P(r,t0,D.FT),P(r,t1,D.FT),P(r,t1,D.CK),P(r,t0,D.CK),'#d8d0bf'); }
-  [D.TL-D.HG,D.TL+D.HG].forEach(a=>wiQuad(B,P(D.HR[0],a,D.FT),P(D.HR[1],a,D.FT),P(D.HR[1],a,D.CK),P(D.HR[0],a,D.CK),'#d8d0bf'));
-  /* ---- the stair: the newel, thirteen cast-iron treads round it (a nosing on each), the balusters and the rail, and a
+  await step(); for(const [r,s] of [[D.HR[0],1],[D.HR[1],-1]]) for(let i=0;i<4;i++){ const t0=D.TL-D.HG+2*D.HG*i/4, t1=D.TL-D.HG+2*D.HG*(i+1)/4; wiQuad(B,P(r,t0,D.FT),P(r,t1,D.FT),P(r,t1,D.CK),P(r,t0,D.CK),'#d8d0bf'); }
+  await step(); [D.TL-D.HG,D.TL+D.HG].forEach(a=>wiQuad(B,P(D.HR[0],a,D.FT),P(D.HR[1],a,D.FT),P(D.HR[1],a,D.CK),P(D.HR[0],a,D.CK),'#d8d0bf'));
+  await step(); /* ---- the stair: the newel, thirteen cast-iron treads round it (a nosing on each), the balusters and the rail, and a
      balustrade along the keeper's side of its opening ---- */
   cyl(M,'#33373a',0,D.FL,0,.06,D.FK-D.FL+.9,'cyl8'); put(M,'sph','#c9a24a',0,D.FK+.92,0,.07,.07,.07);
-  const dA=TAU/D.N;
-  for(let i=0;i<D.N;i++){ const t0=D.TH0+i*dA, t1=t0+dA+.04, y=D.FL+(i+1)*D.RISE, r1=rin(y)-.025;
+  await step(); const dA=TAU/D.N;
+  await step(); for(let i=0;i<D.N;i++){ const t0=D.TH0+i*dA, t1=t0+dA+.04, y=D.FL+(i+1)*D.RISE, r1=rin(y)-.025;
     wedge(t0,t1,.06,r1,y,.04,'#454a4e','#33373a'); wiQuad(B,P(.07,t0+.004,y+.002),P(r1,t0+.004,y+.002),P(r1,t0+.05,y+.002),P(.07,t0+.05,y+.002),'#6a7076');
     const pa=t0+dA*.5, pr=r1-.035; hiRod(M,'#33373a',V.fromArray(P(pr,pa,y)),V2.fromArray(P(pr,pa,y+.8)),.009); }
-  { const pts=[]; for(let k=0;k<=48;k++){ const s=k/48, a=D.TH0+s*TAU, y=D.FL+s*(D.FK-D.FL)+.8; pts.push(P(rin(y)-.06,a,y)); } hiTube(M,'#5a3a26',pts,.016,96); }
-  { const a=D.HL[0]+.02; for(let k=0;k<4;k++){ const r=.12+k*(kr-.2)/3; hiRod(M,'#33373a',V.fromArray(P(r,a,D.FK)),V2.fromArray(P(r,a,D.FK+.8)),.01); } hiRod(M,'#5a3a26',V.fromArray(P(.1,a,D.FK+.8)),V2.fromArray(P(kr-.04,a,D.FK+.8)),.016); }
-  /* ---- at the foot: a bench, oil cans, a coil of rope, the lifebuoy on the wall, and a lantern on its bracket ---- */
-  { const a=4.25, r=rin(D.FL)-.2, Bn=sub(M,...P(r,a,0),a); box(Bn,'#6b4c34',0,D.FL+.32,0,.5,.05,.2); [-1,1].forEach(s=>box(Bn,'#5a3e2a',s*.2,D.FL,0,.05,.32,.18)); }
-  [[2.55,.62,'#a83a2c'],[2.75,.6,'#3f6b56'],[2.62,.48,'#a83a2c']].forEach(([a,r,c])=>{ const [x,,z]=P(r,a,0); cyl(M,c,x,D.FL,z,.06,.22); cyl(M,'#2a2826',x,D.FL+.22,z,.02,.04,'cyl8'); });
+  await step(); { const pts=[]; for(let k=0;k<=48;k++){ const s=k/48, a=D.TH0+s*TAU, y=D.FL+s*(D.FK-D.FL)+.8; pts.push(P(rin(y)-.06,a,y)); } hiTube(M,'#5a3a26',pts,.016,96); }
+  await step(); { const a=D.HL[0]+.02; for(let k=0;k<4;k++){ const r=.12+k*(kr-.2)/3; hiRod(M,'#33373a',V.fromArray(P(r,a,D.FK)),V2.fromArray(P(r,a,D.FK+.8)),.01); } hiRod(M,'#5a3a26',V.fromArray(P(.1,a,D.FK+.8)),V2.fromArray(P(kr-.04,a,D.FK+.8)),.016); }
+  await step(); /* ---- at the foot: a bench, oil cans, a coil of rope, the lifebuoy on the wall, and a lantern on its bracket ---- */
+  await step(); { const a=4.25, r=rin(D.FL)-.2, Bn=sub(M,...P(r,a,0),a); box(Bn,'#6b4c34',0,D.FL+.32,0,.5,.05,.2); [-1,1].forEach(s=>box(Bn,'#5a3e2a',s*.2,D.FL,0,.05,.32,.18)); }
+  await step(); [[2.55,.62,'#a83a2c'],[2.75,.6,'#3f6b56'],[2.62,.48,'#a83a2c']].forEach(([a,r,c])=>{ const [x,,z]=P(r,a,0); cyl(M,c,x,D.FL,z,.06,.22); cyl(M,'#2a2826',x,D.FL+.22,z,.02,.04,'cyl8'); });
   hiTorus(wiM.makeTranslation(...P(.5,3.45,D.FL+.04)).premultiply(M).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),'#b59a6a',.11,.035,14);
-  { const a=5.55, r=rin(1.35)-.04, L=sub(M,...P(r,a,1.35),a+Math.PI); for(let k=0;k<4;k++) hiTorus(sub(L,0,0,0).multiply(wiM.makeRotationZ(k*Math.PI/2)),k%2?'#f4efe6':'#cf4a36',.15,.04,6,Math.PI/2); }
-  const LMP=[[3.9,1.95],[.55,2.75]].map(([a,y])=>{ const r=rin(y)-.05, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#2a2826',0,-.02,-.02,.04,.1,.06); put(W,'cyl','#2a2826',0,-.11,.1,.05,.02,.05); put(W,'sph','#fff2c4',0,-.04,.1,.035,.05,.035); put(W,'cone','#2a2826',0,.04,.1,.05,.06,.05);
+  await step(); { const a=5.55, r=rin(1.35)-.04, L=sub(M,...P(r,a,1.35),a+Math.PI); for(let k=0;k<4;k++) hiTorus(sub(L,0,0,0).multiply(wiM.makeRotationZ(k*Math.PI/2)),k%2?'#f4efe6':'#cf4a36',.15,.04,6,Math.PI/2); }
+  await step(); const LMP=[[3.9,1.95],[.55,2.75]].map(([a,y])=>{ const r=rin(y)-.05, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#2a2826',0,-.02,-.02,.04,.1,.06); put(W,'cyl','#2a2826',0,-.11,.1,.05,.02,.05); put(W,'sph','#fff2c4',0,-.04,.1,.035,.05,.035); put(W,'cone','#2a2826',0,.04,.1,.05,.06,.05);
     return P(r-.12,a,y-.06); });
-  /* ---- the keeper's room: the desk under the window, the log open on it, the lamp, the inkwell and a mug; the chair; the
+  await step(); /* ---- the keeper's room: the desk under the window, the log open on it, the lamp, the inkwell and a mug; the chair; the
      shelf of books, the chart and the clock; the stove and its pipe; the coat and cap on their peg; the ladder ---- */
-  const BK=D.BOOK, tY=D.FK+.62;
-  { const Dk=sub(M,BK[0],0,BK[1]-.02); box(Dk,'#6b4c34',0,tY-.04,0,.56,.04,.3); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Dk,'#5a3e2a',a*.25,D.FK,b*.12,.04,.58,.04)); box(Dk,'#5a3e2a',0,tY-.16,0,.5,.1,.26);
+  await step(); const BK=D.BOOK, tY=D.FK+.62;
+  await step(); { const Dk=sub(M,BK[0],0,BK[1]-.02); box(Dk,'#6b4c34',0,tY-.04,0,.56,.04,.3); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Dk,'#5a3e2a',a*.25,D.FK,b*.12,.04,.58,.04)); box(Dk,'#5a3e2a',0,tY-.16,0,.5,.1,.26);
     box(Dk,'#6a2420',0,tY,.02,.38,.012,.26); cyl(Dk,'#2a2826',-.235,tY,-.09,.018,.03,'cyl8'); hiRod(Dk,'#e9e2d0',V.set(-.23,tY+.025,-.08),V2.set(-.255,tY+.08,-.02),.004);
     cyl(Dk,'#e9e2d0',-.24,tY,.08,.022,.055); cyl(Dk,'#7a2a20',-.24,tY+.004,.08,.024,.016);
     cyl(Dk,'#c9a24a',.238,tY,-.1,.032,.025); cyl(Dk,'#c9a24a',.238,tY+.025,-.1,.01,.035,'cyl8'); put(Dk,'sph','#fff2c4',.238,tY+.085,-.1,.02,.032,.02); cyl(Dk,'#d8e4e6',.238,tY+.05,-.1,.024,.085); }
-  { const Ch=sub(M,-.24,0,-.22,.5); box(Ch,'#5a3e2a',0,D.FK+.36,0,.24,.03,.24); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Ch,'#4a3222',a*.1,D.FK,b*.1,.03,.36,.03)); [-1,1].forEach(a=>box(Ch,'#4a3222',a*.1,D.FK+.39,-.11,.03,.36,.03)); box(Ch,'#5a3e2a',0,D.FK+.64,-.11,.24,.08,.025); }
-  { const a=3.85, y=D.FK+1.2, r=rin(y)-.09, Sh=sub(M,...P(r,a,y),a+Math.PI); box(Sh,'#6b4c34',0,0,0,.36,.025,.15); for(let k=0;k<7;k++) box(Sh,['#7a2a20','#2f5a45','#2f3d5a','#8a6a3a'][k%4],-.15+k*.045,.025,0,.035,.15+rnd()*.05,.11); }
-  { const a=4.4, r=.43, [x,,z]=P(r,a,0); hiLathe(wiM.makeTranslation(x,D.FK,z).premultiply(M).clone(),'#2a2826',[[0,0],[.1,0],[.12,.08],[.14,.25],[.13,.4],[.09,.48],[.05,.5],[0,.5]],12);
+  await step(); { const Ch=sub(M,-.24,0,-.22,.5); box(Ch,'#5a3e2a',0,D.FK+.36,0,.24,.03,.24); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Ch,'#4a3222',a*.1,D.FK,b*.1,.03,.36,.03)); [-1,1].forEach(a=>box(Ch,'#4a3222',a*.1,D.FK+.39,-.11,.03,.36,.03)); box(Ch,'#5a3e2a',0,D.FK+.64,-.11,.24,.08,.025); }
+  await step(); { const a=3.85, y=D.FK+1.2, r=rin(y)-.09, Sh=sub(M,...P(r,a,y),a+Math.PI); box(Sh,'#6b4c34',0,0,0,.36,.025,.15); for(let k=0;k<7;k++) box(Sh,['#7a2a20','#2f5a45','#2f3d5a','#8a6a3a'][k%4],-.15+k*.045,.025,0,.035,.15+rnd()*.05,.11); }
+  await step(); { const a=4.4, r=.43, [x,,z]=P(r,a,0); hiLathe(wiM.makeTranslation(x,D.FK,z).premultiply(M).clone(),'#2a2826',[[0,0],[.1,0],[.12,.08],[.14,.25],[.13,.4],[.09,.48],[.05,.5],[0,.5]],12);
     put(M,'sph','#ff9a4a',x,D.FK+.2,z,.035,.03,.035); cyl(M,'#2a2826',x,D.FK+.5,z,.035,D.CK-D.FK-.5,'cyl8'); cyl(M,'#5d6066',x+.03,D.FK+.5,z,.06,.08); put(M,'sph','#5d6066',x+.03,D.FK+.6,z,.06,.03,.06); }
-  { const a=4.57, y=D.FK+1.38, r=rin(y)-.03, Cp=sub(M,...P(r,a,y),a+Math.PI); box(Cp,'#2a2826',0,0,-.01,.03,.03,.04); box(Cp,'#e8b84a',0,-.62,.05,.22,.6,.07); put(Cp,'sph','#e8b84a',0,-.04,.06,.1,.06,.05); box(Cp,'#20242a',0,.03,.04,.14,.06,.12); box(Cp,'#20242a',0,.03,.11,.12,.012,.06); }
-  { const a=D.TL, r=.5, [x,,z]=P(r,a,0), Ld=sub(M,x,0,z,a+Math.PI); [-1,1].forEach(s=>box(Ld,'#33373a',s*.15,D.FK,0,.03,D.FT-D.FK+.42,.03)); for(let y=D.FK+.26;y<D.FT+.3;y+=.26) box(Ld,'#4a4f54',0,y,0,.3,.025,.025); }
-  /* ---- the windows from inside: deep reveals, the glass the day outside ---- */
-  for(const [a,y] of D.WIN){ const r=rin(y)-.012, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#d8d0bf',0,-.27,-.03,.32,.5,.04); box(W,'#c6dde2',0,-.19,0,.2,.38,.01); box(W,'#f4efe6',0,-.2,.012,.02,.4,.01); box(W,'#f4efe6',0,.0,.012,.2,.02,.01); box(W,'#8a6446',0,-.3,.04,.34,.04,.1); }
-  /* ---- the lamp room: the lens's pedestal and the clockwork that turns it, a dark ceiling under the roof ---- */
+  await step(); { const a=4.57, y=D.FK+1.38, r=rin(y)-.03, Cp=sub(M,...P(r,a,y),a+Math.PI); box(Cp,'#2a2826',0,0,-.01,.03,.03,.04); box(Cp,'#e8b84a',0,-.62,.05,.22,.6,.07); put(Cp,'sph','#e8b84a',0,-.04,.06,.1,.06,.05); box(Cp,'#20242a',0,.03,.04,.14,.06,.12); box(Cp,'#20242a',0,.03,.11,.12,.012,.06); }
+  await step(); { const a=D.TL, r=.5, [x,,z]=P(r,a,0), Ld=sub(M,x,0,z,a+Math.PI); [-1,1].forEach(s=>box(Ld,'#33373a',s*.15,D.FK,0,.03,D.FT-D.FK+.42,.03)); for(let y=D.FK+.26;y<D.FT+.3;y+=.26) box(Ld,'#4a4f54',0,y,0,.3,.025,.025); }
+  await step(); /* ---- the windows from inside: deep reveals, the glass the day outside ---- */
+  await step(); for(const [a,y] of D.WIN){ const r=rin(y)-.012, W=sub(M,...P(r,a,y),a+Math.PI); box(W,'#d8d0bf',0,-.27,-.03,.32,.5,.04); box(W,'#c6dde2',0,-.19,0,.2,.38,.01); box(W,'#f4efe6',0,-.2,.012,.02,.4,.01); box(W,'#f4efe6',0,.0,.012,.2,.02,.01); box(W,'#8a6446',0,-.3,.04,.34,.04,.1); }
+  await step(); /* ---- the lamp room: the lens's pedestal and the clockwork that turns it, a dark ceiling under the roof ---- */
   cyl(M,'#2f3437',0,D.FT,0,.16,.06); cyl(M,'#3e4448',0,D.FT,0,.09,D.LAMP-.32-D.FT,'cyl8'); box(M,'#2f3437',0,D.FT+.06,0,.24,.2,.24); box(M,'#c9a24a',.121,D.FT+.12,0,.005,.08,.08);
   fan(D.GL1+.06,0,D.LR,0,TAU,12,['#2f3437']);
-  kitTo(); B.m.room=wiAdd(B,new T.Mesh(kgeo('lhin'),mat));
-  /* the gallery and the lantern again, in the room's light, while you are up there; and the glass, clear */
+  await step(); kitTo(); B.m.room=wiAdd(B,new T.Mesh(kgeo('lhin'),mat));
+  await step(); /* the gallery and the lantern again, in the room's light, while you are up there; and the glass, clear */
   B.m.topIn=wiAdd(B,new T.Mesh(B.topG,wiMat(B,{value:0})));
-  { const m=new T.Mesh(B.glassG,CGLASS); m.matrixAutoUpdate=false; m.frustumCulled=false; m.matrix.copy(sub(M,0,(D.GL0+D.GL1)/2,0)); g.add(m); B.m.glassIn=m; }
-  /* ---- the lens: brass posts and rings, the prisms in rings above and below, the belt of glass, and a bull's-eye each side,
+  await step(); { const m=new T.Mesh(B.glassG,CGLASS); m.matrixAutoUpdate=false; m.frustumCulled=false; m.matrix.copy(sub(M,0,(D.GL0+D.GL1)/2,0)); g.add(m); B.m.glassIn=m; }
+  await step(); /* ---- the lens: brass posts and rings, the prisms in rings above and below, the belt of glass, and a bull's-eye each side,
      the lamp in the middle; it turns with the beam ---- */
-  { kitTo('lhlens'); const I=new T.Matrix4(), gl=['#d6eef0','#bcdde2'];
+  await step(); { kitTo('lhlens'); const I=new T.Matrix4(), gl=['#d6eef0','#bcdde2'];
     for(let k=0;k<6;k++){ const y=.15+k*.045, r=.25-k*.022; hiTorus(wiM.makeTranslation(0,y,0).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),gl[k%2],r,.019,24); hiTorus(wiM.makeTranslation(0,-y,0).multiply(wiM2.makeRotationX(Math.PI/2)).clone(),gl[k%2],r,.019,24); }
     kadd(new T.CylinderGeometry(.255,.255,.24,24,1,true).toNonIndexed(),'#cde7ea',I);
     for(const s of [-1,1]){ const Bx=wiM.makeTranslation(s*.262,0,0).multiply(wiM2.makeRotationY(Math.PI/2)).clone(); for(let k=1;k<4;k++) hiTorus(Bx,gl[k%2],k*.035,.008,20); put(Bx,'cyl','#eaf6f7',0,0,0,.025,.006,.025,0,Math.PI/2); }
@@ -9797,8 +9862,8 @@ function buildLighthouse(){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M
     for(let k=0;k<4;k++){ const a=k/4*TAU+Math.PI/4; hiRod(I,'#c9a24a',V.set(Math.cos(a)*.25,-.4,Math.sin(a)*.25),V2.set(Math.cos(a)*.2,.42,Math.sin(a)*.2),.008); }
     put(I,'sph','#fff2c4',0,0,0,.07,.09,.07); cyl(I,'#c9a24a',0,-.33,0,.03,.24,'cyl8');
     kitTo(); B.m.lens=wiAdd(B,new T.Mesh(kgeo('lhlens'),mat)); }
-  /* ---- the log, the chart and the clock's dial: one canvas; the book's two pages, the page that turns, the clock's hands ---- */
-  { const cv=document.createElement('canvas'); cv.width=1024; cv.height=832; B.logC=cv; B.logTx=new T.CanvasTexture(cv); B.logTx.anisotropy=4; lhLogDraw(); lhChart();
+  await step(); /* ---- the log, the chart and the clock's dial: one canvas; the book's two pages, the page that turns, the clock's hands ---- */
+  await step(); { const cv=document.createElement('canvas'); cv.width=1024; cv.height=832; B.logC=cv; B.logTx=new T.CanvasTexture(cv); B.logTx.anisotropy=4; lhLogDraw(); lhChart();
     dotoLater(()=>{ lhLogDraw(); lhChart(); });
     const bm=noSun(wiBoard(B,B.logTx)), uv=(gm,u0,v0,u1,v1)=>{ const a=gm.attributes.uv; for(let i=0;i<a.count;i++) a.setXY(i,lerp(u0/1024,u1/1024,a.getX(i)),lerp(1-v1/832,1-v0/832,a.getY(i))); return gm; };
     [-1,1].forEach(s=>{ const m=new T.Mesh(uv(new T.PlaneGeometry(.17,.23),s<0?0:512,0,s<0?512:1024,640),bm); m.matrix.copy(M).multiply(wiM.makeTranslation(BK[0]+s*.088,tY+.02,BK[1]).multiply(wiM2.makeRotationZ(s*.08)).multiply(wiM2.makeRotationX(-Math.PI/2))); wiAdd(B,m); });
@@ -9806,20 +9871,21 @@ function buildLighthouse(){ if(!PH||!LHI.M||LHI.g) return; const D=LHD, B=LHI, M
     { const a=2.2, y=D.FK+1.5, r=rin(y)-.03; const m=new T.Mesh(uv(new T.CircleGeometry(.075,24),336,640,520,824),bm); m.matrix.copy(sub(M,...P(r,a,y),a+Math.PI)); wiAdd(B,m); B.ck=[r-.005,a,y];
       const hm=(L,wd)=>{ kitTo('lhhand'); box(new T.Matrix4(),'#2a2622',0,-.008,0,wd,L,.004); kitTo(); return wiAdd(B,new T.Mesh(kgeo('lhhand'),mat)); }; B.m.hh=hm(.045,.008); B.m.mh=hm(.064,.005); }
     kitTo('lhflip'); box(new T.Matrix4(),'#f3ead4',.085,0,0,.17,.002,.23); kitTo(); B.m.flip=wiAdd(B,new T.Mesh(kgeo('lhflip'),mat)); B.m.flip.visible=false;
-    try{ renderer.initTexture&&renderer.initTexture(B.logTx); }catch(e){} }
-  /* ---- the lamps, for the light: on the stair (two), the keeper's lamp, the lamp in the lens ---- */
-  const lw=(p,i,w)=>{ wiW(B,...p,wiV); B.U.uCL.value[i].set(wiV.x,wiV.y,wiV.z,w); };
-  lw(LMP[0],0,.75); lw(LMP[1],1,.6); lw([BK[0]+.238,tY+.12,BK[1]-.12],2,.85); lw([0,D.LAMP,0],3,1);
-  /* ---- what a tap finds: the door and the stair at the foot; the desk, the ladder and the stair's opening in the keeper's
+    if(!LATE.busy||LATE.now){ try{ renderer.initTexture&&renderer.initTexture(B.logTx); }catch(e){} } }
+  await step(); /* ---- the lamps, for the light: on the stair (two), the keeper's lamp, the lamp in the lens ---- */
+  await step(); const lw=(p,i,w)=>{ wiW(B,...p,wiV); B.U.uCL.value[i].set(wiV.x,wiV.y,wiV.z,w); };
+  await step(); lw(LMP[0],0,.75); lw(LMP[1],1,.6); lw([BK[0]+.238,tY+.12,BK[1]-.12],2,.85); lw([0,D.LAMP,0],3,1);
+  await step(); /* ---- what a tap finds: the door and the stair at the foot; the desk, the ladder and the stair's opening in the keeper's
      room; the book's pages; the lantern's door, the hatch and the lens up top ---- */
-  const pk=(w,h,d,p,ry=0)=>wiHit(B,w,h,d,p[0],p[1],p[2],ry);
-  B.pk={door:pk(D.DW,D.DH-D.FL,.3,[0,(D.DH+D.FL)/2,.8]),stair:pk(.9,1.4,.8,[.35,D.FL+.9,-.15]),desk:pk(.6,.5,.4,[BK[0],tY+.1,BK[1]]),ladder:pk(.4,1.6,.3,P(.5,D.TL,D.FK+.9),D.TL),
+  await step(); const pk=(w,h,d,p,ry=0)=>wiHit(B,w,h,d,p[0],p[1],p[2],ry);
+  await step(); B.pk={door:pk(D.DW,D.DH-D.FL,.3,[0,(D.DH+D.FL)/2,.8]),stair:pk(.9,1.4,.8,[.35,D.FL+.9,-.15]),desk:pk(.6,.5,.4,[BK[0],tY+.1,BK[1]]),ladder:pk(.4,1.6,.3,P(.5,D.TL,D.FK+.9),D.TL),
     hole:pk(1.1,.3,.6,[0,D.FK+.1,.3]),pgL:pk(.18,.1,.24,[BK[0]-.09,tY+.03,BK[1]]),pgR:pk(.18,.1,.24,[BK[0]+.09,tY+.03,BK[1]]),
     gdoor:pk(.5,1.6,.2,[0,D.FT+.85,.66]),hatch:pk(.42,.12,.42,P(.43,D.TL,D.FT+.02),D.TL),lens:pk(.56,.9,.56,[0,D.LAMP,0])};
-  B.pick=pk(1.3,2.4,1.2,[0,1.1,1.2]);
-  /* the steps are solid; the walking grid round the foot made again by the grid's own rule, and no grass through the steps */
-  obsAt(M,0,1.42,.46,.6); pfRegrid(M,-1.6,1.6,.9,3.1); pfTufts(M,-.6,.6,1.05,1.85);
+  await step(); B.pick=pk(1.3,2.4,1.2,[0,1.1,1.2]);
   lhUI(); }
+/* (the street's part of it, made with the town: the steps are solid; the walking grid round the foot made again by the grid's
+   own rule, and no grass through the steps) */
+function lhOutside(){ if(!PH||!LHI.M) return; const M=LHI.M; obsAt(M,0,1.42,.46,.6); pfRegrid(M,-1.6,1.6,.9,3.1); pfTufts(M,-.6,.6,1.05,1.85); }
 
 /* ---------- where your eyes are: at the foot, in the keeper's room (or over the log), in the lamp room, on the gallery ---------- */
 function lhEye(o){ const D=LHD; if(LHI.at==='foot') return wiW(LHI,D.S[0],D.FL+D.EY,D.S[1],o);
@@ -9948,7 +10014,7 @@ function lhStep(dt,t){ if(!wiStep(LHI,dt,t)) return; const D=LHD, B=LHI, up=B.on
     w=clamp((y-1.6)/(D.FT+D.EY-1.6),0,1)*.7+(outT?.3:0); hum=clamp(1-Math.abs(y-(D.FT+D.EY))/2.4,0,1)*(outT?.55:1); sea=outT?1:clamp((y-D.FK)/(D.FT-D.FK),0,1)*.4+(B.door>.15?.3:0); }
   B.air[0]=damp(B.air[0],w,1.2,dt); B.air[1]=damp(B.air[1],hum,1.6,dt); B.air[2]=damp(B.air[2],sea,1.2,dt); A.lhAir(B.air[0],B.air[1],B.air[2],B.dd<12);
   if(B.on&&(B.at==='gal'||B.at==='lamp')&&!B.mv){ B.gullT-=dt; if(B.gullT<=0){ B.gullT=4+Math.random()*6; A.gull(Math.random()*1.6-.8,B.at==='gal'?.011:.005); } } }
-wiWire(LHI,buildLighthouse,lhStep);
+wiWire(LHI,buildLighthouse,lhStep,lhOutside);
 st._dbg.lighthouse={L:LHI,LHD,LHLOG,LHMV,get err(){ return LHI.err; },go:()=>wiGo(LHI),enter:()=>wiEnter(LHI),leave:()=>wiLeave(LHI),move:lhGo,log:lhLog,page:lhPage,reset:()=>wiReset(LHI),text:lhLogText,today:lhToday,
   local:(x,z)=>wiXZ(LHI,x,z),world:(x,y,z)=>wiW(LHI,x,y,z),toLocal:w=>wiL(LHI,w),
   run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
@@ -11354,4 +11420,13 @@ function clearOut(){ if(!OUT.size) return; const gone=[...OUT]; for(let i=OBS.le
       let ok=true; for(const q of fixed){ const mm=Math.max((q.r0??q.r)+.42,(q.leaf||0)+.2); if((x-q.x)**2+(z-q.z)**2<mm*mm){ ok=false; break; } } if(ok) F[j*N+i]=1; } } }   // (.42: as wide as the grid keeps round Gideon and Owen, the widest it keeps round anything)
 { const b=st.build; st.build=async function(){ await b.apply(this,arguments); try{ clearOut(); }catch(err){ console.warn('room to breathe',err); } }; }
 st._dbg.clear={OUT,OUTN,KEPT,get left(){ return [...OUT].filter(o=>OBS.includes(o)).length; }};
+/* ---------- what is built after you land (see LATE): begun a moment after the landing is over; in the tests, at the end of
+   the build, before anything is shown (unless a test asks to see it done the visitor's way: window.__LATE) ---------- */
+{ const b=st.build, up=st.update;
+  st.build=async function(){ await b.apply(this,arguments); if(window.__TEST&&!window.__LATE) await lateFlush(); };
+  st.update=function(dt,t){ const r=up.apply(this,arguments);
+    if(LATE.q.length&&!LATE.busy){ if(S.ready&&S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on){ LATE.calm+=dt; if(LATE.calm>.5) lateRun(); } else LATE.calm=0; }
+    return r; }; }
+st._dbg.late={get state(){ return {left:LATE.q.map(j=>j.name),busy:LATE.busy,cur:LATE.cur,log:LATE.log.slice(),max:+LATE.max.toFixed(1),at:LATE.at,slices:LATE.slices,
+  ms:LATE.t1?Math.round(LATE.t1-LATE.t0):null}; },get trace(){ return LATE.tr; },flush:lateFlush};
 })();

@@ -21,6 +21,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });
   if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });   // --hq: stills at full resolution
+  if (opt.late) await ctx.addInitScript(() => { window.__LATE = true; });   // --late: the rooms built after the landing, the visitor's way (see late.cjs)
   /* --meter: whatever reaches the speakers is also read by an analyser, so a scenario can ask window.__meter() how loud
      the page is right now ({pk, db}); the page itself is not changed */
   if (opt.meter) await ctx.addInitScript(() => {
