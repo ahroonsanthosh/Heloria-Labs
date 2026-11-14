@@ -5039,7 +5039,7 @@ async function hiBuildHall(step=lateNo){ const H=CIV.hall, M=H.M, F=HH.FL, ix=HH
     /* the reading lamp: brass, a green glass shade */
     cyl(M,'#b8913e',1.12,T_,.42,.05,.014); hiRod(M,'#b8913e',new T.Vector3(1.12,T_,.42),new T.Vector3(1.12,T_+.26,.42),.008);
     { const Ls=hiTf(M,1.07,T_+.26,.42,0,0,0); put(Ls,'cyl','#2f6b4a',0,0,0,.045,.17,.045,0,Math.PI/2); box(Ls,'#2f6b4a',0,-.045,0,.09,.012,.17); put(Ls,'sph',HBULB,0,-.03,0,.022,.012,.06); B.lampD=hiP(M,1.06,T_+.2,.42); }
-    box(M,'#77808a',1.435,F,-.18,.26,.72,.28); for(let k=0;k<3;k++){ box(M,'#8a939c',1.295,F+.05+k*.23,-.18,.012,.2,.24); box(M,'#d9d4c8',1.291,F+.17+k*.23,-.18,.008,.03,.08); }   // (clear of the panelling behind it)
+    box(M,'#77808a',1.435,F,-.14,.26,.72,.2); for(let k=0;k<3;k++){ box(M,'#8a939c',1.295,F+.05+k*.23,-.14,.012,.2,.16); box(M,'#d9d4c8',1.291,F+.17+k*.23,-.14,.008,.03,.08); }   // (clear of the panelling behind it)
     cyl(M,'#b65a3e',1.47,F+.72,-.18,.07,.12); for(let k=0;k<7;k++) put(M,'blob',LEAF[1+(k%3)],1.47+Math.cos(k*.9)*.08,F+.88+(k%3)*.04,-.18+Math.sin(k*.9)*.08,.07,.05,.07,k);
     /* a leaflet rack on the front of the counter */
     { const Rk=sub(M,x0-.03,F+.62,.42,-Math.PI/2); box(Rk,'#5a3d2c',0,0,0,.26,.04,.04); [['#ef8a3c',-.08],['#5cae6e',0],['#3f7fd0',.08]].forEach(([c,x])=>box(Rk,c,x,.02,.01,.07,.11,.008)); } }
@@ -5181,7 +5181,7 @@ async function hiBuildClock(B,step=lateNo){ const M=B.M, K=HH.K, cx=K.x, cz=K.z,
   await step(); kitTo('hclock');
   await step(); /* boards underfoot (the trap you came up by standing open), plaster between timber posts, boards overhead open to the belfry */
   await step(); for(let i=0;i<6;i++){ const x0=cx-hw+i*2*hw/6, x1=x0+2*hw/6; for(let j=0;j<6;j++){ const z0=cz-hw+j*2*hw/6, z1=z0+2*hw/6; if(x0>cx+.1&&z0>cz+.1) continue; fq(x0+.003,z0,x1-.003,z1,fl,i%2?'#8a6448':'#93694a'); } }
-  fq(cx+.167,cz+.167,cx+hw,cz+hw,fl-.003,'#1c1714'); box(hiTf(M,cx+.333,fl,cz+.167,0,-1.79,0),'#7a5238',0,-.0125,.165,.32,.025,.33); [-1,1].forEach(s=>box(M,'#6b4c34',cx+.333+s*.13,fl-.3,cz+.45,.03,.62,.03));
+  fq(cx+.167,cz+.167,cx+hw,cz+hw,fl-.003,'#1c1714'); box(hiTf(M,cx+.333,fl,cz+.167,0,-1.45,0),'#7a5238',0,-.0125,.165,.32,.025,.33); [-1,1].forEach(s=>box(M,'#6b4c34',cx+.333+s*.13,fl-.3,cz+.45,.03,.62,.03));
   slab(M,'#d8cfbc','x',cz+hw+.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','x',cz-hw-.01,2*hw+.04,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx+hw+.01,2*hw,.02,fl,top,[]); slab(M,'#d8cfbc','z',cx-hw-.01,2*hw,.02,fl,top,[]);
   await step(); for(const sx of [-1,1]) for(const sz of [-1,1]) box(M,'#6b4c34',cx+sx*(hw-.03),fl,cz+sz*(hw-.03),.06,top-fl,.06);
   await step(); [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>box(M,'#6b4c34',cx+a*(hw-.03),top-.12,cz+b*(hw-.03),a?.06:2*hw,.1,b?.06:2*hw));
@@ -5191,7 +5191,7 @@ async function hiBuildClock(B,step=lateNo){ const M=B.M, K=HH.K, cx=K.x, cz=K.z,
     put(D,'cyl',HPANE,0,0,0,.37,.008,.37,0,Math.PI/2); hiTorus(D,'#3e4448',.37,.02,32); box(D,'#3e4448',0,-.37,-.012,.024,.74,.014); box(D,'#3e4448',-.37,-.012,-.012,.74,.024,.014);
     put(D,'cyl','#2f3336',0,0,-.03,.05,.05,.05,0,Math.PI/2); put(D,'cyl','#c9a24a',.07,-.05,-.04,.045,.012,.045,0,Math.PI/2); B.dials.push(D); }
   await step(); /* the bed on its trestles, the frame's two iron plates, the barrels and the arbors across them */
-  box(M,'#5a3d2c',cx,fl,cz,.06,.3,.5); [-1,1].forEach(s=>{ box(M,'#5a3d2c',cx+s*.24,fl,cz,.05,.33,.42); box(M,'#5a3d2c',cx+s*.24,fl+.15,cz,.05,.04,.5); });
+  box(M,'#5a3d2c',cx,fl,cz,.06,.3,.3); [-1,1].forEach(s=>{ box(M,'#5a3d2c',cx+s*.24,fl,cz,.05,.33,.26); box(M,'#5a3d2c',cx+s*.24,fl+.15,cz,.05,.04,.3); });   /* (30 cm deep: clear of the trap beside it) */
   box(M,'#2f3336',cx,fl+.33,cz,.56,.04,.32);
   await step(); [-1,1].forEach(s=>{ const z=cz+s*.12; box(M,'#2f3336',cx,fl+.37,z,.52,.025,.018); [-1,0,1].forEach(k=>box(M,'#2f3336',cx+k*.22,fl+.37,z,.025,.6,.018)); box(M,'#2f3336',cx,fl+.95,z,.5,.025,.018); });
   put(M,'cyl','#7a5a40',cx-.08,5.3,cz,.065,.2,.065,0,Math.PI/2); for(let k=0;k<5;k++) put(M,'cyl','#9aa0a3',cx-.08,5.3,cz-.08+k*.04,.068,.008,.068,0,Math.PI/2);
@@ -5290,8 +5290,8 @@ async function hiBuildSchool(step=lateNo){ const S_=CIV.school, M=S_.B, F=SCH.FL
   await step(); { const bx=-1.14, bz=.9, by=F+.22; put(M,'sph','#b07a52',bx,by+.07,bz,.07,.08,.06); put(M,'sph','#b07a52',bx,by+.18,bz,.055,.05,.05); [-1,1].forEach(s=>{ put(M,'sph','#b07a52',bx+s*.04,by+.23,bz,.02,.02,.015); put(M,'sph','#b07a52',bx+s*.065,by+.06,bz+.03,.025,.02,.025); });
     put(M,'sph','#2a241d',bx,by+.18,bz+.05,.01,.01,.008); box(M,'#d9483b',bx,by+.12,bz+.01,.07,.02,.06); }
   await step(); /* ---- the xylophone on its low table, the bars bright, two beaters ---- */
-  await step(); { const [xx,z0,dz]=SCH.XY, ty=F+.32; box(M,'#b07a52',xx,ty-.025,-.25,.32,.025,.78); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#9a6844',xx+a*.14,F,-.25+b*.36,.03,ty-F-.025,.03));
-    [-.07,.07].forEach(o=>box(M,'#5a3d2c',xx+o,ty,-.25,.025,.03,.64)); B.xylo=[]; for(let i=0;i<8;i++){ const z=.03-i*dz, L=.27-i*.016; kitTo('hbar'); box(I,HXY[i],0,0,0,L,.014,.055); put(I,'cyl','#fbf6ec',-L/2+.025,.0145,0,.006,.002,.006); put(I,'cyl','#fbf6ec',L/2-.025,.0145,0,.006,.002,.006); kitTo('hschool');
+  await step(); { const [xx,z0,dz]=SCH.XY, ty=F+.32; box(M,'#b07a52',xx,ty-.025,-.21,.32,.025,.7);   /* (clear of the teacher's desk behind it) */ [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([a,b])=>box(M,'#9a6844',xx+a*.14,F,-.25+b*.36,.03,ty-F-.025,.03));
+    [-.07,.07].forEach(o=>box(M,'#5a3d2c',xx+o,ty,-.24,.025,.03,.64)); B.xylo=[]; for(let i=0;i<8;i++){ const z=.03-i*dz, L=.27-i*.016; kitTo('hbar'); box(I,HXY[i],0,0,0,L,.014,.055); put(I,'cyl','#fbf6ec',-L/2+.025,.0145,0,.006,.002,.006); put(I,'cyl','#fbf6ec',L/2-.025,.0145,0,.006,.002,.006); kitTo('hschool');
       const M0=hiTf(M,xx,ty+.03,z), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); m.userData.M0=M0; B.xylo.push({m,M0,z,t:9}); hiHit(B,'xylo',L,.02,dz*.95,hiTf(M,xx,ty+.04,z),{i}); }   // (each bar's tap no taller than the bar, or the one before it, seen from the side, takes taps meant for it)
     delete KITS.hbar; B.mallet=[0,1].map(s=>{ kitTo('hbar'); hiRod(I,'#d9b45a',V(0,0,0),V(0,0,.2),.005); put(I,'sph',s?'#e9584a':'#3f7fd0',0,0,.21,.016,.016,.016); kitTo('hschool');
       const M0=hiTf(M,xx+.11-s*.02,ty+.05,z0-.08-s*.04,-.2+s*.1,-.2), m=hiAdd(B,new T.Mesh(kgeo('hbar'),mat)); m.matrix.copy(M0); return {m,M0,t:9,i:0}; }); delete KITS.hbar; }
@@ -6132,7 +6132,7 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
     [-1.2,-1.0,-.82].forEach((z,k)=>put(M,'cyl',k%2?'#f5f2ea':'#b9d3e8',SX,s(1.9)+.035,z,.035,.36,.035,0,Math.PI/2,.05*k)); carton(M,SX,s(1.9),-.66,.28,.2,.16,0);
     solid(SX-SW/2,SX+SW/2,Z0,Z1,2.06); }
   /* ---- a big red chest under the left window, a drawer pulled out; another in the far right corner, its lid up ---- */
-  { const B=sub(M,-ix+.26,F,-.02,Math.PI/2); chest(B,.84,.48,.86,.36,2,false); mug(B,.24,.86+.078+.36+.035,.0,'#3f6fd0',.8); carton(B,-.18,.86+.078+.36+.035,0,.22,.12,.18,.3); solid(-ix,-ix+.5,-.44,.4,1.32); }
+  { const B=sub(M,-ix+.26,F,.73,Math.PI/2); chest(B,.64,.48,.86,.36,2,false);   /* (along the wall from under the window, not up into it) */ mug(B,.24,.86+.078+.36+.035,.0,'#3f6fd0',.8); carton(B,-.18,.86+.078+.36+.035,0,.22,.12,.18,.3); solid(-ix,-ix+.5,.41,1.05,1.32); }
   { const B=sub(M,2.0,F,-iz+.25,0); chest(B,.5,.48,.8,.34,4,true); solid(1.75,2.25,-iz,-iz+.5,1.24); }
   /* ---- the right-hand strip past the van: boxes, spare wheels, offcuts of ply, a drone hung up out of the way ---- */
   carton(M,2.02,F,-.66,.38,.3,.34,.08); carton(M,2.02,F+.3,-.68,.3,.22,.28,-.15,true); solid(1.82,2.22,-.84,-.48,.52);

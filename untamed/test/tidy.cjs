@@ -38,6 +38,6 @@ module.exports = async ({ H, log, html }) => {
   if (res.err) { console.log('FAIL ' + res.err); return; }
   const src = require('fs').readFileSync(require('path').resolve(process.argv[process.argv.indexOf('--html') + 1]), 'utf8').split('\n');
   const line = k => { const n = +k.split(':')[1]; return (src[n - 1] || '').trim().replace(/^await step\(\); /, '').slice(0, 110); };
-  for (const e of res.list) { const [a, b] = e.pair.split(' x '); log(`${e.room}  ${e.n} box pair(s), up to ${Math.round(e.depth * 100)} cm into each other\n    ${a}: ${line(a)}\n    ${b}: ${line(b)}`); }
+  for (const e of res.list) { const [a, b] = e.pair.split(' x '); log(`${e.room}  ${e.n} box pair(s), up to ${Math.round(e.depth * 100)} cm into each other, at ${JSON.stringify(e.at)}\n    ${a}: ${line(a)}\n    ${b}: ${line(b)}`); }
   console.log(`RESULT ${res.list.length} pairs of things running into each other inside the rooms`);
 };
