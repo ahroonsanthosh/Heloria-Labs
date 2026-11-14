@@ -384,14 +384,40 @@ function pine(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'cyl8'
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); OBS[OBS.length-1].leaf=.7*s; wildDone(w,x,z,'pine',s); }   // (leaf: how far its lowest boughs reach at a walker's hips: see buildNav)
 function bush(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); obs(x,z,.42*s,.6); OBS[OBS.length-1].leaf=.68*s; wildDone(w,x,z,'bush',s); }   // (leaf: how far its leaves reach, which walking keeps clear of: see buildNav)
 function rock(x,z,s=1,y=0){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'rock',rnd()<.5?'#a49e94':'#928c83',0,y+.25*s,0,.62*s,.45*s,.55*s,0,rnd(),rnd()); obs(x,z,.5*s,.5*s); wildDone(w,x,z,'rock',s); }
+/* ---------- room to breathe: the town kept a little clear. A bush, a rock or a tree that would stand hard by a wall, a
+   landmark, a pavement, a path, a lamp or a sign, or packed in among the others round town, and the fences and lamp posts
+   that are no more, are made as ever (the same random numbers drawn, and solid in the town's list while the rest is laid out
+   round them, so everything else stands where it always did) but drawn into nothing, and taken off the list once the town
+   is made (see clearOut, at the end). The countryside, the coast and the cliff keep theirs ---------- */
+const OUT=new Set(), OUTN={}, KEPT=[], REACH={tree:1.15,pine:.82,bush:.7,rock:.62};   // (REACH: how far a crown, a bush or a stone spreads from its middle, at size 1)
+function outOf(kind,fn){ const k0=KP, k1=KN, k2=KC, o0=OBS.length, t0=TREES.length; KP=[]; KN=[]; KC=[];
+  try{ return fn(); } finally { KP=k0; KN=k1; KC=k2; OBS.slice(o0).forEach(o=>OUT.add(o)); TREES.length=t0; OUTN[kind]=(OUTN[kind]||0)+1; } }
+const _wI=new T.Matrix4(), _wV=new T.Vector3();
+/* how far (x, z) is from the nearest building's walls (0 inside one) */
+function wallD(x,z){ let m=1e9; for(const H of HOUSES){ at(x,z,_wV).multiplyScalar(R).applyMatrix4(_wI.copy(H.M).invert()); m=Math.min(m,Math.hypot(Math.max(Math.abs(_wV.x)-H.w/2,0),Math.max(Math.abs(_wV.z)-H.d/2,0))); } return m; }
+/* whether one of the wild would crowd the town where it stands, and why ('' if it would not) */
+function crowds(kind,x,z,s){ const r=REACH[kind]*s, rc=Math.hypot(x,z), low=kind==='bush'||kind==='rock';
+  if(kind==='tree'&&Math.hypot(x-SW_PREF.tree[0],z-SW_PREF.tree[1])<.3) return '';   // (the swing's tree, on the cliff)
+  if(low&&rc<10.5) return 'square';   // (inside the loop: the square and the grass round it are open)
+  const wd=wallD(x,z); if(low?wd-r<1:wd<r*.85) return 'wall';   // (hard by a wall; a crown into one)
+  if(low&&(roadDist(x,z)-RW-SW-r<.8||pathDist(x,z)-r<.6)) return 'way';   // (by a pavement or a path)
+  for(const o of OBS){ if(o.wild||OUT.has(o)) continue; const big=o.r>.62, g=Math.hypot(x-o.x,z-o.z)-o.r-(low||big?r:.3*s); if(g<(big?(low?.9:-.4):.6)) return big?'landmark':'prop'; }   // (by a landmark or a building's corner; by a lamp, a pole, a sign, a bench: a tree's trunk)
+  for(const k of KEPT){ const d=Math.hypot(x-k.x,z-k.z); if(rc<15&&d<(k.r+r)*(low||k.low?1.2:.7)||kind==='rock'&&k.rock&&d<(k.r+r)*1.4) return 'packed'; }   // (packed in among the others round town; the stones on the shore apart, not in heaps)
+  return ''; }
+{ const clear=(fn,kind)=>function(x,z,s=1){ const why=crowds(kind,x,z,s); if(why){ OUTN[kind+' '+why]=(OUTN[kind+' '+why]||0)+1; return outOf(kind,()=>fn.apply(this,arguments)); }
+    const out=fn.apply(this,arguments); OBS[OBS.length-1].wild=1; KEPT.push({x,z,r:REACH[kind]*s,low:kind==='bush'||kind==='rock',rock:kind==='rock'}); return out; };
+  tree=clear(tree,'tree'); pine=clear(pine,'pine'); bush=clear(bush,'bush'); rock=clear(rock,'rock'); }
 /* (a fence stops at a building's wall: no post or rail of it inside one; its posts are solid where they always were) */
 const inHouse=(x,z,m=0)=>HOUSES.some(H=>{ const p=V3.copy(at(x,z,V3)).multiplyScalar(R).applyMatrix4(_fM.copy(H.M).invert()); return Math.abs(p.x)<H.w/2+.09+m&&Math.abs(p.z)<H.d/2+.09+m; }), _fM=new T.Matrix4();
-function fence(pts,c='#f3ede2'){ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.5)), yaw=Math.atan2(-(z1-z0),x1-x0); let t0=2, t1=-1;
-    for(let k=0;k<=n;k++){ const t=k/n, fx=x0+(x1-x0)*t, fz=z0+(z1-z0)*t, inH=inHouse(fx,fz,.05); if(!inH){ t0=Math.min(t0,t); t1=Math.max(t1,t); } if(k===n&&i<pts.length-2) continue; obs(fx,fz,.14,.9); if(inH) continue; const M=frameAt(fx,fz,yaw); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); }
+function fence(pts,c='#f3ede2',every=1){ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.5)), yaw=Math.atan2(-(z1-z0),x1-x0); let t0=2, t1=-1; const up=[];
+    for(let k=0;k<=n;k++){ const t=k/n, fx=x0+(x1-x0)*t, fz=z0+(z1-z0)*t, inH=inHouse(fx,fz,.05); if(!inH){ t0=Math.min(t0,t); t1=Math.max(t1,t); } if(k===n&&i<pts.length-2) continue; obs(fx,fz,.14,.9); if(!inH) up.push([fx,fz]); }
+    up.forEach(([fx,fz],j)=>{ if(j%every&&j<up.length-1) return; const M=frameAt(fx,fz,yaw); box(M,c,0,0,0,.07,.78,.07); box(M,c,0,.78,0,.05,.06,.05,0,0,.785); });   // (every: a post drawn every so many, both ends always; each solid as ever)
     if(t1<=t0) continue; const Lr=(t1-t0)*L, Mm=frameAt(x0+(x1-x0)*(t0+t1)/2,z0+(z1-z0)*(t0+t1)/2,yaw); box(Mm,c,0,.32,0,Lr,.06,.04); box(Mm,c,0,.6,0,Lr,.06,.04); } }
 const POLES=[];
-function pole(x,z,yaw,g){ const M=frameAt(x,z,yaw,topH(x,z,.1)); cyl(M,'#7a6352',0,0,0,.1,4.4,'cyl8'); box(M,'#6a5446',0,4.0,0,1.3,.09,.09);
-  [-.55,.55].forEach(s=>cyl(M,'#e7e2d8',s,4.09,0,.03,.1,'cyl8')); POLES.push([-.55,.55].map(s=>new T.Vector3(s,4.18,0).applyMatrix4(M))); obs(g?g[0]:x,g?g[1]:z,.16,4); if(g) WAS.push({obs:[OBS[OBS.length-1]],xz:[x,z]}); }
+function pole(x,z,yaw,g,lit){ const M=frameAt(x,z,yaw,topH(x,z,.1)); cyl(M,'#7a6352',0,0,0,.1,4.4,'cyl8'); box(M,'#6a5446',0,4.0,0,1.3,.09,.09);
+  [-.55,.55].forEach(s=>cyl(M,'#e7e2d8',s,4.09,0,.03,.1,'cyl8')); POLES.push([-.55,.55].map(s=>new T.Vector3(s,4.18,0).applyMatrix4(M)));
+  if(lit){ const P=sub(M,0,0,0,yawTo(x,z,0,0)-yaw); box(P,'#536160',0,3.36,.3,.06,.06,.5); box(P,'#3c4746',0,3.22,.52,.28,.14,.26); box(P,'#fff2c4',0,3.16,.52,.2,.06,.18); LAMPS.push({x,z,p:new T.Vector3(0,3.16,.52).applyMatrix4(P),k:0,hot:0}); }   // (lit: a street light on an arm out toward the road)
+  obs(g?g[0]:x,g?g[1]:z,.16,4); if(g) WAS.push({obs:[OBS[OBS.length-1]],xz:[x,z]}); }
 function wires(){ for(let i=0;i<POLES.length-1;i++){ const A=POLES[i], B=POLES[i+1]; if(A[0].distanceTo(B[0])>9) continue;
   for(let s=0;s<2;s++){ const a=A[s], b=B[s], pts=[]; for(let k=0;k<=10;k++){ const t=k/10; const p=a.clone().lerp(b,t); p.addScaledVector(V.copy(p).normalize(),-.38*4*t*(1-t)); pts.push(p); }
     kadd(new T.TubeGeometry(new T.CatmullRomCurve3(pts),16,.014,4,false).toNonIndexed(),'#3a383b',new T.Matrix4()); } } }
@@ -459,7 +485,10 @@ function buildTown(){
         /* the left one is where Gideon and Owen sit (see them, after Diarmuid) */ [[REGT.x,REGT.z],[1.25,1.85]].forEach(([tx,tz])=>{ const g=-sag(tx,tz); cyl(M,'#4e4a45',tx,g,tz,.05,RG_TOP-.05,'cyl8'); cyl(M,'#f3ede2',tx,RG_TOP-.05+g,tz,.38,.05); [-1,1].forEach(s=>{ cyl(M,'#b8834f',tx+s*RG_SX,-sag(tx+s*RG_SX,tz),tz,.17,RG_STOOL,'cyl8'); }); });   // (down on the ground, which curves away below the café's frame out here; as high as a table and a stool are to the people of the town, whose legs are short: see RG_STOOL)
         } });
     obs(3+REGT.x,-13.4+REGT.z,.5,1); obs(3+1.25,-13.4+1.85,.5,1); if(CAFE_ON) INST.cafe={x,z,h:3.4,r:4.4}; }
-  fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]]); fence([[11.2,-6],[15,-6.4]]); fence([[4.2,-14.6],[8.6,-14.6]]);
+  /* one fence: the garden's, behind the house by the café, a post every metre or so (each solid where it always was). The
+     runs behind the pub and the post office and south of the town hall are no more (solid where they stood until the town
+     is made, see OUT) */
+  outOf('fence',()=>fence([[-15.2,-5.2],[-15.6,-1.2],[-15.2,1.8]])); outOf('fence',()=>fence([[11.2,-6],[15,-6.4]])); fence([[4.2,-14.6],[8.6,-14.6]],undefined,2);
   /* the landing pad; the rocket that stands on it is built on its own, because it moves */
   { const M=frameAt(PAD[0],PAD[1],0); cyl(M,'#c9c3b8',0,0,0,2.35,.1); for(let k=0;k<24;k++){ const a=k/24*TAU; box(M,'#ef8a3c',Math.cos(a)*2.05,.1,Math.sin(a)*2.05,.2,.012,.07,-a); } obs(PAD[0],PAD[1],1.3,4.5); }
   /* Pharos: a lighthouse on the cliff. Hollow, with a door at its foot, a stair, the keeper's room, and a lantern and gallery
@@ -501,9 +530,10 @@ function buildTown(){
     const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); obsAt(E,0,.5,.16,1.6); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
     SEGS.push([7.4,-7.6,a[0],a[1],.5]); }
   /* street lamps, poles and wires, a signpost */
-  [[-9.9,-6.2],[-11.3,1.4],[-7.9,10.4],[0,11.9],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z,g])=>lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it)
-  [[-10.6,-7.6],[-11.4,-1],[-10.9,5.4],[-7.4,11.1],[-2.57,11.72,[-2.6,12.1]]].forEach(([x,z,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
-    const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2,g); }); wires();
+  /* (0: a lamp post that stood a step from a pole, no more: its light is on the pole now, see pole, and its foot solid where it stood until the town is made, see OUT) */
+  [[-9.9,-6.2,0],[-11.3,1.4,0],[-7.9,10.4,0],[0,11.9,0],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z,g])=>g===0?outOf('lamp',()=>obs(x,z,.2,1.2)):lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it)
+  [[-10.6,-7.6,1],[-11.4,-1,1],[-10.9,5.4],[-7.4,11.1,1],[-2.57,11.72,1,[-2.6,12.1]]].forEach(([x,z,lit,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
+    const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2,g,lit); }); wires();
 }
 /* ---------- grass, trees and rocks around the town ---------- */
 const CLEAR=()=>[AHR,[6.1,11.1],[1.3,-2.7],START];
@@ -926,11 +956,12 @@ const edges=CREW.map((c,i)=>{ const e=document.createElement('span'); e.classNam
   e.addEventListener('click',ev=>{ ev.stopPropagation(); if(S.st===st&&S.mode==='station'&&people[i]) goTalk(people[i]); }); return e; });
 const Y_UP=new T.Vector3(0,1,0);
 
-/* ---------- Diarmuid, playing outside the café ----------
-   A busker on the pavement in front of the café, by the street lamp: tall and lean, greying hair swept up, glasses and
+/* ---------- Diarmuid, playing outside the pub ----------
+   A busker outside The Rocket & Anchor, on the grass at the end of its front past the barrel table (back from the
+   pavement, so his case is not under anyone's feet), by the street light on the pole: tall and lean, greying hair swept up, glasses and
    stubble, a brown jumper over a green shirt, an electric guitar slung low, a small practice amp beside him with a lantern on it, and his case open in front of him. He plays all day.
    His guitar is made in the browser (BUSK in the core): as you come near it rises and the town's music dips under it,
-   and as you walk away it all comes back. At night a string of lights hangs over his spot from the lamp post and his lantern
+   and as you walk away it all comes back. At night a string of lights hangs over his spot from the pole and his lantern
    is lit, so he is a small warm pool of light in the dark town. Tap him (or press E beside him) and he stops and talks, in
    the same box as the three of us (he used to teach English, and left to play music); then he plays you his song, and
    goes back to his piece. He is not one of the three to meet.
@@ -947,8 +978,10 @@ HAIR.tousled=(B,f,c)=>{ const c2=tint(c,-.18), r=seeded(23), edge=a=>1.5-.42*Mat
   for(let k=0;k<11;k++){ const a=1.05+k/10*(TAU-2.1)+(r()-.5)*.2, q=H.at(.93,a,-.002), L=v3(Math.sin(a)*(.5+r()*.6),-1,Math.cos(a)*(.5+r()*.6)+.3*(r()-.5));
     H.lump(FG.sph,k%3?c:c2,q.p.addScaledVector(L.clone().normalize(),.018),q.n,L,[.036+r()*.012,.017,.009]); }
   [[-.45,.75,.05],[-.12,.55,.052],[.2,.35,.046],[.5,.2,.038]].forEach(([a,sx,s],k)=>{ const q=H.at(.95,a,.002), L=v3(sx,-1,.25); H.lump(FG.sph,k%2?c2:c,q.p.addScaledVector(L.clone().normalize(),.018),q.n,L,[s,.024,.009]); }); };   // swept to one side
-/* where he stands and which way he looks (the town); the lamp post and the pole his lights hang between */
-const DM={x:4.42,z:-10.28,face:[.8,-4.6],lamp:[3.8,-11.2],pole:[5.75,-9.75],g:null,st:'play',stT:0,ct:0,sct:0,att:0,attT:5,blink:2.5,d:99,lv:0,hov:false,goal:false,cool:0,
+/* where he stands and which way he looks (out over the street to the square); the street light's pole (its radius, lampR) and
+   the pole of his own his lights hang between. All clear of the pub's door, its bench and its barrel table, of the post
+   office's door, and of the walking line along the pavement */
+const DM={x:-12.69,z:-.17,face:[-8.8,.76],lamp:[-11.4,-1],lampR:.1,pole:[-12.17,.67],g:null,st:'play',stT:0,ct:0,sct:0,att:0,attT:5,blink:2.5,d:99,lv:0,hov:false,goal:false,cool:0,
   obs:[],pick:[],ev:null,sev:null,rh:new T.Vector3(),lh:new T.Vector3(),hy:0,nk:0};
 const dmM=new T.Matrix4(), dmM2=new T.Matrix4(), dmQ=new T.Quaternion(), dmE=new T.Euler(), dmV=new T.Vector3(), dmW=new T.Vector3(), DOWN=new T.Vector3(0,-1,0);
 /* the guitar's frets: where along the neck (from the nut, toward the bridge) the n-th one is */
@@ -1014,9 +1047,9 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   g.traverse(o=>{ if(o.isMesh&&o.material===FIGM) o.material=mat; }); pm.material=mat; DM.pick=[g,pm];
   /* he, his amp and his case are solid; so is the walking grid round them, which was laid out before he arrived */
   obsAt(spot.matrix,0,0,.34,1.8); obsAt(spot.matrix,-.5,-.02,.22,.6); obsAt(spot.matrix,.44,.32,.3,.4); DM.obs=OBS.slice(-3);
-  /* the lights: a wire from a band round the lamp post to a slim pole of their own, sagging over his spot, bulbs along it */
+  /* the lights: a wire from a band round the street light's pole to a slim pole of their own, sagging over his spot, bulbs along it */
   kitTo(); const LP=frameAt(DM.lamp[0],DM.lamp[1],0,standH(...DM.lamp)), PM=frameAt(DM.pole[0],DM.pole[1],0,topH(...DM.pole,.075)), a0=v3(0,2.32,0).applyMatrix4(LP), a1=v3(0,2.3,0).applyMatrix4(PM);
-  cyl(LP,'#3c4746',0,2.29,0,.064,.05,'cyl8'); cyl(PM,'#3c4746',0,0,0,.075,.04,'cyl8'); cyl(PM,'#3c4746',0,.04,0,.024,2.28,'cyl8'); put(PM,'sph','#3c4746',0,2.33,0,.034,.034,.034); obs(DM.pole[0],DM.pole[1],.1,2.3); DM.obs.push(OBS[OBS.length-1]);
+  cyl(LP,'#3c4746',0,2.29,0,(DM.lampR||.05)+.014,.05,'cyl8'); cyl(PM,'#3c4746',0,0,0,.075,.04,'cyl8'); cyl(PM,'#3c4746',0,.04,0,.024,2.28,'cyl8'); put(PM,'sph','#3c4746',0,2.33,0,.034,.034,.034); obs(DM.pole[0],DM.pole[1],.1,2.3); DM.obs.push(OBS[OBS.length-1]);
   const wp=[]; for(let k=0;k<=12;k++){ const t=k/12, p=a0.clone().lerp(a1,t); p.addScaledVector(dmV.copy(p).normalize(),-.36*4*t*(1-t)); wp.push(p); }
   const wire=new T.CatmullRomCurve3(wp); kadd(new T.TubeGeometry(wire,28,.008,4,false).toNonIndexed(),'#2e2c2b',new T.Matrix4());
   const NB=12, bulbs=new T.InstancedMesh(new T.SphereGeometry(.03,8,6).scale(1,1.3,1),flatMat('#ece3cc'),NB), hp=[], hs=[];
@@ -1106,9 +1139,10 @@ const BEAT=60/72;
 function buskLevel(x,z){ const d=Math.hypot(x-DM.x,z-DM.z), big=MKT.e, far=10+3*big; if(d>=far) return 0; let k=Math.pow(sstep(far,2.3+.6*big,d),1.6);
   for(const H of DM.houses){ at(x,z,dmV).multiplyScalar(R).applyMatrix4(H.inv); if(Math.abs(dmV.x)<H.w/2&&Math.abs(dmV.z)<H.d/2){ k*=.035; break; } } return k; }
 function buskUpdate(dt,t){ if(!DM.g) return; const P=player, d=Math.hypot(P.x-DM.x,P.z-DM.z); DM.d=d;
-  /* the sound: nothing during the landing or the last flight; from inside the café (you stand at its door while the view goes
-     in) he is heard only faintly through the wall */
-  const busy=CUT.on||FIN.on, lv=busy?0:buskLevel(P.x,P.z)*(CAFE.on?1-.965*CDIN.value:1); DM.lv=lv;
+  /* the sound: nothing during the landing or the last flight; from inside the café, the pub or the post office (you stand at
+     its door while the view goes in, and the pub's and the post office's are a few steps from him) he is heard only faintly
+     through the wall */
+  const busy=CUT.on||FIN.on, lv=busy?0:buskLevel(P.x,P.z)*(CAFE.on?1-.965*CDIN.value:1)*(1-.965*PUB.mk)*(1-.965*PO.mk); DM.lv=lv;
   if(busy&&DM.st!=='play'){ DM.st='play'; DM.goal=false; }
   DM.cool=Math.max(0,DM.cool-dt); DM.stT+=dt;
   /* asked from across town: when you get there, he plays */
@@ -1190,7 +1224,7 @@ function buskPose(dt,t,P){ const d=DM.fig, solo=DM.st==='solo', E=solo?DM.sev:DM
 /* ---------- the market: every night in the square ----------
    Every evening from six until two in the morning (the visitor's own clock, as the sky is), the square fills
    up: festoons of warm bulbs on four poles across it, a chipper van and a crêpe and coffee cart, a few people queuing,
-   eating at a high table and reading the boards, and outside the café Diarmuid has his big amp out. Any other time there
+   eating at a high table and reading the boards, and outside the pub Diarmuid has his big amp out. Any other time there
    is none of it. It is all built with the town and kept hidden; when the clock crosses into or out of market hours it
    fades in or out over a few seconds (the solid things dissolve, the bulbs and their glow come up or go down), so nothing
    pops. In rain or snow the stalls stay open and the festoons swing a little more, but the people at the high table go
@@ -1380,18 +1414,18 @@ async function buildMarket(gap){ const g=new T.Group(); MKT.g=g; g.visible=false
     if(o.van){ const p=V.set(o.van[0],.4,o.van[1]).applyMatrix4(VM); u=p.clone().normalize(); [x,z]=loc(u); h=p.length()-R; fw=tang(u,V2.set(0,0,1).transformDirection(VM),new T.Vector3()); }
     else { [x,z]=o.at; u=at(x,z); h=standH(x,z); fw=tang(u,at(o.to[0],o.to[1]),new T.Vector3()); f.ob=mktObs(x,z,.3,1.3); }
     standOn(f.g,u,fw,h); f.x=x; f.z=z; f.dir=u.clone(); g.add(f.g); MKT.figs.push(f); });
-  /* Diarmuid's big amp: a two-speaker cabinet with the head on top, beside him on the pavement (away from the café's door
-     and its tables), and a lead from his little amp into it, along the ground behind him */
-  { const Pp=part(), AM=new T.Matrix4().compose(v3(.72,0,-.2),dmQ.setFromAxisAngle(UPY,-.35),v3(1,1,1));
+  /* Diarmuid's big amp: a two-speaker cabinet with the head on top, beside him past his little amp (away from the pub's
+     corner and its barrel table), and a lead from his little amp into it, along the ground behind */
+  { const Pp=part(), AM=new T.Matrix4().compose(v3(-1.1,0,-.4),dmQ.setFromAxisAngle(UPY,.35),v3(1,1,1));
     const pp=(geo,col,x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>Pp.geo(geo,col,dmM.multiplyMatrices(AM,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,ry,rz,'YXZ')),dmW.set(sx,sy,sz))));
     pp(FG.box,'#2a2624',0,.29,0,.62,.54,.34); pp(FG.box,'#4a433d',0,.29,.171,.55,.46,.004); [-.135,.135].forEach(x=>{ pp(FG.can,'#1f1c1a',x,.29,.174,.11,.006,.11,Math.PI/2); pp(FG.can,'#5a524b',x,.29,.178,.035,.004,.035,Math.PI/2); });
     pp(FG.box,'#d9d0bc',0,.56,0,.64,.014,.36); [-.27,.27].forEach(x=>[-.13,.13].forEach(z=>pp(FG.can,'#1e1c1b',x,.012,z,.025,.024,.025)));   // piping, its feet
     pp(FG.box,'#2f2b29',0,.68,-.01,.62,.23,.31); pp(FG.box,'#d9d0bc',0,.69,.146,.56,.085,.006); for(let k=0;k<6;k++) pp(FG.can,'#1e1c1b',-.2+k*.07,.69,.153,.013,.014,.013,Math.PI/2);
     pp(FG.sph,'#c2412f',.25,.69,.152,.013,.013,.007); pp(FG.box,'#1e1c1b',0,.805,-.01,.18,.025,.04);
-    const e=v3(-.31,.6,-.1).applyMatrix4(AM);   // (his little amp stands at -.5, 0, -.02: see buildBusker)
-    Pp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([v3(-.46,.22,-.1),v3(-.44,.012,-.2),v3(-.15,.012,-.38),v3(.3,.012,-.42),v3(e.x-.05,.012,e.z-.05),v3(e.x,.2,e.z),e]),40,.0065,4,false).toNonIndexed(),'#1f1d1c',new T.Matrix4());
+    const e=v3(.31,.6,-.1).applyMatrix4(AM);   // (his little amp stands at -.5, 0, -.02: see buildBusker)
+    Pp.geo(new T.TubeGeometry(new T.CatmullRomCurve3([v3(-.54,.22,-.1),v3(-.56,.012,-.2),v3(-.62,.012,-.36),v3(e.x+.05,.012,e.z-.05),v3(e.x,.2,e.z),e]),40,.0065,4,false).toNonIndexed(),'#1f1d1c',new T.Matrix4());
     const m=Pp.mesh(); m.material=mktMat(MKT.u); m.visible=false; DM.spot.add(m); MKT.amp=m;
-    const [ax,az]=loc(V.set(.72,0,-.2).applyMatrix4(DM.spot.matrix).normalize()); MKT.ampAt=[ax,az]; mktObs(ax,az,.36,.9); }
+    const [ax,az]=loc(V.set(-1.1,0,-.4).applyMatrix4(DM.spot.matrix).normalize()); MKT.ampAt=[ax,az]; mktObs(ax,az,.36,.9); }
   st._dbg.market={MKT,open:mktOpen,update:mktUpdate,solid:mktSolid,
     step(sec){ for(let i=0;i<sec*10;i++) mktUpdate(.1,G.uTime.value+i*.1,true); },
     get state(){ return {open:mktOpen(),k:+MKT.k.toFixed(3),e:+MKT.e.toFixed(3),u:+MKT.u.value.toFixed(3),vis:MKT.g.visible,solid:MKT.solid,glow:+MKT.glow.toFixed(3),wet:+MKT.wet.toFixed(2),dow:SKY.dow,h:+SKY.h.toFixed(3),
@@ -3043,7 +3077,7 @@ st.build=async function(){ const gap=nextFrame;   // between the parts: the next
   buildTown(); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
   buildCliff();   // the bench and the kite on the cliff: after the town and its trees, so nothing of theirs moves (see the cliff, below)
   SEGS.slice(0,12).forEach((s,i)=>{ SEGU.value[i].set(s[0],s[1],s[2],s[3]); SEGW.value[i]=s[4]; }); await gap();
-  buildBusker();   // Diarmuid outside the café (after the walking grid, which he marks his own spot on)
+  buildBusker();   // Diarmuid outside the pub (after the walking grid, which he marks his own spot on)
   buildRegulars();   // Gideon and Owen at their table outside it (the same)
   await buildMarket(gap); await gap();   // the night market in the square, kept hidden by day (after Diarmuid, whose big amp is in it)
   await buildSkyLife(gap); await gap();   // the sky alive: flags, frost, blooms, the ice cream cart, breath and smoke, petals and leaves (after the market, whose materials it shares)
@@ -3113,6 +3147,7 @@ function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight
      in the same place on the screen, the nearer one is the one you mean */
   let best=null, bd=1; for(const p of people){ const h0=R+standH(p.x,p.z), f=V.copy(p.dir).multiplyScalar(h0).project(stCam); if(f.z>1) continue;
     const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=V.copy(p.dir).multiplyScalar(h0+1.6).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
+    if(hd.z>1) continue;   // (someone right beside the camera, their head behind it: the line from feet to head runs right across the screen and is nobody to point at)
     const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, t=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*t,e.clientY-fy-ey*t), r=Math.max(26,Math.sqrt(L2)*.34);
     if(dd/r<bd){ bd=dd/r; best=p; } }
   if(hit&&best&&best!==hit&&bd<.6){ const cp=stCam.position; if(V.copy(best.dir).multiplyScalar(R).distanceTo(cp)<V2.copy(hit.dir).multiplyScalar(R).distanceTo(cp)) return best; }
@@ -3661,7 +3696,7 @@ function buildCliff(){
   const hb=lp(.46,.02,-.84), ky=lp(.46,.8,-.28).sub(hb).normalize(), kx=lf.clone().negate(), kz=new T.Vector3().crossVectors(kx,ky).normalize();
   const homeQ=new T.Quaternion().setFromRotationMatrix(cm0.makeBasis(kx,ky,kz)).multiply(cq0.setFromAxisAngle(UPY,.22)), homeP=hb.clone().addScaledVector(ky,.62);
   /* its ribbon tail, lying in the grass behind it in a lazy curve */
-  const home=[]; { let x=.46, z=-.84; for(let i=0;i<CLNR;i++){ home.push(lp(x,.018,z)); const a=1.05*Math.cos(i*.55)-.3; x+=Math.sin(a)*.12; z-=Math.cos(a)*.12; } }
+  const home=[]; { let x=.46, z=-.84; for(let i=0;i<CLNR;i++){ const p=lp(x,0,z), [hx,hz]=loc(cv0.copy(p).normalize()); home.push(p.setLength(R+standH(hx,hz)+.018)); const a=1.05*Math.cos(i*.55)-.3; x+=Math.sin(a)*.12; z-=Math.cos(a)*.12; } }   // (on the grass all along, where the cliff top falls away: it lay on the fence's last post that stood here)
   const rp=new Float32Array(CLNR*6), rn=new Float32Array(CLNR*6), ri=[]; for(let i=0;i<CLNR-1;i++) ri.push(i*2,i*2+1,i*2+2, i*2+1,i*2+3,i*2+2);
   const rg=new T.BufferGeometry(); rg.setAttribute('position',new T.BufferAttribute(rp,3).setUsage(T.DynamicDrawUsage)); rg.setAttribute('normal',new T.BufferAttribute(rn,3).setUsage(T.DynamicDrawUsage)); rg.setIndex(ri);
   const rib=new T.Mesh(rg,toonMat('#d9553d',{side:T.DoubleSide,fig:true})); rib.frustumCulled=false; rib.userData.dyn=true; sc.add(rib);
@@ -4472,7 +4507,7 @@ function schoolHouse(x,z,yaw){ const M=frameAt(x,z,yaw), B=sub(M,-.35,0,-.2), w=
    fence all round, and the gateway to the street under the school's name */
 const CY={door:[-.35,1.45],gate:[-.35,2.95],hop0:[.02,1.66],hopW:[.04,2.2],ball:[-.95,2.12],frS:[1.87,.5],fr:[2.45,.5],jn:[1.87,1.15],
   loop:[[1.87,-.08],[3.03,-.08],[3.03,1.08],[1.87,1.08]],tar:[-1.25,2.3,1,2.5],yard:[-2.1,3.25,-1.35,2.55],hop:{x0:.33,s:.26,z:1.66,dbl:[3,5]}};
-function civYard(){ const S=CIV.school, M=S.M, FN='#4f8a8b', TR='#fbf6ec', grow=OBS.filter(o=>o.h<=.75||(o.h>3.4&&o.h<3.6));   // the bushes, rocks and trees round town
+function civYard(){ const S=CIV.school, M=S.M, FN='#4f8a8b', TR='#fbf6ec', grow=OBS.filter(o=>!OUT.has(o)&&(o.h<=.75||(o.h>3.4&&o.h<3.6)));   // the bushes, rocks and trees round town (those left out: see OUT)
   const inGrow=(lx,lz,m)=>{ const [px,pz]=ciXZ(M,lx,lz); return grow.some(o=>Math.hypot(px-o.x,pz-o.z)<o.r+m); };
   kitTo('civ'); const solid=[];
   const [tx0,tx1,tz0,tz1]=CY.tar; box(M,'#8f9395',(tx0+tx1)/2,0,(tz0+tz1)/2,tx1-tx0,.03,tz1-tz0);
@@ -4480,10 +4515,10 @@ function civYard(){ const S=CIV.school, M=S.M, FN='#4f8a8b', TR='#fbf6ec', grow=
   const H=CY.hop, sq=(cx,cz)=>{ const s=H.s; box(M,'#f4f1e8',cx,.03,cz-s/2,s+.02,.006,.022); box(M,'#f4f1e8',cx,.03,cz+s/2,s+.02,.006,.022); box(M,'#f4f1e8',cx-s/2,.03,cz,.022,.006,s); box(M,'#f4f1e8',cx+s/2,.03,cz,.022,.006,s); };
   for(let k=0;k<8;k++){ const cx=H.x0+H.s*k; if(H.dbl.includes(k)){ sq(cx,H.z-H.s/2); sq(cx,H.z+H.s/2); } else sq(cx,H.z); }
   box(M,'#f4f1e8',H.x0+H.s*8-H.s/2+.13,.03,H.z,.26,.006,.022);   // and the chalk line where you turn round
-  /* the fence, a post every half metre or so (none where a bush or a tree stands), two rails */
+  /* the fence, a post every metre or so (none where a bush or a tree stands; solid every half metre, as it always was), two rails */
   const fence=pts=>{ for(let i=0;i<pts.length-1;i++){ const [x0,z0]=pts[i],[x1,z1]=pts[i+1], L=Math.hypot(x1-x0,z1-z0), n=Math.max(1,Math.round(L/.46)), S_=sub(M,(x0+x1)/2,0,(z0+z1)/2,Math.atan2(x1-x0,z1-z0));
       box(S_,FN,0,.28,0,.03,.035,L); box(S_,FN,0,.58,0,.03,.035,L);
-      for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const px=x0+(x1-x0)*k/n, pz=z0+(z1-z0)*k/n; if(inGrow(px,pz,.06)) continue; box(M,FN,px,0,pz,.05,.7,.05); put(M,'sph',FN,px,.72,pz,.035,.035,.035); solid.push([px,pz,.09,.8]); } } };
+      for(let k=0;k<=n;k++){ if(k===n&&i<pts.length-2) continue; const px=x0+(x1-x0)*k/n, pz=z0+(z1-z0)*k/n; if(inGrow(px,pz,.06)) continue; if(k%2===0||k===n) box(M,FN,px,0,pz,.05,.7,.05); solid.push([px,pz,.09,.8]); } } };
   const [yx0,yx1,yz0,yz1]=CY.yard; fence([[-1.15,yz1],[yx0,yz1],[yx0,1.02]]); fence([[.45,yz1],[yx1,yz1],[yx1,yz0],[1.68,yz0]]);
   /* the gateway: two brick piers, iron uprights and the school's name between them */
   for(const gx of [-1.15,.45]){ box(M,'#c8664b',gx,0,yz1,.22,.95,.22); box(M,TR,gx,.95,yz1,.28,.06,.28); box(M,'#3a3d3f',gx,1.01,yz1,.04,.66,.04); solid.push([gx,yz1,.16,1.6]); }
@@ -8245,8 +8280,8 @@ function tlBuildCars(){
   for(const c of TL.cars) for(const a of c.axles) a.position.y-=a.position.z*a.position.z/(2*R); }
 
 /* ---------- where each stops: the bus stop by the square (on the inner kerb: the bus goes round the other way), outside the
-   town hall, the post office and the café (at the kerb, a little along from the door, clear of Diarmuid and the
-   tables), the workshop, and the three doorsteps the milk goes to. Found on the loop as it was laid out ---------- */
+   town hall, the post office and the café (at the kerb, a little along from the door, clear of the tables), the
+   workshop, and the three doorsteps the milk goes to. Found on the loop as it was laid out ---------- */
 const TLP={};
 function tlStops(){ const q=o=>tlNear(o.x,o.z), H=CIV.hall&&CIV.hall.M, PM=PO.M, CM=CAFE.M;
   TLP.bus=q({x:-9.05,z:-1.9}).s;
@@ -10799,4 +10834,17 @@ st._dbg.grow={TG,list:TOWN_GROWS,build:tgBuild,down:tgDown,check:tgCheck,rectD:t
     plots:Object.values(TG.plots).map(P=>({id:P.e.id,kind:P.kind,up:P.up,obs:P.obs.length,tufts:P.tufts,man:P.man?P.man.visible:null,act:P.act?P.act.what:null,
       tarp:P.tarp?{lean:+P.tarp.lean.toFixed(3),disp:+(P.tarp.disp||0).toFixed(3),wp:+(P.tarp.wp||0).toFixed(3)}:null}))}; }};
 /* ===================== (the town grows ends here) ===================== */
+
+/* ---------- room to breathe, at the end: what was left out (see OUT, by the trees) comes off the town's list once the town
+   is made, and the walking grid where it stood is opened again by the grid's own rule (only opened: a cell stays shut if
+   anything else, the market and the ice cream cart included, keeps it so) ---------- */
+function clearOut(){ if(!OUT.size) return; const gone=[...OUT]; for(let i=OBS.length-1;i>=0;i--) if(OUT.has(OBS[i])) OBS.splice(i,1);
+  if(NAV.leafy){ const was=new Set(gone.map(o=>o.x+','+o.z)); NAV.leafy=NAV.leafy.filter(l=>!was.has(l.x+','+l.z)); }
+  if(!NAV.free) return; const N=NAV.N, F=NAV.free, mine=new Set(people.map(p=>p.ob)), fixed=OBS.filter(o=>!mine.has(o)).concat(MKT.obs.filter(o=>!OBS.includes(o)),ICE.obs.filter(o=>!OBS.includes(o)));
+  for(const o of gone){ const m=Math.max(o.r+.3,(o.leaf||0)+.2);
+    for(let j=Math.floor((o.z-m-NAV.O)/NAV.S);j<=Math.ceil((o.z+m-NAV.O)/NAV.S);j++) for(let i=Math.floor((o.x-m-NAV.O)/NAV.S);i<=Math.ceil((o.x+m-NAV.O)/NAV.S);i++){
+      if(i<0||j<0||i>=N||j>=N||F[j*N+i]) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; if((x-o.x)**2+(z-o.z)**2>=m*m||!walkable(x,z)) continue;
+      let ok=true; for(const q of fixed){ const mm=Math.max((q.r0??q.r)+.42,(q.leaf||0)+.2); if((x-q.x)**2+(z-q.z)**2<mm*mm){ ok=false; break; } } if(ok) F[j*N+i]=1; } } }   // (.42: as wide as the grid keeps round Gideon and Owen, the widest it keeps round anything)
+{ const b=st.build; st.build=async function(){ await b.apply(this,arguments); try{ clearOut(); }catch(err){ console.warn('room to breathe',err); } }; }
+st._dbg.clear={OUT,OUTN,KEPT,get left(){ return [...OUT].filter(o=>OBS.includes(o)).length; }};
 })();

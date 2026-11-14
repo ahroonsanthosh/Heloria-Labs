@@ -305,8 +305,9 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     /* - a plant grows round a fence's rails and posts (anything thin both ways across: under 8 cm); and the swing hangs from a
          branch grown out of its own tree */
     const thin = q => q.hx.slice().sort((a, b) => b - a)[1] < .04, LIMB = q => /(^|>)limb( |$)/.test(q.fam.label.split(' (')[0]);
-    /* - and, by name: Diarmuid's string of lights, its wire tied round the lamp post by his spot */
-    const TIED = [[/^buildBusker/, /(^|>)lamp /]], tied = (A, B) => TIED.some(([a, b]) => (a.test(A.fam.label) && b.test(B.fam.label)) || (a.test(B.fam.label) && b.test(A.fam.label)));
+    /* - and, by name: Diarmuid's string of lights, its wire tied round the street light's pole by his spot (outside the pub;
+         by the café it was a lamp post) */
+    const TIED = [[/^buildBusker/, /(^|>)(lamp|pole) /]], tied = (A, B) => TIED.some(([a, b]) => (a.test(A.fam.label) && b.test(B.fam.label)) || (a.test(B.fam.label) && b.test(A.fam.label)));
     const WILD = new Set(['tree', 'pine', 'bush', 'rock']), wild = q => q.fam.label.split(' (')[0].split('>').some(n => WILD.has(n));
     function clips() { fresh(); const pairs = new Map(), Mg = .03;
       for (const A of W.prims) { if (!A.solid || A.hmax < LOWW() || !shown(A)) continue;

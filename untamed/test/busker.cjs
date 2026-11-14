@@ -1,7 +1,7 @@
-/* Diarmuid, playing outside the café on Earth: he is there and playing; as you come near his guitar rises and the town's
+/* Diarmuid, playing outside the pub on Earth: he is there and playing; as you come near his guitar rises and the town's
    music dips, and it comes back as you walk away; tapping him (or E beside him, or his name tag from across town) gets
    you his solo and then he goes back to his piece; he never starts a conversation or counts as one of the three; you
-   cannot walk through him, his amp or his case; inside a house you do not hear him; at night his lights are on.
+   cannot walk through him, his amp or his case; inside a house (the pub, the post office) you do not hear him; at night his lights are on.
    node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scenario untamed/test/busker.cjs --out <dir> [--mobile] [--meter]
    With --meter it also says how loud the page is at each distance (the live sound plus the recordings playing).
    The station's clock is stepped by hand where only the logic matters; the sound is listened to in real time. */
@@ -32,17 +32,18 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* he is there, solid, with his name tag, and his recordings are made */
   const there = await B((e, d) => { const b = d.busk; if (!b) return null; const D = b.DM;
     return { spot: b.spot, obs: D.obs.map(o => [+o.x.toFixed(2), +o.z.toFixed(2), o.r]), inOBS: D.obs.every(o => d.OBS.includes(o)), tag: D.lb && D.lb.textContent, onGrid: D.obs.every(o => { const i = Math.round((o.x - d.NAV.O) / d.NAV.S), j = Math.round((o.z - d.NAV.O) / d.NAV.S); return d.NAV.free[j * d.NAV.N + i] === 0; }) }; });
-  rec(!!there && there.inOBS && there.tag === 'Diarmuid', 'Diarmuid is outside the café, solid, with his name tag', JSON.stringify(there));
+  rec(!!there && there.inOBS && there.tag === 'Diarmuid', 'Diarmuid is outside the pub, solid, with his name tag', JSON.stringify(there));
   rec(!!there && there.onGrid, 'his spot is marked on the walking grid, so ways round go round him');
-  const door = await B((e, d) => { const D = d.busk.DM; return D.obs.map(o => +(Math.hypot(o.x - 3, o.z + 11.62) - o.r).toFixed(2)); });   // the door: (3, -11.62)
-  rec(door.every(v => v > 1.0), 'he keeps clear of the café door', 'gaps to the door ' + door.join(', '));
+  const door = await B((e, d) => { const D = d.busk.DM, [qx, qz] = d.pub.local(-.32, 1.75); return D.obs.map(o => +(Math.hypot(o.x - qx, o.z - qz) - o.r).toFixed(2)); });   // the door, on its step
+  rec(door.every(v => v > 1.0), 'he keeps clear of the pub door', 'gaps to the door ' + door.join(', '));
   let ready = false; for (let i = 0; i < 150 && !ready; i++) { ready = await B(e => { const L = e.loops(); return !!(L.busk && L.busk.ready && L['busk-solo'] && L['busk-solo'].ready && L.music && L.music.ready); }); if (!ready) await wait(1000); }
   rec(ready, 'his piece and his solo are recorded (with the town music)', JSON.stringify(await B(e => e.loops())));
 
-  /* walking toward him from the north (clear of Abraham): his guitar rises and the town's music dips; walking away it comes back */
+  /* walking toward him over the street, a little to his right (from the north of the square, clear of Abraham): his guitar
+     rises and the town's music dips; walking away it comes back */
   const rows = [];
   for (const dist of [14, 9, 6, 4, 2.2, 6, 14]) {
-    await B((e, d, h, dist) => { e.put(dist * .866, dist * .5); }, dist); await frames(3); await wait(3200);
+    await B((e, d, h, dist) => { e.put(dist * .866, -dist * .5); }, dist); await frames(3); await wait(3200);
     const L = await B(e => e.loops()), db = await meter();
     rows.push({ dist, busk: L.busk.vol, busking: L.busk.playing, music: L.music.vol, db, buskDb: L.busk.vol > 0 ? +(20 * Math.log10(L.busk.rms * L.busk.vol)).toFixed(1) : -200, musicDb: L.music.vol > 0 ? +(20 * Math.log10(L.music.rms * L.music.vol)).toFixed(1) : -200 });
     log(('  ' + dist + ' m').padEnd(9), 'his guitar', String(L.busk.vol).padEnd(7), 'town music', String(L.music.vol).padEnd(7), 'page', db, 'dB (him', rows[rows.length - 1].buskDb, 'dB, music', rows[rows.length - 1].musicDb, 'dB)');
@@ -79,8 +80,11 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(path !== null && path > .25, 'a way past him goes round him', 'closest ' + path + ' m');
 
   /* inside a house he is next to silent */
-  const inside = await B((e, d) => ({ cafe: +d.busk.level(3, -13.4).toFixed(3), door: +d.busk.level(3, -11.3).toFixed(3) }));
-  rec(inside.cafe < .05 && inside.door > .3, 'inside the café you barely hear him; at its door you do', JSON.stringify(inside));
+  const inside = await B((e, d) => ({ pub: +d.busk.level(...d.pub.local(0, 0)).toFixed(3), door: +d.busk.level(...d.pub.local(-.32, 2.4)).toFixed(3) }));
+  rec(inside.pub < .05 && inside.door > .3, 'inside the pub you barely hear him; at its door you do', JSON.stringify(inside));
+  /* and going in at the pub's door, a few steps from him, he fades under the room (as at the post office's) */
+  const pubIn = await B((e, d) => { const p = d.pub; p.enter(); e.run(30 * 7); const r = { st: p.state.st, lv: d.busk.state.lv }; p.leave(); e.run(30 * 4); return { ...r, out: p.state.st }; });
+  rec(pubIn.st === 'in' && pubIn.lv < .05 && pubIn.out === 'out', 'in the pub he is barely heard, though you went in a few steps from him', JSON.stringify(pubIn));
 
   /* tap him: he stops and talks, in the same box as the three of us (no photo, nobody counted as met); heard out, he plays
      you his song; then back to his piece */

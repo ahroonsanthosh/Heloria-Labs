@@ -188,12 +188,13 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* ---- with --meter: how loud each new sound is, against a footstep (and the session, when the page plays it itself) ---- */
   if (await page.evaluate(() => typeof window.__meter === 'function')) {
     const listen = async (fn, ms = 900) => { await H(fn); let pk = 0; const t0 = Date.now(); while (Date.now() - t0 < ms) { pk = Math.max(pk, (await page.evaluate(() => window.__meter())).pk); await wait(30); } await wait(300); return +pk.toFixed(4); };
-    await H(h => { h.A.music(0); }); await wait(1500);
+    /* (out in the square, ten metres from Diarmuid, who busks outside the pub: each sound is heard on its own, not over his guitar) */
+    await W(w => { w.put(2.5, 11, 2.5, 0); w.run(10); }); await H(h => { h.A.music(0); }); await wait(1500);
     const lv = {};
     for (const [n, f] of [['step(0)', h => h.A.step(0)], ['step(1)', h => h.A.step(1)], ['step(0) again', h => h.A.step(0)], ['step(1) again', h => h.A.step(1)], ['door(open)', h => h.A.pubDoor(true)], ['door(shut)', h => h.A.pubDoor(false)],
       ['glass', h => h.A.pubGlass(1)], ['clink', h => h.A.pubGlass(1, true)], ['fire', h => h.A.pubFire(.016, true)], ['thunk', h => h.A.dartThunk(true)], ['thunk(wall)', h => h.A.dartThunk(false)], ['pull', h => h.A.dartPull()]]) lv[n] = await listen(f);
     const webaudio = await page.evaluate(() => /webaudio/.test(location.search));
-    if (webaudio) { await W((w, p, d) => { d.sky.set({ time: '21:30', date: '2026-07-17' }); p.enter(); w.until(p => p.P.st === 'in', 30 * 5); d.closeTalk(); w.run(30); });
+    if (webaudio) { await W((w, p, d) => { w.put(-.32, 2.4, -.32, 0); w.run(5); d.sky.set({ time: '21:30', date: '2026-07-17' }); p.enter(); w.until(p => p.P.st === 'in', 30 * 5); d.closeTalk(); w.run(30); });
       let ok = false; for (let i = 0; i < 180 && !ok; i++) { await wait(500); await W(w => w.run(3)); ok = await H(h => h.A._loops().some(l => l.name === 'session' && l.ready && l.playing)); }
       log('SESSION LOOP ' + JSON.stringify(await H(h => ({ loop: h.A._loops().find(l => l.name === 'session'), st: h.ST.cr._dbg.pub.state.st, sess: h.ST.cr._dbg.pub.state.sess }))));
       await H(h => { h.A.music(0); window.__P.hold = setInterval(() => h.A.music(0), 50); }); await wait(1200); lv.session = await listen(h => {}, 3500); await H(h => clearInterval(window.__P.hold)); lv.sessionPlaying = ok;

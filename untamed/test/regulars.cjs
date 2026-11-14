@@ -110,9 +110,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await page.keyboard.press('KeyE'); const eo = await G((e, d) => ({ talk: e.talk(), dO: d.regs.REGS[1].d, dDM: d.busk.state.d }));
   rec(eo.talk === 'Owen', 'E with Owen nearer than Diarmuid talks to Owen', JSON.stringify(eo));
   await G((e, d) => d.closeTalk());
-  await G((e, d) => { const D = d.busk.DM; D.st = 'play'; D.cool = 0; e.put(4.3, -9.2, 4.42, -10.28); e.run(4); });
+  /* (Diarmuid busks outside the pub now, across town from them: E beside him goes to him, not to them) */
+  await G((e, d) => { const D = d.busk.DM, fx = D.face[0] - D.x, fz = D.face[1] - D.z, k = Math.hypot(fx, fz); D.st = 'play'; D.cool = 0; e.put(D.x + fx / k * 1.6, D.z + fz / k * 1.6, D.x, D.z); e.run(4); });
   await page.keyboard.press('KeyE'); const ed = await G(e => e.talk());
-  rec(ed === 'Diarmuid', 'and with Diarmuid nearer, to Diarmuid', String(ed));
+  rec(ed === 'Diarmuid', 'and beside Diarmuid, to Diarmuid', String(ed));
   await G((e, d) => { d.closeTalk(); const D = d.busk.DM; D.st = 'play'; D.cool = 0; });
 
   /* a name tag from across town: you walk over (round things) and he talks when you get there */

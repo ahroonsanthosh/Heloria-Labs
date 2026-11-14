@@ -25,8 +25,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* the way round: the grid is there, and the town is mostly walkable */
   const nav = await E((e, d) => { let n = 0; for (const v of d.NAV.free) n += v; return { N: d.NAV.N, free: n }; });
   rec(nav.free > 2000, 'the town has a walking grid with room to move', JSON.stringify(nav));
-  const solid = await E((e, d) => ({ fence: d.OBS.some(o => Math.hypot(o.x + 15.4, o.z + 3.2) < .9 && o.r < .2), post: d.OBS.filter(o => o.r === .15).length, rock: d.OBS.length }));
-  rec(solid.fence && solid.post >= 9, 'fences and signposts are solid now', JSON.stringify(solid));
+  /* (the one fence left is the garden's behind the house by the café: the run behind the pub, at (-15.4, -3.2), was taken
+     away on purpose to clear the town, and nothing of it is left on the list) */
+  const solid = await E((e, d) => ({ fence: d.OBS.some(o => Math.hypot(o.x - 6.4, o.z + 14.6) < .9 && o.r < .2), gone: !d.OBS.some(o => Math.hypot(o.x + 15.4, o.z + 3.2) < .9 && o.r < .2), post: d.OBS.filter(o => o.r === .15).length, rock: d.OBS.length }));
+  rec(solid.fence && solid.gone && solid.post >= 9, 'the garden fence and the signposts are solid; the fence taken away is not', JSON.stringify(solid));
 
   /* walking up while still holding the key: it starts, and holding on does not end it */
   const m = await E((e, d) => { const p = d.people[1]; d.MET.clear(); p.greeted = false; p.resume = 0; e.put(p.x - 5.2, p.z - .2, p.x, p.z); return [p.x, p.z]; });
