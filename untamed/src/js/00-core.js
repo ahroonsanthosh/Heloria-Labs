@@ -59,7 +59,9 @@ const A=(()=>{
     try{ if(IOS&&navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}   // an iPhone: play like media, set before the sound starts (changing it mid-play interrupts it); not on a Mac
     { const AC=window.AudioContext||window.webkitAudioContext; try{ ctx=new AC({latencyHint:'playback'}); }catch(e){ ctx=new AC(); } }   // a deeper buffer on every device: a busy frame can never starve the speaker
     /* (the sound let start only later than asked: every recording a browser said no to tries again at once, the music and the landing's too, rather than waiting for the next key) */
-    try{ ctx.addEventListener('statechange',()=>{ if(ctx.state==='running') for(const r of LOOPS) r.blocked=false; }); }catch(e){}
+    /* (once the browser lets it run, whatever held it: the recordings may play, and the sound is on if it was asked for, so a
+       start the browser refused before the click that let it cannot leave it off) */
+    try{ ctx.addEventListener('statechange',()=>{ if(ctx.state==='running'){ for(const r of LOOPS) r.blocked=false; if(asked&&!on){ on=true; if(out) set(out.gain,muted||away?0:LOUD,.6); sndUI(); } } }); }catch(e){}
     /* what leaves for the speakers: nothing below 40 Hz (a phone or laptop cannot play it, only strain at it), and never a
        hard clip, so sounds piling up never reach the point where small speakers distort */
     out=ctx.createGain(); out.gain.value=0;
@@ -676,7 +678,7 @@ const A=(()=>{
     /* the recordings are being made (the page's frames are slower then for a reason of their own); never past half a minute */
     get busy(){ return making&&performance.now()<30000; },
     _poison(){ if(!ctx) return; const b=ctx.createBuffer(1,256,ctx.sampleRate); b.getChannelData(0).fill(NaN); const s=ctx.createBufferSource(); s.buffer=b; s.connect(comp); s.start(); },   // test hook: one bad value into the mix
-    async start(){ asked=true; try{ init(); on=true; await ctx.resume(); set(out.gain,muted||away?0:LOUD,.6); }catch(e){ on=false; } sndUI(); },
+    async start(){ asked=true; try{ init(); on=true; await ctx.resume(); set(out.gain,muted||away?0:LOUD,.6); }catch(e){ if(!ctx||ctx.state!=='running') on=false; } sndUI(); },   // (a refusal that comes back after another start has got it running leaves it on)
     toggle(){ muted=!muted; if(ctx) set(out.gain,muted||away?0:LOUD,.3); sndUI(); },
     get muted(){return muted},
     _lv(){ const r=x=>+x.toFixed(4); return {pad:r(PAD.vol),sub:r(SUB.vol),thrust:r(TH.vol),roar:r(RD.vol+RO.vol),whine:n.ten?r(n.teng.gain.value):0,
