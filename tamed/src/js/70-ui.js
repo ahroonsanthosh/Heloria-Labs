@@ -8,8 +8,11 @@ $$('.split').forEach(el=>{ const txt=el.textContent.trim(); el.setAttribute('ari
 
 /* ---------- gate ---------- */
 const gate=$('#gate'), ui=$('#ui');
-UI.loadStep=(k)=>{ const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
-UI.gateReady=()=>{ gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; gateFoot(); };
+UI.loadStep=(k)=>{ if(gate.classList.contains('early')) return; const ls=$$('#word span'); const n=Math.round(clamp(k,0,1)*ls.length); ls.forEach((l,i)=>l.classList.toggle('in',i<n)); };
+UI.gateReady=()=>{ gate.classList.remove('loading'); gate.classList.add('ready'); $('#tamed').disabled=false; gateFoot(); if(S.wantWalk) enter(); };
+/* the two ways offered as soon as the page and its type are here, while the walk's world is still being made behind the
+   gate's own colour: Land needs nothing of it and goes at once; Walk, chosen before it is made, goes the moment it is */
+UI.gateEarly=()=>{ if(gate.classList.contains('early')) return; UI.loadStep(1); gate.classList.add('early'); $('#tamed').disabled=false; gateFoot(); };
 /* the two ways in. Pointing at one (or focusing it) shows its world behind the letters, with its sound: Walk, the
    walk's own evening through a thinning mist; Land, a bright drawn sky over a small town with a rocket coming down. On a
    touch screen, with nothing to point with, the gate shows them in turn */
@@ -41,14 +44,14 @@ const leaveTo=(a,v)=>a.addEventListener('click',e=>{ if(S.mode!=='gate'||S.leavi
 leaveTo($('#land'),'land');
 /* on a touch screen: Walk and Land in turn, slowly, each with its name lit, then a breath of the plain gate */
 const CYC={off:FINE,i:-1,t:1.2};
-UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.t-=dt;
+UI.gateTick=dt=>{ if(CYC.off||S.mode!=='gate'||S.leaving||!gate.classList.contains('early')&&!gate.classList.contains('ready')) return; CYC.t-=dt;
   if(CYC.t<=0){ CYC.i=(CYC.i+1)%3; CYC.t=CYC.i===2?2.2:(CYC.i===1?4.6:3.8); setHover(['walk','land',null][CYC.i],true); } };
 
 /* scroll moves between the two ways, one way per gesture, showing each one's world as it comes; so do a swipe on a phone
    and the arrow keys. A click, a tap or Enter goes. (A trackpad goes on sending fading wheel events after the fingers
    lift, so a new gesture is a quiet gap or a clear rise in strength; the rest is ignored) */
 const GW={last:0,peak:0,armed:true,acc:0}, ORDER=['walk','land'];
-const gateStep=d=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('ready')) return; CYC.off=true;
+const gateStep=d=>{ if(S.mode!=='gate'||S.leaving||!gate.classList.contains('early')&&!gate.classList.contains('ready')) return; CYC.off=true;
   const i=ORDER.indexOf(S.gateHover); setHover(ORDER[i<0?0:clamp(i+d,0,ORDER.length-1)]); };
 addEventListener('wheel',e=>{ if(S.mode!=='gate') return; e.preventDefault();
   const t=performance.now(), d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.2?e.deltaX:e.deltaY)*(e.deltaMode===1?18:e.deltaMode===2?innerHeight:1), ad=Math.abs(d), gap=t-GW.last; GW.last=t;

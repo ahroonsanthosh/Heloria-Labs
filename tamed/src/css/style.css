@@ -33,7 +33,7 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 #word span:nth-child(5){ transition-delay:.1s } #word span:nth-child(6){ transition-delay:.02s } #word span:nth-child(7){ transition-delay:.08s }
 .gate-line{ margin:2.2vh 0 0; font-size:13px; letter-spacing:.2em; text-transform:uppercase; opacity:0; transition:opacity 1.2s var(--ease) .2s; }
 .ways{ display:flex; align-items:stretch; gap:clamp(30px,5vw,84px); margin-top:clamp(34px,6.4vh,70px); opacity:0; transform:translateY(14px); transition:opacity 1.2s var(--ease) .35s,transform 1.4s var(--ease) .35s; }
-#gate.ready .gate-line{ opacity:.62; } #gate.ready .ways{ opacity:1; transform:none; }
+#gate.ready .gate-line,#gate.early .gate-line{ opacity:.62; } #gate.ready .ways,#gate.early .ways{ opacity:1; transform:none; }   /* (the ways are offered as soon as the page is up: see UI.gateEarly) */
 .ways-rule{ width:1px; background:currentColor; opacity:.22; transition:opacity .6s var(--ease); }
 .way{ display:flex; flex-direction:column; align-items:center; gap:7px; width:clamp(11.5em,18vw,16.5em); transition:opacity .6s var(--ease),filter .6s var(--ease); position:relative; }
 .way .w{ font-size:clamp(27px,2.9vw,44px); font-weight:900; line-height:1; position:relative; text-transform:uppercase; letter-spacing:.2em; padding-left:.2em; }   /* the mark's own dot type, so the three ways read as part of the name */

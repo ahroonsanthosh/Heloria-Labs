@@ -70,6 +70,7 @@ const QM={buf:[],cool:0,lv:null,i:0,up:0,bad:{},long:0,off:false,
 S.enterT=0; S.enterK=0; S.veil=1;
 function enter(){
   if(S.nogl){ gate.classList.add('go','gone'); ui.classList.add('on'); ui.setAttribute('aria-hidden','false'); $('#logo').classList.add('on'); S.mode='plain'; return; }
+  if(S.mode==='gate'&&!S.ready){ S.wantWalk=true; return; }   // (chosen before the walk is made: it goes the moment it is, see UI.gateReady)
   if(S.mode!=='gate'||!S.ready) return;
   S.mode='entering'; S.enterT=0; S.entered=true; walkAddress();
   A.start().then(()=>{ A.swell(); });
@@ -266,6 +267,7 @@ async function boot(){
   if(!GL_OK||!RT_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
   UI.loadStep(.08); diag('fonts');
   try{ await Promise.race([document.fonts.ready,wait(2600)]); }catch(e){}
+  UI.gateEarly();   // (the ways offered now, the walk made behind them)
   await nextFrame(); diag('build outside');
   rtA=RT(4,4,{samples:QL.samples}); rtB=RT(4,4,{samples:QL.samples});
   /* the gallery is made after the gate only where the browser compiles shaders in the background, away from the page:
