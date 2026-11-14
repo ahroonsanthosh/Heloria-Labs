@@ -118,7 +118,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   /* ---------- the noticeboard ---------- */
   await look(1.35, .02); await frames(3);
   await tap(await D((d, I) => I.screen('note', 0)), 'the market note'); let note = await page.evaluate(() => { const e = document.querySelector('#crCivNote'); return { on: e.classList.contains('on'), h: e.querySelector('.crnote-h').textContent, t: e.querySelector('.crnote-t').textContent }; });
-  rec(note.on && /market/i.test(note.h) && /Fridays, 18:00 to 02:00/.test(note.t), 'a note on the noticeboard comes up to read: the market, Fridays 18:00 to 02:00', JSON.stringify(note));
+  rec(note.on && /market/i.test(note.h) && /Every night, 18:00 to 02:00/.test(note.t), 'a note on the noticeboard comes up to read: the market, every night 18:00 to 02:00', JSON.stringify(note));
   await frames(2); await shot(pre + 'hall-7-note');
   await press('#crCivNote button'); for (const i of [1, 2]) { await tap(await D((d, I, h, i) => I.screen('note', i), i), 'note ' + i); note = await page.evaluate(() => document.querySelector('#crCivNote .crnote-t').textContent); await press('#crCivNote button');
     rec(i === 1 ? /workshop/i.test(note) : /08:50 to 15:00/.test(note), i === 1 ? 'the test fires at the workshop' : 'the school\'s hours', note); }
