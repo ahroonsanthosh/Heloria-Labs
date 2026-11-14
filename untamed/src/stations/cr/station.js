@@ -9842,7 +9842,8 @@ async function buildLighthouse(step=lateNo){ if(!PH||!LHI.M||LHI.g) return; cons
     box(Dk,'#6a2420',0,tY,.02,.38,.012,.26); cyl(Dk,'#2a2826',-.235,tY,-.09,.018,.03,'cyl8'); hiRod(Dk,'#e9e2d0',V.set(-.23,tY+.025,-.08),V2.set(-.255,tY+.08,-.02),.004);
     cyl(Dk,'#e9e2d0',-.24,tY,.08,.022,.055); cyl(Dk,'#7a2a20',-.24,tY+.004,.08,.024,.016);
     cyl(Dk,'#c9a24a',.238,tY,-.1,.032,.025); cyl(Dk,'#c9a24a',.238,tY+.025,-.1,.01,.035,'cyl8'); put(Dk,'sph','#fff2c4',.238,tY+.085,-.1,.02,.032,.02); cyl(Dk,'#d8e4e6',.238,tY+.05,-.1,.024,.085); }
-  await step(); { const Ch=sub(M,-.24,0,-.22,.5); box(Ch,'#5a3e2a',0,D.FK+.36,0,.24,.03,.24); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Ch,'#4a3222',a*.1,D.FK,b*.1,.03,.36,.03)); [-1,1].forEach(a=>box(Ch,'#4a3222',a*.1,D.FK+.39,-.11,.03,.36,.03)); box(Ch,'#5a3e2a',0,D.FK+.64,-.11,.24,.08,.025); }
+  await step(); { const Ch=sub(M,-.2,0,-.17,.5+Math.PI);   /* (facing the desk, pushed back from it, as the keeper left it) */
+    box(Ch,'#5a3e2a',0,D.FK+.36,0,.24,.03,.24); [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(Ch,'#4a3222',a*.1,D.FK,b*.1,.03,.36,.03)); [-1,1].forEach(a=>box(Ch,'#4a3222',a*.1,D.FK+.39,-.11,.03,.36,.03)); box(Ch,'#5a3e2a',0,D.FK+.64,-.11,.24,.08,.025); }
   await step(); { const a=3.85, y=D.FK+1.2, r=rin(y)-.09, Sh=sub(M,...P(r,a,y),a+Math.PI); box(Sh,'#6b4c34',0,0,0,.36,.025,.15); for(let k=0;k<7;k++) box(Sh,['#7a2a20','#2f5a45','#2f3d5a','#8a6a3a'][k%4],-.15+k*.045,.025,0,.035,.15+rnd()*.05,.11); }
   await step(); { const a=4.4, r=.43, [x,,z]=P(r,a,0); hiLathe(wiM.makeTranslation(x,D.FK,z).premultiply(M).clone(),'#2a2826',[[0,0],[.1,0],[.12,.08],[.14,.25],[.13,.4],[.09,.48],[.05,.5],[0,.5]],12);
     put(M,'sph','#ff9a4a',x,D.FK+.2,z,.035,.03,.035); cyl(M,'#2a2826',x,D.FK+.5,z,.035,D.CK-D.FK-.5,'cyl8'); cyl(M,'#5d6066',x+.03,D.FK+.5,z,.06,.08); put(M,'sph','#5d6066',x+.03,D.FK+.6,z,.06,.03,.06); }
