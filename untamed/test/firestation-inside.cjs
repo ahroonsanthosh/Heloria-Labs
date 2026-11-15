@@ -151,9 +151,11 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await page.keyboard.down('KeyW'); r = await W(w => w.until(F => F.B.st !== 'out', 30 * 5)); await page.keyboard.up('KeyW'); s = await state();
   rec(s.st === 'enter' && s.via === 'bay', 'by day walking into the open bay takes you in that way', JSON.stringify({ r, st: s.st, via: s.via }));
   await W(w => w.run(36)); await snap(pre + 'fsi-11-bay-in'); c = await crew(); s = await state();
-  rec(c[0].x < .0 && s.door < .05, 'the one on duty steps aside past the engine\'s nose, and the office door stays shut', JSON.stringify({ x: c[0].x, door: s.door }));
+  rec(c[0].aside < -.1 && s.door < .05, 'the one on duty steps aside past the engine\'s nose, and the office door stays shut', JSON.stringify({ x: c[0].x, aside: c[0].aside, door: s.door }));
   r = await W(w => w.until(F => F.B.st === 'in', 30 * 5)); await W(w => w.run(30)); s = await state(); c = await crew();
-  rec(r.done && s.st === 'in' && await W(w => w.count('civDoor')) === 0 && Math.abs(c[0].x - .08) < .02, 'and you are in, the door never opened, the one on duty back in his place', JSON.stringify({ st: s.st, door: await W(w => w.count('civDoor')), x: c[0].x }));
+  /* (back in his place: his step aside gone; where his place is just then depends on where he is in his day by the bay's mouth,
+     polishing the engine's nose or having a word, which starts at a different moment each visit) */
+  rec(r.done && s.st === 'in' && await W(w => w.count('civDoor')) === 0 && Math.abs(c[0].aside) < .02, 'and you are in, the door never opened, the one on duty back in his place', JSON.stringify({ st: s.st, door: await W(w => w.count('civDoor')), x: c[0].x, aside: c[0].aside, day: c[0].day }));
   await page.keyboard.press('Escape'); await W(w => w.run(2)); s = await state();
   rec(s.st === 'exit' && await H(h => h.S.mode === 'station' && h.S.stId === 'cr'), 'Escape takes you out (and does not leave Earth)', s.st);
   await W(w => w.until(F => F.B.st === 'out', 30 * 5)); await page.keyboard.press('Escape'); await wait(400);
