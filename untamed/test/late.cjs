@@ -18,6 +18,9 @@ module.exports = async ({ page, H, wait, log }) => {
   const s0 = await L();
   rec(['civic inside', 'lh', 'post office', 'pub'].every(n => s0.left.includes(n)) && !s0.busy && !s0.log.length, 'behind the loader the rooms of the hall, the school, the lighthouse, the post office and the pub are left for after the landing', JSON.stringify(s0.left));
   rec(s0.left[s0.left.length - 1] === 'market people', 'by day the night market\'s people too, last of all', JSON.stringify(s0.left));
+  /* (and the school's children, while they are in class or the school is shut, first: see buildCivic) */
+  const kidsLate = await H(h => { const d = h.ST.cr._dbg, ph = d.civic.phase(d.sky.state ? d.sky.state.h : 12); return { ph, n: d.civic.CIV.kids.length }; });
+  rec(s0.left.includes('school children') ? s0.left[0] === 'school children' && kidsLate.n === 0 : kidsLate.n === 6, 'the school\'s children: made with the town when they are out, else first after you land', JSON.stringify({ left: s0.left, kidsLate }));
   const mk0 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, obs: M.obs.length }; });
   rec(mk0.figs === 0 && mk0.obs > 0, 'their places on the square are kept from the start', JSON.stringify(mk0));
   const pre = await H(h => { const d = h.ST.cr._dbg, I = d.civic.inside.HSI, Lh = d.lighthouse.L;
@@ -42,7 +45,7 @@ module.exports = async ({ page, H, wait, log }) => {
   rec(!tried || tried.lh === undefined || tried.lh === false, 'nor the lighthouse', JSON.stringify(tried && tried.lh));
 
   const s1 = await L();
-  rec(!s1.left.length && !s1.busy && s1.log.length === 5, 'once you are down they are all built', JSON.stringify(s1.log));
+  rec(!s1.left.length && !s1.busy && s1.log.length === s0.left.length && s1.log.length >= 5, 'once you are down they are all built', JSON.stringify(s1.log));
   const mk1 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, placed: M.figs.every(f => f.g.parent === M.g), obs: M.obs.length, open: h.ST.cr._dbg.market.open(), vis: M.g.visible }; });
   rec(mk1.figs === 7 && mk1.placed && mk1.obs === mk0.obs && !mk1.open && !mk1.vis, 'the market\'s seven people are there, in their places, out of sight till evening', JSON.stringify(mk1));
   rec((s1.tops[2] || 0) < 50 && s1.max < 400, 'a little at a time: the page is held only briefly at once by the building (a hitch or two on this busy machine aside)', JSON.stringify(s1.tops) + ' ms, the longest at ' + JSON.stringify(s1.at) + ', in ' + s1.slices + ' turns; the longest wait on the graphics card ' + s1.gmax + ' ms (this machine\'s software drawing: seconds behind; on a graphics card, nothing)');

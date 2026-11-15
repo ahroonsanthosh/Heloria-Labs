@@ -4810,14 +4810,20 @@ function civRoutes(){ const lp=ROADS[0], n=lp.length-1, ring=[];
     for(let i=0;i<pts.length-2;i++) if(!navClear(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1])) CIV.routeBad.push([+pts[i][0].toFixed(2),+pts[i][1].toFixed(2)]);
     const r=ciRoute(pts); CIV.routes.push({fw:r,bw:ciRoute(pts.slice().reverse()),home:[hx,hz]}); } }
 /* built after the town, the trees and the people: the yard and what is solid, the children, their ways; a part at a time */
+/* into the ink pass and the sun's shadow, as registerInk puts the rest of the town (they were made after it ran) */
+function civInk(roots){ for(const root of roots) root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
+  o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide); if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); }); }
 async function buildCivic(){ const gap=()=>st.pace?st.pace():nextFrame();
   if(!CIV.hall||!CIV.school) return; civSolids(); await gap();
-  for(let i=0;i<KIDS.length;i++){ CIV.kids.push(civKid(i)); if(i%2) await gap(); }
+  /* the children: made now if they are out in the yard or on their way to or from school, or will be in the next few minutes;
+     otherwise (in class, or the school shut for the night or the weekend) after you land, a part at a time, before the rooms
+     (see LATE), out of sight as they would be. Placed for the time it is once they are made */
+  const yardLater=['in','off'].includes(civPhase(SKY.h))&&['in','off'].includes(civPhase((SKY.h+.1)%24));
+  if(!yardLater) for(let i=0;i<KIDS.length;i++){ CIV.kids.push(civKid(i)); if(i%2) await gap(); }
+  else late('school children',step=>lateRoom(async after=>{ const kids=[]; for(let i=0;i<KIDS.length;i++){ kids.push(civKid(i)); await step(); }
+      civInk(kids.map(k=>k.g)); CIV.kids.push(...kids); if(CIV.h0!==null) civPlace(CIV.ph); },step),1);
   civRoutes();
-  /* into the ink pass and the sun's shadow, as registerInk puts the rest of the town (they were made after it ran) */
-  for(const root of [...CIV.kids.map(k=>k.g),CIV.kit,...sc.children.filter(o=>o.isMesh&&!INK.includes(o)&&o.material&&o.material.isShaderMaterial&&o.userData.noInk!==true&&o.layers.isEnabled(0))])
-    root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
-      o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,INK_F); o.userData.shdM=variant(shdC,o.material,SHD_F,T.DoubleSide); if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); });
+  civInk([...CIV.kids.map(k=>k.g),CIV.kit,...sc.children.filter(o=>o.isMesh&&!INK.includes(o)&&o.material&&o.material.isShaderMaterial&&o.userData.noInk!==true&&o.layers.isEnabled(0))]);
   /* drawn once as Earth is made ready (wherever they are, out of sight), so nothing about them is new the first time they come out */
   CIV.warm=2; CIV.kids.forEach(k=>{ k.g.visible=true; k.g.traverse(o=>{ if(o.isMesh) o.frustumCulled=false; }); });
   CIV.pob=new Set(people.map(p=>p.ob)); CIV.school.Mi=new T.Matrix4().copy(CIV.school.M).invert(); CIV.plqN=new T.Vector3().setFromMatrixColumn(CIV.hall.M,2).normalize();
