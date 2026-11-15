@@ -21,8 +21,8 @@ const _up=new T.Vector3(), _n=new T.Vector3(), _e=new T.Vector3(), _Ry=new T.Mat
 /* (under test only, never on the site: which placement each piece of the town's mesh belongs to, the frame it was put in and
    the calls that made it, so the grounding test can tell one thing from another; see untamed/test/grounding.cjs) */
 const GRD=window.__TEST?{prims:[],stk:new Map(),id:new WeakMap(),gen:new WeakMap(),kit:'main',last:null,cur:null,geo:null,n:0,g:0}:null;
-function grdPrim(nv,M,geo,f,c){ let g=GRD.gen.get(KP); if(!g||KP.length<g.len) GRD.gen.set(KP,g={k:GRD.kit+'#'+(++GRD.g),len:0});
-  const v0=KP.length/3; g.len=KP.length+nv*3; const r=(geo!=='tri'&&GRD.cur)||(M&&GRD.id.get(M))||GRD.last||{n:0}, q=GRD.prims[GRD.prims.length-1];
+function grdPrim(nv,M,geo,f,c){ let g=GRD.gen.get(KK); if(!g||KK.n<g.len) GRD.gen.set(KK,g={k:GRD.kit+'#'+(++GRD.g),len:0});
+  const v0=KK.n/3; g.len=KK.n+nv*3; const r=(geo!=='tri'&&GRD.cur)||(M&&GRD.id.get(M))||GRD.last||{n:0}, q=GRD.prims[GRD.prims.length-1];
   if(geo==='tri'&&q&&q.geo==='tri'&&q.k===g.k&&q.v0+q.nv===v0&&q.n===r.n){ q.nv+=nv; return; }
   const L=Error.stackTraceLimit; Error.stackTraceLimit=40; const s=String(new Error().stack).split('\n').slice(2).join('\n'); Error.stackTraceLimit=L;
   let si=GRD.stk.get(s); if(si==null) GRD.stk.set(s,si=GRD.stk.size);
@@ -207,20 +207,31 @@ const FLAT_F=`uniform vec3 uC; varying vec3 vN; varying vec3 vW; ${NEAR} void ma
 const flatMat=c=>new T.ShaderMaterial({uniforms:{uC:{value:C3(c)}},vertexShader:TOON_V(),fragmentShader:FLAT_F});
 
 /* ---------- one big mesh for everything that never moves: houses, roads, trees, fences, the lighthouse ---------- */
-const KITS={main:{P:[],N:[],C:[]}}; let KP=KITS.main.P, KN=KITS.main.N, KC=KITS.main.C; const kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
+/* (each kit's corners kept in typed arrays from the start, n of them used, grown as needed: no list of numbers grown a push at
+   a time and copied over at the end. KK is the kit being added to; KP, KN and KC its arrays as they are now) */
+const newKit=()=>({P:new Float32Array(3072),N:new Float32Array(3072),C:new Float32Array(3072),n:0});
+const KITS={main:newKit()}; let KK=KITS.main, KP=KK.P, KN=KK.N, KC=KK.C;
+function kRoom(m){ const need=KK.n+m; if(need<=KP.length) return; let L=KP.length*2; while(L<need) L*=2;
+  const g=a=>{ const b=new Float32Array(L); b.set(a.subarray(0,KK.n)); return b; }; KP=KK.P=g(KP); KN=KK.N=g(KN); KC=KK.C=g(KC); }
+function kUse(k){ KK=k; KP=k.P; KN=k.N; KC=k.C; }
+const kArr=(k,a)=>new T.BufferAttribute(k[a].slice(0,k.n),3);   // (what of a kit is used, for its mesh)
+function kEmpty(k){ Object.assign(k,newKit()); if(k===KK) kUse(k); } const kT=new T.Vector3(), kV=new T.Vector3(), kNM=new T.Matrix3();
 /* what goes into the static mesh can be sent to a landmark's own mesh instead, so it can be shown, hidden and grown on its own */
-function kitTo(id='main'){ const k=KITS[id]||(KITS[id]={P:[],N:[],C:[]}); KP=k.P; KN=k.N; KC=k.C; if(GRD) GRD.kit=id; }
+function kitTo(id='main'){ kUse(KITS[id]||(KITS[id]=newKit())); if(GRD) GRD.kit=id; }
 /* a colour named in a string, read once: the same colour every time it is asked for (never handed out to be changed) */
 const C3S=new Map(), C3R=c=>typeof c==='string'?(C3S.get(c)||C3S.set(c,C3(c)).get(c)):C3(c);
 const kPlain=a=>!!a&&a.itemSize===3&&!a.normalized&&!a.isInterleavedBufferAttribute&&!!a.array;   // (an attribute read straight from its array, as getX reads it)
-function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal, v0=KP.length/3; kNM.getNormalMatrix(M); const col=C3R(c); if(GRD){ kT.fromBufferAttribute(p,0).applyMatrix4(M); grdPrim(p.count,M,GRD.geo||'kadd',kT,col); }
+function kadd(g,c,M){ const p=g.attributes.position, q=g.attributes.normal, v0=KK.n/3; kRoom(p.count*3); kNM.getNormalMatrix(M); const col=C3R(c); if(GRD){ kT.fromBufferAttribute(p,0).applyMatrix4(M); grdPrim(p.count,M,GRD.geo||'kadd',kT,col); }
   /* (each corner placed and its normal turned with the sums written out, in the same order as three's applyMatrix4,
      applyMatrix3 and normalize: the same numbers, without five calls a corner) */
   if(kPlain(p)&&kPlain(q)){ const e=M.elements, m=kNM.elements, A=p.array, B=q.array, n=p.count, cr=col.r, cg=col.g, cb=col.b;
-    for(let j=0;j<n*3;j+=3){ const x=A[j], y=A[j+1], z=A[j+2], w=1/(e[3]*x+e[7]*y+e[11]*z+e[15]), nx=B[j], ny=B[j+1], nz=B[j+2],
+    const P=KP, Nn=KN, Cc=KC; let o=KK.n;
+    for(let j=0;j<n*3;j+=3,o+=3){ const x=A[j], y=A[j+1], z=A[j+2], w=1/(e[3]*x+e[7]*y+e[11]*z+e[15]), nx=B[j], ny=B[j+1], nz=B[j+2],
         ax=m[0]*nx+m[3]*ny+m[6]*nz, ay=m[1]*nx+m[4]*ny+m[7]*nz, az=m[2]*nx+m[5]*ny+m[8]*nz, s=1/(Math.sqrt(ax*ax+ay*ay+az*az)||1);
-      KP.push((e[0]*x+e[4]*y+e[8]*z+e[12])*w,(e[1]*x+e[5]*y+e[9]*z+e[13])*w,(e[2]*x+e[6]*y+e[10]*z+e[14])*w); KN.push(ax*s,ay*s,az*s); KC.push(cr,cg,cb); } }
-  else for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); KP.push(kT.x,kT.y,kT.z); KN.push(kV.x,kV.y,kV.z); KC.push(col.r,col.g,col.b); }
+      P[o]=(e[0]*x+e[4]*y+e[8]*z+e[12])*w; P[o+1]=(e[1]*x+e[5]*y+e[9]*z+e[13])*w; P[o+2]=(e[2]*x+e[6]*y+e[10]*z+e[14])*w; Nn[o]=ax*s; Nn[o+1]=ay*s; Nn[o+2]=az*s; Cc[o]=cr; Cc[o+1]=cg; Cc[o+2]=cb; }
+    KK.n=o; }
+  else for(let i=0;i<p.count;i++){ kT.fromBufferAttribute(p,i).applyMatrix4(M); kV.fromBufferAttribute(q,i).applyMatrix3(kNM).normalize(); const o=KK.n; KK.n+=3;
+    KP[o]=kT.x; KP[o+1]=kT.y; KP[o+2]=kT.z; KN[o]=kV.x; KN[o+1]=kV.y; KN[o+2]=kV.z; KC[o]=col.r; KC[o+1]=col.g; KC[o+2]=col.b; }
   kfoot(g,M,v0); if(GRD) GRD.prims[GRD.prims.length-1].f=[KP[v0*3],KP[v0*3+1],KP[v0*3+2]]; }
 /* a flat foot on the ground reaches down to it. The world is round and small, so a slab, a step or a pad laid flat on it stands
    off the ground toward its edges (and more where the ground falls away): the underside of anything flat-bottomed and level
@@ -248,7 +259,9 @@ function kfoot(g,M,v0){ let f=KFOOT.get(g);
     if(y1-y0<.06&&y0>-.02&&y0<.04){ for(let i=0;i<n;i++){ const k=(v0+i)*3; kT.set(KP[k],KP[k+1],KP[k+2]); const L=kT.length(), ly=V3.copy(kT).applyMatrix4(kfI).y, [mx,mz]=loc(kT.divideScalar(L)), s=(R+kDrawn(mx,mz)+ly)/L; KP[k]*=s; KP[k+1]*=s; KP[k+2]*=s; } return; } }
   /* a foot: its underside down to the ground, where it stands off it */
   f.forEach((i,j)=>{ const L=C[j*4], gh=kDrawn(C[j*4+2],C[j*4+3]), c=L-R-gh; if(c<=.002||c>.6) return; const k=(v0+i)*3, s=(R+gh-.02)/L; KP[k]*=s; KP[k+1]*=s; KP[k+2]*=s; }); }
-function ktri(a,b,c,n,col){ const C=C3R(col); if(GRD) grdPrim(3,null,'tri',a,C); KP.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z); KN.push(n.x,n.y,n.z,n.x,n.y,n.z,n.x,n.y,n.z); KC.push(C.r,C.g,C.b,C.r,C.g,C.b,C.r,C.g,C.b); }
+function ktri(a,b,c,n,col){ const C=C3R(col); if(GRD) grdPrim(3,null,'tri',a,C); kRoom(9); const o=KK.n; KK.n+=9;
+  KP[o]=a.x; KP[o+1]=a.y; KP[o+2]=a.z; KP[o+3]=b.x; KP[o+4]=b.y; KP[o+5]=b.z; KP[o+6]=c.x; KP[o+7]=c.y; KP[o+8]=c.z;
+  for(let k=0;k<9;k+=3){ KN[o+k]=n.x; KN[o+k+1]=n.y; KN[o+k+2]=n.z; KC[o+k]=C.r; KC[o+k+1]=C.g; KC[o+k+2]=C.b; } }
 const qA=new T.Vector3(), qB=new T.Vector3();
 function kquad(a,b,c,d,n,col){ qA.subVectors(b,a); qB.subVectors(c,a); if(qA.cross(qB).dot(n)>=0){ ktri(a,b,c,n,col); ktri(a,c,d,n,col); } else { ktri(a,c,b,n,col); ktri(a,d,c,n,col); } }
 const prismG=(()=>{ const A=[-.5,0,-.5],B=[.5,0,-.5],Cc=[0,1,-.5],A2=[-.5,0,.5],B2=[.5,0,.5],C2=[0,1,.5];
@@ -374,7 +387,7 @@ const LEAF=['#4f7f4a','#5f9256','#6fa25f','#7fae66'];
 const TREES=[];
 /* the trees, bushes and rocks, and where each lies in the town's mesh, so that one growing through a building can be moved
    clear of it once they are all laid out (see wildClear, after the trees) */
-const WILD=[], wildAt=()=>({P:KP,N:KN,k0:KP.length}), wildDone=(w,x,z,kind,s)=>{ w.k1=KP.length; Object.assign(w,{x,z,kind,s,ob:OBS[OBS.length-1]}); WILD.push(w); };
+const WILD=[], wildAt=()=>({K:KK,k0:KK.n}), wildDone=(w,x,z,kind,s)=>{ w.k1=KK.n; Object.assign(w,{x,z,kind,s,ob:OBS[OBS.length-1]}); WILD.push(w); };
 function tree(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU), th=1.25*s; TREES.push([x,z,s]); w.tr=TREES[TREES.length-1];
   put(M,'cyl8','#7a5a42',0,th/2,0,.12*s,th,.12*s); put(M,'cyl8','#7a5a42',.2*s,th*.82,0,.05*s,.62*s,.05*s,0,0,-.75);
   const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453), lc=LEAF.map(c=>{ const q=C3(c).clone(); q.b+=tk*.012; return q; });   // which colour this tree turns in autumn, hidden in its leaves' blue
@@ -390,8 +403,8 @@ function rock(x,z,s=1,y=0){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'r
    round them, so everything else stands where it always did) but drawn into nothing, and taken off the list once the town
    is made (see clearOut, at the end). The countryside, the coast and the cliff keep theirs ---------- */
 const OUT=new Set(), OUTN={}, KEPT=[], REACH={tree:1.15,pine:.82,bush:.7,rock:.62};   // (REACH: how far a crown, a bush or a stone spreads from its middle, at size 1)
-function outOf(kind,fn){ const k0=KP, k1=KN, k2=KC, o0=OBS.length, t0=TREES.length; KP=[]; KN=[]; KC=[];
-  try{ return fn(); } finally { KP=k0; KN=k1; KC=k2; OBS.slice(o0).forEach(o=>OUT.add(o)); TREES.length=t0; OUTN[kind]=(OUTN[kind]||0)+1; } }
+function outOf(kind,fn){ const kk=KK, o0=OBS.length, t0=TREES.length; kUse(newKit());
+  try{ return fn(); } finally { kUse(kk); OBS.slice(o0).forEach(o=>OUT.add(o)); TREES.length=t0; OUTN[kind]=(OUTN[kind]||0)+1; } }
 const _wI=new T.Matrix4(), _wV=new T.Vector3();
 /* how far (x, z) is from the nearest building's walls (0 inside one) */
 function wallD(x,z){ let m=1e9; for(const H of HOUSES){ at(x,z,_wV).multiplyScalar(R).applyMatrix4(_wI.copy(H.M).invert()); m=Math.min(m,Math.hypot(Math.max(Math.abs(_wV.x)-H.w/2,0),Math.max(Math.abs(_wV.z)-H.d/2,0))); } return m; }
@@ -574,11 +587,11 @@ function wildMove(){ for(const g of WAS){ if(g.fn) continue; if(g.xz){ for(const
      corner in it, so what is moved, and where to, is just as it was) */
   const HMI=new Map(HOUSES.map(H=>{ const m=new T.Matrix4().copy(H.M).invert(), e=m.elements; return [H,{m,s:Math.max(Math.hypot(e[0],e[1],e[2]),Math.hypot(e[4],e[5],e[6]),Math.hypot(e[8],e[9],e[10]))}]; })), Cw=new T.Vector3();
   for(const w of WILD){ for(let pass=0;pass<3;pass++){ let to=null;
-      { let sx=0, sy=0, sz=0; const nv=Math.max(1,(w.k1-w.k0)/3); for(let k=w.k0;k<w.k1;k+=3){ sx+=w.P[k]; sy+=w.P[k+1]; sz+=w.P[k+2]; } Cw.set(sx/nv,sy/nv,sz/nv); }
-      let reach=0; for(let k=w.k0;k<w.k1;k+=3){ const dx=w.P[k]-Cw.x, dy=w.P[k+1]-Cw.y, dz=w.P[k+2]-Cw.z; reach=Math.max(reach,dx*dx+dy*dy+dz*dz); } reach=Math.sqrt(reach)+.01;
+      { let sx=0, sy=0, sz=0; const nv=Math.max(1,(w.k1-w.k0)/3); for(let k=w.k0;k<w.k1;k+=3){ sx+=w.K.P[k]; sy+=w.K.P[k+1]; sz+=w.K.P[k+2]; } Cw.set(sx/nv,sy/nv,sz/nv); }
+      let reach=0; for(let k=w.k0;k<w.k1;k+=3){ const dx=w.K.P[k]-Cw.x, dy=w.K.P[k+1]-Cw.y, dz=w.K.P[k+2]-Cw.z; reach=Math.max(reach,dx*dx+dy*dy+dz*dz); } reach=Math.sqrt(reach)+.01;
       for(const H of HOUSES){ const hm=HMI.get(H); Mi.copy(hm.m); { const c=v.copy(Cw).applyMatrix4(Mi), r=reach*hm.s; if(Math.abs(c.x)-r>H.w/2+.09+.05||Math.abs(c.z)-r>H.d/2+.09+.05) continue; }
         let hit=false, rr=0; const c=at(w.x,w.z,v).multiplyScalar(R).applyMatrix4(Mi), cx=c.x, cz=c.z;
-        for(let k=w.k0;k<w.k1;k+=3){ A.set(w.P[k],w.P[k+1],w.P[k+2]).applyMatrix4(Mi); if(inside(H,A,.05)) hit=true; if(A.y<H.h+1.4) rr=Math.max(rr,Math.hypot(A.x-cx,A.z-cz)); }
+        for(let k=w.k0;k<w.k1;k+=3){ A.set(w.K.P[k],w.K.P[k+1],w.K.P[k+2]).applyMatrix4(Mi); if(inside(H,A,.05)) hit=true; if(A.y<H.h+1.4) rr=Math.max(rr,Math.hypot(A.x-cx,A.z-cz)); }
         if(!hit) continue;
         /* out by the nearer of its sides, as far as the widest of it below the roof's top, and a little more */
         const ox=(Math.sign(cx)||1)*(H.w/2+.09+rr+.08), oz=(Math.sign(cz)||1)*(H.d/2+.09+rr+.08), dx=Math.abs(ox-cx), dz=Math.abs(oz-cz);
@@ -596,9 +609,9 @@ function wildMove(){ for(const g of WAS){ if(g.fn) continue; if(g.xz){ for(const
       if(!to) break;
       /* moved over the round world, turning about its middle: every corner and every normal of it */
       q.setFromUnitVectors(at(w.x,w.z,A),at(to[0],to[1],B));
-      for(let k=w.k0;k<w.k1;k+=3){ v.set(w.P[k],w.P[k+1],w.P[k+2]).applyQuaternion(q); w.P[k]=v.x; w.P[k+1]=v.y; w.P[k+2]=v.z; v.set(w.N[k],w.N[k+1],w.N[k+2]).applyQuaternion(q); w.N[k]=v.x; w.N[k+1]=v.y; w.N[k+2]=v.z; }
+      for(let k=w.k0;k<w.k1;k+=3){ v.set(w.K.P[k],w.K.P[k+1],w.K.P[k+2]).applyQuaternion(q); w.K.P[k]=v.x; w.K.P[k+1]=v.y; w.K.P[k+2]=v.z; v.set(w.K.N[k],w.K.N[k+1],w.K.N[k+2]).applyQuaternion(q); w.K.N[k]=v.x; w.K.N[k+1]=v.y; w.K.N[k+2]=v.z; }
       [w.x,w.z]=to; w.ob.x=to[0]; w.ob.z=to[1]; if(w.tr){ w.tr[0]=to[0]; w.tr[1]=to[1]; }
-      if(GRD){ const g=GRD.gen.get(w.P), Q=new T.Matrix4().makeRotationFromQuaternion(q); if(g) for(const p of GRD.prims) if(p.k===g.k&&p.v0*3>=w.k0&&p.v0*3<w.k1){ p.f=[w.P[p.v0*3],w.P[p.v0*3+1],w.P[p.v0*3+2]]; if(p.m) p.m=Array.from(new T.Matrix4().fromArray(p.m).premultiply(Q).elements); } } } } }
+      if(GRD){ const g=GRD.gen.get(w.K), Q=new T.Matrix4().makeRotationFromQuaternion(q); if(g) for(const p of GRD.prims) if(p.k===g.k&&p.v0*3>=w.k0&&p.v0*3<w.k1){ p.f=[w.K.P[p.v0*3],w.K.P[p.v0*3+1],w.K.P[p.v0*3+2]]; if(p.m) p.m=Array.from(new T.Matrix4().fromArray(p.m).premultiply(Q).elements); } } } } }
 
 /* ---------- the ground, the sea and the sky ---------- */
 const SEGU={value:Array.from({length:12},()=>new T.Vector4(99,99,99,99))}, SEGW={value:new Float32Array(12)};
@@ -1382,7 +1395,7 @@ async function buildMarket(gap){ const g=new T.Group(); MKT.g=g; g.visible=false
   /* the festoon poles: slim, a weighted foot, a ball on top where the wires meet */
   const tops=MKT.POLES.map(([x,z])=>{ const M=frameAt(x,z,0,lift(x,z)); cyl(M,'#3c4746',0,0,0,.11,.12,'cyl8'); cyl(M,'#3c4746',0,.12,0,.034,3.38,'cyl8'); put(M,'sph','#3c4746',0,3.5,0,.045,.045,.045); mktObs(x,z,.12,3.5);
     return V.set(0,3.46,0).applyMatrix4(M).clone(); });
-  kitTo(); const K=KITS.mkt, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(K.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(K.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(K.C,3)); K.P.length=K.N.length=K.C.length=0;
+  kitTo(); const K=KITS.mkt, kg=new T.BufferGeometry(); kg.setAttribute('position',kArr(K,'P')); kg.setAttribute('normal',kArr(K,'N')); kg.setAttribute('color',kArr(K,'C')); kEmpty(K);
   MKT.kitM=mktMat(MKT.u,{kit:true}); const kit=new T.Mesh(kg,MKT.kitM); g.add(kit);
   MKT.signM=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:mktBoards()},uGlow:{value:0},uMk:MKT.u},LU),vertexShader:TOON_V(true),fragmentShader:MKS_F}); MKT.signM.userData.inkF=MKT_IF;
   g.add(new T.Mesh(mktMerge(boards,['uv']),MKT.signM));
@@ -2332,7 +2345,7 @@ async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot
     ICE.obs=[-.3,.3].map(x=>{ const [ox,oz]=loc(V.set(x,0,0).applyMatrix4(M).normalize()); return {x:ox,z:oz,r:.42,h:1.2}; }); const [vx,vz]=loc(V.set(0,0,-.72).applyMatrix4(M).normalize()); ICE.obs.push({x:vx,z:vz,r:.3,h:1.3});
     ICE.M=M; }
   kitTo();
-  const mk=(id,u)=>{ const K=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(K.P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(K.N,3)); g.setAttribute('color',new T.Float32BufferAttribute(K.C,3)); delete KITS[id];
+  const mk=(id,u)=>{ const K=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',kArr(K,'P')); g.setAttribute('normal',kArr(K,'N')); g.setAttribute('color',kArr(K,'C')); delete KITS[id];
     g.computeBoundingSphere(); const m=new T.Mesh(g,mktMat(u,{kit:true})); m.frustumCulled=false; m.visible=false; SL.cull.push(m); return m; };   // (culled by the camera once warmed: see slWorld)
   SLK.frost.m=mk('slfrost',SLK.frost); sc.add(SLK.frost.m); SLK.bloom.m=mk('slbloom',SLK.bloom); sc.add(SLK.bloom.m);
   ICE.g=new T.Group(); ICE.g.visible=false; sc.add(ICE.g); { const m=mk('slice',ICE.u); m.visible=true; ICE.g.add(m); }   // (the group shows it or not)
@@ -2678,7 +2691,7 @@ function cafeBoard(cv,hov,mark){ const c=cv.getContext('2d'), W=cv.width, H=cv.h
   c.textAlign='center'; c.globalAlpha=.7; fit('made to order, right here',H*.04,W*.6,800); c.fillText('made to order, right here',W/2,H*.95); c.globalAlpha=1; }
 
 /* ---------- building it: the room, its glass, the board, the door and its bell, the grinder, the barista, the cup ---------- */
-function kgeo(id){ const k=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); g.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); g.setAttribute('color',new T.Float32BufferAttribute(k.C,3)); k.P.length=k.N.length=k.C.length=0; return g; }
+function kgeo(id){ const k=KITS[id], g=new T.BufferGeometry(); g.setAttribute('position',kArr(k,'P')); g.setAttribute('normal',kArr(k,'N')); g.setAttribute('color',kArr(k,'C')); kEmpty(k); return g; }
 function buildCafe(){ if(!CAFE.M||!CAFE_ON) return; const M=CAFE.M, w=CAFE.w, d=CAFE.d, h=CAFE.h, t=.08, iw=w/2-t, id=d/2-t, F=CFL, top=h-.04, I=cI.identity();
   CAFE.up.copy(cdir(0,1,0)); CU.uCU.value.copy(CAFE.up); CAFE.c0=cw(0,1.4,0);
   const g=CAFE.g=new T.Group(); g.matrixAutoUpdate=false; sc.add(g);
@@ -3160,9 +3173,9 @@ function late(name,fn,pri=0){ LATE.q.push({name,fn,pri}); LATE.q.sort((a,b)=>b.p
    put back as it was: something else may fill another in the meantime) */
 function lateStep(force){ LATE.n++; const t=performance.now(); if(LATE.tr){ const w=(new Error().stack.split('\n')[2]||'').match(/:(\d+):(\d+)\)?$/); LATE.tr.push([LATE.cur,LATE.n,+(t-LATE.lt).toFixed(1),w?+w[1]:0]); LATE.lt=performance.now(); } if(LATE.now||!force&&t-LATE.s0<LATE.ms) return; return lateYield(t); }
 async function lateYield(t){ const d=t-LATE.s0; if(LATE.gpu){ if(d>LATE.gmax) LATE.gmax=d; } else { if(d>LATE.max){ LATE.max=d; LATE.at=[LATE.cur,LATE.n]; } LATE.tops.push(+d.toFixed(1)); LATE.tops.sort((a,b)=>b-a); LATE.tops.length=Math.min(LATE.tops.length,3); } LATE.slices++;
-  const kp=KP, kn=KN, kc=KC, gk=GRD&&GRD.kit;
+  const kk=KK, gk=GRD&&GRD.kit;
   await new Promise(r=>requestAnimationFrame(()=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); }));
-  KP=kp; KN=kn; KC=kc; if(GRD) GRD.kit=gk; LATE.s0=LATE.lt=performance.now(); }
+  kUse(kk); if(GRD) GRD.kit=gk; LATE.s0=LATE.lt=performance.now(); }
 async function lateRun(){ if(LATE.busy||!LATE.q.length) return; LATE.busy=true; LATE.t0=LATE.s0=LATE.lt=performance.now();
   while(LATE.q.length){ const j=LATE.q.shift(), t0=performance.now(); LATE.cur=j.name; LATE.n=0;
     try{ await j.fn(lateStep); }catch(err){ console.warn('late: '+j.name,err); kitTo(); }
@@ -3210,8 +3223,8 @@ st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // bet
   buildCoast(); buildHomes(); buildPier(); await gap();   // the coast's boats, seal and swing, and the homes' washing lines (see them, at the end: their rocks, posts and branch go into the town's mesh)
   const kitM=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); kitM.uniforms.uKit={value:1}; kitM.uniforms.uHoleOn={value:1};
   kitM.uniforms.uLeaf=WIND.leaf; kitM.userData.inkF=KIT_IF; kitM.userData.shdF=KIT_SF;   // the trees in the wind, and bare in winter (see the sky alive)   // the seasons, snow, rain and lit windows are the kit's; it takes the launch scene's cut, the pad being in it
-  for(const id in KITS){ const k=KITS[id]; if(!k.P.length) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
-    const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); k.P.length=k.N.length=k.C.length=0; }
+  for(const id in KITS){ const k=KITS[id]; if(!k.n) continue; const kg=new T.BufferGeometry(); kg.setAttribute('position',kArr(k,'P')); kg.setAttribute('normal',kArr(k,'N')); kg.setAttribute('color',kArr(k,'C'));
+    const kit=new T.Mesh(kg,kitM); kit.frustumCulled=false; kit.userData.cast=true; (MK[id]?MK[id].g:sc).add(kit); kEmpty(k); }
   kitTo();
   registerInk(); sendShaders(sc,stCam); sendSets(sc,stCam,st.matSets); st.built=true; };   // (and the ink's and the shadow's, while the rooms and the town's life are built)
 
@@ -4204,7 +4217,7 @@ function csDoors(){ const dM=c=>{ const m=toonMat(c,{fresh:true}); m.uniforms.uH
    and the big switch */
 function csDesk(){ const [dx,dz]=QDK, M=frameAt(dx,dz,DESK.yaw), g=new T.Group(); g.visible=false; sc.add(g);
   kitTo('qdesk'); box(M,'#3f464b',0,0,.02,1.2,.78,.46); box(M,'#2c3236',0,0,.02,1.26,.06,.52); put(M,'box','#2b3135',0,.83,-.02,1.26,.07,.6,0,-.45);
-  const k=KITS.qdesk, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3)); kitTo(); delete KITS.qdesk;
+  const k=KITS.qdesk, kg=new T.BufferGeometry(); kg.setAttribute('position',kArr(k,'P')); kg.setAttribute('normal',kArr(k,'N')); kg.setAttribute('color',kArr(k,'C')); kitTo(); delete KITS.qdesk;
   { const m=toonMat('#ffffff',{vc:true,fresh:true}); m.uniforms.uKit={value:1}; g.add(new T.Mesh(kg,m)); }   // (the kit's own: rain darkens it, snow settles on it)
   const PM=new T.Matrix4().multiplyMatrices(M,new T.Matrix4().makeTranslation(0,.865,-.02)).multiply(new T.Matrix4().makeRotationX(-.45));
   for(let r=0;r<2;r++) for(let k2=0;k2<5;k2++){ const l=new T.Mesh(new T.BoxGeometry(.065,.025,.065),flatMat('#e8553f')); l.matrixAutoUpdate=false;
@@ -4656,8 +4669,8 @@ function civYard(){ const S=CIV.school, M=S.M, FN='#4f8a8b', TR='#fbf6ec', grow=
     for(const y of [.33,.65,.96]){ for(const s of [-1,1]){ box(M,'#f2c14e',cx,y,cz+s*a,a*2,.03,.03); box(M,'#3f7fd0',cx+s*a,y,cz,.03,.03,a*2); } }
     for(const k of [-.12,.12]){ box(M,'#f2c14e',cx+k*1.4,.96,cz,.03,.03,a*2); box(M,'#3f7fd0',cx,.96,cz+k*1.4,a*2,.03,.03); } solid.push([cx,cz,.5,1]); }
   sign(sub(M,-.35,0,yz1+.07),'SCHOOL',{w:1.5,h:.36,y:1.55,post:false,bg:'#fbf6ec',fg:'#2f5a8a',board:'#3a3d3f'});
-  kitTo(); const k=KITS.civ, kg=new T.BufferGeometry(); kg.setAttribute('position',new T.Float32BufferAttribute(k.P,3)); kg.setAttribute('normal',new T.Float32BufferAttribute(k.N,3)); kg.setAttribute('color',new T.Float32BufferAttribute(k.C,3));
-  const km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; CIV.kit=new T.Mesh(kg,km); CIV.kit.frustumCulled=false; CIV.kit.userData.cast=true; sc.add(CIV.kit); k.P.length=k.N.length=k.C.length=0; delete KITS.civ;
+  kitTo(); const k=KITS.civ, kg=new T.BufferGeometry(); kg.setAttribute('position',kArr(k,'P')); kg.setAttribute('normal',kArr(k,'N')); kg.setAttribute('color',kArr(k,'C'));
+  const km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; CIV.kit=new T.Mesh(kg,km); CIV.kit.frustumCulled=false; CIV.kit.userData.cast=true; sc.add(CIV.kit); kEmpty(k); delete KITS.civ;
   return solid; }
 /* what is solid, once the trees and rocks are laid out: the hall's ground stays as it was and its steps are added; the
    school's ground (and the cottage's) gives way to its own walls, the yard's fence, piers and climbing frame. The walking
@@ -6148,7 +6161,7 @@ function buildLab(){ if(!GAR.M||GAR.g) return; const M=GAR.M, F=GW.FL, ix=GIX-.0
     const at2=(u,vv)=>v(lerp(FX0,FX1,u),FY1-vv*FH-.012*vv*Math.sin(Math.PI*u),Z0+.006+vv*(.016+.013*Math.sin(u*TAU*2.2+.8))+.004*vv*Math.sin(u*TAU*5.5));
     for(let j=0;j<=NY;j++){ P_[j]=[]; for(let i=0;i<=NX;i++) P_[j][i]=at2(i/NX,j/NY); }
     const nrm=(i,j)=>{ const a=P_[j][Math.min(NX,i+1)].clone().sub(P_[j][Math.max(0,i-1)]), b=P_[Math.max(0,j-1)][i].clone().sub(P_[Math.min(NY,j+1)][i]); return a.cross(b).normalize(); };
-    const push=(p,n,c)=>{ const w=wsW(p.x,p.y,p.z), wn=wsD(n.x,n.y,n.z); KP.push(w.x,w.y,w.z); KN.push(wn.x,wn.y,wn.z); KC.push(c.r,c.g,c.b); };
+    const push=(p,n,c)=>{ const w=wsW(p.x,p.y,p.z), wn=wsD(n.x,n.y,n.z); kRoom(3); const o=KK.n; KK.n+=3; KP[o]=w.x; KP[o+1]=w.y; KP[o+2]=w.z; KN[o]=wn.x; KN[o+1]=wn.y; KN[o+2]=wn.z; KC[o]=c.r; KC[o+1]=c.g; KC[o+2]=c.b; };
     kitTo('gflag');   // (the cloth and its rod: a mesh of their own, to flutter in a test fire)
     for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){ const c=C_[Math.floor(i/(NX/3))], q=[[i,j],[i,j+1],[i+1,j+1],[i,j],[i+1,j+1],[i+1,j]]; for(const [a,b] of q) push(P_[b][a],nrm(a,b),c); }
     put(M,'cyl','#8a6448',(FX0+FX1)/2,FY1+.012,Z0+.01,.011,FX1-FX0+.08,.011,0,0,Math.PI/2); [FX0-.045,FX1+.045].forEach(x=>put(M,'sph','#6b4c34',x,FY1+.012,Z0+.01,.018,.018,.018)); kitTo('garin');
@@ -7448,8 +7461,8 @@ function pbFiddle(B){ put(B,'sph','#9a4a1c',0,.02,-.07,.1,.022,.075); put(B,'sph
 function pbDrum(B){ kadd(new T.CylinderGeometry(.19,.19,.07,24,1,true).toNonIndexed(),'#6b4423',B); put(B,'cyl','#efe0c0',0,.035,0,.188,.004,.188); put(B,'cyl','#5a3420',0,-.035,0,.19,.004,.19); box(B,'#3a2016',0,-.03,0,.36,.012,.02); }
 function pbWhistle(B){ put(B,'cyl8','#c9cdd2',0,0,0,.009,.26,.009); put(B,'cyl8','#2f5a45',0,.15,0,.0095,.06,.0095); for(let k=0;k<6;k++) put(B,'sph','#1c1614',.0085,-.08+k*.026,0,.002,.004,.004); }
 /* (the same, into a figure's part: its own little frame, in its colours) */
-function pbPart(P,fn){ kitTo('pbtmp'); fn(new T.Matrix4()); const k=KITS.pbtmp, n=k.P.length/9; for(let i=0;i<n;i++){ const a=[0,1,2].map(j=>v3(k.P[i*9+j*3],k.P[i*9+j*3+1],k.P[i*9+j*3+2])), q=[0,1,2].map(j=>v3(k.N[i*9+j*3],k.N[i*9+j*3+1],k.N[i*9+j*3+2]));
-    P.tri(a[0],q[0],a[1],q[1],a[2],q[2],new T.Color(k.C[i*9],k.C[i*9+1],k.C[i*9+2])); } k.P.length=k.N.length=k.C.length=0; kitTo(); }
+function pbPart(P,fn){ kitTo('pbtmp'); fn(new T.Matrix4()); const k=KITS.pbtmp, n=k.n/9; for(let i=0;i<n;i++){ const a=[0,1,2].map(j=>v3(k.P[i*9+j*3],k.P[i*9+j*3+1],k.P[i*9+j*3+2])), q=[0,1,2].map(j=>v3(k.N[i*9+j*3],k.N[i*9+j*3+1],k.N[i*9+j*3+2]));
+    P.tri(a[0],q[0],a[1],q[1],a[2],q[2],new T.Color(k.C[i*9],k.C[i*9+1],k.C[i*9+2])); } kEmpty(k); kitTo(); }
 /* the pictures on one canvas: the under-twelves (sepia), the lighthouse with a boat at the jetty, a launch on the pad, the
    club jersey framed with its little plaque, the town over the mantel, the stout's mirror, and the note about the session */
 function pbBoards(cv){ const c=cv.getContext('2d'), r=seeded(23), ink='#2a241d', F_=(s,w=900)=>`${w} ${s}px Doto, monospace`, M_=s=>`600 ${s}px ui-monospace, Menlo, monospace`;
@@ -9027,7 +9040,7 @@ async function buildTownLife(gap){ tlRoadInit(); tlStops(); tlBuildCars(); await
   /* the milk on the doorsteps: two bottles each, put down when the milkman has been */
   TL.bottles=TLP.milk.map(m=>{ const b=tlPart(B=>[-.05,.05].forEach(x=>{ B.put(FG.can,'#f6f4ee',x,.065,0,.03,.13,.03); B.put(FG.can,'#d9b45a',x,.135,0,.031,.012,.031); }));
     b.matrixAutoUpdate=false; b.matrix.copy(frameAt(m.bot.x,m.bot.z,0,standH(m.bot.x,m.bot.z)+.16)); b.visible=false; sc.add(b); return {m:b,on:false}; });
-  kitTo(); { const k=KITS.tl; if(k&&k.P.length){ const g=kgeo('tl'), km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; const m=new T.Mesh(g,km); m.frustumCulled=false; m.userData.cast=true; sc.add(m); TL.kit=m; } delete KITS.tl; }
+  kitTo(); { const k=KITS.tl; if(k&&k.n){ const g=kgeo('tl'), km=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); km.uniforms.uKit={value:1}; const m=new T.Mesh(g,km); m.frustumCulled=false; m.userData.cast=true; sc.add(m); TL.kit=m; } delete KITS.tl; }
   /* into the ink pass and the sun's shadow, as the rest of the town (they were made after it was registered) */
   const roots=[...TL.cars.map(c=>c.g),...TL.feet.map(w=>w.g),...TL.kids.map(k=>k.g),CAT.g,DOG.g,BALL.m,TLB.m,POND.water,TL.kit,...(TL.signs||[]),...TL.bottles.map(b=>b.m)].filter(Boolean);
   for(const r of roots) r.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!o.material.isShaderMaterial||o.userData.noInk===true||INK.includes(o)) return;
@@ -11272,8 +11285,8 @@ const tgXZ=(e,lx,lz)=>{ const c=Math.cos(e.yaw), s=Math.sin(e.yaw); return [e.x+
    solid stands in the town's list while the rest is laid out round it, so nothing else moves), but is drawn into nothing
    and taken off the list once the town is made. reach: how far a tree's crown (a bush, a rock) spreads from its middle ---------- */
 { const keep=(fn,reach)=>function(x,z,s=1){ if(!TOWN_GROWS.some(e=>tgRectD(e,x,z)<reach*s+.3)) return fn.apply(this,arguments);
-    const k0=KP, k1=KN, k2=KC, o0=OBS.length, t0=TREES.length; KP=[]; KN=[]; KC=[];
-    try{ return fn.apply(this,arguments); } finally { KP=k0; KN=k1; KC=k2; TG.cleared.push(...OBS.slice(o0)); TREES.length=t0; } };
+    const kk=KK, o0=OBS.length, t0=TREES.length; kUse(newKit());
+    try{ return fn.apply(this,arguments); } finally { kUse(kk); TG.cleared.push(...OBS.slice(o0)); TREES.length=t0; } };
   tree=keep(tree,1); pine=keep(pine,.8); bush=keep(bush,.45); rock=keep(rock,.5); }
 
 /* ---------- whether a plot is free: on ground you can walk on, off the roads and the paths, clear of everyone and of
@@ -11295,7 +11308,7 @@ const tgOverlap=(a,b)=>{ for(let i=-.5;i<=.501;i+=.125) for(let j=-.5;j<=.501;j+
 /* ---------- the parts: everything that never moves goes into a kit of the plot's own, drawn with the town's kit material
    (the homes' toon, the ink, and the kit's glass lit at night) ---------- */
 function tgKitMat(){ if(!TG.mat){ TG.mat=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); TG.mat.uniforms.uKit={value:1}; } return TG.mat; }
-function tgKitMesh(id,g){ kitTo(); const k=KITS[id]; if(!k||!k.P.length){ delete KITS[id]; return null; } const geo=kgeo(id); delete KITS[id];
+function tgKitMesh(id,g){ kitTo(); const k=KITS[id]; if(!k||!k.n){ delete KITS[id]; return null; } const geo=kgeo(id); delete KITS[id];
   const m=new T.Mesh(geo,tgKitMat()); m.frustumCulled=false; m.userData.cast=true; g.add(m); return m; }
 /* a sign, in the plot's group (the town's own sign, see the signs) */
 function tgSign(g,M,txt,o){ const m=sign(M,txt,o); sc.remove(m); g.add(m); return m; }
@@ -11458,7 +11471,7 @@ function buildGrow(){ const gone=new Set(TG.cleared); for(let i=OBS.length-1;i>=
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TG.ok&&!TG.err){ try{ tgStep(Math.min(dt,.05),t); }catch(err){ TG.err=String(err&&err.stack||err); console.error('the town grows',err); } } return r; }; }
 st._dbg.grow={TG,list:TOWN_GROWS,build:tgBuild,down:tgDown,check:tgCheck,rectD:tgRectD,xz:tgXZ,working:tgWorking,tarp:tgTarp,TREES,LOOK:TG_LOOK,
   act(id,what){ const P=TG.plots[id]; if(P&&P.up&&P.kind==='site') tgAct(P,what); return P&&P.act; },
-  plot:id=>TG.plots[id],roadDist,pathDist,walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
+  plot:id=>TG.plots[id],roadDist,pathDist,segs:()=>SEGS,walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
   get state(){ return {ok:TG.ok,err:TG.err,skip:TG.skip,cleared:TG.cleared.length,n:{...TG.n},g:{...TG.g},last:TG.last||null,
     plots:Object.values(TG.plots).map(P=>({id:P.e.id,kind:P.kind,up:P.up,obs:P.obs.length,tufts:P.tufts,man:P.man?P.man.visible:null,act:P.act?P.act.what:null,
       tarp:P.tarp?{lean:+P.tarp.lean.toFixed(3),disp:+(P.tarp.disp||0).toFixed(3),wp:+(P.tarp.wp||0).toFixed(3)}:null}))}; }};
