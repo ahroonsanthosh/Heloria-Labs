@@ -1591,6 +1591,8 @@ function mktSmoke(dt,e,dk){ const S0=MKT.smoke, N=S0.m.geometry, Pp=N.attributes
    They are made with the town, of the figures' own material (so nothing new has to be compiled), drawn only within sight of
    the café, and hidden for the last flight and the launch scene before it, where the same two stand at the desk. */
 const REGT={x:-1.45,z:1.85};   // their table, in the café's frame (x across, z out to the street): along from the door, by the left window
+/* how each of them sits, as found (see buildRegulars): the body's drop onto the stool, and each leg's hip and knee */
+const REG_FIT={gideon:{lift:-.125944,legs:[[-1.192925,1.142520],[-1.282861,1.164443]]},owen:{lift:-.123701,legs:[[-1.147656,.988750],[-1.079316,1.049746]]}};
 const REGS=[
   {key:'gideon',i:4,first:'Gideon',pitch:400,seat:-1,
     L0:['Hi, I\'m Gideon, one of Heloria\'s investors. So happy to be onboard.','The guys are up to some pretty cool stuff, you should talk to them!'],
@@ -1654,7 +1656,15 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
     const sx=REGT.x+s*RG_SX, stl=cf(sx,RG_STOOL-sag(sx,REGT.z),REGT.z), sL=stl.length(), sU=stl.clone().divideScalar(sL), shin=new Set(); d.knees.forEach(k=>k.traverse(m=>shin.add(m)));
     const seat=()=>{ g.updateMatrixWorld(true); let lo=9; g.traverse(m=>{ if(!m.isMesh||shin.has(m)) return; const A=m.geometry.attributes.position.array;
       for(let j=0;j<A.length;j+=3){ rgW.fromArray(A,j).applyMatrix4(m.matrixWorld); const h=rgW.dot(sU)-sL; if(rgW.addScaledVector(sU,-rgW.dot(sU)).length()<.17) lo=Math.min(lo,h); } }); return lo; };
-    for(let n=0;n<3;n++){ d.body.position.y+=(.004-seat())/K; down(); }
+    /* (the fit found the last time the town was made: put on, and checked once, the seat on the stool and each shoe on the
+       ground; found again, as above, only if it no longer fits, the ground or they having changed. The search took longer than
+       making the two of them) */
+    const fit=REG_FIT[r.key]; let known=false;
+    if(fit){ d.body.position.y=fit.lift; d.legs.forEach((l,i)=>{ l.rotation.x=fit.legs[i][0]; d.knees[i].rotation.x=fit.legs[i][1]; });
+      const sh=seat(); known=Math.abs(sh-.004)<.006&&d.legs.every(l=>{ const v=low(l); return v>-.006&&v<.008; }); }
+    if(!known){ d.body.position.y=0; d.legs.forEach((l,i)=>{ l.rotation.x=lg[i][0]; d.knees[i].rotation.x=lg[i][1]; });
+      for(let n=0;n<3;n++){ d.body.position.y+=(.004-seat())/K; down(); } }
+    r.fit={known,lift:d.body.position.y,legs:d.legs.map((l,i)=>[l.rotation.x,d.knees[i].rotation.x])};
     r.lift=d.body.position.y; r.top=cf(px,(1.36+r.lift)*K,pz); r.tag=cf(px,(1.54+r.lift)*K,pz);
     /* the cup on its saucer in front of them, the other hand on the table: in the café's frame, then in their own */
     const tx=REGT.x, tz=REGT.z, ux=px-tx, uz=pz-tz, ul=Math.hypot(ux,uz), wx=ux/ul, wz=uz/ul, rx=-fz, rz=fx;

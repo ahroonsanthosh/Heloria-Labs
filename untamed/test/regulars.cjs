@@ -167,6 +167,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(nseen.every(Boolean), 'at night they are still there, in view', JSON.stringify(nseen));
   await shot(pre + 'regulars-night');
 
+  /* how they sit was known: the fit kept from the last time, put on and checked, not searched for (a slower load if not; if it
+     fails, the town under them or they have changed: the new fit is shown here, to keep as REG_FIT) */
+  const fit = await H(h => h.ST.cr._dbg.regs.REGS.map(r => ({ key: r.key, known: r.fit.known, lift: +r.fit.lift.toFixed(6), legs: r.fit.legs.map(a => a.map(v => +v.toFixed(6))) })));
+  rec(fit.every(f => f.known), 'how they sit was known, not searched for', JSON.stringify(fit));
   console.log('\nSUMMARY ' + pass + ' passed, ' + fail + ' failed' + (failed.length ? '\n  FAILED: ' + failed.join('; ') : ''));
   if (fail) process.exitCode = 1;
 };
