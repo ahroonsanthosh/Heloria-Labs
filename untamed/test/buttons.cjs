@@ -38,14 +38,15 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   rec(await until(() => document.querySelector('#load').classList.contains('ready')), 'loader becomes ready');
   await covered('#load', 'loader');
   rec(await page.evaluate(() => document.querySelectorAll('#load button,#load a').length === 0 && [...document.querySelectorAll('#load > :not(#boot)')].map(e => e.innerText).join(' ').replace(/\s+/g, ' ').trim().split(' ').length <= 5), 'opening screen is only the mark and a prompt');
-  if (mobile) await tap('#begin', 'Tap to begin');
-  else { await page.mouse.move(640, 400); await page.mouse.wheel(0, 240); await wait(700);
-    rec(/^scroll to/i.test(await page.evaluate(() => document.querySelector('#beginT').textContent)), 'the prompt asks for a scroll'); }
-  rec(await until(() => window.__heloria.S.mode !== 'load'), mobile ? 'a tap begins' : 'a scroll begins');
-  rec(await page.evaluate(() => /to land$/i.test(document.querySelector('#beginT').textContent)), 'the prompt says land');
+  /* (Land comes down by itself once Earth is ready: no tap, no scroll and no prompt asked for, see begin.cjs) */
+  await require('./begin.cjs')(page, mobile);
+  rec(await until(() => window.__heloria.S.mode !== 'load'), 'it comes down by itself, with no tap or scroll asked for');
   rec(await until(() => window.__heloria.S.mode === 'station' && window.__heloria.S.stId === 'cr', null, 60000), 'it comes straight down onto Earth');
   rec(await H(h => h.ST.cr._dbg.cut().on), 'Earth opens with the rocket landing');
   await wait(1500); await shot((mobile ? 'm-' : '') + 'earth-landing'); await covered('.st-cr', 'Earth landing');
+  /* (on a busy machine the landing can be over, or nearly, by the time the picture and the check above are done: if so it is
+     begun again, so Skip is pressed while there is a landing to skip) */
+  if (await H(h => { const c = h.ST.cr._dbg.cut(); return !c.on || c.t > 4; })) { await H(h => h.ST.cr.cutscene()); await wait(400); }
   await tap('#crSkip', 'Skip the landing'); rec(await until(() => !window.__heloria.ST.cr._dbg.cut().on, null, 20000), 'Skip ends the landing');
   await wait(1500);
   { const id = 'cr';
