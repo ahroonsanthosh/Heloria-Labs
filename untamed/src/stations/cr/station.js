@@ -3358,7 +3358,7 @@ function stickOff(){ stick.hidden=true; stickI.style.transform=''; }
 const cutSoundWaits=e=>A.waiting||A.unlockEv===e;
 st.onPointer=function(e){ if(FIN.on) return; if(CUT.on){ if(!cutSoundWaits(e)) skipCut(); return; } if(PHS.on){ PHS.drag={x:e.clientX,id:e.pointerId,t:performance.now()}; return; } if(CAFE.on){ cafeDown(e); return; } if(down&&down.touch&&e.pointerType!=='mouse'){ look={id:e.pointerId,lx:e.clientX,ly:e.clientY}; return; } down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,id:e.pointerId,moved:false,touch:e.pointerType!=='mouse',ix:0,iz:0};
   if(down.touch){ stick.hidden=false; stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px'; stickI.style.transform=''; } };
-const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
+const turnBy=(dx,dy)=>{ rot(C.f,player.u,-dx*.0052); if(player.ref) rot(player.ref,player.u,-dx*.0052); C.pitch=clamp(C.pitch-dy*.0038,.08,1); C.dragT=0; };
 addEventListener('pointermove',e=>{ if(S.st!==st||S.mode!=='station') return;
   if(PHS.drag&&e.pointerId===PHS.drag.id){ const dx=e.clientX-PHS.drag.x, now=performance.now(), dtm=Math.max(8,now-PHS.drag.t); PHS.drag.x=e.clientX; PHS.drag.t=now; const d=-dx*.0065; PHS.yaw+=d; PHS.v=clamp(d/(dtm/1000),-4,4); if(Math.abs(d)>0){ PHS.turned+=Math.abs(d); if(PHS.turned>.21){ PHS.turned=0; A.tick(); } } return; }
   if(look&&e.pointerId===look.id){ turnBy(e.clientX-look.lx,e.clientY-look.ly); look.lx=e.clientX; look.ly=e.clientY; return; }
@@ -3693,12 +3693,19 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
     if(TALK.held==='?') TALK.held=mv?sig:null; else if(TALK.held&&(sig!==TALK.held||!mv)) TALK.held=null;   // what you were already holding when it began does not count
     TALK.walkT=mv&&!TALK.held?(TALK.walkT||0)+dt:0; if(TALK.walkT>.55) closeTalk(); else { ix=iz=0; } }
   if(ix||iz){ P.tgt=null; P.path=null; TALK.goal=null; C.guide=null; began(); }
+  /* on a touch screen, the way the stick sends you is held to the ground while you hold it the same way: the camera can swing
+     round behind you as you go (walking back too, so you see where you are going, not your own face), and the stick keeps
+     taking you that way rather than round with it. Turn your thumb to a new way and the way is taken from the screen as it is
+     now; let go and it is let go (with the keys, the way is the camera's, as it always was) */
+  if(down&&down.touch&&down.moved&&(ix||iz)){ const ia=Math.atan2(ix,iz);
+    if(!P.ref||Math.abs(angWrap(ia-P.refIn))>.6){ P.ref=(P.ref||new T.Vector3()).copy(C.f); P.refIn=ia; P.bk=0; P.sw=0; }
+    tang(P.u,P.ref,P.ref); } else if(P.ref){ P.ref=null; P.bk=0; P.sw=0; }
   /* walking a path: aim at the next corner, and slow down only for the last one */
   if(P.path&&P.path.length&&!TALK.p){ const [wx,wz]=P.path[0], dw=Math.hypot(wx-P.x,wz-P.z);
     if(dw<(P.path.length>1?.45:.22)){ P.path.shift(); if(!P.path.length){ P.path=null; P.tgt=null; } }
     if(P.path){ P.tgt=at(P.path[0][0],P.path[0][1]).multiplyScalar(R); let rest=0; for(let k=1;k<P.path.length;k++) rest+=Math.hypot(P.path[k][0]-P.path[k-1][0],P.path[k][1]-P.path[k-1][1]); P.rest=rest; } }
   let want=0;
-  if(ix||iz){ camR.crossVectors(C.f,P.u); V4.copy(C.f).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=(run?4.2:2.7)*mag; }
+  if(ix||iz){ const F=P.ref||C.f; camR.crossVectors(F,P.u); V4.copy(F).multiplyScalar(iz).addScaledVector(camR,ix).normalize(); want=(run?4.2:2.7)*mag; }
   else if(P.tgt){ const ang=Math.acos(clamp(P.u.dot(V2.copy(P.tgt).normalize()),-1,1)); if(ang*R<.2&&!P.path){ P.tgt=null; } else { tang(P.u,P.tgt,V4); want=Math.min(2.7,(ang*R+(P.path?P.rest||0:0))*2+.5); } }
   if(want>0){ const s=V.crossVectors(P.f,V4).dot(P.u), c=P.f.dot(V4), a=Math.atan2(s,c); rot(P.f,P.u,clamp(a,-11*dt,11*dt)); if(Math.abs(a)>1.6) want*=.3; }
   if(TALK.p) want=0;
@@ -3732,7 +3739,9 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   // the camera rig: a lazy follow when you walk forward, never against a drag
   C.dragT+=dt; tang(P.u,C.f,C.f);
   if(P.speed>.3&&C.dragT>2.5&&!TALK.p){ const sg=Math.sign(V.crossVectors(C.f,P.f).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(P.f),-1,1));
-    if(a>.12&&a<2.3) rot(C.f,P.u,sg*Math.min(a,1.05*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*(1-a/3.2)*dt)); }
+    if(P.ref){ P.bk=a>2.3?(P.bk||0)+dt:0; if(a<=2.3) P.sw=0; else if(!P.sw) P.sw=sg;   // (round one way, the way it set off, when you are walking straight back)
+      if(a<=2.3||P.bk>.35) rot(C.f,P.u,(P.sw||sg)*Math.min(a,1.1*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*dt)); }
+    else if(a>.12&&a<2.3) rot(C.f,P.u,sg*Math.min(a,1.05*Math.min(1,P.speed/2.7)*sstep(.12,.7,a)*(1-a/3.2)*dt)); }
   // after a conversation the camera turns, slowly, toward whoever you have not met yet
   if(C.guide&&!TALK.p){ const g=C.guide; g.t-=dt; tang(P.u,g.p.dir,V3); const sg=Math.sign(V.crossVectors(C.f,V3).dot(P.u))||1, a=Math.acos(clamp(C.f.dot(V3),-1,1));
     if(a>.05) rot(C.f,P.u,sg*Math.min(a,1.3*dt*sstep(0,.5,g.t))); if(g.t<=0||C.dragT<.05) C.guide=null; }
