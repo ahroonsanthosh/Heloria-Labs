@@ -289,8 +289,8 @@ function rlIndex(){ const m=new Map(), C=.5;
 function roadLift(x,z){ if(!RLG||RLG.n!==ROADS.length) rlIndex(); const L=RLG.m.get(Math.floor(x/.5)*8192+Math.floor(z/.5)); if(!L) return 0;
   const M=RLG.M; M.fill(1e9);
   for(let j=0;j<L.length;j+=2){ const r=ROADS[L[j]], i=L[j+1], n=r.length-1, a=r[i],b=r[i+1], ex=b[0]-a[0], ez=b[1]-a[1], t=((x-a[0])*ex+(z-a[1])*ez)/(ex*ex+ez*ez||1);
-    if(r.open&&(i===0&&t<0||i===n-1&&t>1)) continue; const u=clamp(t,0,1); M[L[j]]=Math.min(M[L[j]],Math.hypot(x-a[0]-ex*u,z-a[1]-ez*u)); }
-  let lift=0; ROADS.forEach((r,ri)=>{ const hw=r.hw||RW, sw=r.sw||SW, m=M[ri]; if(m<hw) lift=Math.max(lift,ROADH); else if(m<hw+sw) lift=CURB; });
+    if(r.open&&(i===0&&(r.cap0?r.cap0(x,z):t<0)||i===n-1&&t>1)) continue; const u=clamp(t,0,1); M[L[j]]=Math.min(M[L[j]],Math.hypot(x-a[0]-ex*u,z-a[1]-ez*u)); }
+  let lift=0; ROADS.forEach((r,ri)=>{ const hw=r.hw||RW, sw=r.sw||SW, m=M[ri]; if(m<hw) lift=Math.max(lift,ROADH); else if(m<hw+sw&&!(r.mouth&&r.mouth.in(x,z))) lift=CURB; });   // (the loop's pavement is cut across the spur's mouth)
   return lift; }
 /* (asked for whatever is laid out clear of the roads as the town is built, and for each step's sound: so it looks only at the
    stretches of road that can be the nearest to anywhere in the square metre it is asked about, listed the first time that
@@ -366,7 +366,7 @@ function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o
   else obsRect(x,z,yaw,w+.25,d+.25,oh); return M; }  // as tall as the ridge
 const LAMPS=[];
 const topH=(x,z,r)=>Math.max(standH(x,z),standH(x+r,z),standH(x-r,z),standH(x,z+r),standH(x,z-r));   // (the highest of the ground under a round foot)
-function lamp(x,z,g){ const M=frameAt(x,z,0,topH(x,z,.09));   /* (on the pavement where it stands on it, not sunk in it) */ LAMPS.push({x,z,p:new T.Vector3(0,2.44,.38).applyMatrix4(M),k:0,hot:0}); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
+function lamp(x,z,g){ const e=.2, gx=roadDist(x+e,z)-roadDist(x-e,z), gz=roadDist(x,z+e)-roadDist(x,z-e), M=frameAt(x,z,Math.atan2(-gx,-gz),topH(x,z,.09));   /* (its lamp out over the nearest road) */   /* (on the pavement where it stands on it, not sunk in it) */ LAMPS.push({x,z,p:new T.Vector3(0,2.44,.38).applyMatrix4(M),k:0,hot:0}); cyl(M,'#43504f',0,0,0,.09,.26,'cyl8'); cyl(M,'#536160',0,.24,0,.05,2.5,'cyl8'); box(M,'#536160',0,2.66,.16,.06,.06,.4);
   box(M,'#3c4746',0,2.5,.38,.28,.14,.26); box(M,'#fff2c4',0,2.44,.38,.2,.06,.18); obs(g?g[0]:x,g?g[1]:z,.2,1.2); if(g) WAS.push({obs:[OBS[OBS.length-1]],xz:[x,z]}); }   // (g: where it stood, see WAS)
 function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'#4e4a45',s,0,0,.07,.42,.42); box(M,'#4e4a45',s,.42,-.2,.07,.36,.06); });
   for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obs(x,z,.6,1); }
@@ -473,7 +473,7 @@ function buildTown(){
   { const x=-.8,z=13.8, yaw=yawTo(x,z,-.5,9.6); labHouse(x,z,yaw,{wall:'#c9d5d1',roof:'#59646a',trim:'#eef0ea',w:4.8,d:3.2,h:3,   // (its roller shutter opens on the garage: see the workshop, at the end)
       extra:(M,w,d,h)=>{ sign(sub(M,GW.ox,0,d/2+.09),'HELORIA LABS',{w:2.3,h:.5,y:2.68,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
         /* (its crates on the ground behind it: they stood in the air in the chipper's wall; solid where they were until the trees are laid out, see WAS) */
-        [[2.9,.7,2.05,-2.05],[3.3,.2,1.35,-2.15],[2.95,-.4,2.1,-2.75]].forEach(([ox,oz,cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,0,cz,.6,.55,.6,i*.4); obsAt(M,ox,oz,.42,.8); const [nx,nz]=loc(_oa.set(cx,0,cz).applyMatrix4(M).normalize()); WAS.push({obs:[OBS[OBS.length-1]],xz:[nx,nz],r:.45}); }); cyl(M,'#5a7d9a',-3,.2,.9,.28,.9); cyl(M,'#c8664b',-3.05,.2,.25,.28,.9); obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
+        [[2.9,.7,2.05,-2.05],[3.3,.2,1.35,-2.15],[2.95,-.4,2.1,-2.75]].forEach(([ox,oz,cx,cz],i)=>{ box(M,i===1?'#b88a5a':'#a77a4c',cx,0,cz,.6,.55,.6,i*.4); obsAt(M,ox,oz,.42,.8); const [nx,nz]=loc(_oa.set(cx,0,cz).applyMatrix4(M).normalize()); WAS.push({obs:[OBS[OBS.length-1]],xz:[nx,nz],r:.45}); }); cyl(M,'#5a7d9a',-3,-.17,.9,.28,.9); cyl(M,'#c8664b',-3.05,-.17,.25,.28,.9);   /* (on the grass, which falls away below the workshop's floor there) */ obsAt(M,-3,.9,.32,1); obsAt(M,-3.05,.25,.32,1);
         /* Beacon: a mast on the roof that keeps calling out */
         const B=sub(M,1.4,h+.26,-.7), bw=new T.Vector3(1.4,h+.26,-.7).applyMatrix4(M); const mk=MK.be=mark('be',0,0); mk.base.copy(bw); kitTo('be');
         box(B,'#59646a',0,0,0,.7,.08,.7); for(const [lx,lz] of [[-.2,-.2],[.2,-.2],[0,.22]]) put(B,'cyl8','#8c9599',lx*.5,1.5,lz*.5,.035,3,.035,0,lz*.06,-lx*.06);
@@ -528,11 +528,11 @@ function buildTown(){
     for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2); [-.5,.5].forEach(sd=>{ const [sx,sz]=loc(_oa.set(0,0,sd).applyMatrix4(M).normalize()); if(grid(GH,sx,sz)<DECK-.07) box(M,'#6e5240',0,DECK-.07,sd,.34,.07,.07); });   // (and the two stringers under the boards, post to post, that they lie on, out past the sand)
       if(k%5===0){ [-.55,.55].forEach(s=>cyl(M,'#7a5a42',0,DECK-1.1,s,.07,1.4,'cyl8')); } }
     const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); obsAt(E,0,.5,.16,1.6); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
-    SEGS.push([7.4,-7.6,a[0],a[1],.5]); }
+    SEGS.push([7.4,-7.6,9.6,-9.6,.5],[9.6,-9.6,a[0],a[1],.5]); }   // (bending round the house by the café, which stands where it ran)
   /* street lamps, poles and wires, a signpost */
   /* (0: a lamp post that stood a step from a pole, no more: its light is on the pole now, see pole, and its foot solid where it stood until the town is made, see OUT) */
-  [[-9.9,-6.2,0],[-11.3,1.4,0],[-7.9,10.4,0],[0,11.9,0],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[3.8,-11.2]].forEach(([x,z,g])=>g===0?outOf('lamp',()=>obs(x,z,.2,1.2)):lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it)
-  [[-10.6,-7.6,1],[-11.4,-1,1],[-10.9,5.4],[-7.4,11.1,1],[-2.57,11.72,1,[-2.6,12.1]]].forEach(([x,z,lit,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
+  [[-9.9,-6.2,0],[-11.3,1.4,0],[-7.9,10.4,0],[0,11.9,0],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[5.4,-10.45]].forEach(([x,z,g])=>g===0?outOf('lamp',()=>obs(x,z,.2,1.2)):lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it; the café's at its corner, not before its door)
+  [[-10.6,-7.6,1],[-11.4,-1,1],[-10.67,5.3],[-7.4,11.1,1],[-2.57,11.72,1,[-2.6,12.1]]].forEach(([x,z,lit,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
     const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2,g,lit); }); wires();
 }
 /* ---------- grass, trees and rocks around the town ---------- */
@@ -3097,22 +3097,47 @@ st.render=function(rt){ if(!st.built){ renderer.setRenderTarget(rt); renderer.cl
   renderer.setRenderTarget(rt); renderer.render(compS,compCam); };
 
 /* ---------- roads: a ribbon with kerbs and pavements, lines painted on ---------- */
-function ribbon(pts,closed,hw=RW,sw=SW){ const n=pts.length, side=[];
+function ribbon(pts,closed,hw=RW,sw=SW,o={}){ const n=pts.length, side=[];
   for(let i=0;i<n;i++){ const a=closed?pts[(i-1+n)%n]:pts[Math.max(0,i-1)], b=closed?pts[(i+1)%n]:pts[Math.min(n-1,i+1)], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz)||1; side.push([-tz/L,tx/L]); }
+  if(o.s0) side[0]=o.s0;   /* (the spur's first edge along the loop's road edge, where it comes out of it) */
   const P=(i,lat,h)=>at(pts[i][0]+side[i][0]*lat,pts[i][1]+side[i][1]*lat,new T.Vector3()).multiplyScalar(R+h);
+  /* a way off it (o.mouth, see MOUTH): its kerb, pavement and pavement's edge on that side cut away across the way's mouth,
+     each piece to the very line of the way's kerbs, so the two roads meet road to road and kerb to kerb */
+  const Mo=o.mouth, Q=(i,j,t,lat,h)=>at((pts[i][0]+side[i][0]*lat)*(1-t)+(pts[j][0]+side[j][0]*lat)*t,(pts[i][1]+side[i][1]*lat)*(1-t)+(pts[j][1]+side[j][1]*lat)*t,new T.Vector3()).multiplyScalar(R+h);
+  const span=(i,j,lat)=>{ const ax=pts[i][0]+side[i][0]*lat-Mo.E[0], az=pts[i][1]+side[i][1]*lat-Mo.E[1], bx=pts[j][0]+side[j][0]*lat-Mo.E[0]-ax, bz=pts[j][1]+side[j][1]*lat-Mo.E[1]-az,
+    s0=ax*Mo.u[1]-az*Mo.u[0], s1=bx*Mo.u[1]-bz*Mo.u[0]; if(Math.abs(s1)<1e-9) return Math.abs(s0)<Mo.w?[0,1]:[1,1];
+    const t1=(-Mo.w-s0)/s1, t2=(Mo.w-s0)/s1; return [clamp(Math.min(t1,t2),0,1),clamp(Math.max(t1,t2),0,1)]; };
   const strips=[[-hw-sw,0,-hw-sw,CURB,'#d9d2c4',-1],[-hw-sw,CURB,-hw,CURB,'#d3ccbe',0],[-hw,CURB,-hw,ROADH,'#e6e0d4',1],[-hw,ROADH,hw,ROADH,'#7f878b',0],[hw,ROADH,hw,CURB,'#e6e0d4',-1],[hw,CURB,hw+sw,CURB,'#d3ccbe',0],[hw+sw,CURB,hw+sw,0,'#d9d2c4',1]];
   const segs=closed?n:n-1, nrm=new T.Vector3(); let along=0;
   for(let i=0;i<segs;i++){ const j=(i+1)%n, sl=Math.hypot(pts[j][0]-pts[i][0],pts[j][1]-pts[i][1]);
     /* (a wide strip is laid in narrower ones across: one flat quad from kerb to kerb would cut under the round world's curve
        by 3 cm in the middle, under the grass, and leave a car and your feet over it) */
-    for(const [L0,H0,L1,H1,c,sd] of strips){ const n=Math.max(1,Math.ceil(Math.abs(L1-L0)/.4));
+    const near=Mo&&Math.hypot((pts[i][0]+pts[j][0])/2-Mo.E[0],(pts[i][1]+pts[j][1])/2-Mo.E[1])<3;
+    for(const [L0,H0,L1,H1,c,sd] of strips){ const n=Math.max(1,Math.ceil(Math.abs(L1-L0)/.4)), cut=near&&Math.min(L0*Mo.sg,L1*Mo.sg)>=hw-1e-6;
       for(let k=0;k<n;k++){ const l0=L0+(L1-L0)*k/n, l1=L0+(L1-L0)*(k+1)/n, h0=H0+(H1-H0)*k/n, h1=H0+(H1-H0)*(k+1)/n, a=P(i,l0,h0), b=P(j,l0,h0), cc=P(j,l1,h1), d=P(i,l1,h1);
         if(sd===0) nrm.copy(a).normalize(); else nrm.copy(P(i,l0+.05,h0)).sub(P(i,l0,h0)).normalize().multiplyScalar(sd);
-        kquad(a,b,cc,d,nrm,c); } }
+        if(!cut){ kquad(a,b,cc,d,nrm,c); continue; }
+        const [a0,b0]=span(i,j,l0), [a1,b1]=span(i,j,l1);   /* (what is left either side of the mouth) */
+        if(Math.max(a0,a1)>1e-4) kquad(a,Q(i,j,a0,l0,h0),Q(i,j,a1,l1,h1),d,nrm,c);
+        if(Math.min(b0,b1)<1-1e-4) kquad(Q(i,j,b0,l0,h0),b,cc,Q(i,j,b1,l1,h1),nrm,c); } }
     nrm.copy(P(i,0,0)).normalize();
     if(hw>1&&(along%2.1)<1) kquad(P(i,-.06,ROADH+.006),P(j,-.06,ROADH+.006),P(j,.06,ROADH+.006),P(i,.06,ROADH+.006),nrm,'#f1ecdf');
     for(const s of [-1,1]) kquad(P(i,s*(hw-.26),ROADH+.006),P(j,s*(hw-.26),ROADH+.006),P(j,s*(hw-.18),ROADH+.006),P(i,s*(hw-.18),ROADH+.006),nrm,'#e9e4d8');
     along+=sl; } }
+/* where the spur comes out of the loop (see ribbon and roadLift): E, the point on the spur's middle line at the loop's road edge (a
+   finger's breadth into the loop's road, the edge curving a little away either side); u, the spur's way out; w, the half width
+   of its road; sg, the loop's side it leaves from; s0, the loop's way there (the spur's first edge laid along it); cap, whether
+   a point is on the loop's side of that edge (the spur not yet begun) */
+function mouthOf(lp){ const a=SPUR[0], ul=Math.hypot(SPUR[1][0]-a[0],SPUR[1][1]-a[1]), u=[(SPUR[1][0]-a[0])/ul,(SPUR[1][1]-a[1])/ul], n=lp.length;
+  let k=0, bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]-a[0],p[1]-a[1]); if(d<bd){ bd=d; k=i; } });
+  const p=lp[k], q0=lp[(k-1+n)%n], q1=lp[(k+1)%n], tl=Math.hypot(q1[0]-q0[0],q1[1]-q0[1]), tg=[(q1[0]-q0[0])/tl,(q1[1]-q0[1])/tl], sd=[-tg[1],tg[0]];
+  const sg=Math.sign((a[0]-p[0])*sd[0]+(a[1]-p[1])*sd[1])||1, ex=p[0]+sd[0]*sg*RW, ez=p[1]+sd[1]*sg*RW;
+  const cr=(x0,z0,x1,z1)=>x0*z1-z0*x1, dx=a[0]-ex, dz=a[1]-ez, den=cr(tg[0],tg[1],-u[0],-u[1]), v=cr(tg[0],tg[1],dx,dz)/den, ov=.02;
+  const E=[a[0]+u[0]*(v-ov),a[1]+u[1]*(v-ov)], s0=(tg[0]*u[1]-tg[1]*u[0])<0?tg:[-tg[0],-tg[1]];   /* (the spur's sides: across it, east of south) */
+  const along0=-.3, along1=SW+.4;
+  return {E,u,w:.95,sg,s0,
+    in(x,z){ const px=x-E[0], pz=z-E[1], al=px*u[0]+pz*u[1]; return al>along0&&al<along1&&Math.abs(px*u[1]-pz*u[0])<.95; },
+    cap(x,z){ return ((x-E[0])*s0[1]-(z-E[1])*s0[0])*((u[0])*s0[1]-(u[1])*s0[0])<0; }}; }
 function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]-SPUR[0][0],p[1]-(SPUR[0][1]+2)); if(d<bd){ bd=d; bi=i; } });
   const a=lp[(bi-2+lp.length)%lp.length], b=lp[(bi+2)%lp.length], c=lp[bi], tx=b[0]-a[0], tz=b[1]-a[1], L=Math.hypot(tx,tz), ux=tx/L, uz=tz/L, up=at(c[0],c[1]);
   for(let k=-2;k<=2;k++){ const lat=k*.42, x0=c[0]-uz*lat, z0=c[1]+ux*lat; const Pq=(al,dl)=>at(x0+ux*al-uz*dl,z0+uz*al+ux*dl,new T.Vector3()).multiplyScalar(R+ROADH+.008);
@@ -3164,8 +3189,8 @@ async function lateWarm(objs,step){ const P=renderer.properties, mats=[], seen=n
 st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the page's turn (see st.pace, set behind the loader), else the next frame
   buildGround(); sendShaders(sc,stCam); await gap();   // (the ground, the sea and the sky, the biggest shaders, sent off first)
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
-  const spur=Object.assign([SPUR[0],SPUR[1]],{hw:.95,sw:.75,open:true});
-  ROADS.push(lp.concat([lp[0]]),spur); ribbon(lp,true); ribbon([SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw); zebra(lp);
+  const Mo=mouthOf(lp), spur=Object.assign([Mo.E,SPUR[1]],{hw:.95,sw:.75,open:true,cap0:Mo.cap});
+  ROADS.push(Object.assign(lp.concat([lp[0]]),{mouth:Mo}),spur); ribbon(lp,true,RW,SW,{mouth:Mo}); ribbon([Mo.E,SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw,{s0:Mo.s0}); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
   buildTown(); sendShaders(sc,stCam); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
