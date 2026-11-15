@@ -351,7 +351,7 @@ function door(M,x,z,ry,c,tr){ const D=sub(M,x,0,z,ry); box(D,tr,0,.2,.02,.78,1.2
 const HOUSES=[];
 /* a house moved off a newer building it stood half inside: the trees and bushes round town were laid out round the ground it
    stood on, so it is solid there until they are, and then where it is now (see wildClear) */
-const WAS=[];   // (and a lamp, a pole or a crate moved out of something: {obs, xz}; or the lighthouse, a step: {obs, dxz})
+const WAS=[];   // (and a lamp, a pole or a crate moved out of something: {obs, xz}; or the lighthouse, a step: {obs, dxz}; or a way changed since, a path or a road: {fn})
 function house(x,z,yaw,o){ const M=frameAt(x,z,yaw), w=o.w||3.4, d=o.d||2.8, h=o.h||2.4, tr=o.trim||'#f6f1e7'; HOUSES.push({M,w,d,h,dx:o.doorX||0,flat:!!o.flat,plain:true});   // (plain: somebody's home, not a building made for a purpose: see the homes)
   box(M,'#a49b8f',0,0,0,w+.18,.22,d+.18); box(M,o.wall,0,.2,0,w,h-.2,d);
   if(o.flat){ box(M,o.roof,0,h,0,w+.3,.2,d+.3); box(M,tr,0,h+.2,0,w+.3,.06,d+.3); }
@@ -528,11 +528,11 @@ function buildTown(){
     for(let k=0;k<=Math.floor(L/.32);k++){ const t=k*.32/L, M=frameAt(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,yaw); box(M,k%3?'#b48a5c':'#a77e52',0,DECK,0,.26,.08,1.2); [-.5,.5].forEach(sd=>{ const [sx,sz]=loc(_oa.set(0,0,sd).applyMatrix4(M).normalize()); if(grid(GH,sx,sz)<DECK-.07) box(M,'#6e5240',0,DECK-.07,sd,.34,.07,.07); });   // (and the two stringers under the boards, post to post, that they lie on, out past the sand)
       if(k%5===0){ [-.55,.55].forEach(s=>cyl(M,'#7a5a42',0,DECK-1.1,s,.07,1.4,'cyl8')); } }
     const E=frameAt(b[0],b[1],yaw); cyl(E,'#43504f',0,DECK+.08,.5,.06,1.6,'cyl8'); obsAt(E,0,.5,.16,1.6); box(E,'#fff2c4',0,DECK+1.6,.5,.16,.16,.16);
-    SEGS.push([7.4,-7.6,9.6,-9.6,.5],[9.6,-9.6,a[0],a[1],.5]); }   // (bending round the house by the café, which stands where it ran)
+    { const s0=[7.4,-7.6,a[0],a[1],.5]; SEGS.push(s0); WAS.push({fn:()=>{ const i=SEGS.indexOf(s0); if(i>=0) SEGS.splice(i,1,[7.4,-7.6,9.6,-9.6,.5],[9.6,-9.6,a[0],a[1],.5]); }}); } }   // (bending round the house by the café, which stands where it ran: straight until the wild is laid out, as it was, see WAS)
   /* street lamps, poles and wires, a signpost */
   /* (0: a lamp post that stood a step from a pole, no more: its light is on the pole now, see pole, and its foot solid where it stood until the town is made, see OUT) */
-  [[-9.9,-6.2,0],[-11.3,1.4,0],[-7.9,10.4,0],[0,11.9,0],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[5.4,-10.45]].forEach(([x,z,g])=>g===0?outOf('lamp',()=>obs(x,z,.2,1.2)):lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it; the café's at its corner, not before its door)
-  [[-10.6,-7.6,1],[-11.4,-1,1],[-10.67,5.3],[-7.4,11.1,1],[-2.57,11.72,1,[-2.6,12.1]]].forEach(([x,z,lit,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
+  [[-9.9,-6.2,0],[-11.3,1.4,0],[-7.9,10.4,0],[0,11.9,0],[8.05,9.55,[8,9.9]],[11.7,-1.4],[9.9,-7.4],[5.4,-10.45,[3.8,-11.2]]].forEach(([x,z,g])=>g===0?outOf('lamp',()=>obs(x,z,.2,1.2)):lamp(x,z,g));   // (one off the corner of Ogive's pad, its foot was in it; the café's at its corner, not before its door)
+  [[-10.6,-7.6,1],[-11.4,-1,1],[-10.67,5.3,0,[-10.9,5.4]],[-7.4,11.1,1],[-2.57,11.72,1,[-2.6,12.1]]].forEach(([x,z,lit,g],i,a)=>{   // (the last out of the workshop's front corner, where it stood)
     const q=a[Math.min(i+1,a.length-1)], p0=a[Math.max(0,Math.min(i,a.length-2))], qq=i<a.length-1?q:a[i], pp=i<a.length-1?[x,z]:a[i-1]; pole(x,z,Math.atan2(-(qq[1]-pp[1]),qq[0]-pp[0])+Math.PI/2,g,lit); }); wires();
 }
 /* ---------- grass, trees and rocks around the town ---------- */
@@ -563,7 +563,9 @@ function buildNature(){
    the jetty runs out over the stones of the beach. Each that would grow through a building, or up through the jetty's boards,
    is moved just clear of it, whole, as it is (its place among the others, how it looks and the space it takes are kept, so
    nothing else round town moves) */
-function wildClear(){ for(const g of WAS){ if(g.xz){ for(const o of g.obs){ o.x=g.xz[0]; o.z=g.xz[1]; } continue; } if(g.dxz){ for(const o of g.obs){ o.x+=g.dxz[0]; o.z+=g.dxz[1]; } continue; } const i0=OBS.length; obsRect(...g.to); OBS.splice(i0).forEach((o,i)=>{ if(g.obs[i]) Object.assign(g.obs[i],{x:o.x,z:o.z,r:o.r}); }); }   // (the moved house solid where it stands now)
+/* (and last, a path or a road changed since the wild was laid out round it, as it now is: see WAS) */
+function wildClear(){ wildMove(); for(const g of WAS) if(g.fn) g.fn(); }
+function wildMove(){ for(const g of WAS){ if(g.fn) continue; if(g.xz){ for(const o of g.obs){ o.x=g.xz[0]; o.z=g.xz[1]; } continue; } if(g.dxz){ for(const o of g.obs){ o.x+=g.dxz[0]; o.z+=g.dxz[1]; } continue; } const i0=OBS.length; obsRect(...g.to); OBS.splice(i0).forEach((o,i)=>{ if(g.obs[i]) Object.assign(g.obs[i],{x:o.x,z:o.z,r:o.r}); }); }   // (the moved house solid where it stands now)
   const Mi=new T.Matrix4(), v=new T.Vector3(), q=new T.Quaternion(), A=new T.Vector3(), B=new T.Vector3(), [ja,jb]=JETTY;
   const inside=(H,p,m)=>{ const lx=Math.abs(p.x), lz=Math.abs(p.z), hw=H.w/2+.09+m, hd=H.d/2+.09+m; if(lx>hw||lz>hd||p.y<-.1) return false;
     return p.y<(H.flat?H.h+.3:H.h+1.35*Math.max(0,1-lz/(H.d/2+.31)))+m; };   // (its walls, and its roof: flat, or pitched front to back)
@@ -767,9 +769,12 @@ function fnorm(f,u){ const t1=v3().crossVectors(u,Math.abs(u.y)<.9?fY:fX).normal
   n=f(t1.multiplyScalar(.01).add(u).normalize()).sub(p).cross(f(t2.multiplyScalar(.01).add(u).normalize()).sub(p)).normalize(); return n.dot(p)<0?n.negate():n; }
 function skin(f,n=26,m=18){ return Array.from({length:m+1},(_,i)=>{ const th=Math.PI*i/m; return Array.from({length:n},(_,j)=>{ const ph=TAU*j/n, u=v3(Math.sin(th)*Math.sin(ph),Math.cos(th),Math.sin(th)*Math.cos(ph)); return {p:f(u),n:fnorm(f,u)}; }); }); }
 /* the point of the face seen at (x, y) from straight in front, lifted off the skin by off */
-function onFace(f,x,y,off){ const w=f(v3(1,0,0)).x, h=f(v3(0,1,0)).y; let X=x/w, Y=y/h; const u=v3();
-  for(let k=0;k<14;k++){ u.set(X,Y,Math.sqrt(Math.max(.01,1-X*X-Y*Y))).normalize(); const p=f(u); X+=(x-p.x)/w; Y+=(y-p.y)/h; }
-  const n=fnorm(f,u); return {p:f(u).addScaledVector(n,off),n}; }
+/* (the head's half width and height found once for each head, not twice for each point; and the search stops once it has
+   found the point to a ten-thousandth of a millimetre, as it nearly always has after a few tries of the fourteen it may take) */
+const FWH=new WeakMap();
+function onFace(f,x,y,off){ let wh=FWH.get(f); if(!wh) FWH.set(f,wh=[f(v3(1,0,0)).x,f(v3(0,1,0)).y]); const w=wh[0], h=wh[1]; let X=x/w, Y=y/h, p=null; const u=v3();
+  for(let k=0;k<14;k++){ u.set(X,Y,Math.sqrt(Math.max(.01,1-X*X-Y*Y))).normalize(); p=f(u); const dx=x-p.x, dy=y-p.y; X+=dx/w; Y+=dy/h; if(dx*dx+dy*dy<1e-14) break; }
+  const n=fnorm(f,u); return {p:p.addScaledVector(n,off),n}; }
 /* painting on a surface S(x, y, off) that curves away from you: a filled shape (its outline as seen from in front), laid on in
    rings so it follows the curve; or a stroke along a line of points, with a width at each */
 function fine(pts,close,st=.007){ const o=[], n=pts.length; for(let i=0;i<(close?n:n-1);i++){ const a=pts[i], b=pts[(i+1)%n], k=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/st));
@@ -1026,8 +1031,8 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   const Gp=part(), shp=pts=>{ const s=new T.Shape(); s.moveTo(pts[0][0],pts[0][1]); s.splineThru(pts.slice(1).map(([x,y])=>new T.Vector2(x,y))); return s; };
   const gput=(geo,col,x,y,z,sx,sy,sz,rx=0,rz=0)=>Gp.geo(geo,col,dmM.multiplyMatrices(GM,dmM2.compose(dmV.set(x,y,z),dmQ.setFromEuler(dmE.set(rx,0,rz)),dmW.set(sx,sy,sz))));
   const BODY=[[-.215,0],[-.2,-.078],[-.15,-.12],[-.08,-.128],[-.03,-.11],[0,-.097],[.04,-.1],[.085,-.112],[.116,-.098],[.108,-.072],[.09,-.05],[.1,-.024],[.1,.024],[.096,.05],[.12,.082],[.152,.108],[.14,.126],[.1,.124],[.06,.11],[.02,.1],[-.03,.118],[-.08,.13],[-.15,.122],[-.2,.08],[-.215,0]];
-  Gp.geo(new T.ExtrudeGeometry(shp(BODY),{depth:.03,bevelEnabled:true,bevelThickness:.007,bevelSize:.007,bevelSegments:2,curveSegments:48}).translate(0,0,-.015).toNonIndexed(),gc.body,GM);
-  Gp.geo(new T.ShapeGeometry(shp([[-.15,-.03],[-.12,-.07],[-.04,-.09],[.05,-.078],[.088,-.042],[.092,.03],[.07,.068],[0,.068],[-.06,.045],[-.12,.02],[-.15,-.03]]),24).translate(0,0,.0235).toNonIndexed(),gc.guard,GM);   // the scratchplate
+  Gp.geo(new T.ExtrudeGeometry(shp(BODY),{depth:.03,bevelEnabled:true,bevelThickness:.007,bevelSize:.007,bevelSegments:2,curveSegments:12}).translate(0,0,-.015).toNonIndexed(),gc.body,GM);   // (12 a stretch of its outline: 300 points round a body 43 cm long, one every 4 mm)
+  Gp.geo(new T.ShapeGeometry(shp([[-.15,-.03],[-.12,-.07],[-.04,-.09],[.05,-.078],[.088,-.042],[.092,.03],[.07,.068],[0,.068],[-.06,.045],[-.12,.02],[-.15,-.03]]),8).translate(0,0,.0235).toNonIndexed(),gc.guard,GM);   // the scratchplate
   [-.072,-.022,.026].forEach((x,i)=>gput(FG.box,'#2a2826',x,0,.027,.016,.07,.007,0,i?0:.14));   // three pickups
   gput(FG.box,'#b9bcbe',-.115,0,.027,.024,.075,.007); [[-.1,-.07],[-.066,-.086]].forEach(([x,y])=>gput(FG.can,gc.guard,x,y,.03,.011,.012,.011,Math.PI/2));   // the bridge, two knobs
   gput(FG.can,'#4a4846',-.12,-.124,0,.009,.016,.009);   // the jack, where his lead goes in
@@ -1051,7 +1056,7 @@ function buildBusker(){ const L=DM_LOOK, K=L.tall, gc=L.guitar, yaw=yawTo(DM.x,D
   DM.glass=new T.Mesh(new T.CylinderGeometry(.022,.022,.062,10),flatMat('#e6dcc4')); DM.glass.position.copy(v3(.07,.346,-.02).applyMatrix4(AM)); spot.add(DM.glass);
   /* his case, open on the pavement: the shell, its lining, the lid stood up on his side, a few coins */
   const CASE=[[-.29,0],[-.27,-.12],[-.18,-.155],[-.06,-.15],[.03,-.11],[.1,-.07],[.42,-.06],[.47,-.035],[.47,.035],[.42,.06],[.1,.07],[.03,.11],[-.06,.15],[-.18,.155],[-.27,.12],[-.29,0]];
-  const inner=s=>s.map(([x,y])=>[(x-.09)*.88+.09,y*.82]), slab=(pts,dp,bv)=>new T.ExtrudeGeometry(shp(pts),{depth:dp,bevelEnabled:!!bv,bevelThickness:bv,bevelSize:bv,bevelSegments:1,curveSegments:20}).rotateX(-Math.PI/2).toNonIndexed();
+  const inner=s=>s.map(([x,y])=>[(x-.09)*.88+.09,y*.82]), slab=(pts,dp,bv)=>new T.ExtrudeGeometry(shp(pts),{depth:dp,bevelEnabled:!!bv,bevelThickness:bv,bevelSize:bv,bevelSegments:1,curveSegments:6}).rotateX(-Math.PI/2).toNonIndexed();   // (96 points round it, one every 2 cm)
   Pp.geo(slab(CASE,.07,.008).translate(0,.008,0),'#3a2e27',CM); Pp.geo(slab(inner(CASE),.002,0).translate(0,.086,0),'#7a3a3f',CM);
   const LID=new T.Matrix4().multiplyMatrices(CM,new T.Matrix4().makeTranslation(0,.088,-.155)).multiply(new T.Matrix4().makeRotationX(-1.83)).multiply(new T.Matrix4().makeTranslation(0,0,.155));
   Pp.geo(slab(CASE,.035,.006),'#3a2e27',LID); Pp.geo(slab(inner(CASE),.002,0).translate(0,-.007,0),'#7a3a3f',LID);
@@ -3189,8 +3194,10 @@ async function lateWarm(objs,step){ const P=renderer.properties, mats=[], seen=n
 st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // between the parts: the page's turn (see st.pace, set behind the loader), else the next frame
   buildGround(); sendShaders(sc,stCam); await gap();   // (the ground, the sea and the sky, the biggest shaders, sent off first)
   const loop=new T.CatmullRomCurve3(LOOP.map(([x,z])=>new T.Vector3(x,0,z)),true,'centripetal'), lp=loop.getSpacedPoints(Math.round(loop.getLength()/.35)).slice(0,-1).map(p=>[p.x,p.z]);
-  const Mo=mouthOf(lp), spur=Object.assign([Mo.E,SPUR[1]],{hw:.95,sw:.75,open:true,cap0:Mo.cap});
-  ROADS.push(Object.assign(lp.concat([lp[0]]),{mouth:Mo}),spur); ribbon(lp,true,RW,SW,{mouth:Mo}); ribbon([Mo.E,SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw,{s0:Mo.s0}); zebra(lp);
+  const Mo=mouthOf(lp), spur=Object.assign([SPUR[0],SPUR[1]],{hw:.95,sw:.75,open:true}), loopR=lp.concat([lp[0]]);
+  /* (the spur out of the loop's road and the loop's pavement cut across its mouth, for distances and feet, once the wild is laid
+     out: it was laid out round the roads as they were, see WAS) */
+  ROADS.push(loopR,spur); WAS.push({fn:()=>{ spur[0]=Mo.E; spur.cap0=Mo.cap; loopR.mouth=Mo; RDQ.n=-1; RLG=null; }}); ribbon(lp,true,RW,SW,{mouth:Mo}); ribbon([Mo.E,SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw,{s0:Mo.s0}); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
   buildTown(); sendShaders(sc,stCam); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
