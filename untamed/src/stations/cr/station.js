@@ -2347,7 +2347,7 @@ async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot
   /* flags: the tricolour by the landing pad, a pennant at the jetty, a small one on top of the lighthouse */
   const pick=(L,r)=>L.find(([x,z])=>slFree(x,z,r));
   { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
-  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }
+  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[9.4,-14]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the last two by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first)
   if(PH&&MK.ph){ const M=PH.M; kitTo('ph'); cyl(M,'#3e4448',0,6.24,0,.014,.62,'cyl8'); kitTo();
     slFlag(PH.x,PH.z,0,.42,.2,['#cf4a36','#f4efe6'],MK.ph.g,6.84); }
   /* frost: in each pane of every window, white crystals creeping in from the corners and along the bottom */
