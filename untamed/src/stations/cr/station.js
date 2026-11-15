@@ -349,8 +349,10 @@ function signTex(txt,sub,w,h,bg,fg){ const cv=document.createElement('canvas'); 
     let f1=fit(txt,fs); c.font=`900 ${f1}px Doto, monospace`; c.lineWidth=f1*.07; c.strokeText(txt,w/2,y); c.fillText(txt,w/2,y);
     if(sub){ const f2=fit(sub,h*.15); c.font=`900 ${f2}px Doto, monospace`; c.lineWidth=f2*.06; c.strokeText(sub,w/2,h*.74); c.fillText(sub,w/2,h*.74); } tx.needsUpdate=true; };
   draw(); dotoLater(draw); return tx; }
+const SIGNS=[];   // (each sign on posts, for the tests: where its posts stand)
 function sign(M,txt,o={}){ const w=o.w||1.5, h=o.h||.5, y=o.y??1.25, post=o.post!==false;
   const px=o.legs?w/2+.04:w*.38;   // legs: posts at the board's ends, clear of words that run its whole width
+  if(post) SIGNS.push({txt,M:M.clone(),px});
   if(post){ box(M,'#6d5544',-px,0,-.04,.08,y+h/2,.08); box(M,'#6d5544',px,0,-.04,.08,y+h/2,.08); [-px,0,px].forEach(k=>obsAt(M,k,-.04,.15,y+h/2)); }
   const ox=o.x||0; box(M,o.board||'#5b4636',ox,y-h/2-.03,-.06,w+.1,h+.06,.06);
   const mat=new T.ShaderMaterial({uniforms:Object.assign({uCut:{value:1},uMap:{value:signTex(txt,o.sub,512,Math.round(512*h/w),o.bg||'#f3ead8',o.fg||'#2a241d')}},LU),vertexShader:TOON_V(true),fragmentShader:SIGN_F});
@@ -836,7 +838,13 @@ const HAIR={
     // high at the front and swept back over the top in waves, short at the sides; two locks fallen onto his forehead
     const H=cap(B,f,c,edge,(t,a)=>.011+.012*(1-t)+.07*fr(a)*sstep(0,.72,t)*sstep(1,.86,t)+.011*sstep(.05,.4,t)*(.5+.5*Math.cos(a*11+2.2*Math.sin(t*6)))**2,.25,14,80);
     for(const a of [-.4,-.22]){ const q=H.at(.97,a,-.002), L=v3(a-.2,-1,.3); H.lump(FG.sph,c,q.p.addScaledVector(L.clone().normalize(),.026),q.n,L,[.04,.013,.008]); } },
-  short:(B,f,c)=>{ const edge=a=>1.3-.36*Math.cos(a)+burns(a,1.22,.2); cap(B,f,c,edge,(t,a)=>.012+.012*(1-t)); } };
+  short:(B,f,c)=>{ const edge=a=>1.3-.36*Math.cos(a)+burns(a,1.22,.2); cap(B,f,c,edge,(t,a)=>.012+.012*(1-t)); },
+  /* yours, the visitor's: a short crop, a little longer on top and pushed forward into a soft fringe, its texture in pieces
+     running back from the crown and a few lifted, darker, so it reads as hair and not a cap */
+  crop:(B,f,c)=>{ const c2=C3(c).clone().lerp(C3('#140d08'),.35), c3=C3(c).clone().lerp(C3('#8a6a50'),.18), fr=a=>Math.max(0,Math.cos(a))**1.6, rg=(t,a)=>(.5+.5*Math.cos(a*17+4.5*t))**2, edge=a=>1.33-.34*Math.cos(a)+burns(a,1.22,.18)+.04*fr(a)*rg(1,a);
+    const H=cap(B,f,c,edge,(t,a)=>.011+.017*(1-t*t)+.022*fr(a)*sstep(.15,.7,t)*sstep(1,.86,t)+.007*sstep(.05,.45,t)*rg(t,a),.25,14,90), r=seeded(11);
+    for(let k=0;k<30;k++){ const t=.1+.78*r(), a=(r()-.5)*TAU*(r()<.5?.55:1), q=H.at(t,a,.003), q2=H.at(Math.min(1,t+.05),a,.003), L=q2.p.clone().sub(q.p);
+      H.lump(FG.ball,k%3?c2:c3,q.p,q.n,L,[.02+.01*r(),.008,.005]); } } };
 /* a face, painted on: eyes (dark, with a glint; in a mesh of their own so they can blink), brows, a nose, a mouth, and
    what each of us has besides (a moustache and a chin beard, rosy cheeks) */
 function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F.ey??-.012, ex=F.ex??.058, rw=F.rw??.0155, rh=F.rh??.021, my=ey-(F.mouth??.078), hc=o.hairC, bw=F.bw??.014;
@@ -897,7 +905,22 @@ function* figureG(o){ const g=new T.Group(), body=new T.Group(); g.add(body); co
     [-1,1].forEach(s=>{ const q=TS(s*.03,.948,.005); bd.put(FG.box,sh,q.p.x,q.p.y,q.p.z,.052,.04,.007,-.55,0,s*.42); });
     blot(bd,TS,[[-.013,.97],[.013,.97],[.013,.865],[-.013,.865]],o.polo,.003); [.94,.9].forEach(y=>{ const q=TS(0,y,.006); bd.put(FG.sph,'#59534d',q.p.x,q.p.y,q.p.z,.0065,.0065,.004); }); }
   if(o.logo) blot(bd,TS,oval(.075*W,.86,.011,.006,8),o.logo,.003);
-  if(o.pack){ bd.put(FG.box,o.pack,0,.79,-.17,.24,.3,.12); bd.put(FG.box,tint(o.pack,-.3),0,.93,-.205,.2,.05,.06); [-1,1].forEach(s=>bd.put(FG.box,tint(o.pack,-.3),s*.085,.83,0,.028,.2,.235)); }   // and its straps
+  /* a rucksack: soft, full in the middle and rounded at its corners, a pocket on its front, a flap over its top held by two
+     buckled straps; its straps over the shoulders, down the chest following the body (a strap across them, a buckle on each)
+     and round under the arms to its bottom corners. (It was a box, its straps two flat bars straight through the body) */
+  if(o.pack){ const pc=o.pack, dk=tint(pc,-.34), lt=tint(pc,.1), bz=-.168, gy='#c9ccce';
+    bd.grid(tube([[.618,.012,.008,bz],[.628,.086,.046,bz],[.652,.112,.058,bz],[.71,.122,.064,bz-.004],[.82,.124,.064,bz-.006],[.9,.114,.06,bz-.004],[.945,.094,.052,bz],[.966,.06,.038,bz+.004],[.975,.012,.008,bz+.006]],20),pc,true);
+    bd.grid(tube([[.646,.01,.006,bz-.058],[.654,.07,.022,bz-.06],[.7,.082,.027,bz-.064],[.762,.078,.025,bz-.062],[.79,.05,.016,bz-.058],[.797,.008,.004,bz-.056]],16),lt,true);   // the pocket
+    bd.grid(tube([[.888,.12,.067,bz-.004],[.94,.099,.058,bz],[.963,.065,.043,bz+.004],[.976,.014,.01,bz+.007]],20),dk,true);   // the flap
+    [-1,1].forEach(k=>{ bd.put(FG.box,dk,k*.05,.84,bz-.069,.02,.07,.006); bd.put(FG.box,gy,k*.05,.84,bz-.073,.026,.014,.006); });   // its straps and buckles
+    /* the shoulder straps, a ribbon through points {p, n} on and round the body */
+    const strap=(pts,w,col)=>{ const A=[], Z=[]; pts.forEach((q,i)=>{ const a=pts[Math.max(0,i-1)].p, b=pts[Math.min(pts.length-1,i+1)].p, tg=v3().subVectors(b,a).normalize(), sd=v3().crossVectors(tg,q.n).normalize().multiplyScalar(w/2); A.push({p:q.p.clone().add(sd),n:q.n}); Z.push({p:q.p.clone().sub(sd),n:q.n}); }); bd.grid([A,Z],col); };
+    const out=(x,y,z,cy=.9,cz=-.03)=>({p:v3(x,y,z),n:v3(x*.3,y-cy,z-cz).normalize()});
+    [-1,1].forEach(k=>{ const front=[]; for(let i=0;i<=9;i++){ const y=.95-.205*i/9; front.push(TS(k*(.075+.02*i/9),y,.008)); }
+      strap([out(k*.075,.93,-.11),out(k*.076,.968,-.085),out(k*.077,.988,-.04),out(k*.077,.99,0),{p:TS(k*.075,.968,.009).p,n:v3(0,.8,.6).normalize()},...front],.034,dk);   // over the shoulder, down the chest
+      const lo=[TS(k*.095,.745,.008),TS(k*.12,.722,.008),out(k*.142,.698,-.035,.7,-.04),out(k*.13,.672,-.09,.7,-.06),out(k*.11,.655,bz+.02,.7,-.1)]; lo.forEach(q=>{ q.n=v3(q.n.x,0,q.n.z).normalize(); }); strap(lo,.024,dk);   // under the arm to its corner
+      blot(bd,TS,[[k*.078,.77],[k*.11,.77],[k*.11,.752],[k*.078,.752]],gy,.0105); });   // the buckles
+    blot(bd,TS,[[-.088,.868],[.088,.868],[.088,.852],[-.088,.852]],dk,.0102); }   // the strap across the chest
   body.add(bd.mesh()); yield;
   // legs: trousers tapering to the ankle; and shoes: a sole rounded at the toe and the heel, a low toe and a heel cup on it,
   // laces down the front, and the hem of the trousers resting on top. Toes turn out a touch, as people stand
@@ -979,7 +1002,7 @@ CREW.forEach((c,i)=>c.lines=linesFor(i));
 let people=[], me=null;
 function buildPeople(){
   people=CREW.map((c,i)=>{ const g=figure(c.look); sc.add(g); const [x,z]=c.at; obs(x,z,.4,1.2); return {...c,i,g,x,z,ob:OBS[OBS.length-1],walk:0,ph:0,dir:at(x,z),f:tang(at(x,z),at(c.face[0],c.face[1]),new T.Vector3()),near:false,greeted:false,wave:0,blink:2+i}; });
-  me=figure({shirt:'#ef8a3c',pants:'#3a3f4a',shoes:'#f2efe8',skin:'#c99a74',hair:'short',hairC:'#3a2a1e',pack:'#5b6b7d'}); sc.add(me);
+  me=figure({shirt:'#ef8a3c',pants:'#3a3f4a',shoes:'#f2efe8',skin:'#c99a74',hair:'crop',hairC:'#3a2a1e',pack:'#5b6b7d'}); sc.add(me);
   /* a light over anyone you have not met yet, tall enough to see over the curve of the world */
   const bg=new T.CylinderGeometry(.035,.2,14,14,1,true); bg.translate(0,7,0);
   people.forEach(p=>{ const m=new T.Mesh(bg,new T.ShaderMaterial({uniforms:{uK:{value:0},uCol:{value:new T.Color(p.i===0?'#ffb26a':'#ffe8c6')}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
@@ -1151,12 +1174,13 @@ function busEvents(N,S0,solo){ const n=N.slice().sort((a,b)=>a.t-b.t), out=[];
     out.push({t:g[0].t,ss,strum,dir:strum?(ss[0]<ss[ss.length-1]?1:-1):0,mute:g.every(q=>q.d<.05),fr}); }
   return out; }
 /* what you tapped: him (or his amp or case) under the pointer, or close enough to him on the screen */
-function pickBusk(e){ if(!DM.g||!DM.spot.visible) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
+function pickBusk(e){ if(!DM.g||!DM.spot.visible||!inSight(DM.x,DM.z)) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
   ray.intersectObjects(DM.pick,true,hits); if(hits.length) return {direct:true,dist:hits[0].distance};
   const h0=R+standH(DM.x,DM.z), f=V.copy(DM.dir).multiplyScalar(h0).project(stCam); if(f.z>1) return null;
   const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=V.copy(DM.dir).multiplyScalar(h0+1.65).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
+  if(hd.z>1||!onScr(fx,fy,hx,hy)) return null;
   const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, tt=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*tt,e.clientY-fy-ey*tt);
-  return dd<Math.max(26,Math.sqrt(L2)*.34)?{direct:false,dist:1e9}:null; }
+  return dd<reachPx(L2,.34,26)?{direct:false,dist:1e9}:null; }
 /* a click or tap: his, unless one of us is the one you meant (a squarely hit person in front of him, or one of us near the
    pointer when he is not squarely under it) */
 function buskTap(e,p){ if(!DM.g||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return false; const k=pickBusk(e); if(!k) return false;
@@ -1670,10 +1694,11 @@ function buildRegulars(){ const M=REG.M=frameAt(3,-13.4,yawTo(3,-13.4,3,-8.9)), 
 function regNear(m){ if(!REG.built||!REG.vis) return null; let b=null; for(const r of REGS) if(r.d<m&&(!b||r.d<b.d)) b=r; return b; }
 /* what you tapped: one of them squarely, or close enough to one on the screen */
 function pickReg(e){ if(!REG.built||!REG.vis) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
-  ray.intersectObjects(REG.pick,true,hits); for(const h of hits){ let o=h.object; while(o&&!REG.pick.includes(o)) o=o.parent; if(o) return {r:REGS[REG.pick.indexOf(o)],direct:true,dist:h.distance}; }
-  let best=null, bd=1; for(const r of REGS){ const f=rgV.copy(r.foot).project(stCam); if(f.z>1) continue;
+  ray.intersectObjects(REG.pick,true,hits); for(const h of hits){ let o=h.object; while(o&&!REG.pick.includes(o)) o=o.parent; if(o&&inSight(REGS[REG.pick.indexOf(o)].x,REGS[REG.pick.indexOf(o)].z)) return {r:REGS[REG.pick.indexOf(o)],direct:true,dist:h.distance}; }
+  let best=null, bd=1; for(const r of REGS){ if(!inSight(r.x,r.z)) continue; const f=rgV.copy(r.foot).project(stCam); if(f.z>1) continue;
     const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=rgW.copy(r.top).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
-    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, tt=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*tt,e.clientY-fy-ey*tt), q=dd/Math.max(22,Math.sqrt(L2)*.4);
+    if(hd.z>1||!onScr(fx,fy,hx,hy)) continue;
+    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, tt=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*tt,e.clientY-fy-ey*tt), q=dd/reachPx(L2,.4,22);
     if(q<bd){ bd=q; best=r; } }
   return best?{r:best,direct:false,dist:1e9}:null; }
 /* a click or tap: theirs, unless one of us or Diarmuid is the one you meant (squarely hit and nearer, or near the pointer
@@ -3287,14 +3312,39 @@ function navPath(x0,z0,gx,gz,reach){ if(!NAV.free) return null; const N=NAV.N, S
   for(let k=1;k<cells.length;){ let far=k; for(let m=cells.length-1;m>k;m--) if(navClear(a[0],a[1],cells[m][0],cells[m][1])&&navLeaf(a[0],a[1],cells[m][0],cells[m][1])){ far=m; break; } a=cells[far]; out.push(a); k=far+1; }
   return out.length?out:[cells[cells.length-1]]; }
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ball=new T.Sphere(new T.Vector3(),R), hits=[];
+/* whether someone standing at x, z can be seen from the camera, or a building stands between: their chest or their head in
+   sight past every house's walls (up to the eaves: over a roof counts as seen), and above the curve of the world. A click near
+   where someone is on the screen is theirs only if they are in sight: Diarmuid, outside the pub over the curve of the world
+   behind it, took the clicks on the workshop's shutter */
+const seeP=new T.Vector3(), seeA=new T.Vector3(), seeB=new T.Vector3(), seeMi=new Map();
+function seenAt(x,z,h){ const c=stCam.position; at(x,z,seeP).multiplyScalar(R+standH(x,z)+h);
+  /* (or the world itself: someone over its curve, below the skyline, is still somewhere on the screen) */
+  { const dx=seeP.x-c.x, dy=seeP.y-c.y, dz=seeP.z-c.z, t=clamp(-(c.x*dx+c.y*dy+c.z*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);
+    if(Math.hypot(c.x+dx*t,c.y+dy*t,c.z+dz*t)<R-.05) return false; }
+  for(const H of HOUSES){ let mi=seeMi.get(H); if(!mi) seeMi.set(H,mi=new T.Matrix4().copy(H.M).invert());
+    seeA.copy(c).applyMatrix4(mi); seeB.copy(seeP).applyMatrix4(mi); const hx=H.w/2, hz=H.d/2, hy=H.h;
+    if(Math.abs(seeA.x)<hx&&Math.abs(seeA.z)<hz&&seeA.y<hy) continue;   // (the camera in it: inside, not its walls in the way)
+    if(Math.abs(seeB.x)<hx&&Math.abs(seeB.z)<hz&&seeB.y<hy) continue;   // (they are in it)
+    let t0=0, t1=1, ok=true; for(const [a,d,lo,hi] of [[seeA.x,seeB.x-seeA.x,-hx,hx],[seeA.y,seeB.y-seeA.y,0,hy],[seeA.z,seeB.z-seeA.z,-hz,hz]]){
+      if(Math.abs(d)<1e-9){ if(a<lo||a>hi){ ok=false; break; } continue; } let u=(lo-a)/d, v=(hi-a)/d; if(u>v){ const w=u; u=v; v=w; } if(u>t0) t0=u; if(v<t1) t1=v; if(t0>t1){ ok=false; break; } }
+    if(ok) return false; }
+  return true; }
+const inSight=(x,z)=>seenAt(x,z,1.0)||seenAt(x,z,1.55);
+/* (and someone counts as near the pointer only if their feet or their head is on the screen, or nearly: side on to the camera,
+   just inside its view, the line from their feet to their head on the screen is thousands of pixels long, and so was the
+   reach round it, the whole screen; Diarmuid took every click on the workshop's shutter that way. The reach is no more than a
+   body's width on the screen as it could ever be) */
+const onScr=(fx,fy,hx,hy)=>{ const W=innerWidth, H=innerHeight, m=.2, a=(x,y)=>x>-m*W&&x<(1+m)*W&&y>-m*H&&y<(1+m)*H; return a(fx,fy)||a(hx,hy); };
+const reachPx=(L2,k,lo)=>Math.max(lo,Math.min(Math.sqrt(L2)*k,.22*Math.max(innerWidth,innerHeight)));
 function pickPerson(e){ ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); hits.length=0; ray.layers.set(0);
-  let hit=null; ray.intersectObjects(people.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!people.some(p=>p.g===o)) o=o.parent; if(o){ hit=people.find(p=>p.g===o); break; } }
+  let hit=null; const vis=people.filter(p=>inSight(p.x,p.z)); ray.intersectObjects(vis.map(p=>p.g),true,hits); for(const h of hits){ let o=h.object; while(o&&!vis.some(p=>p.g===o)) o=o.parent; if(o){ hit=vis.find(p=>p.g===o); break; } }
   /* or near enough: within a body's width of the line from their feet to their head, as the screen sees it; when two are
      in the same place on the screen, the nearer one is the one you mean */
-  let best=null, bd=1; for(const p of people){ const h0=R+standH(p.x,p.z), f=V.copy(p.dir).multiplyScalar(h0).project(stCam); if(f.z>1) continue;
+  let best=null, bd=1; for(const p of vis){ const h0=R+standH(p.x,p.z), f=V.copy(p.dir).multiplyScalar(h0).project(stCam); if(f.z>1) continue;
     const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=V.copy(p.dir).multiplyScalar(h0+1.6).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
     if(hd.z>1) continue;   // (someone right beside the camera, their head behind it: the line from feet to head runs right across the screen and is nobody to point at)
-    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, t=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*t,e.clientY-fy-ey*t), r=Math.max(26,Math.sqrt(L2)*.34);
+    if(!onScr(fx,fy,hx,hy)) continue;
+    const ex=hx-fx, ey=hy-fy, L2=ex*ex+ey*ey||1, t=clamp(((e.clientX-fx)*ex+(e.clientY-fy)*ey)/L2,0,1), dd=Math.hypot(e.clientX-fx-ex*t,e.clientY-fy-ey*t), r=reachPx(L2,.34,26);
     if(dd/r<bd){ bd=dd/r; best=p; } }
   if(hit&&best&&best!==hit&&bd<.6){ const cp=stCam.position; if(V.copy(best.dir).multiplyScalar(R).distanceTo(cp)<V2.copy(hit.dir).multiplyScalar(R).distanceTo(cp)) return best; }
   return hit||best; }
@@ -6492,7 +6542,9 @@ addEventListener('keydown',e=>{ if(S.st!==st||S.mode!=='station'||!GAR.g||FIN.on
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built) garStep(dt,t); return r; };
   st.enter=function(){ garReset(); return en.apply(this,arguments); }; st.exit=function(){ garReset(true); return ex.apply(this,arguments); };
   st.finaleEnd=function(){ const r=fe.apply(this,arguments); garReset(); return r; }; }
-st._dbg.garage={G:GAR,GW,GTF,TF,get err(){ return GAR.err||null; },open:garOpen,close:garClose,act:garAct,go:garGo,enter:garEnter,leave:garLeave,reset:garReset,fire:tfFire,local:(x,z)=>wsXZ(x,z),world:(x,y,z)=>wsW(x,y,z),toLocal:w=>wsL(w),
+st._dbg.garage={G:GAR,GW,GTF,TF,get err(){ return GAR.err||null; },
+  /* (for the tests: what a click at x, y would find, and what, if anything, has the workshop busy) */
+  why(x,y){ const e={clientX:x,clientY:y}; return {busy:{g:!GAR.g,talk:!!TALK.p,cut:CUT.on,fin:FIN.on,phs:PHS.on,gln:GLN.t,cafe:CAFE.on,hsi:HSI.on,cl:CL.st+'/'+CL.k,lhi:LHI.on,chp:CHP.on,fsi:FSI.on},person:!!pickPerson(e),busk:!!pickBusk(e),pick:garPick(e)}; },open:garOpen,close:garClose,act:garAct,go:garGo,enter:garEnter,leave:garLeave,reset:garReset,fire:tfFire,local:(x,z)=>wsXZ(x,z),world:(x,y,z)=>wsW(x,y,z),toLocal:w=>wsL(w),
   run(sec,fps=30){ for(let i=0;i<Math.round(sec*fps);i++){ S.t+=1/fps; st.update(1/fps,S.t); } },
   get state(){ return {st:GAR.st,on:GAR.on,sh:+GAR.sh.toFixed(3),shSt:GAR.shSt,k:+GAR.k.toFixed(3),tubes:GAR.tubes.map(v=>+v.toFixed(2)),lamp:+GAR.lamp.toFixed(2),lit:GAR.lit,vis:!!(GAR.g&&GAR.g.visible),me:me.visible,near:stCam.near,
     you:[+GAR.you.x.toFixed(2),+GAR.you.z.toFixed(2)],da:+GAR.da.toFixed(2),tag:{on:GAR.tagOn,can:GAR.tagCan,txt:garTag.textContent,p:GAR.tagP},leave:!garOut.hidden,clicks:GAR.clicks,pool:!!(GAR.pool&&GAR.pool.visible),mk:+GAR.mk.toFixed(2)}; },
@@ -11478,7 +11530,7 @@ function buildGrow(){ const gone=new Set(TG.cleared); for(let i=OBS.length-1;i>=
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TG.ok&&!TG.err){ try{ tgStep(Math.min(dt,.05),t); }catch(err){ TG.err=String(err&&err.stack||err); console.error('the town grows',err); } } return r; }; }
 st._dbg.grow={TG,list:TOWN_GROWS,build:tgBuild,down:tgDown,check:tgCheck,rectD:tgRectD,xz:tgXZ,working:tgWorking,tarp:tgTarp,TREES,LOOK:TG_LOOK,
   act(id,what){ const P=TG.plots[id]; if(P&&P.up&&P.kind==='site') tgAct(P,what); return P&&P.act; },
-  plot:id=>TG.plots[id],roadDist,pathDist,segs:()=>SEGS,walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
+  plot:id=>TG.plots[id],roadDist,pathDist,segs:()=>SEGS,signs:()=>SIGNS,kDrawn:(x,z)=>kDrawn(x,z),walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
   get state(){ return {ok:TG.ok,err:TG.err,skip:TG.skip,cleared:TG.cleared.length,n:{...TG.n},g:{...TG.g},last:TG.last||null,
     plots:Object.values(TG.plots).map(P=>({id:P.e.id,kind:P.kind,up:P.up,obs:P.obs.length,tufts:P.tufts,man:P.man?P.man.visible:null,act:P.act?P.act.what:null,
       tarp:P.tarp?{lean:+P.tarp.lean.toFixed(3),disp:+(P.tarp.disp||0).toFixed(3),wp:+(P.tarp.wp||0).toFixed(3)}:null}))}; }};
