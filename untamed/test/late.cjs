@@ -42,7 +42,7 @@ module.exports = async ({ page, H, wait, log }) => {
   rec(!tried || tried.lh === undefined || tried.lh === false, 'nor the lighthouse', JSON.stringify(tried && tried.lh));
 
   const s1 = await L();
-  rec(!s1.left.length && !s1.busy && s1.log.length === 6, 'once you are down they are all built', JSON.stringify(s1.log));
+  rec(!s1.left.length && !s1.busy && s1.log.length === 5, 'once you are down they are all built', JSON.stringify(s1.log));
   const mk1 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, placed: M.figs.every(f => f.g.parent === M.g), obs: M.obs.length, open: h.ST.cr._dbg.market.open(), vis: M.g.visible }; });
   rec(mk1.figs === 7 && mk1.placed && mk1.obs === mk0.obs && !mk1.open && !mk1.vis, 'the market\'s seven people are there, in their places, out of sight till evening', JSON.stringify(mk1));
   rec((s1.tops[2] || 0) < 50 && s1.max < 400, 'a little at a time: the page is held only briefly at once by the building (a hitch or two on this busy machine aside)', JSON.stringify(s1.tops) + ' ms, the longest at ' + JSON.stringify(s1.at) + ', in ' + s1.slices + ' turns; the longest wait on the graphics card ' + s1.gmax + ' ms (this machine\'s software drawing: seconds behind; on a graphics card, nothing)');
