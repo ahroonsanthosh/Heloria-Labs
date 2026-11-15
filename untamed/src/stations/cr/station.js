@@ -3122,20 +3122,26 @@ function ribbon(pts,closed,hw=RW,sw=SW,o={}){ const n=pts.length, side=[];
   /* a way off it (o.mouth, see MOUTH): its kerb, pavement and pavement's edge on that side cut away across the way's mouth,
      each piece to the very line of the way's kerbs, so the two roads meet road to road and kerb to kerb */
   const Mo=o.mouth, Q=(i,j,t,lat,h)=>at((pts[i][0]+side[i][0]*lat)*(1-t)+(pts[j][0]+side[j][0]*lat)*t,(pts[i][1]+side[i][1]*lat)*(1-t)+(pts[j][1]+side[j][1]*lat)*t,new T.Vector3()).multiplyScalar(R+h);
-  const span=(i,j,lat)=>{ const ax=pts[i][0]+side[i][0]*lat-Mo.E[0], az=pts[i][1]+side[i][1]*lat-Mo.E[1], bx=pts[j][0]+side[j][0]*lat-Mo.E[0]-ax, bz=pts[j][1]+side[j][1]*lat-Mo.E[1]-az,
-    s0=ax*Mo.u[1]-az*Mo.u[0], s1=bx*Mo.u[1]-bz*Mo.u[0]; if(Math.abs(s1)<1e-9) return Math.abs(s0)<Mo.w?[0,1]:[1,1];
-    const t1=(-Mo.w-s0)/s1, t2=(Mo.w-s0)/s1; return [clamp(Math.min(t1,t2),0,1),clamp(Math.max(t1,t2),0,1)]; };
+  const span=(i,j,lat,W=Mo.w)=>{ const ax=pts[i][0]+side[i][0]*lat-Mo.E[0], az=pts[i][1]+side[i][1]*lat-Mo.E[1], bx=pts[j][0]+side[j][0]*lat-Mo.E[0]-ax, bz=pts[j][1]+side[j][1]*lat-Mo.E[1]-az,
+    s0=ax*Mo.u[1]-az*Mo.u[0], s1=bx*Mo.u[1]-bz*Mo.u[0]; if(Math.abs(s1)<1e-9) return Math.abs(s0)<W?[0,1]:[1,1];
+    const t1=(-W-s0)/s1, t2=(W-s0)/s1; return [clamp(Math.min(t1,t2),0,1),clamp(Math.max(t1,t2),0,1)]; };
   const strips=[[-hw-sw,0,-hw-sw,CURB,'#d9d2c4',-1],[-hw-sw,CURB,-hw,CURB,'#d3ccbe',0],[-hw,CURB,-hw,ROADH,'#e6e0d4',1],[-hw,ROADH,hw,ROADH,'#7f878b',0],[hw,ROADH,hw,CURB,'#e6e0d4',-1],[hw,CURB,hw+sw,CURB,'#d3ccbe',0],[hw+sw,CURB,hw+sw,0,'#d9d2c4',1]];
   const segs=closed?n:n-1, nrm=new T.Vector3(); let along=0;
   for(let i=0;i<segs;i++){ const j=(i+1)%n, sl=Math.hypot(pts[j][0]-pts[i][0],pts[j][1]-pts[i][1]);
     /* (a wide strip is laid in narrower ones across: one flat quad from kerb to kerb would cut under the round world's curve
        by 3 cm in the middle, under the grass, and leave a car and your feet over it) */
     const near=Mo&&Math.hypot((pts[i][0]+pts[j][0])/2-Mo.E[0],(pts[i][1]+pts[j][1])/2-Mo.E[1])<3;
-    for(const [L0,H0,L1,H1,c,sd] of strips){ const n=Math.max(1,Math.ceil(Math.abs(L1-L0)/.4)), cut=near&&Math.min(L0*Mo.sg,L1*Mo.sg)>=hw-1e-6;
+    for(const [L0,H0,L1,H1,c,sd] of strips){
+      /* (the spur's pavement edges where it crosses the loop's pavement: not there, that pavement is over them; only what of
+         them is out past it, where the loop's edge slants away, down to the grass) */
+      if(o.s0&&i===0&&L0===L1&&Math.abs(L0)>hw+1e-6){ const xz=t=>[(pts[0][0]+side[0][0]*L0)*(1-t)+(pts[1][0]+side[1][0]*L0)*t,(pts[0][1]+side[0][1]*L0)*(1-t)+(pts[1][1]+side[1][1]*L0)*t];
+        if(o.over(...xz(1))) continue; let t0=0, t1=1; for(let k=0;k<16;k++){ const t=(t0+t1)/2; if(o.over(...xz(t))) t0=t; else t1=t; }
+        const a=Q(0,1,t1,L0,H0), b=P(1,L0,H0), cc=P(1,L1,H1), d=Q(0,1,t1,L1,H1); nrm.copy(P(0,L0+.05,H0)).sub(P(0,L0,H0)).normalize().multiplyScalar(sd); kquad(a,b,cc,d,nrm,c); continue; }
+      const n=Math.max(1,Math.ceil(Math.abs(L1-L0)/.4)), cut=near&&Math.min(L0*Mo.sg,L1*Mo.sg)>=hw-1e-6;
       for(let k=0;k<n;k++){ const l0=L0+(L1-L0)*k/n, l1=L0+(L1-L0)*(k+1)/n, h0=H0+(H1-H0)*k/n, h1=H0+(H1-H0)*(k+1)/n, a=P(i,l0,h0), b=P(j,l0,h0), cc=P(j,l1,h1), d=P(i,l1,h1);
         if(sd===0) nrm.copy(a).normalize(); else nrm.copy(P(i,l0+.05,h0)).sub(P(i,l0,h0)).normalize().multiplyScalar(sd);
         if(!cut){ kquad(a,b,cc,d,nrm,c); continue; }
-        const [a0,b0]=span(i,j,l0), [a1,b1]=span(i,j,l1);   /* (what is left either side of the mouth) */
+        const W=L0===L1&&Math.abs(L0)>hw+1e-6?Mo.w2:Mo.w, [a0,b0]=span(i,j,l0,W), [a1,b1]=span(i,j,l1,W);   /* (what is left either side of the mouth; the edge down to the grass across the spur's pavements as well, which run over it) */
         if(Math.max(a0,a1)>1e-4) kquad(a,Q(i,j,a0,l0,h0),Q(i,j,a1,l1,h1),d,nrm,c);
         if(Math.min(b0,b1)<1-1e-4) kquad(Q(i,j,b0,l0,h0),b,cc,Q(i,j,b1,l1,h1),nrm,c); } }
     nrm.copy(P(i,0,0)).normalize();
@@ -3153,7 +3159,8 @@ function mouthOf(lp){ const a=SPUR[0], ul=Math.hypot(SPUR[1][0]-a[0],SPUR[1][1]-
   const cr=(x0,z0,x1,z1)=>x0*z1-z0*x1, dx=a[0]-ex, dz=a[1]-ez, den=cr(tg[0],tg[1],-u[0],-u[1]), v=cr(tg[0],tg[1],dx,dz)/den, ov=.02;
   const E=[a[0]+u[0]*(v-ov),a[1]+u[1]*(v-ov)], s0=(tg[0]*u[1]-tg[1]*u[0])<0?tg:[-tg[0],-tg[1]];   /* (the spur's sides: across it, east of south) */
   const along0=-.3, along1=SW+.4;
-  return {E,u,w:.95,sg,s0,
+  const over=(x,z)=>{ let m=1e9; for(let i=0;i<n;i++){ const a=lp[i], b=lp[(i+1)%n], ex=b[0]-a[0], ez=b[1]-a[1], t=clamp(((x-a[0])*ex+(z-a[1])*ez)/(ex*ex+ez*ez||1),0,1); m=Math.min(m,Math.hypot(x-a[0]-ex*t,z-a[1]-ez*t)); } return m<RW+SW; };
+  return {E,u,w:.95,w2:.95+.75,sg,s0,over,
     in(x,z){ const px=x-E[0], pz=z-E[1], al=px*u[0]+pz*u[1]; return al>along0&&al<along1&&Math.abs(px*u[1]-pz*u[0])<.95; },
     cap(x,z){ return ((x-E[0])*s0[1]-(z-E[1])*s0[0])*((u[0])*s0[1]-(u[1])*s0[0])<0; }}; }
 function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]-SPUR[0][0],p[1]-(SPUR[0][1]+2)); if(d<bd){ bd=d; bi=i; } });
@@ -3210,7 +3217,7 @@ st.build=async function(){ const gap=()=>st.pace?st.pace():nextFrame();   // bet
   const Mo=mouthOf(lp), spur=Object.assign([SPUR[0],SPUR[1]],{hw:.95,sw:.75,open:true}), loopR=lp.concat([lp[0]]);
   /* (the spur out of the loop's road and the loop's pavement cut across its mouth, for distances and feet, once the wild is laid
      out: it was laid out round the roads as they were, see WAS) */
-  ROADS.push(loopR,spur); WAS.push({fn:()=>{ spur[0]=Mo.E; spur.cap0=Mo.cap; loopR.mouth=Mo; RDQ.n=-1; RLG=null; }}); ribbon(lp,true,RW,SW,{mouth:Mo}); ribbon([Mo.E,SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw,{s0:Mo.s0}); zebra(lp);
+  ROADS.push(loopR,spur); WAS.push({fn:()=>{ spur[0]=Mo.E; spur.cap0=Mo.cap; loopR.mouth=Mo; RDQ.n=-1; RLG=null; }}); ribbon(lp,true,RW,SW,{mouth:Mo}); ribbon([Mo.E,SPUR[0],[SPUR[0][0],(SPUR[0][1]+SPUR[1][1])/2],SPUR[1]],false,spur.hw,spur.sw,{s0:Mo.s0,over:Mo.over}); zebra(lp);
   SEGS.push([0,-6.4,0,-1.5,.6],[0,1.5,0,8.3,.6],[-7.7,0,-1.5,0,.6],[1.5,0,8,0,.6]);
   /* (a gap between the larger parts: Earth may be made while you are already flying, a part at a quiet moment) */
   buildTown(); sendShaders(sc,stCam); await gap(); buildNature(); await gap(); buildPeople(); sendShaders(sc,stCam); /* (the town's shaders made in the background while the rest is built) */ await gap(); buildBirds(); buildRocket(); buildLaunchFlame(); buildNav(); buildSkyFx(); buildSteer(); buildCafe(); await gap();
