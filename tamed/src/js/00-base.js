@@ -51,28 +51,28 @@ const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
 const col=h=>new T.Color(h);
 const v3=(x,y,z)=>new T.Vector3(x,y,z);
 
+/* the rooms, one for each project, in the order you walk through them: projects.json at the top of the repo, put here by
+   the build. Each room's place in the line (its slot) is read from here, so its architecture, light, camera and sound all
+   follow it. A project the walk has no room of its own for gets the plain one (buildRoom in 30-gallery.js) */
+const PROJ=__PROJECTS__;
+const SLOT={}; PROJ.forEach((p,k)=>{ SLOT[p.id]=k; });
+const OWN_SOUND=['aetos','pharos','ogive','krios'];   // the rooms with a sound of their own (05-audio.js); any other has the plain room's
+/* the rooms are at s 1 to ROOMS. Everything after them (the far arch, the courtyard, Team, Contact, the rocket) was laid
+   out for four rooms and is moved along by MORE, the number of rooms past four; written as 4.45+MORE, it is the same place
+   with any number of rooms */
+const ROOMS=PROJ.length, MORE=ROOMS-4;
+/* the sun's way down the sky was set for four rooms: a place on the walk as it would be with four, so it keeps its course */
+const as4=s=>MORE===0||s<=1?s:s>=ROOMS?s-MORE:1+(s-1)*3/Math.max(1,ROOMS-1);
 /* every place on the walk, in order. s is the place's position on the one continuous path */
 const PLACES=[
   {id:'home',   name:'Home',    s:0, tint:'#FFF1DE', proj:-1},
-  {id:'aetos',  name:'Aetos',   s:1, tint:'#F2EEE6', proj:0},
-  {id:'pharos', name:'Pharos',  s:2, tint:'#FFD5B3', proj:1},
-  {id:'ogive',  name:'Ogive',   s:3, tint:'#FFB475', proj:2},
-  {id:'krios',  name:'Kríos',   s:4, tint:'#A5C3FF', proj:3},
-  {id:'team',   name:'Team',    s:5, tint:'#FFC9A0', proj:-1},
-  {id:'contact',name:'Contact', s:6, tint:'#C7CCEA', proj:-1},
+  ...PROJ.map((p,k)=>({id:p.id, name:p.name, s:k+1, tint:p.col, proj:k})),
+  {id:'team',   name:'Team',    s:ROOMS+1, tint:'#FFC9A0', proj:-1},
+  {id:'contact',name:'Contact', s:ROOMS+2, tint:'#C7CCEA', proj:-1},
 ];
-/* the four rooms, in the order you walk through them: each room's place in the line (its slot) is read from here, so its
-   architecture, light, camera and sound all follow it */
-const PROJ=[
-  {id:'aetos', name:'Aetos', col:'#F2EEE6', kind:'Counter-drone command software'},
-  {id:'pharos',name:'Pharos',col:'#FFD5B3', kind:'GPS-free drone navigation'},
-  {id:'ogive', name:'Ogive', col:'#FFB475', kind:'AI tools for OpenRocket'},
-  {id:'krios', name:'Kríos', col:'#A5C3FF', kind:'Voice practice for sales teams'},
-];
-const SLOT={}; PROJ.forEach((p,k)=>{ SLOT[p.id]=k; });
 const placeById=id=>PLACES.find(p=>p.id===id);
 /* the walk changes scene twice: through the front door into the gallery, and out of it into the courtyard */
-const DOOR_IN=.5, DOOR_OUT=4.5, BLEND=.085;
+const DOOR_IN=.5, DOOR_OUT=ROOMS+.5, BLEND=.085, MID=(DOOR_IN+DOOR_OUT)/2;   // MID: inside, between the two
 
 /* the whole app's live state */
 const S={ready:false, mode:'gate', s:0, t:0, dt:0, frame:0, hover:null, timeScale:1, proj:-1, entered:false};

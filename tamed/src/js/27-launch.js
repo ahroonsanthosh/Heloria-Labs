@@ -57,9 +57,9 @@ function makeLaunch(W){
   const _b=v3(), _q=new T.Quaternion(), Y=v3(0,1,0);
   return {
     update(dt,s){
-      const here=s>5.9&&(S.mode==='world'||S.mode==='launch');
+      const here=s>5.9+MORE&&(S.mode==='world'||S.mode==='launch');
       /* the first one goes up soon after you arrive; then one now and then while you stay */
-      if(!here&&!LAUNCH.go){ if(LAUNCH.ph>=0&&s<5.6){ LAUNCH.ph=-1; LAUNCH.wait=1.6; } }
+      if(!here&&!LAUNCH.go){ if(LAUNCH.ph>=0&&s<5.6+MORE){ LAUNCH.ph=-1; LAUNCH.wait=1.6; } }
       else if(LAUNCH.ph<0){ LAUNCH.wait-=dt; if(LAUNCH.wait<=0){ LAUNCH.ph=0; base(); } }
       if(LAUNCH.ph<0){ g.visible=false; LAUNCH.vis=false; LAUNCH.heard=0; pre.U.uK.value=0; return; }
       LAUNCH.ph+=dt; const ph=LAUNCH.ph, t=Math.max(0,ph-L_LIFT), gt=LAUNCH.go?LAUNCH.gt:0;

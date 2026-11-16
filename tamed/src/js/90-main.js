@@ -26,7 +26,7 @@ function waterInteract(){
 function horizonY(cam){ cam.getWorldDirection(_hd); _hd.y=0; if(_hd.lengthSq()<1e-6) return .5; _hd.normalize(); _hp.copy(cam.position).addScaledVector(_hd,5000); _hp.y=0; _hp.project(cam); return _hp.y*.5+.5; }
 const PAR={x:0,y:0};
 function camAt(name,s,cam){
-  const keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2);
+  const keys=name==='gal'?TR.gal:(s<MID?TR.out:TR.out2);
   let f=trackEval(keys,s,_cp,_ct);
   if(S.camOv&&S.camOv[0]===name){ const o=S.camOv; _cp.fromArray(o[1]); _ct.fromArray(o[2]); f=o[3]; }
   if(name==='out'&&LAUNCH.camK>.001){ const k=LAUNCH.camK; _ct.lerp(LAUNCH.mid,k); f=lerp(f,LAUNCH.fov,k); }
@@ -121,7 +121,7 @@ function frameBody(tn){
   else if(mx.b){ Wd[mx.a].render(CAM[mx.a],rtA); Wd[mx.b].render(CAM[mx.b],rtB); const m=POST.mixM.uniforms; m.tA.value=rtA.texture; m.tB.value=rtB.texture; m.uK.value=mx.k; POST.pass(POST.mixM,POST.mix); src=POST.mix; }
   else { Wd[mx.a].render(CAM[mx.a],rtA); src=rtA; }
   const bt=POST.bloom(src);
-  const cu=POST.comp.uniforms, inside=sstep(.42,.6,s)*(1-sstep(4.4,4.58,s)), dusk=sstep(5.3,6,s);
+  const cu=POST.comp.uniforms, inside=sstep(.42,.6,s)*(1-sstep(4.4+MORE,4.58+MORE,s)), dusk=sstep(5.3+MORE,6+MORE,s);
   cu.tScene.value=src.texture; cu.tBloom.value=bt;
   cu.uExpo.value=lerp(1.06,1.22,inside)*(1+dusk*.12);
   cu.uBloom.value=lerp(.038,.18,inside);
@@ -148,14 +148,14 @@ function frameBody(tn){
   galTick();
 }
 function audioState(s,inside){
-  const contact=sstep(5.45,6,s), court=sstep(4.55,4.85,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
+  const contact=sstep(5.45+MORE,6+MORE,s), court=sstep(4.55+MORE,4.85+MORE,s)*(1-contact), prox=k=>(1-sstep(.24,.62,Math.abs(s-k)))*inside;
   const R=id=>SLOT[id]+1, beam=GAL&&prox(R('pharos'))>.01?GAL.room('pharos').lock:0;   // how sure the drone is of where it is
   const gate=S.mode==='gate', way=gate?S.gateHover:null, go=LAUNCH.near;
   // the gate is not silent: the walk's score from the first moment, a little muffled, and the lake under it; a way, shown,
   // takes over and the score steps back under it
   const rest=gate&&!way?1:0;
   return {music:gate?.15+.5*rest:(1-inside*.3)*(1-go*.6), musF:gate?1600:lerp(9000,2600,inside)*(1-go*.93), water:gate?(way==='walk'?.34:.2*rest):lerp(1,.36,inside)*(1-court*.3)*(1-go*.5), waterF:gate?(way==='walk'?1500:850):lerp(2400,320,inside)+contact*1800,
-    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(R('krios')), ae:prox(R('aetos')), ph:prox(R('pharos')), og:prox(R('ogive')), beam, rise:sstep(R('ogive')-.3,R('ogive')+.4,s),
+    wind:gate?(way==='land'?.85:0):(1-inside)*(1-court*.7), birds:gate?(way==='land'?1:0):(1-inside)*(1-contact)*(1-court), kr:prox(R('krios')), ae:prox(R('aetos')), ph:prox(R('pharos')), og:prox(R('ogive')), rm:PROJ.reduce((m,p,k)=>OWN_SOUND.includes(p.id)?m:Math.max(m,prox(k+1)),0), beam, rise:sstep(R('ogive')-.3,R('ogive')+.4,s),
     warm:way==='walk'?1:0, land:way==='land'?1:0, rocket:LAUNCH.heard, rocketNear:go};
 }
 /* the sound is tried the moment the page opens: a browser that allows it (one that knows you have played sound here before)
@@ -210,7 +210,7 @@ if(DIAG){ addEventListener('error',e=>DIAG.errs.push(String(e.message||e.error||
    If you come to the door before it is made, it is made then: the walk eases to a stop at the door until it is, and goes
    on where you were going; a long walk through the light holds the light. The frame timer never counts these frames */
 const GLATE={stage:0,si:0,objs:null,oi:0,busy:false,lastIn:-1e9,lastMove:-1e9,qm:0,after:0,want:false,vPrev:0,cbs:[],door:null,log:[]};   // stage: 0 to build, 1 to compile, 2 to draw, 3 made
-const GSTATES=[1,2,3,4];
+const GSTATES=PROJ.map((p,k)=>k+1);   // each room
 ['pointerdown','wheel','keydown','touchstart','touchmove'].forEach(ev=>addEventListener(ev,()=>{ GLATE.lastIn=GLATE.lastMove=performance.now(); },{capture:true,passive:true}));
 addEventListener('pointermove',e=>{ GLATE.lastMove=performance.now(); if(e.buttons) GLATE.lastIn=GLATE.lastMove; },{capture:true,passive:true});
 function galNeed(){ if(GLATE.stage>=3) return Promise.resolve(); GLATE.want=true; return new Promise(r=>GLATE.cbs.push(r)); }
@@ -324,7 +324,7 @@ window.__tamed={gal:()=>({stage:GLATE.stage,want:GLATE.want,log:GLATE.log}),galN
   sun(el,az){ S.sunOv=el==null?null:[el,az]; },
   cam(name,p,t,f){ S.camOv=name?[name,p,t,f]:null; },
   /* for the scroll tests: where the camera is for a scroll position v, without moving the walk */
-  walkAt(v){ const s=warp(v), m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a, keys=name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2), p=new T.Vector3(), t=new T.Vector3(), f=trackEval(keys,s,p,t);
+  walkAt(v){ const s=warp(v), m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a, keys=name==='gal'?TR.gal:(s<MID?TR.out:TR.out2), p=new T.Vector3(), t=new T.Vector3(), f=trackEval(keys,s,p,t);
     return {s,scene:name,p:p.toArray(),t:t.toArray(),f}; },
   /* and for driving the scroll on a clock of the test's own: one frame of the hand and the walk */
   tick(dt){ S.frame++; scrollTick(dt); VEIL.tick(dt); holdTick(); return warp(SC.v); },

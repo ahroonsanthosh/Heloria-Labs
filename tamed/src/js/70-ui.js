@@ -152,7 +152,7 @@ PEO.forEach((el,i)=>{ const a=el.querySelector('a');
 const scr=(x,y,z,cam)=>{ _pq.set(x,y,z).project(cam); return [(_pq.x*.5+.5)*innerWidth,(-_pq.y*.5+.5)*innerHeight,_pq.z]; };
 function peopleUpdate(s,dt){
   /* we are there from the moment you come into the courtyard until you have turned away from us at the arch */
-  const near=s<5?1-sstep(.22,.42,5-s):1-sstep(.46,.6,s-5); const box=$('#people');
+  const tm=ROOMS+1, near=s<tm?1-sstep(.22,.42,tm-s):1-sstep(.46,.6,s-tm); const box=$('#people');
   box.style.opacity=near.toFixed(3); box.style.visibility=near>.01?'visible':'hidden';
   if(!OUT||near<=.01){ if(OUT) OUT.people.forEach(p=>{ p.target=0; p.seen=false; }); UI._teamT=0; return; }
   /* how long you have stood here: a breath with only the reflections, then we rise one after another */
@@ -173,7 +173,7 @@ function peopleUpdate(s,dt){
     /* we rise as you come, one after another, so you never have to wait for us; on a narrow screen you walk past us one
        at a time, and whoever you are coming up to rises and stays */
     if(port&&s>[4.86,5,5.14][i]-.06) p.seen=true;
-    const auto=S.peopleHold?false:(port?p.seen:(s>4.7+i*.07||UI._teamT>.5+i*.45));
+    const auto=S.peopleHold?false:(port?p.seen:(s>4.7+MORE+i*.07||UI._teamT>.5+i*.45));
     const want=((auto||S.peopleAll)&&near>.6)?1:0;
     p.target=want; p.hot=!!el._h&&!el.classList.contains('off'); el.classList.toggle('up',p.reveal>.8); el.classList.toggle('hot',p.hot);
     /* on a touch screen the caption shows under whoever you are standing in front of, once they have risen */

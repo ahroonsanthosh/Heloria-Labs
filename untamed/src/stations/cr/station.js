@@ -447,14 +447,15 @@ function mark(id,x,z,y=0){ const g=new T.Group(); g.matrixAutoUpdate=false; sc.a
 function markObs(id,h0){ const o=OBS[OBS.length-1]; MK[id].obs.push({o,h:o.h,h0}); }   // the obstacle just added: full height when built, h0 when not
 function markScale(m,k){ m.k=k; const b=m.base; m.g.matrix.makeScale(k,k,k).setPosition(b.x*(1-k),b.y*(1-k),b.z*(1-k)); m.g.matrixWorldNeedsUpdate=true; }
 let PH, AE, KR, BE, OG;
+/* our projects: projects.json at the top of the repo, put here by the build. Each has its card (below) and its postcard
+   stamp; Kríos, Aetos, Pharos and Ogive (SCULPT) are the sculptures made below, and any other gets a building of its own in
+   town (see TOWN_GROWS) */
+const PROJECTS=__PROJECTS__, SCULPT=['kr','ae','ph','og'];
 /* where each landmark stands, how tall it is, and what it says when you walk up to it */
-const INST={}, CARD={kr:['Kríos','Voice practice for sales teams','Rehearse the call out loud, and a buyer answers back.','https://krios.ie','View project'],
-  ae:['Aetos','Counter-drone command software','It reads a sky full of drones and marks the one that matters.','https://github.com/ahroonsanthosh/Aetos','View project'],
-  ph:['Pharos','GPS-free drone navigation','No GPS, so the drone finds itself by matching what it sees to the map.','https://github.com/ahroonsanthosh/pharos','View project'],
-  og:['Ogive','AI tools for OpenRocket','Name the height, and it reworks the rocket until it gets there.','https://github.com/michaelsheffernan/ogive','View project'],
-  be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us'],
+const INST={}, CARD={be:['Heloria Labs','The workshop','Where the three of us build. Talk to us: contact@helorialabs.com','mailto:contact@helorialabs.com','Email us'],
   cafe:['Café','Book a chat with us','Pull up a chair. Tell us what you are working on and we will find a time to talk.',
     'mailto:contact@helorialabs.com?subject='+encodeURIComponent('Booking a chat with Heloria Labs')+'&body='+encodeURIComponent('Hi Ahroon, Michael and Abraham,\n\nI would like to book a chat about:\n\nA few times that suit me:\n'),'Book a chat']};
+for(const p of PROJECTS) CARD[p.id]=[p.name,p.kind,p.line,p.href,'View project'];
 const CAFE_ON=__CAFE__;   // the board and its card: set by the build (untamed/build.py CAFE_LIVE for the site)
 /* a small quadcopter for the landmarks: a body, four arms, four rotors, and a light underneath */
 function drone(light){ const g=new T.Group(); g.matrixAutoUpdate=false; const dk=toonMat('#4a5058'), lt=toonMat('#e9ecef');
@@ -2516,7 +2517,7 @@ function steerCam(dt){ PHS.k=damp(PHS.k,PHS.on?1:0,PHS.on?3:4,dt); if(PHS.k<.002
    frame the page has just drawn, so nothing on top of the world (labels, buttons) is in it. */
 const PC={on:false,grab:false,busy:false,url:null,last:null,frame:null};
 const pcBtn=$('#crPost',el), pcUI=$('#crFrame',el), pcCard=$('#crCard',el), pcImg=$('#crCardImg',el), pcSave=$('#crCardSave',el), pcShare=$('#crCardShare',el);
-const PC_NAME={kr:'KRÍOS',ae:'AETOS',ph:'PHAROS',og:'OGIVE',be:'HELORIA LABS',cafe:'CAFÉ'};
+const PC_NAME={be:'HELORIA LABS',cafe:'CAFÉ'}; for(const p of PROJECTS) PC_NAME[p.id]=p.name.toUpperCase();
 function pcOpen(on){ if(on===PC.on) return; PC.on=on; pcUI.hidden=!on; el.classList.toggle('post',on); document.documentElement.classList.toggle('crpost',on); A.click(); if(on) closeTalk(); }
 pcBtn.addEventListener('click',e=>{ e.stopPropagation(); pcOpen(!PC.on); });
 $('#crFrameCancel',el).addEventListener('click',e=>{ e.stopPropagation(); pcOpen(false); });
@@ -2549,6 +2550,9 @@ function pcGlyph(g,id,x,y,s){ g.save(); g.translate(x,y); g.scale(s,s); g.lineWi
   else if(id==='kr'){ for(let i=0;i<5;i++){ const h=[10,26,40,26,14][i]; L(-24+i*12,-h/2,-24+i*12,h/2); g.stroke(); } g.beginPath(); g.arc(0,0,40,0,TAU); g.stroke(); }
   else if(id==='be'){ L(0,40,0,-20); g.stroke(); L(-14,40,0,-6,14,40); g.stroke(); [14,24,34].forEach(r=>{ g.beginPath(); g.arc(0,-24,r,-Math.PI*.8,-Math.PI*.2); g.stroke(); }); }
   else if(id==='cafe'){ L(-20,-4,-16,30,16,30,20,-4); g.closePath(); g.fillStyle='#f4efe6'; g.fill(); g.stroke(); g.beginPath(); g.arc(24,10,8,-Math.PI/2,Math.PI/2); g.stroke(); [-8,2,12].forEach(x=>{ g.beginPath(); g.moveTo(x,-12); g.bezierCurveTo(x-6,-20,x+6,-26,x,-34); g.stroke(); }); }
+  else if(PC_NAME[id]){ /* a project's building in town: its gable, its door, and a pennant of the project's own colour on the roof */
+    L(-26,40,-26,-4,0,-24,26,-4,26,40); g.closePath(); g.fillStyle='#f4efe6'; g.fill(); g.stroke(); g.strokeRect(-7,18,14,22); L(0,-24,0,-46); g.stroke();
+    L(0,-46,22,-40,0,-34); g.closePath(); const pr=PROJECTS.find(p=>p.id===id); g.fillStyle=pr?pr.col:PC_OR; g.fill(); g.stroke(); }
   else { g.beginPath(); g.arc(0,0,22,0,TAU); g.fillStyle='#8fc7c0'; g.fill(); g.stroke(); g.beginPath(); g.ellipse(0,0,40,11,-.3,0,TAU); g.stroke(); }
   g.restore(); }
 function pcCompose(shot){ const port=shot.height>shot.width, W=port?1200:1800, H=port?1500:1200, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d');
@@ -11345,7 +11349,10 @@ st._dbg.pier={PR,TR,TRK,PRM,onPier,trCrossing,trPlan,trRun,prAt,
    (st._dbg.grow says why). Its solids go into the town's list and onto the walking grid as the pub's do, so you, the
    three of us and everyone in town go round it.
    (Kríos, Aetos, Ogive and Pharos are left as they are: each is a sculpture with moving parts, a card and our lines, not
-   a building, so they are not in this list) */
+   a building, so they are not in this list.) Every other project in projects.json is put on it for you, below the list: a
+   finished building on the plot it gives (its "plot"), or on the first spare plot (TG_SPARE) if it gives none, and the
+   building site for what is next moves on to the next spare plot (or, with none left, goes). Each has its card when you
+   stop by it, as the sculptures do, and its name on a postcard sent from there */
 /* THE LIST. Add a project here.
      id      a short name of its own, for the code
      name    the project's name
@@ -11359,6 +11366,15 @@ st._dbg.pier={PR,TR,TRK,PRM,onPier,trCrossing,trPlan,trRun,prAt,
 const TOWN_GROWS=[
   {id:'next',name:'Coming soon',x:-12.3,z:-7.75,yaw:1.15,w:3.2,d:2.4,h:2.4,wall:'#e8dcc2',roof:'#4f6f8f',sign:'COMING SOON',sub:'Heloria Labs',status:'next'},
 ];
+/* the spare plots, in the order they are taken: each checked free (off the roads and paths, clear of everything built and
+   of everyone's ways), facing its road. The first is where the site for what is next stands now */
+const TG_SPARE=[{x:-12.3,z:-7.75,yaw:1.15},{x:12.5,z:-8.5,yaw:-1.04},{x:16,z:.5,yaw:-1.56},{x:-16,z:.75,yaw:1.6}];
+{ let n=0; const WALLS=[['#e8dcc2','#4f6f8f'],['#dfe6ef','#c8664b'],['#f3d9c4','#59646a'],['#e9e3d7','#7d5a8f']];
+  for(const p of PROJECTS){ if(SCULPT.includes(p.id)) continue; const q=p.plot||TG_SPARE[n++];
+    if(!q){ console.warn('the town grows: no spare plot left for '+p.name+'; give it a "plot" in projects.json'); continue; }
+    const [wall,roof]=WALLS[TOWN_GROWS.length%WALLS.length];
+    TOWN_GROWS.push({w:3.2,d:2.4,h:2.4,wall,roof,...q,id:p.id,name:p.name,sign:p.name.toUpperCase(),sub:'Heloria Labs',status:'built',proj:true}); }
+  const nx=TOWN_GROWS[0]; if(n){ if(TG_SPARE[n]) Object.assign(nx,TG_SPARE[n]); else TOWN_GROWS.shift(); } }
 const TG={ok:false,err:null,skip:[],cleared:[],plots:{},mat:null,n:{siteTap:0,siteSaw:0,siteMix:0},g:{},ink:[]};
 const tgV=new T.Vector3(), tgV2=new T.Vector3(), tgV3=new T.Vector3(), tgM=new T.Matrix4(), tgW=new T.Vector3();
 /* how far (x, z) is from a plot's edge, in metres (0 inside it) */
@@ -11406,7 +11422,8 @@ function tgBuilt(e,P){ const g=P.g, back=.1, [x,z]=tgXZ(e,0,-back), w=e.w-.3, d=
   HOUSES[HOUSES.length-1].plain=false;   // (made for a purpose, not somebody's home)
   P.kit=tgKitMesh('tg_'+e.id,g);
   P.sign=tgSign(g,sub(M,0,0,d/2+.07),e.sign||e.name,{sub:e.sub,w:Math.min(w*.42,1.8),h:.42,y:h-.38,post:false,bg:'#2a241d',fg:'#f3ead8',board:'#2a241d'});
-  P.obs=OBS.slice(o0); P.M=M; P.kind='built'; }
+  P.obs=OBS.slice(o0); P.M=M; P.kind='built';
+  if(e.proj) INST[e.id]={x:e.x,z:e.z,h:h+.9,r:Math.max(e.w,e.d)/2+2.4}; }   // (a project's: its card as you stop by, its name on a postcard)
 
 /* ---------- the building site ---------- */
 const TG_BLOCK=['#cfcac0','#c4beb2','#d6d1c7'], TG_WOOD='#c9a06a', TG_POLE='#9aa3ab', TG_PLANK='#b48a5c', TG_TARP=['#3d74b0','#356aa3','#2f5f93'];
@@ -11538,7 +11555,7 @@ function tgInk(root){ root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!
   o.userData.col=o.material; o.userData.inkM=variant(inkC,o.material,o.material.userData.inkF||INK_F); o.userData.shdM=variant(shdC,o.material,o.material.userData.shdF||SHD_F,T.DoubleSide);
   if(o.userData.cast&&!o.userData.dyn) o.layers.enable(2); INK.push(o); }); }
 /* takes a plot's things down (its building or its site) and its solids off the list and the walking grid */
-function tgDown(e){ const P=TG.plots[e.id]; if(!P||!P.up) return; P.up=false; P.g.visible=false; P.act=null;
+function tgDown(e){ const P=TG.plots[e.id]; if(!P||!P.up) return; P.up=false; P.g.visible=false; P.act=null; if(e.proj) delete INST[e.id];
   const gone=new Set(P.obs); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
   pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+1.2); baked=false; }
 /* puts up a plot's building or site (taking down whatever stood on the same ground first) */
@@ -11555,7 +11572,7 @@ function buildGrow(){ const gone=new Set(TG.cleared); for(let i=OBS.length-1;i>=
 { const b=st.build, up=st.update;
   st.build=async function(){ await b.apply(this,arguments); try{ buildGrow(); }catch(err){ TG.err=String(err&&err.stack||err); console.warn('the town grows',err); kitTo(); } };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&TG.ok&&!TG.err){ try{ tgStep(Math.min(dt,.05),t); }catch(err){ TG.err=String(err&&err.stack||err); console.error('the town grows',err); } } return r; }; }
-st._dbg.grow={TG,list:TOWN_GROWS,build:tgBuild,down:tgDown,check:tgCheck,rectD:tgRectD,xz:tgXZ,working:tgWorking,tarp:tgTarp,TREES,LOOK:TG_LOOK,
+st._dbg.grow={TG,list:TOWN_GROWS,spare:TG_SPARE,wild:()=>WILD,inst:INST,card:CARD,pcName:PC_NAME,build:tgBuild,down:tgDown,check:tgCheck,rectD:tgRectD,xz:tgXZ,working:tgWorking,tarp:tgTarp,TREES,LOOK:TG_LOOK,
   act(id,what){ const P=TG.plots[id]; if(P&&P.up&&P.kind==='site') tgAct(P,what); return P&&P.act; },
   plot:id=>TG.plots[id],roadDist,pathDist,segs:()=>SEGS,signs:()=>SIGNS,kDrawn:(x,z)=>kDrawn(x,z),walkable,isle:(x,z)=>isle(at(x,z)),LO,HOUSES,
   get state(){ return {ok:TG.ok,err:TG.err,skip:TG.skip,cleared:TG.cleared.length,n:{...TG.n},g:{...TG.g},last:TG.last||null,

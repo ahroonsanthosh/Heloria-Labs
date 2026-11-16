@@ -1,5 +1,5 @@
 /* ================= THE WALK =================
-   One path through one place. s runs from 0 (Home) to 6 (Contact); the scroll moves along it.
+   One path through one place. s runs from 0 (Home) to ROOMS+2 (Contact); the scroll moves along it.
    Each scene has its own camera track; through a doorway both play at once and the composite blends them. */
 const K=(s,p,t,f)=>({s,p,t,f});
 const TRACK={
@@ -12,9 +12,10 @@ const TRACK={
     K(.5,  [0,2.3,12.2],[0,2.9,-4],46),
     K(.54, [0,2.8,9.4],[0,2.85,-6],47),
     K(.6,  [0,2.85,5.6],[0,2.7,-8],50)],
-  out2:[ /* out of the gallery through the far arch and along the pool to the three of us, who rise out of the water as you
-           come. Then you turn, past Abraham, and walk on out through the arch you came in by, the sunset over the lake framed
-           in it: every scroll forward a step forward (walking backwards away from us felt like being pulled back) */
+  out2:[ /* (written for four rooms: moved along by MORE in tracksFor) out of the gallery through the far arch and along
+           the pool to the three of us, who rise out of the water as you come. Then you turn, past Abraham, and walk on
+           out through the arch you came in by, the sunset over the lake framed in it: every scroll forward a step
+           forward (walking backwards away from us felt like being pulled back) */
     K(4.4, [-9.4,1.72,-10.1],[8,1.5,-10.2],50),
     K(4.5, [-8.2,1.7,-10.15],[8,1.45,-10.2],46),
     K(4.75,[-5.8,1.6,-10.2],[8,1.32,-10.2],42),
@@ -29,7 +30,8 @@ const TRACK={
     K(6,   [-24.5,1.42,-9.7],[-200,9.2,-11.5],42),
     K(6.5, [-30,1.42,-9.7],[-200,10,-11.5],42)],
 };
-/* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one */
+/* in portrait the camera stands further back with a wider lens, and walks past the three of us one by one (also for four
+   rooms, like out2) */
 const TRACK_P={
   out:{0:K(0,[0,1.5,80],[0,4.1,2],52), .12:K(.12,[0,1.55,61],[0,3.6,1],52), .26:K(.26,[0,1.6,43],[0,3.1,2],52)},
   out2:{5:K(5,[1.2,1.45,-10.2],[7.6,1.2,-10.2],46), 5.1:K(5.22,[.6,1.5,-6.2],[.9,1.4,5.8],50), 5.2:K(5.3,[-.6,1.56,-8.6],[-12.6,1.7,-9.8],52), 5.32:K(5.38,[-6,1.64,-10],[-30,2.2,-10.4],52), 6:K(6,[-24.5,1.42,-9.7],[-200,12,-11.5],56), 6.5:K(6.5,[-30,1.42,-9.7],[-200,12,-11.5],56)},
@@ -43,15 +45,18 @@ const VIEW={
   pharos:{a:[[-.4,1.65,7.3],[.15,1.6,.3],45], v:[[-1.75,1.62,6.4],[.25,1.55,0],44], vp:[[-1.65,1.62,6.5],[.25,1.55,0],62], d:2},
   ogive: {a:[[.35,1.6,7.3],[0,3,0],48], v:[[1.25,1.5,6.7],[0,3.1,0],50], vp:[[1.1,1.5,6.7],[0,3.25,0],64], d:2.7},
   krios: {a:[[-.3,1.66,7.8],[1.6,1.95,-.5],48], v:[[-1.2,1.62,5.4],[.9,2.05,-.6],46], vp:[[-.8,1.62,6.8],[1.78,.85,-.6],62], d:1.9},
+  /* the plain room (buildRoom): in at the door, then up to the plinth, a little to one side so the label has its half */
+  room:  {a:[[0,1.66,7.6],[0,1.9,0],48], v:[[-1.1,1.56,5.2],[.15,1.55,0],46], vp:[[-.9,1.56,6.2],[.1,1.45,0],62], d:2.2},
 };
 function galTrack(port){
   const L=[K(.4,[0,1.72,3.6],[0,1.8,-8],48), K(.5,[0,1.72,.8],[0,1.76,-10],46), K(.72,[0,1.7,-5],[0,1.9,-14],42)];
-  PROJ.forEach((p,k)=>{ const zc=roomZ(k), V=VIEW[p.id], at=(o,z)=>[o[0],o[1],z+o[2]], vw=port?V.vp:V.v;
+  PROJ.forEach((p,k)=>{ const zc=roomZ(k), V=VIEW[p.id]||VIEW.room, at=(o,z)=>[o[0],o[1],z+o[2]], vw=port?V.vp:V.v;
     if(k>0) L.push(K(k+.45,[0,1.68,wallZ(k)-.6],[0,V.d,zc+1.5],46));   // through the middle of the doorway
     L.push(K(k===0?.86:k+.64,at(V.a[0],zc),at(V.a[1],zc),V.a[2]));
     L.push(K(k+1,at(vw[0],zc),at(vw[1],zc),vw[2])); });
   /* and out: past the last room to the far arch, and into the courtyard's light */
-  L.push(K(4.3,[.2,1.7,-72.2],[0,2.2,-82],46), K(4.5,[0,1.72,-76.6],[0,1.9,-84],46), K(4.6,[0,1.72,-78.8],[0,1.9,-86],48));
+  const X=EXIT_Z;
+  L.push(K(4.3+MORE,[.2,1.7,X+3.8],[0,2.2,X-6],46), K(4.5+MORE,[0,1.72,X-.6],[0,1.9,X-8],46), K(4.6+MORE,[0,1.72,X-2.8],[0,1.9,X-10],48));
   return L;
 }
 function tracksFor(port){
@@ -59,14 +64,16 @@ function tracksFor(port){
   for(const k of ['out','out2']){
     let L=TRACK[k].map(x=>({...x}));
     if(port){ const o=TRACK_P[k]; L=L.map(x=>o[x.s]?{...o[x.s]}:x); if(k==='out2') L=L.concat(TRACK_P.outAdd.map(x=>({...x}))).sort((a,b)=>a.s-b.s); }
+    if(k==='out2'&&MORE) L=L.map(x=>({...x,s:x.s+MORE}));
     out[k]=L;
   }
   return out;
 }
 let TR=tracksFor(false);
 /* the stops the scroll settles on */
-let STOPS=[0,1,2,3,4,5,6];
-function setLayout(){ const p=portrait(); TR=tracksFor(p); STOPS=p?[0,1,2,3,4,4.86,5,5.14,6]:[0,1,2,3,4,5,6]; }
+let STOPS=PLACES.map(q=>q.s);
+/* (in portrait, two more in the courtyard: by each of the three of us) */
+function setLayout(){ const p=portrait(); TR=tracksFor(p); STOPS=PLACES.map(q=>q.s); if(p) STOPS.splice(ROOMS+1,1,4.86+MORE,5+MORE,5.14+MORE); }
 
 /* C1 interpolation through unevenly spaced keys (Catmull-Rom tangents, Hermite basis) */
 function trackEval(keys,s,outP,outT){
@@ -89,7 +96,7 @@ const PACE={tr:null, stops:null, seg:[], N:240, DOOR:.28, FLOOR:.3, EVEN:.22, EA
 function paceBuild(){
   PACE.tr=TR; PACE.stops=STOPS; PACE.seg=[];
   const p0=v3(),t0=v3(),p1=v3(),t1=v3(), a0=v3(), a1=v3();
-  const look=(s,p,t)=>{ const m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a; return trackEval(name==='gal'?TR.gal:(s<2.5?TR.out:TR.out2),s,p,t); };
+  const look=(s,p,t)=>{ const m=sceneMix(s), name=m.b&&m.k>.5?m.b:m.a; return trackEval(name==='gal'?TR.gal:(s<MID?TR.out:TR.out2),s,p,t); };
   for(let i=0;i<STOPS.length-1;i++){
     const a=STOPS[i], b=STOPS[i+1], N=PACE.N, ds=(b-a)/N, d=new Float64Array(N), door=new Uint8Array(N);
     let sum=0, n=0;
@@ -130,11 +137,11 @@ function sceneMix(s){
 /* the world's colour: each room tints everything with its project's light as you arrive */
 const TINT=new T.Color(1,1,1), _tc=PROJ.map(p=>col(p.col)), _warm=col('#FFF6EA');
 function tintAt(s,out){
-  if(s<.55||s>4.45){ out.copy(_warm); return out; }
-  const f=clamp(s-1,0,3), k=Math.min(2,Math.floor(f)), t=sstep(.3,.7,f-k);
-  out.copy(_tc[k]).lerp(_tc[k+1],f>=3?1:t);
+  if(s<.55||s>4.45+MORE){ out.copy(_warm); return out; }
+  const n=ROOMS-1, f=clamp(s-1,0,n), k=Math.max(0,Math.min(n-1,Math.floor(f))), t=sstep(.3,.7,f-k);
+  out.copy(_tc[k]).lerp(_tc[Math.min(n,k+1)],f>=n?1:t);
   if(s<1) out.copy(_warm).lerp(_tc[0],sstep(.55,.9,s));
-  if(s>4) out.lerp(_warm,sstep(4.1,4.45,s));
+  if(s>ROOMS) out.lerp(_warm,sstep(4.1+MORE,4.45+MORE,s));
   return out;
 }
 /* where the place says you are */

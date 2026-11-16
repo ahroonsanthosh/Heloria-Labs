@@ -317,6 +317,10 @@ const A=(()=>{
   loop((oc,out,sr,k)=>{ const hp=k.bq('highpass',300,null,out); hp.connect(k.g(.9,k.wet)); k.noise('white',1.23,k.bq('bandpass',6500,.7,k.g(.5,hp))); },10,{name:'ogHiss',full:.45*.065,tc2:.3,room:true,sr:32000});
   /* Kríos: no voices. A quiet room with a lamp on: a little air, and a low D under the conversation */
   loop((oc,out,sr,k)=>{ const {g,bq,lfo}=k; k.noise('white',1.29,bq('lowpass',520,.5,g(.05,out))); const og=g(.045,out); k.drone('sine',mtof(38),og); lfo(.07,.015,og.gain); },15,{name:'kr',full:.55});
+  /* a plain room (buildRoom, for a project the walk has no room of its own for): a quiet held chord, A and E with a high
+     A over them, each breathing at its own pace, so the room is never silent. Made only when the walk has such a room */
+  if(PROJ.some(p=>!OWN_SOUND.includes(p.id))) loop((oc,out,sr,k)=>{ const {g,lfo}=k;
+    [[57,.03],[64,.022],[69,.014],[81,.005]].forEach(([m,v],i)=>{ const dg=g(v,out); k.drone('sine',mtof(m),dg); lfo(.04+i*.013,v*.3,dg.gain); }); },25,{name:'rm',full:.6});
   /* a rocket going up from the far shore: a low, uneven rumble that comes in late and far; it opens up and comes close when
      you catch it */
   const rocket=f=>(oc,out,sr,k)=>{ const {g,bq,osc}=k; const bus=g(1,out); bus.connect(g(.8,k.wet)); const a=g(.75,bus); k.noise('brown',1.12,bq('lowpass',f,.7,a));
@@ -371,6 +375,8 @@ const A=(()=>{
     const ae=st.ae, ph=st.ph, og=st.og, kr=st.kr;
     if(nm==='kr-you'){ if(kr>.05) KR_YOU[v%6].forEach(([m,d])=>mallet(m,t+.02+d,.034*kr,p+(Math.random()-.5)*.1)); return; }
     if(nm==='kr-them'){ if(kr>.05) KR_THEM[v%6].forEach(([m,d])=>glass(m,t+.02+d,.026*kr,p,n.comp)); return; }
+    /* a plain room, woken by your hand: a soft chord on glass, a step higher in each such room along the walk */
+    if(nm==='rm-touch'){ const r=st.rm||0; if(r>.05) [69,73,76,81].forEach((m,i)=>glass(m+(v%4)*2,t+.02+i*.08,.02*r,p+(i-1.5)*.1,n.comp)); return; }
     if(nm==='kr-deal'){ if(kr>.05) [74,78,81,86].forEach((m,i)=>glass(m,t+1.25+i*.1,.02*kr,(i-1.5)*.18,n.comp)); return; }
     if(nm==='ae-sweep'){ if(ae>.05) tone(1320,.09,.006*ae,'sine',1180,0,.5,.002); }
     else if(nm==='ae-hov'){ if(ae>.05) tone(1760,.07,.0045*ae,'sine',1640,0,.45,.002); }
@@ -399,7 +405,7 @@ const A=(()=>{
       const rms=Math.sqrt(sq/b.length); let lp=0; for(const L of LOOPS) if(L.els&&L.els.some(e=>!e.paused)){ const x=L.rms*(MX.ios?1:L.els[L.cur].volume); lp+=x*x; }
       const db=x=>+(10*Math.log10(x+1e-18)).toFixed(1);
       return {peak:+pk.toFixed(3),rmsDb:+(20*Math.log10(rms+1e-9)).toFixed(1),loopsDb:db(lp),allDb:db(rms*rms+lp)}; },
-    levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+LP.kr.va.toFixed(3),ae:+LP.ae.va.toFixed(3),ph:+LP.phTone.va.toFixed(3),og:+LP.og.va.toFixed(3),state:ctx.state}:null; },
+    levels(){ return ctx?{master:+n.master.gain.value.toFixed(3),mus:+n.mus.gain.value.toFixed(3),water:+n.water.gain.value.toFixed(3),waterF:Math.round(n.waterLP.frequency.value),kr:+LP.kr.va.toFixed(3),ae:+LP.ae.va.toFixed(3),ph:+LP.phTone.va.toFixed(3),og:+LP.og.va.toFixed(3),...(LP.rm?{rm:+LP.rm.va.toFixed(3)}:{}),state:ctx.state}:null; },
     /* test hooks: each recording (made yet, playing, its volume, the volume it is heading for, its level at full volume, its
        size, how long it took); and a jump to just before a recording's seam, which hands back its two players */
     loops(){ return LOOPS.map(L=>{ const e=L.els&&L.els[L.cur]; return {name:L.name,ready:!!L.els||!!L.moved,playing:!!L.els&&L.els.some(x=>!x.paused),vol:e?+(MX.ios?(e.paused?0:1):e.volume).toFixed(3):0,want:+Math.min(1,L.a*L.b/L.full).toFixed(3),
@@ -434,7 +440,7 @@ const A=(()=>{
       const W=st.water*.62, wo=Math.pow(clamp(Math.log(st.waterF/320)/Math.log(1500/320),0,1),1.5);
       lv('waterOpen',W,Math.sqrt(wo)); lv('waterClosed',W,Math.sqrt(1-wo));
       lv('music',st.music*.9); lv('wind',0);   // no wind: on a phone's speaker, which plays little of the score's low notes, its band of noise was the static
-      lv('kr',st.kr*.55); lv('ae',st.ae*.75);
+      lv('kr',st.kr*.55); lv('ae',st.ae*.75); if(LP.rm) lv('rm',(st.rm||0)*.6);
       /* Pharos: the tone settles as the drone becomes sure where it is; doubt is a little air, brighter the less sure */
       const f=st.beam||0; lv('phTone',st.ph*.36,.35+.65*f); lv('phAir',st.ph*.36,(1-f)*.1*Math.sqrt((300+(1-f)*900)/1200));
       lv('og',st.og*.45); lv('ogHiss',st.og*.45,.025+(st.rise||0)*.04);

@@ -16,6 +16,7 @@ The deployed site (Tamed at the front, Untamed under untamed/) is written by too
 import argparse, base64, glob, json, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools'))
 import fonts as FONTS
+import projects as PROJECTS   # projects.json at the top of the repo: one room each
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -36,7 +37,9 @@ EM_DASH = chr(0x2014)   # spelled out, so this file has none in it either
 
 
 def read(p):
-    return open(os.path.join(SRC, p), encoding='utf-8').read()
+    t = open(os.path.join(SRC, p), encoding='utf-8').read()
+    # the page's rooms, its index of places, the menu's Projects link and its description come from projects.json
+    return PROJECTS.walk_html(t, PROJECTS.load()) if p in ('head.html', 'body.html') else t
 
 
 def minifier():
@@ -83,14 +86,16 @@ def parts(links, photo_list, land):
     check_dashes(css_files + js_files + [os.path.join(SRC, 'head.html'), os.path.join(SRC, 'body.html')])
     css = '\n'.join(open(f, encoding='utf-8').read() for f in css_files)
     js = '\n'.join('/* ---- %s ---- */\n' % os.path.basename(f) + open(f, encoding='utf-8').read() for f in js_files)
-    for key in ('__PHOTOS__', '__LANDIMG__') + tuple(links):
+    for key in ('__PHOTOS__', '__LANDIMG__', '__PROJECTS__') + tuple(links):
         if key not in js:
             sys.exit('the app script lost its %s placeholder' % key)
-    js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__LANDIMG__', land)
+    rooms = PROJECTS.walk_json(PROJECTS.load())
+    js = js.replace('__PHOTOS__', json.dumps(photo_list)).replace('__LANDIMG__', land).replace('__PROJECTS__', rooms)
     # the recordings a browser keeps from one visit to the next (js/04-keep.js) are kept under a fingerprint of the code
     # that makes them, so a change to any sound makes them all afresh
     import hashlib
-    js = js.replace("'__SOUNDV__'", json.dumps(hashlib.sha1(''.join(read('js/' + f) for f in ('04-keep.js', '00-base.js', '05-audio.js')).encode('utf-8')).hexdigest()[:10]))
+    # (and the rooms: each project without a sound of its own shares one, made only when there is one)
+    js = js.replace("'__SOUNDV__'", json.dumps(hashlib.sha1((''.join(read('js/' + f) for f in ('04-keep.js', '00-base.js', '05-audio.js')) + rooms).encode('utf-8')).hexdigest()[:10]))
     for key, url in links.items():
         js = js.replace(key, url)
     app = "(()=>{\n'use strict';\n" + js + "\n})();\n"

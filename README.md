@@ -67,6 +67,9 @@ finishes with a photo and a link, and a board outside the café books a chat wit
   the blackboard, play the xylophone, spin the globe, launch the model rocket and say hello to the class hamster.
 - Each project in the walk has its own room built around what it does, from a drone that finds itself on a map in the
   dark to a sales call that rises over a table as lines of light.
+- Every project is one entry in [`projects.json`](projects.json). A new entry gets a room on the walk and a building in
+  town with its card and postcard stamp, and the walk after the rooms moves along to make space for it. See
+  [ADDING-A-PROJECT.md](ADDING-A-PROJECT.md).
 - No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
 
 ## Running it

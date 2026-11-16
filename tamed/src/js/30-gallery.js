@@ -1,9 +1,9 @@
-/* ================= THE GALLERY: FOUR ROOMS OF LIGHT =================
+/* ================= THE GALLERY: ROOMS OF LIGHT =================
    Bigger inside than out. Rooms in a line, doorways aligned, so each room shows the next one's light. */
 const ROOM={L:16, W:12, H:7.2, T:1.2, z0:-6};
 const roomZ=k=>ROOM.z0-ROOM.T-ROOM.L/2-k*(ROOM.L+ROOM.T);
 const wallZ=k=>ROOM.z0-k*(ROOM.L+ROOM.T);
-const EXIT_Z=wallZ(4)-ROOM.T;
+const EXIT_Z=wallZ(ROOMS)-ROOM.T;
 
 function buildGallery(){
   const W={name:'gal', scene:new T.Scene(), U:sceneU(), t:0};
@@ -11,14 +11,14 @@ function buildGallery(){
   const zA=1, zB=EXIT_Z-8;
   B.raw(`d=min(d,p.y);`);
   /* side walls, the vestibule and the exit corridor */
-  B.box(-7,-6,0,H+.6,wallZ(4)-ROOM.T,wallZ(0)); B.box(6,7,0,H+.6,wallZ(4)-ROOM.T,wallZ(0));
+  B.box(-7,-6,0,H+.6,EXIT_Z,wallZ(0)); B.box(6,7,0,H+.6,EXIT_Z,wallZ(0));
   /* each group only costs a pixel within reach of it: a room never pays for the rooms beyond it */
   B.group(-6,6,0,H+.6,wallZ(0),zA,()=>{ B.box(-6,-2.2,0,H+.6,wallZ(0),zA); B.box(2.2,6,0,H+.6,wallZ(0),zA); B.box(-2.2,2.2,5.6,H+.6,wallZ(0),zA); });
   B.group(-6,6,0,H+.6,zB,EXIT_Z,()=>{ B.box(-6,-2.2,0,H+.6,zB,EXIT_Z); B.box(2.2,6,0,H+.6,zB,EXIT_Z); B.box(-2.2,2.2,5.6,H+.6,zB,EXIT_Z); });
-  for(let k=0;k<=4;k++) B.wall('x',-7,7,0,H+.6,wallZ(k)-ROOM.T,wallZ(k),[{c:0,w:2.8,hs:3.45}]);
-  /* ceilings: plain over Kríos and Pharos, a square opening over Aetos, a round shaft over Ogive, wherever each room is */
-  const z0=k=>wallZ(k)-ROOM.T, z1=k=>wallZ(k+1), sA=SLOT.aetos, sP=SLOT.pharos, sO=SLOT.ogive, sK=SLOT.krios;
-  B.box(-6,6,H,H+.6,z1(sK),z0(sK)); B.box(-6,6,H,H+.6,z1(sP),z0(sP));
+  for(let k=0;k<=ROOMS;k++) B.wall('x',-7,7,0,H+.6,wallZ(k)-ROOM.T,wallZ(k),[{c:0,w:2.8,hs:3.45}]);
+  /* ceilings: a square opening over Aetos, a round shaft over Ogive, plain over every other room, wherever each room is */
+  const z0=k=>wallZ(k)-ROOM.T, z1=k=>wallZ(k+1), sA=SLOT.aetos, sP=SLOT.pharos, sO=SLOT.ogive;
+  PROJ.forEach((p,k)=>{ if(k!==sA&&k!==sO) B.box(-6,6,H,H+.6,z1(k),z0(k)); });
   const AP=2.1, ac=roomZ(sA);
   B.box(-6,6,H,H+.06,ac+AP,z0(sA),{nosdf:1}); B.box(-6,6,H,H+.06,z1(sA),ac-AP,{nosdf:1}); B.box(-6,-AP,H,H+.06,ac-AP,ac+AP,{nosdf:1}); B.box(AP,6,H,H+.06,ac-AP,ac+AP,{nosdf:1});
   B.box(-6,6,H+.06,H+.8,ac+AP+.9,z0(sA),{nosdf:1}); B.box(-6,6,H+.06,H+.8,z1(sA),ac-AP-.9,{nosdf:1}); B.box(-6,-AP-.9,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1}); B.box(AP+.9,6,H+.06,H+.8,ac-AP-.9,ac+AP+.9,{nosdf:1});
@@ -92,13 +92,13 @@ function buildGallery(){
 
   /* soft room light: a low warm ambient, and a glow of each room's own colour */
   W.hemi=new T.HemisphereLight('#FFF4E8','#BFAF9C',.045); sc.add(W.hemi);
-  const RL={aetos:7,pharos:.12,ogive:5,krios:2.2};   // Pharos keeps its dark; Kríos is lit by its own lamp
-  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,RL[p.id],20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
+  const RL={aetos:7,pharos:.12,ogive:5,krios:2.2,room:4};   // Pharos keeps its dark; Kríos is lit by its own lamp
+  W.roomLights=PROJ.map((p,k)=>{ const l=new T.PointLight(p.col,RL[p.id]??RL.room,20,1.4); l.position.set(0,H-.6,roomZ(k)); sc.add(l); return l; });
   const exitL=new T.PointLight('#FFB980',40,16,1.6); exitL.position.set(0,3.5,zB+2); sc.add(exitL);
   const inL=new T.PointLight('#FFE3BC',26,12,1.6); inL.position.set(0,3.2,zA-1.5); sc.add(inL);
 
   const BUILD={aetos:k=>buildAetos(W,roomZ(k),AP,k), pharos:k=>buildPharos(W,roomZ(k),k), ogive:k=>buildOgive(W,roomZ(k),OR,k), krios:k=>buildKrios(W,roomZ(k),k)};
-  W.rooms=PROJ.map((p,k)=>BUILD[p.id](k)); W.room=id=>W.rooms[SLOT[id]];
+  W.rooms=PROJ.map((p,k)=>(BUILD[p.id]||(k=>buildRoom(W,roomZ(k),k,p)))(k)); W.room=id=>W.rooms[SLOT[id]];
   W.hideInMirror=[floor];
   W.update=(dt,st)=>{ W.t+=dt*S.timeScale; handUpdate(dt); for(const r of W.rooms) r.update(dt*S.timeScale,W.t,st); W.shaft.visible=W.shaftCap.visible=W.ogColumn.visible=CAM.gal.position.z<wallZ(Math.max(0,sO-1))+2.4; };   // only once the shaft can be seen
   W.applyLight=(tod,tint,s)=>{
@@ -390,6 +390,41 @@ function buildAetos(W,zc,AP,k){
   }};
 }
 
+/* ---------- the plain room: for a project the walk has no room of its own for (one added to projects.json). A stone plinth,
+   and over it a lantern: three rings of the project's light turning slowly round a bright core, and a pool of the same
+   light on the floor. Your hand in the room wakes it: the rings turn quicker and brighten, and it rings once, a soft chord
+   (its sound, and the room's quiet tone, are in 05-audio.js). A room made for the project replaces it: add a builder to
+   BUILD in buildGallery, and a view to VIEW in 50-path.js ---------- */
+function buildRoom(W,zc,k,p){
+  const g=new T.Group(); W.scene.add(g);
+  const C=col(p.col), X=.15, Z=zc-.4, LY=1.78;
+  /* (a little of the pool's light comes back off the floor onto the stone, so its sides never go black) */
+  const stone=new T.MeshStandardMaterial({color:'#E8E0D3',roughness:.48,metalness:0,emissive:C.clone().lerp(col('#E8E0D3'),.5),emissiveIntensity:.14});
+  const add=(geo,y,m=stone)=>{ const o=new T.Mesh(geo,m); o.position.set(X,y,Z); o.castShadow=o.receiveShadow=true; g.add(o); return o; };
+  add(new T.BoxGeometry(1.0,.05,1.0),.025); add(new T.BoxGeometry(.86,.88,.86),.49); add(new T.BoxGeometry(1.02,.06,1.02),.96);
+  /* the lantern: three rings, each turning on its own axis, round a bright core */
+  const lan=new T.Group(); lan.position.set(X,LY,Z); g.add(lan);
+  const ringM=new T.MeshBasicMaterial({color:C.clone().multiplyScalar(1.6)});
+  const rings=[.5,.41,.32].map(r=>{ const m=new T.Mesh(new T.TorusGeometry(r,.012,8,96),ringM); lan.add(m); return m; });
+  const ball=new T.Mesh(new T.SphereGeometry(.075,24,16),new T.MeshBasicMaterial({color:C.clone().lerp(col('#FFFFFF'),.55).multiplyScalar(2.2)})); lan.add(ball);
+  const core=glowSprite(p.col,.95); core.mesh.renderOrder=958; lan.add(core.mesh);
+  const lampL=new T.PointLight(p.col,2.4,5.5,1.6); lan.add(lampL);
+  /* its light on the floor round the plinth */
+  const poolM=new T.ShaderMaterial({uniforms:{uCol:{value:C.clone()},uK:{value:.5}},...ADD,
+    vertexShader:`varying vec2 vQ; void main(){ vQ=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uK; varying vec2 vQ; void main(){ float r=length(vQ)/1.6; gl_FragColor=vec4(uCol*exp(-r*r*3.)*(1.-smoothstep(.85,1.,r))*.3*uK,1.); }`});
+  const pool=new T.Mesh(new T.PlaneGeometry(3.2,3.2),poolM); pool.rotation.x=-Math.PI/2; pool.position.set(X,.008,Z); pool.renderOrder=8; g.add(pool);
+  let hK=0, rung=false, spin=0;
+  return {g, dbg:()=>({hand:+hK.toFixed(2),spin:+spin.toFixed(2)}), update(dt,t,st){
+    const hk=handIn(zc,k); hK=damp(hK,hk,hk>hK?6:2.5,dt);
+    if(hK>.5&&!rung){ rung=true; rsnd('rm-touch',X*.1,k); } if(hK<.15) rung=false;
+    spin+=dt*(.16+.9*hK);
+    rings[0].rotation.set(.35,spin,0); rings[1].rotation.set(1.2+spin*1.3,.4,0); rings[2].rotation.set(.6,.9,spin*1.7);
+    lan.position.y=LY+Math.sin(t*.6)*.03;
+    const b=1+.8*hK; ringM.color.copy(C).multiplyScalar(1.6*b); core.U.uK.value=.85+.7*hK; lampL.intensity=2.4*b; poolM.uniforms.uK.value=.5+.6*hK;
+  }};
+}
+
 /* ---------- Pharos: a drone in a dark room with nothing to go by. Its camera lights a square of the floor, and the floor is a
    map; a second square, where it thinks it is, slides over to match what it sees and locks on. Over open water there is
    nothing to match, and it says so: the square loosens and its circle of doubt opens up ---------- */
@@ -611,8 +646,8 @@ function buildOgive(W,zc,OR,k){
       if(u>.985&&beat===10){ beat=11; rsnd('og-land'); }
     } else { alt=0; hoopK=.42; }
     /* walking on, out of the room: it goes, straight up the shaft and away */
-    leave=damp(leave,s>4.02?1:0,s>4.02?.9:6,dt);
-    const lv=Math.pow(Math.max(0,s-4)/.5,2.2)*30*leave;
+    leave=damp(leave,s>4.02+MORE?1:0,s>4.02+MORE?.9:6,dt);
+    const lv=Math.pow(Math.max(0,s-4-MORE)/.5,2.2)*30*leave;
     rocket.position.y=.02+alt+lv+Math.sin(t*.8)*.012*(alt>.05?1:0);
     if(lv>.05) flameK=Math.max(flameK,sstep(.05,.6,lv));
     rocket.rotation.y+=dt*.05;

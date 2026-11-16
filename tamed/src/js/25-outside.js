@@ -384,7 +384,7 @@ function buildOutside(){
     }
   };
   W.applyLight=(tod,tint)=>{ applyOutsideLight(W,tod,tint); W.launch.light();
-    const k=sstep(4.45,4.8,S.s)*(1-sstep(5.85,6.1,S.s))*sstep(-.5,1.5,SUN.el); W.beamMat.uniforms.uK.value=k;
+    const k=sstep(4.45+MORE,4.8+MORE,S.s)*(1-sstep(5.85+MORE,6.1+MORE,S.s))*sstep(-.5,1.5,SUN.el); W.beamMat.uniforms.uK.value=k;
     const yaw=Math.atan2(SUN.dir.z,-SUN.dir.x), pitch=Math.asin(clamp(SUN.dir.y,-1,1));
     for(const b of W.beams){ b.visible=k>.001; b.rotation.set(0,yaw,-pitch,'YZX'); } };
   W.render=(cam,target)=>{

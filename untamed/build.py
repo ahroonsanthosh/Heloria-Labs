@@ -12,6 +12,7 @@ import hashlib
 import argparse, base64, glob, json, os, shutil, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools'))
 import fonts as FONTS
+import projects as PROJECTS   # projects.json at the top of the repo: each one's card, and a building for a new one
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'untamed', 'src')
@@ -40,7 +41,8 @@ def parts(tamed_url=TAMED_ARTIFACT, pretty=False):
     """pretty: on the site, the address shows /land while you are there"""
     ids = [i for i in STATIONS if os.path.isdir(os.path.join(SRC, 'stations', i))]
     css = read('css/core.css') + '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.css' % i) for i in ids)
-    html = calm_link(read('body.html').replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids)), tamed_url)
+    L = PROJECTS.load()
+    html = calm_link(PROJECTS.land_html(read('body.html'), L).replace('<!-- @STATIONS -->', '\n'.join(read('stations/%s/station.html' % i) for i in ids)), tamed_url)
     js = '\n'.join(read('js/' + f) for f in CORE_JS)
     js += '\n' + '\n'.join('/* ===== station %s ===== */\n' % i + read('stations/%s/station.js' % i) for i in ids)
     js += '\n' + read('js/90-main.js')
@@ -51,6 +53,9 @@ def parts(tamed_url=TAMED_ARTIFACT, pretty=False):
             data['%s/%s' % (i, os.path.splitext(os.path.basename(f))[0])] = json.load(open(f))
     js = 'const DATA=%s;\n' % json.dumps(data, separators=(',', ':')) + js
     js = js.replace("'__PRETTY__'", json.dumps(pretty))
+    if '__PROJECTS__' not in js:
+        sys.exit('Land lost its __PROJECTS__ placeholder')
+    js = js.replace('__PROJECTS__', PROJECTS.land_json(L))
     # the recordings a browser keeps from one visit to the next (js/00-keep.js) are kept under a fingerprint of the code
     # that makes them, so a change to any sound makes them all afresh
     js = js.replace("'__SOUNDV__'", json.dumps(hashlib.sha1((read('js/00-keep.js') + read('js/00-core.js')).encode('utf-8')).hexdigest()[:10]))
@@ -81,7 +86,7 @@ DOC_HEAD = '''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs: Earth</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. Land on a small drawn town on Earth, where the three of us are waiting to talk about Kríos, Aetos, Pharos and Ogive.">
+<meta name="description" content="Heloria Labs is a software lab in Ireland. Land on a small drawn town on Earth, where the three of us are waiting to talk about @NAMES.">
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs: Earth">
@@ -124,7 +129,7 @@ def write_site(out, minify=True):
     # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
     # the moment the page changes, instead of running yesterday's code for an hour
     fp = lambda t: hashlib.sha1(t.encode('utf-8')).hexdigest()[:10]
-    page = (DOC_HEAD.replace('<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="{F}">\n', FONTS.preload(['doto'], '{A}fonts/')).replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A) + html
+    page = (DOC_HEAD.replace('@NAMES', PROJECTS.names(PROJECTS.load())).replace('<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="{F}">\n', FONTS.preload(['doto'], '{A}fonts/')).replace('{A}untamed.css', '{A}untamed.css?v=' + fp(css)).replace('{A}', A) + html
             + '\n<script src="%svendor/three.min.js?v=%s"></script>\n<script src="%suntamed.js?v=%s"></script>\n</body>\n</html>\n'
             % (A, hashlib.sha1(open(os.path.join(SRC, 'assets', 'vendor', 'three.min.js'), 'rb').read()).hexdigest()[:10], A, fp(js)))
     open(os.path.join(out, 'untamed', 'index.html'), 'w', encoding='utf-8').write(page)

@@ -1,0 +1,57 @@
+{
+  "_how": [
+    "Every Heloria Labs project, in the order the Walk goes through them. Both halves of the site are built from this list:",
+    "the Walk gives each one a room (its label, the index, the menu and the page description follow), and Land gives each",
+    "one a card, a postcard stamp and a place in the plain page. A project Land has no sculpture for gets a building in town.",
+    "See ADDING-A-PROJECT.md for what each field does and what else you can add.",
+    "  id        a short lower-case name of its own: the room's address on the Walk (#id) and its name in the code",
+    "  land      Land's two-letter name for it (kr, ae, ph, og are the four sculptures); a new project can leave it out",
+    "  name      the project's name, as written",
+    "  kind      one short line saying what it is",
+    "  walk      the Walk room's label: a sentence or two",
+    "  card      the line on its card in Land, shorter",
+    "  by        who leads it, as the Walk's label says it",
+    "  href      where its link goes, and linkText, the link as shown on the Walk",
+    "  colour    its light: the room's glow on the Walk and its tint; colour2 is the deeper shade of the label's rule",
+    "  plot      (optional, Land) where its building stands: x, z, yaw, w, d, h, wall, roof. Left out, it takes the next",
+    "            spare plot in town, and the building site for what is next moves on to the one after"
+  ],
+  "projects": [
+    {
+      "id": "aetos", "land": "ae", "name": "Aetos",
+      "kind": "Counter-drone command software",
+      "walk": "When the sky fills with drones, Aetos tracks every one, tells friend from threat, and puts the one that matters in front of the operator.",
+      "card": "It reads a sky full of drones and marks the one that matters.",
+      "by": "Led by Ahroon Santhosh",
+      "href": "https://github.com/ahroonsanthosh/Aetos", "linkText": "github.com/ahroonsanthosh/Aetos",
+      "colour": "#F2EEE6", "colour2": "#7A8591"
+    },
+    {
+      "id": "pharos", "land": "ph", "name": "Pharos",
+      "kind": "GPS-free drone navigation",
+      "walk": "With GPS jammed or gone, the drone finds where it is by matching what its camera sees to the map, and says so when it is not sure.",
+      "card": "No GPS, so the drone finds itself by matching what it sees to the map.",
+      "by": "Led by Ahroon Santhosh",
+      "href": "https://github.com/ahroonsanthosh/pharos", "linkText": "github.com/ahroonsanthosh/pharos",
+      "colour": "#FFD5B3", "colour2": "#C9773F"
+    },
+    {
+      "id": "ogive", "land": "og", "name": "Ogive",
+      "kind": "AI tools for OpenRocket",
+      "walk": "Name the height. Ogive reworks the rocket in OpenRocket, one design at a time, until the simulated flight reaches it.",
+      "card": "Name the height, and it reworks the rocket until it gets there.",
+      "by": "Led by Michael Sweeney Heffernan",
+      "href": "https://github.com/michaelsheffernan/ogive", "linkText": "github.com/michaelsheffernan/ogive",
+      "colour": "#FFB475", "colour2": "#D9661F"
+    },
+    {
+      "id": "krios", "land": "kr", "name": "Kríos",
+      "kind": "Voice practice for sales teams",
+      "walk": "Reps rehearse the calls that matter out loud, against a buyer who answers back, before a real one ever hears them.",
+      "card": "Rehearse the call out loud, and a buyer answers back.",
+      "by": "Built by Michael Sweeney Heffernan. Our group project.",
+      "href": "https://krios.ie", "linkText": "krios.ie",
+      "colour": "#A5C3FF", "colour2": "#5B7CC9"
+    }
+  ]
+}
