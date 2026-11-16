@@ -20,6 +20,9 @@ const THREE_LOCAL = path.join(ROOT, 'untamed', 'src', 'assets', 'vendor', 'three
   const mobile = !!opt.mobile; const vp = mobile ? { width: +(opt.w || 390), height: +(opt.h || 844) } : { width: +(opt.w || 1280), height: +(opt.h || 800) };
   const ctx = await b.newContext({ viewport: vp, hasTouch: mobile, isMobile: mobile, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => { window.__TEST = true; });
+  /* --glate: the gallery made after the gate, as where the browser compiles shaders in the background (most of them; this
+     software drawing does not, so without it the gallery is made behind the loader) */
+  if (opt.glate) await ctx.addInitScript(() => { window.__GLATE = true; });
   if (opt.hq) await ctx.addInitScript(() => { window.__HQ = true; });
   if (opt.lowq) await ctx.addInitScript(() => { window.__LOWQ = true; });
   await ctx.route('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(THREE_LOCAL, 'utf8') }));

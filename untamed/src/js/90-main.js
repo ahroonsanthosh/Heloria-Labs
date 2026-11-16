@@ -27,6 +27,10 @@ function sendSets(sc,cam,sets){ if(!sets) return; let lit=false; sc.traverse(o=>
 const nextSlice=()=>new Promise(r=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); });
 /* every shader sent off so far is made (at once, where the browser makes them as they are first drawn with) */
 const programsReady=()=>new Promise(res=>{ const ck=()=>{ let ok=true; try{ ok=renderer.info.programs.every(p=>p.isReady()); }catch(e){} if(ok) res(); else setTimeout(ck,10); }; ck(); });
+/* every shader made is taken up now, behind the loader: its uniforms and attributes looked up, as three does the first time
+   it draws with one. Where a shader is not quite finished that waits for it, so it waits here, not on the first frame that
+   draws something no one has seen yet (the market's people by day, the rooms built after you land, the lamps at dusk) */
+function takeUp(){ for(const p of renderer.info.programs){ try{ p.getUniforms(); p.getAttributes(); }catch(e){} } }
 /* an object with a light of its own is compiled with the whole scene, not by itself: three would count its light twice
    (from the scene and from the object) */
 const hasLight=o=>{ let l=false; o.traverse(x=>{ if(x.isLight) l=true; }); return l; };
@@ -39,7 +43,7 @@ async function warmEarth(st){ const rt=mkRT(); rt.setSize(64,64);
   stCam.position.copy(st.camP); stCam.lookAt(st.camL);
   try{ intoTarget(()=>renderer.compile(st.scene,stCam)); sendSets(st.scene,stCam,st.matSets); for(const [s,c] of st.warmAlso||[]) intoTarget(()=>renderer.compile(s,c)); }catch(e){}
   { const was=renderer.getRenderTarget(); try{ renderer.setRenderTarget(null); renderer.compile(postScene,ortho); }catch(e){} finally{ renderer.setRenderTarget(was); } }
-  await Promise.race([programsReady(),wait(8000)]);
+  await Promise.race([programsReady(),wait(8000)]); takeUp();
   try{ st.render(rt); }catch(e){ console.error('render cr',e); }
   st.exit(); renderer.setRenderTarget(null); rt.dispose(); }
 async function boot(){

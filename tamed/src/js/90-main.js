@@ -260,9 +260,11 @@ async function galStep(ms){ const g=GLATE;
    each other with only a pause for anything you do in between */
 function galTick(){ const g=GLATE; if(g.stage>=3||g.busy) return; const now=performance.now(); if(!g.want&&now<g.after) return; if(!galQuiet(now)) return;
   g.busy=true;
-  setTimeout(async()=>{ do{ const t1=performance.now(), st=g.stage; try{ await galStep(g.want?1e9:S.mode==='gate'||S.mode==='entering'?20:8); }catch(e){ console.error('gallery',e); g.stage=3; g.cbs.splice(0).forEach(f=>f()); }
+  /* (wanted now, at the door: the steps follow each other, each a little longer than at a quiet moment, and a frame is drawn
+     between every two, so the walk eases to its stop at the door and the page never stands still while it waits) */
+  setTimeout(async()=>{ do{ const t1=performance.now(), st=g.stage; try{ await galStep(g.want?24:S.mode==='gate'||S.mode==='entering'?20:8); }catch(e){ console.error('gallery',e); g.stage=3; g.cbs.splice(0).forEach(f=>f()); }
       const t=performance.now(); if(g.log.length<200) g.log.push([st,Math.round(t-t1),S.mode,g.want?1:0]); g.qm=t+400; g.after=t+(t-t1<40?0:250);
-      if(!g.want||g.stage>=3) break; await wait(st===g.stage&&g.stage===2?10:0); }while(true);
+      if(!g.want||g.stage>=3) break; await nextFrame(); }while(true);
     g.busy=false; },0); }
 async function boot(){
   if(!GL_OK||!RT_OK){ document.documentElement.classList.add('nogl'); S.nogl=true; S.ready=true; UI.loadStep(1); UI.gateReady(); $('#gateState').textContent='This browser shows the plain page'; return; }
@@ -285,7 +287,7 @@ async function boot(){
   try{ POST.prep(); OUT.sim.prep(); }catch(e){}
   /* compile and draw every shader once behind the loader, so the walk never stalls (the gallery's after the gate, where it
      is made then: see GLATE) */
-  const steps=late?[[0,'out'],[5,'out']]:[[0,'out'],[1,'gal'],[2,'gal'],[3,'gal'],[4,'gal'],[5,'out']], k0=late?.3:.45, k1=late?.6:.5;
+  const steps=late?[[0,'out'],[ROOMS+1,'out']]:[[0,'out'],...PROJ.map((p,k)=>[k+1,'gal']),[ROOMS+1,'out']], k0=late?.3:.45, k1=late?.6:.5;   // (home, each room, the courtyard)
   for(let i=0;i<steps.length;i++){ const [s,w]=steps[i]; const W=w==='out'?OUT:GAL, cam=CAM[w];
     S.s=s; const [el,az]=sunAt(s); SUN.el=el; SUN.az=az; sunDir(el,az,SUN.dir); const tod=todAt(el); tintAt(s,TINT);
     camAt(w,s,cam); W.update(.016); W.applyLight(tod,TINT,s);

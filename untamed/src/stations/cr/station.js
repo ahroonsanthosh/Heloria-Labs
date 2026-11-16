@@ -3214,7 +3214,7 @@ function zebra(lp){ let bi=0,bd=1e9; lp.forEach((p,i)=>{ const d=Math.hypot(p[0]
    second at a time (lateStep). Each room is made ready to be drawn as it is finished (lateWarm), and nothing of one can be
    gone into or tapped until it is all there. In the tests (and anything else built behind the loader) they are built
    straight away, at the end of the build, as they always were ---------- */
-const LATE={q:[],busy:false,now:false,ms:4,s0:0,lt:0,gpu:false,gmax:0,tops:[],tr:window.__LATE_TR?[]:null,max:0,at:null,slices:0,log:[],cur:null,t0:0,t1:0,calm:0,n:0};
+const LATE={q:[],busy:false,now:false,ms:4,iv:0,base:0,skips:0,s0:0,lt:0,gpu:false,gmax:0,tops:[],tr:window.__LATE_TR?[]:null,max:0,at:null,slices:0,log:[],cur:null,t0:0,t1:0,calm:0,n:0};
 const lateNo=()=>{};
 function late(name,fn,pri=0){ LATE.q.push({name,fn,pri}); LATE.q.sort((a,b)=>b.pri-a.pri); }   // (pri: the rooms you might walk into first; what is out of sight till evening last)
 /* between two parts: on at once while this turn has time left, else the next frame drawn first (and the kit being filled,
@@ -3222,9 +3222,19 @@ function late(name,fn,pri=0){ LATE.q.push({name,fn,pri}); LATE.q.sort((a,b)=>b.p
 function lateStep(force){ LATE.n++; const t=performance.now(); if(LATE.tr){ const w=(new Error().stack.split('\n')[2]||'').match(/:(\d+):(\d+)\)?$/); LATE.tr.push([LATE.cur,LATE.n,+(t-LATE.lt).toFixed(1),w?+w[1]:0]); LATE.lt=performance.now(); } if(LATE.now||!force&&t-LATE.s0<LATE.ms) return; return lateYield(t); }
 async function lateYield(t){ const d=t-LATE.s0; if(LATE.gpu){ if(d>LATE.gmax) LATE.gmax=d; } else { if(d>LATE.max){ LATE.max=d; LATE.at=[LATE.cur,LATE.n]; } LATE.tops.push(+d.toFixed(1)); LATE.tops.sort((a,b)=>b-a); LATE.tops.length=Math.min(LATE.tops.length,3); } LATE.slices++;
   const kk=KK, gk=GRD&&GRD.kit;
-  await new Promise(r=>requestAnimationFrame(()=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); }));
+  await lateFrame();
   kUse(kk); if(GRD) GRD.kit=gk; LATE.s0=LATE.lt=performance.now(); }
-async function lateRun(){ if(LATE.busy||!LATE.q.length) return; LATE.busy=true; LATE.t0=LATE.s0=LATE.lt=performance.now();
+/* the next frame with room in it. How long the frames take is watched while the rooms are being built: one that came late
+   (the page already short of time, the visitor walking through a busy street on a slow phone) is let go by with nothing
+   built in it, for up to a quarter of a second, so the building never makes a slow frame slower. base: the frames' usual
+   length (it drops at once to a quicker one, and rises only slowly), iv: the last one's */
+function lateClock(){ let last=0; const f=now=>{ if(last){ const iv=now-last; LATE.iv=iv; LATE.base=!LATE.base||iv<LATE.base?iv:LATE.base+(iv-LATE.base)*.01; } last=now; if(LATE.busy) requestAnimationFrame(f); else LATE.base=0; }; requestAnimationFrame(f); }
+const lateLate=()=>LATE.base>0&&LATE.iv>LATE.base*1.5+4;
+async function lateFrame(){ const t0=performance.now(); let n=0;
+  do{ await new Promise(r=>requestAnimationFrame(()=>{ const c=new MessageChannel(); c.port1.onmessage=()=>{ c.port1.close(); r(); }; c.port2.postMessage(0); })); n++; }
+  while(!LATE.now&&lateLate()&&performance.now()-t0<250);
+  if(n>1) LATE.skips+=n-1; }
+async function lateRun(){ if(LATE.busy||!LATE.q.length) return; LATE.busy=true; LATE.t0=LATE.s0=LATE.lt=performance.now(); lateClock();
   while(LATE.q.length){ const j=LATE.q.shift(), t0=performance.now(); LATE.cur=j.name; LATE.n=0;
     try{ await j.fn(lateStep); }catch(err){ console.warn('late: '+j.name,err); kitTo(); }
     LATE.log.push([j.name,Math.round(performance.now()-t0),LATE.n]); }
@@ -11599,6 +11609,6 @@ st._dbg.clear={OUT,OUTN,KEPT,get left(){ return [...OUT].filter(o=>OBS.includes(
   st.update=function(dt,t){ const r=up.apply(this,arguments);
     if(LATE.q.length&&!LATE.busy){ if(S.ready&&S.st===st&&S.mode==='station'&&!CUT.on&&!FIN.on){ LATE.calm+=dt; if(LATE.calm>.5) lateRun(); } else LATE.calm=0; }
     return r; }; }
-st._dbg.late={get state(){ return {left:LATE.q.map(j=>j.name),busy:LATE.busy,cur:LATE.cur,log:LATE.log.slice(),max:+LATE.max.toFixed(1),tops:LATE.tops.slice(),gmax:+LATE.gmax.toFixed(1),at:LATE.at,slices:LATE.slices,
+st._dbg.late={get state(){ return {left:LATE.q.map(j=>j.name),busy:LATE.busy,cur:LATE.cur,log:LATE.log.slice(),max:+LATE.max.toFixed(1),tops:LATE.tops.slice(),gmax:+LATE.gmax.toFixed(1),at:LATE.at,slices:LATE.slices,skips:LATE.skips,
   ms:LATE.t1?Math.round(LATE.t1-LATE.t0):null}; },get trace(){ return LATE.tr; },flush:lateFlush};
 })();
