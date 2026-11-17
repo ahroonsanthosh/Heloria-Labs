@@ -254,6 +254,7 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .nogl body{ overflow:auto; touch-action:auto; }
 .nogl canvas#gl{ display:none; }
 .nogl #ui{ position:relative; opacity:1; color:var(--ink); pointer-events:auto; }
+.nogl #ui:not(.on){ display:none; }   /* (the plain page only once Walk is chosen: until then the gate, which has nothing drawn behind it, is all there is) */
 .nogl #places{ display:flex; flex-direction:column; gap:12vh; padding:16vh var(--gut); }
 .nogl .sec{ position:static; visibility:visible; opacity:1; color:var(--ink); text-align:left; }
 .nogl .sec .w,.nogl .sec .sub,.nogl .sec .kind,.nogl .sec .medium,.nogl .sec .no,.nogl .sec .kick,.nogl .sec .mail,.nogl .sec .quiet{ opacity:1; transform:none; filter:none; }
@@ -262,3 +263,16 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .nogl .room .label,.nogl .sec .by{ opacity:1; transform:none; }
 .nogl .quiet{ position:static; transform:none; display:inline-flex; margin-top:20px; }
 .plain{ padding:12vh 8vw; font-family:var(--serif); font-size:24px; color:var(--ink); }
+
+/* ---------- short screens (a phone on its side, a low window): each room's label goes to the bottom right, clear of the dial
+   and the logo, and is set a little tighter, so it never climbs into the menu ---------- */
+@media (max-height:520px) and (min-aspect-ratio:4/5){
+  :root:not(.nogl) .room{ left:auto; right:var(--gut); bottom:max(14px,env(safe-area-inset-bottom)); width:min(400px,calc(100vw - 2*var(--gut) - 150px)); }
+  .room .label{ padding:12px 16px 11px; }
+  .room .no{ margin-bottom:6px; }
+  .room .lab-t{ font-size:21px; }
+  .room .kind{ margin-top:5px; font-size:12.5px; }
+  .room .medium{ margin-top:8px; padding-top:8px; font-size:13px; line-height:1.45; }
+  .room .by{ margin-top:6px; font-size:11px; }
+  .room .view{ margin-top:5px; font-size:11.5px; }
+}

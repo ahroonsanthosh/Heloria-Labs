@@ -1037,8 +1037,9 @@ const A=(()=>{
     lhAir(w,h,s,near){ const L=[[TWIND,w],[LHUM,h],[SEAW,s]]; for(const [r,v] of L){ const x=clamp(v||0,0,1); r.want=x*r.ref; if((x>0||near)&&!r.url&&!r.busy) render(r); } },
     /* the cast-iron tread: a dull knock under the foot and the tread's short ring, two partials, as iron rings */
     ironStep(g=.05){ if(!on||muted||!ctx) return; const v=vr(.06); tone(170*v,.12,g*.62,'sine',105*v); tone(1180*v,.11,g*.16,'triangle',0,0,.25,.001); tone(1180*v*2.72,.06,g*.06,'sine',0,0,.2,.001); noise(.05,g*.45,1700*v,700,'bandpass',1.6); },
-    /* a gull wheeling over the cliff: two or three falling cries, rough and nasal, from one side */
-    gull(p=0,g=.011){ if(!on||muted||!ctx) return; const o=this._skyOut(p,.35), n0=2+Math.floor(Math.random()*3), f0=1100+Math.random()*350; let t=ctx.currentTime+.02;
+    /* a gull wheeling over the cliff: two or three falling cries, rough and nasal, from one side (the lighthouse's gallery
+       hears it; the town's own gulls are gull, below: two names, as the two take what they are given the other way round) */
+    gullSky(p=0,g=.011){ if(!on||muted||!ctx) return; const o=this._skyOut(p,.35), n0=2+Math.floor(Math.random()*3), f0=1100+Math.random()*350; let t=ctx.currentTime+.02;
       for(let k=0;k<n0;k++){ const os=ctx.createOscillator(), a=ctx.createGain(), bp=ctx.createBiquadFilter(), d=.15+Math.random()*.13; os.type='sawtooth'; bp.type='bandpass'; bp.frequency.value=f0*1.7; bp.Q.value=1.5;
         os.frequency.setValueAtTime(f0*1.22,t); os.frequency.exponentialRampToValueAtTime(f0*.76,t+d); a.gain.setValueAtTime(0,t); a.gain.linearRampToValueAtTime(g,t+.02); a.gain.setValueAtTime(g*.8,t+d*.6); a.gain.exponentialRampToValueAtTime(.0001,t+d);
         os.connect(bp); bp.connect(a); a.connect(o); os.start(t); os.stop(t+d+.03); t+=d+.06+Math.random()*.08; } },
@@ -1056,8 +1057,9 @@ const A=(()=>{
       for(let k=0;k<6;k++) tone(300+Math.random()*250,.04,g*.25,'sine',500,.3+Math.random()*.6,0,.003); },
     /* the paper: folded over and over round the chips, a crackle at each fold (k: how much) */
     wrap(k=1){ if(!on||muted||!ctx) return; for(let i=0;i<4;i++){ const d=i*.22+Math.random()*.06; noise(.16,.016*k,3400,1500,'bandpass',.8,d); noise(.1,.01*k,1200,700,'bandpass',1,d+.04); } },
-    /* the paper once, softly: a hand in among the chips, the parcel opened, or the empty paper let go (k: how much) */
-    rustle(k=1){ if(!on||muted||!ctx) return; const v=vr(.1); noise(.1,.007*k,3600*v,1900,'bandpass',.9); noise(.07,.004*k,1300*v,800,'bandpass',1,.03); },
+    /* the paper once, softly: a hand in among the chips, the parcel opened, or the empty paper let go (k: how much). (Not
+       rustle, which is the leaves kicked up and takes a level: one name for both had the leaves all but silent) */
+    paper(k=1){ if(!on||muted||!ctx) return; const v=vr(.1); noise(.1,.007*k,3600*v,1900,'bandpass',.9); noise(.07,.004*k,1300*v,800,'bandpass',1,.03); },
     /* ---------- the fire station on Earth: the bell rung for a drill, and the hose: the water let go with a gush, its
        patter on the forecourt while it runs, and a sputter as it is shut off. g how loud (eased for distance), p left or
        right. Soft, short and dark: water here is a patter of small knocks, never a hiss ---------- */

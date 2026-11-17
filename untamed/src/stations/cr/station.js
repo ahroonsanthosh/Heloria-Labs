@@ -1903,7 +1903,8 @@ function cutUpdate(dt,t){ CUT.t+=dt;
 const SKY={h:15,th:15,y:2026,doy:200,md:'07-15',dow:3,e:40,night:0,dusk:0,dir:0,t:9,baked:new T.Vector3(),over:0}, WX={kind:'clear',rain:0,fog:0,bow:0,t:0,stop:0,horn:12,bowT:0,snow:false,storm:0,front:26,fogHold:300,fogGap:200}, SEA={};
 /* (th: the hour the town's sun keeps, stretched so that it rises and sets when it does where the visitor is; y: the year.
    storm: how much of a thunderstorm there is; front: where the edge of a bank of sea fog has got to. See the sky alive) */
-const QPS=new URLSearchParams(location.search), SKYSET={time:QPS.get('time'),date:QPS.get('date'),weather:QPS.get('weather')};
+/* (?weather= takes only a weather Earth has: anything else is as if it were not there) */
+const QPS=new URLSearchParams(location.search), SKYSET={time:QPS.get('time'),date:QPS.get('date'),weather:['clear','cloudy','fog','rain','snow','thunder'].includes(QPS.get('weather'))?QPS.get('weather'):null};
 const D2R=Math.PI/180, SOUTH=new T.Vector3(.38,0,.46).normalize(), WEST=new T.Vector3(SOUTH.z,0,-SOUTH.x);
 /* where the sun is: elevation from the hour angle, the sun's declination for the day and our latitude; the moon opposite */
 function sunDir(h,doy,out,moon){ const lat=50*D2R, dec=23.44*D2R*Math.sin(TAU*(doy-81)/365)*(moon?-1:1), H=((moon?h+12:h)-12.5)*15*D2R;
@@ -10182,7 +10183,7 @@ function lhStep(dt,t){ if(!wiStep(LHI,dt,t)) return; const D=LHD, B=LHI, up=B.on
   let w=0, hum=0, sea=0; if(B.on){ wiL(B,B.cp,wiV); const y=wiV.y, outT=B.at==='gal'&&!B.mv||B.mv&&(B.mv.k==='out'||B.mv.k==='back');
     w=clamp((y-1.6)/(D.FT+D.EY-1.6),0,1)*.7+(outT?.3:0); hum=clamp(1-Math.abs(y-(D.FT+D.EY))/2.4,0,1)*(outT?.55:1); sea=outT?1:clamp((y-D.FK)/(D.FT-D.FK),0,1)*.4+(B.door>.15?.3:0); }
   B.air[0]=damp(B.air[0],w,1.2,dt); B.air[1]=damp(B.air[1],hum,1.6,dt); B.air[2]=damp(B.air[2],sea,1.2,dt); A.lhAir(B.air[0],B.air[1],B.air[2],B.dd<12);
-  if(B.on&&(B.at==='gal'||B.at==='lamp')&&!B.mv){ B.gullT-=dt; if(B.gullT<=0){ B.gullT=4+Math.random()*6; A.gull(Math.random()*1.6-.8,B.at==='gal'?.011:.005); } } }
+  if(B.on&&(B.at==='gal'||B.at==='lamp')&&!B.mv){ B.gullT-=dt; if(B.gullT<=0){ B.gullT=4+Math.random()*6; A.gullSky(Math.random()*1.6-.8,B.at==='gal'?.011:.005); } } }
 wiWire(LHI,buildLighthouse,lhStep,lhOutside);
 st._dbg.lighthouse={L:LHI,LHD,LHLOG,LHMV,get err(){ return LHI.err; },go:()=>wiGo(LHI),enter:()=>wiEnter(LHI),leave:()=>wiLeave(LHI),move:lhGo,log:lhLog,page:lhPage,reset:()=>wiReset(LHI),text:lhLogText,today:lhToday,
   local:(x,z)=>wiXZ(LHI,x,z),world:(x,y,z)=>wiW(LHI,x,y,z),toLocal:w=>wiL(LHI,w),
@@ -10555,9 +10556,9 @@ function chEat(dt){ const B=CHP, c=B.cm, d=me.userData, i=B.carry, k=chKind(i), 
   if(B.free&&!free) [...d.arms,...d.fore].forEach(a=>{ a.rotation.y=0; a.rotation.z=0; }); B.free=free;   // (your arms handed over to whatever else they are doing: the parcel stays in your left hand)
   B.carryT+=dt;
   if(out&&!B.op&&B.ou<0&&B.carryT>1&&calm) B.ou=0;
-  if(B.ou>=0){ const o0=B.ou; B.ou+=dt/1.1; if(o0<.32&&B.ou>=.32) A.rustle(.9); if(B.ou>=1){ B.ou=-1; B.op=1; B.nb=1+Math.random(); } }
+  if(B.ou>=0){ const o0=B.ou; B.ou+=dt/1.1; if(o0<.32&&B.ou>=.32) A.paper(.9); if(B.ou>=1){ B.ou=-1; B.op=1; B.nb=1+Math.random(); } }
   if(B.op&&B.bu<0&&B.fu<0&&B.left>0&&calm){ B.nb-=dt; if(B.nb<=0) B.bu=0; }
-  if(B.bu>=0){ const u0=B.bu; B.bu+=dt/1.9; if(u0<.38&&B.bu>=.38) A.rustle(.45); if(u0<.68&&B.bu>=.68){ B.left=Math.max(0,B.left-1/CHBITES[i]); B.bites++; } if(B.bu>=1){ B.bu=-1; B.nb=4.5+Math.random()*4; } }
+  if(B.bu>=0){ const u0=B.bu; B.bu+=dt/1.9; if(u0<.38&&B.bu>=.38) A.paper(.45); if(u0<.68&&B.bu>=.68){ B.left=Math.max(0,B.left-1/CHBITES[i]); B.bites++; } if(B.bu>=1){ B.bu=-1; B.nb=4.5+Math.random()*4; } }
   B.lv=damp(B.lv,B.left,2.5,dt);
   if(B.left<=0&&B.bu<0&&B.fu<0&&calm&&B.lv<.06){ B.fu=0; B.bin=chBinNear(); }
   /* the empty paper: brought in, the flaps folded back over and the whole of it pressed flat and folded in two; then tossed
@@ -10565,8 +10566,8 @@ function chEat(dt){ const B=CHP, c=B.cm, d=me.userData, i=B.carry, k=chKind(i), 
   const bd=d.body, fg=c.fg; let end=false;
   if(B.fu>=0){ const f0=B.fu, f=B.fu+=dt; if(f0<.45&&f>=.45) A.wrap(.4); if(f0<1.15&&f>=1.15){ c.g.visible=false; fg.visible=true; }
     if(B.bin){ if(f0<1.38&&f>=1.38){ me.updateMatrixWorld(true); B.fly=[bd.localToWorld(fg.position.clone()),chW(CHD.DX+.62,.64,CHD.d/2+.3)]; }
-      if(f0<1.88&&f>=1.88){ fg.visible=false; B.gone='bin'; A.rustle(1.2); } end=f>=2.1; }
-    else { if(f0<1.75&&f>=1.75){ fg.visible=false; B.gone='pocket'; A.rustle(.5); } end=f>=2.3; } }
+      if(f0<1.88&&f>=1.88){ fg.visible=false; B.gone='bin'; A.paper(1.2); } end=f>=2.1; }
+    else { if(f0<1.75&&f>=1.75){ fg.visible=false; B.gone='pocket'; A.paper(.5); } end=f>=2.3; } }
   const op=B.op?1:B.ou>=0?sstep(.3,.75,B.ou):0, fold=B.fu>=0?sstep(.45,1.1,B.fu):0, D=CHT[k];
   chParcelSet(c,i,B.lv,op*(1-sstep(.45,.85,B.fu))); c.g.scale.set(1-.4*fold,1-.8*fold,1-.3*fold).multiplyScalar(CHS);
   chHold(d,c.g,{u:B.bu,o:B.ou,f:B.fu,bin:B.bin,pose:free,chip:c.chip,top:(D.fill*Math.min(1,B.lv*1.4)+CHTOP*(.2+.8*B.lv)+.01)*CHS,bob:out&&free?Math.sin(P.ph*2)*.008*clamp(P.speed/2.7,0,1):0});

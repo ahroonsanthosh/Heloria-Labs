@@ -1,3 +1,5 @@
+/* arrived over plain http on the site's own domain: the same place over https, at once (see the walk's js/01-secure.js) */
+if(location.protocol==='http:'&&/(^|\.)helorialabs\.com$/.test(location.hostname)) location.replace('https://'+location.host+location.pathname+location.search+location.hash);
 /* ================= FLOW + LOOP ================= */
 
 /* ---------- boot: Earth is built behind the loader, and every shader it needs compiled and drawn once, so nothing stalls
