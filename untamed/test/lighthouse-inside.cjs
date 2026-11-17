@@ -93,7 +93,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await W(w => w.run(40)); s = await state();
   rec(s.logOn && s.log > .99 && await visible('#crLhNext') && await visible('#crLhClose'), (mobile ? 'Read the log' : 'E') + ' opens the log on the desk, with a way to turn its pages and to close it', JSON.stringify({ logOn: s.logOn, log: s.log }));
   const LOG = await W((w, L) => L.LHLOG.map((sp, i) => ({ text: L.text(i), lines: sp.flatMap(p => p.today ? [] : p.t) })));
-  let txt = await W((w, L) => L.text(L.L.page)); rec(/HELORIA LABS/.test(txt) && /A small software lab in Ireland/.test(txt), 'its first pages: Heloria Labs, three of us in Ireland', txt.slice(0, 120));
+  let txt = await W((w, L) => L.text(L.L.page)); rec(/HELORIA LABS/.test(txt) && /Three of us, in Ireland/.test(txt), 'its first pages: Heloria Labs, three of us in Ireland', txt.slice(0, 120));
   await frames(3); await shot(pre + 'lhi-5-log');
   const pages = [s.page];
   for (let i = 0; i < 3; i++) { if (mobile) { await frames(2); const q = await W((w, L) => L.screen('pgR')); await tap(q[0], q[1]); } else await page.keyboard.press('ArrowRight'); await W(w => w.run(25)); pages.push((await state()).page); }

@@ -9936,7 +9936,7 @@ function lhGdoorPose(){ const d=LHI.m.gdoor; if(!d) return; const [hx,hy,hz]=LHI
 
 /* ---------- the keeper's log: Heloria as this site tells it, a page a side, and today ---------- */
 const LHLOG=[
-  [{h:'KEEPER\'S LOG',t:['Heloria Labs.','A small software lab in Ireland.'],title:true},
+  [{h:'KEEPER\'S LOG',t:['Heloria Labs.'],title:true},
    {h:'HELORIA LABS',t:['Three of us, in Ireland.','Ahroon Santhosh, Michael Sweeney Heffernan, Abraham Sabu Kurian.','We build around hard problems.','We dare to build where others hesitate.']}],
   [{h:'AETOS',t:['Counter-drone command software.','When the sky fills with drones, Aetos tracks every one, tells friend from threat, and puts the one that matters in front of the operator.','Led by Ahroon Santhosh.']},
    {h:'PHAROS',t:['GPS-free drone navigation.','With GPS jammed or gone, the drone finds where it is by matching what its camera sees to the map, and says so when it is not sure.','Led by Ahroon Santhosh.','Take the light, and a drone that has lost its way locks onto it and follows it home: Pharos in small.']}],

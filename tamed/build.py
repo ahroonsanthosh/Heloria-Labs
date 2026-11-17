@@ -158,7 +158,7 @@ def write_site(out, minify=True):
     head = head.replace('<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:ROND,wght@0..100,100..900&family=Instrument+Sans:wght@400..600&family=Libre+Caslon+Display&display=swap">', FONTS.preload(['doto', 'isans', 'caslon'], 'assets/fonts/').rstrip('\n'))
     og = 'assets/img/og.jpg'
     meta = ('<meta property="og:type" content="website">\n<meta property="og:title" content="Heloria Labs">\n'
-            '<meta property="og:description" content="We dare to build where others hesitate. A small software lab in Ireland.">\n'
+            '<meta property="og:description" content="We dare to build where others hesitate.">\n'
             '<meta property="og:image" content="%s">\n<meta name="twitter:card" content="summary_large_image">\n' % og)
     # each file's address carries a fingerprint of what is in it, so a browser holding an older copy fetches the new one
     # the moment the page changes, instead of running yesterday's code for an hour
