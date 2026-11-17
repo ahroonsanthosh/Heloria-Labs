@@ -22,7 +22,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       put(lx, lz, fx, fz) { const [x, z] = L.local(lx, lz), P = d.player, t = d.at(...L.local(fx, fz)); P.x = x; P.z = z; P.u.copy(d.at(x, z)); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); d.cam.pitch = d.cam.PITCH; P.tgt = null; P.path = null; P.speed = 0; },
       count(n) { return this.snd.filter(s => s.n === n).length; },
     };
-    for (const n of ['civDoor', 'ironStep', 'gull', 'step', 'poShuffle']) { const f = h.A[n]; h.A[n] = function () { window.__L.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
+    for (const n of ['civDoor', 'ironStep', 'gullSky', 'step', 'poShuffle']) { const f = h.A[n]; h.A[n] = function () { window.__L.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
     { const f = h.A.music; h.A.music = function (v) { window.__L.lastMusic = v; return f.apply(this, arguments); }; }
   });
   const W = (fn, arg) => H((h, [src, a]) => (0, eval)('(' + src + ')')(window.__L, h.ST.cr._dbg.lighthouse, h.ST.cr._dbg, h, a), [fn.toString(), arg]);
@@ -102,10 +102,12 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(/TODAY/.test(txt) && txt.includes(today[0]) && /Andrena Ventures/.test(txt), 'the last page: backed by Andrena Ventures, and today, at your time', JSON.stringify(today));
   await frames(3); await shot(pre + 'lhi-6-log-today');
   if (mobile) await press('#crLhPrev'); else await page.keyboard.press('ArrowLeft'); await W(w => w.run(25)); s = await state(); rec(s.page === 2, 'and back a spread', String(s.page));
-  /* every line of the log is in the site's own words: the walk, the README, the white page, the plaques */
+  /* every line of the log is in the site's own words: the walk (its rooms' words are in projects.json), the README, the white
+     page, the plaques */
   const strip = t => t.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/g, ' ');
   const norm = t => ' ' + t.toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}@]+/gu, ' ').trim() + ' ';
   const root = path.resolve(__dirname, '..', '..'), src = norm([strip(fs.readFileSync(path.join(root, 'tamed/src/body.html'), 'utf8')), strip(fs.readFileSync(path.join(root, 'untamed/src/body.html'), 'utf8')), fs.readFileSync(path.join(root, 'README.md'), 'utf8'),
+    JSON.parse(fs.readFileSync(path.join(root, 'projects.json'), 'utf8')).projects.map(p => [p.name, p.kind, p.walk, p.card, p.by].join('. ')).join(' '),
     (fs.readFileSync(path.join(root, 'untamed/src/stations/cr/station.js'), 'utf8').match(/const PLAQ=\[[\s\S]*?\];/) || [''])[0]].join(' '));
   const missing = []; for (const sp of LOG) for (const line of sp.lines) for (const frag of line.split(/[.:;,]\s+|\.$/)) { const f = norm(frag); if (f.trim().split(' ').length < 2) continue; if (!src.includes(f)) missing.push(frag); }
   rec(missing.length === 0, 'every line of the log is in the site\'s own words, nothing made up', missing.length ? JSON.stringify(missing) : LOG.reduce((a, s) => a + s.lines.length, 0) + ' lines');
@@ -132,7 +134,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   else { const cdp = await page.context().newCDPSession(page), x0 = vp.width * .7, y = vp.height * .4; await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y, id: 2 }] }); for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - i * 22, y, id: 2 }] }); await W(w => w.run(2)); } await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
   await W(w => w.run(60)); s = await state(); rec(Math.abs(s.ga - g0) > .6 && s.at === 'gal', (mobile ? 'a drag' : 'the arrows') + ' walk you round the gallery', JSON.stringify({ ga: [g0, s.ga] }));
   await frames(3); await shot(pre + 'lhi-9-gallery-round');
-  await W(w => w.run(30 * 12)); rec(await W(w => w.count('gull')) >= 1 && await W(w => w.count('ironStep')) >= 2, 'gulls below, and your steps ring on the iron deck', JSON.stringify({ gulls: await W(w => w.count('gull')), steps: await W(w => w.count('ironStep')) }));
+  await W(w => w.run(30 * 12)); rec(await W(w => w.count('gullSky')) >= 1 && await W(w => w.count('ironStep')) >= 2, 'gulls below, and your steps ring on the iron deck', JSON.stringify({ gulls: await W(w => w.count('gull')), steps: await W(w => w.count('ironStep')) }));
 
   /* ---- back in, down, and out ---- */
   if (mobile) await press('#crLhBack'); else await page.keyboard.press('Escape');

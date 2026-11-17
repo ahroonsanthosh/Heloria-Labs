@@ -24,7 +24,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
       put(lx, lz, fx, fz) { const [x, z] = C.local(lx, lz), P = d.player, t = d.at(...C.local(fx, fz)); P.x = x; P.z = z; P.u.copy(d.at(x, z)); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); d.cam.pitch = d.cam.PITCH; P.tgt = null; P.path = null; P.speed = 0; },
       count(n) { return this.snd.filter(s => s.n === n).length; },
     };
-    for (const n of ['poBell', 'till', 'mktFry', 'mktBasket', 'shaker', 'vinegar', 'wrap', 'rustle', 'poShuffle', 'murmur', 'shutterMotor']) { const f = h.A[n]; h.A[n] = function () { window.__C.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
+    for (const n of ['poBell', 'till', 'mktFry', 'mktBasket', 'shaker', 'vinegar', 'wrap', 'paper', 'poShuffle', 'murmur', 'shutterMotor']) { const f = h.A[n]; h.A[n] = function () { window.__C.snd.push({ n, t: h.S.t, a: [...arguments] }); return f.apply(this, arguments); }; }
     { const f = h.A.music; h.A.music = function (v) { window.__C.lastMusic = v; return f.apply(this, arguments); }; }
   });
   const W = (fn, arg) => H((h, [src, a]) => (0, eval)('(' + src + ')')(window.__C, h.ST.cr._dbg.chipper, h.ST.cr._dbg, h, a), [fn.toString(), arg]);
@@ -125,7 +125,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
 
   /* ---- eating it as you go: opened first, then a chip to your mouth now and then, and there is less in it ---- */
   r = await W(w => w.until(C => C.C.op, 30 * 4)); s = await state();
-  rec(r.done && s.eat.flap > 2 && s.eat.food.vis && await W(w => w.count('rustle')) >= 1, 'you open the top of the paper (a rustle), and there are your chips', JSON.stringify({ r, eat: s.eat }));
+  rec(r.done && s.eat.flap > 2 && s.eat.food.vis && await W(w => w.count('paper')) >= 1, 'you open the top of the paper (a rustle), and there are your chips', JSON.stringify({ r, eat: s.eat }));
   r = await W(w => w.until(C => C.C.bu >= .64, 30 * 12)); s = await state();
   rec(r.done && s.eat.chip && s.eat.mouth < .12 && s.eat.inHand < .08, 'now and then your right hand takes a chip from it up to your mouth', JSON.stringify({ r, eat: s.eat }));
   await frames(3); await shot(pre + 'chip-10-eat');
@@ -172,7 +172,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(r.done && s.eat.folded && !s.eat.par && s.carryVis && await W(w => w.count('wrap')) === 1, 'folded up small (with a rustle of the paper): it does not just vanish', JSON.stringify({ r, eat: s.eat }));
   await frames(3); await shot(pre + 'chip-11-folded');
   r = await W(w => w.until(C => C.C.carry < 0, 30 * 3)); await W(w => w.run(10)); s = await state();
-  rec(r.done && s.eat.gone === 'bin' && !s.carryVis && await W(w => w.count('rustle')) >= 1 && s.eat.twist < .01 && s.eat.head === 0, 'and into the bin, your hands back at your sides', JSON.stringify({ r, eat: s.eat, carryVis: s.carryVis }));
+  rec(r.done && s.eat.gone === 'bin' && !s.carryVis && await W(w => w.count('paper')) >= 1 && s.eat.twist < .01 && s.eat.head === 0, 'and into the bin, your hands back at your sides', JSON.stringify({ r, eat: s.eat, carryVis: s.carryVis }));
   /* away from the bin, into your pocket */
   await W((w, C) => { w.put(.3, 4.6, .3, 9); w.run(5); C.carry(0); C.C.op = 1; C.C.left = 1e-4; C.C.lv = .05; C.C.nb = 0; });
   r = await W(w => w.until(C => C.C.carry < 0, 30 * 12)); s = await state();
