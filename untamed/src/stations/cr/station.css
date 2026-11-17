@@ -108,7 +108,7 @@ html.earth.crnight .brand .mute{color:rgba(239,232,218,.7)}
 /* postcards: the camera in the corner, the frame while you choose a view, the flash, and the card that comes out */
 /* (the postcard button is the Home button's twin, across the top from it: the same height, line, paper and spacing, so the
    two read as a pair on one line) */
-.st-cr .crpost{position:absolute;top:var(--gt);right:calc(var(--gr) + 6px);display:flex;gap:7px;align-items:center;height:36px;padding:0 13px;background:rgba(251,246,236,.94);color:#2a241d;border:1px solid #2a241d}
+.st-cr .crpost{position:absolute;top:var(--gt);right:calc(var(--gr) + 6px + var(--homew) + 8px);display:flex;gap:7px;align-items:center;height:36px;padding:0 13px;background:rgba(251,246,236,.94);color:#2a241d;border:1px solid #2a241d}
 .st-cr .crpost svg{width:15px;height:12px;flex:none}
 .st-cr .crpost[hidden],.st-cr .crframe[hidden],.st-cr .crcard[hidden]{display:none}
 .st-cr.cut .crpost,.st-cr.fin .crpost{display:none!important}

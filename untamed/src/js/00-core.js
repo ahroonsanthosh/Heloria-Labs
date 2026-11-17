@@ -586,10 +586,12 @@ const A=(()=>{
   const scoreStop=()=>{ if(SC.el){ SC.el._want=false; if(!SC.el.paused) SC.el.pause(); } };
   /* ---------- the landing's own sound: the rocket coming down onto Earth, the first thing you hear ----------
      Made once as the page loads, out of sight (as the launch scene's is), and played in step with the landing (see the
-     landing on Earth, whose times T are). Far off, the engine's roar through the cloud and the air tearing past; nearer, its
-     crackle (the part of a rocket's noise that a laptop's or a phone's small speaker carries) over the rumble under it; in
-     the hover the blast thrown back off the pad and grit rattling; the legs taking the weight; the engine spooling down;
-     the pressure let go; the hatch's ram and the ramp meeting the pad; and the metal ticking as it cools */
+     landing on Earth, whose times T are). Soft and warm, as the rest of the town's sound is: nothing in it crackles, hisses
+     or rattles, and almost nothing is above the middle of the range. Far off, a deep rush of air through the cloud with
+     the engine's low hum in it (on C and G, the town's own notes), both growing as it comes near; in the hover, a steady
+     breath of thrust off the pad; the legs settling with a cushioned thump; the engine sighing down; the pressure let go
+     in a breath; the latch, the ram easing the hatch down, the ramp meeting the pad; and a few soft notes, in the town's
+     key, as the metal cools */
   const LS={url:null,el:null,busy:false,fail:false,len:0,env:null,rms:0};
   function landMake(){ if(!OAC||LS.url||LS.busy) return; LS.busy=true;
     const T={hov:3,land:4.2,door:4.6,ramp:5.4,end:7.6}, sr=32000, len=Math.ceil((T.end+2.2)*sr); LS.len=len/sr; let oc;
@@ -598,6 +600,7 @@ const A=(()=>{
     const nz=oc.createBuffer(1,len,sr), nd=nz.getChannelData(0); for(let i=0;i<len;i++) nd[i]=Math.random()*2-1;
     const src=t0=>{ const x=oc.createBufferSource(); x.buffer=nz; x.loop=true; x.start(Math.max(0,t0),Math.random()*(len/sr-1)); return x; };
     const filt=(type,f,q)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=f; x.Q.value=q??.7; return x; };
+    const chain=(...xs)=>{ for(let i=0;i<xs.length-1;i++) xs[i].connect(xs[i+1]); return xs[xs.length-1]; };
     const gainAt=(t0,peak,atk,dec,to)=>{ const g=oc.createGain(); g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(peak,t0+atk); g.gain.exponentialRampToValueAtTime(.0001,t0+atk+dec); g.connect(to); return g; };
     const toRoom=(node,k)=>{ const g=oc.createGain(); g.gain.value=k; node.connect(g); g.connect(room); };
     /* how much engine there is: far and coming nearer while it brakes, all of it in the hover, then spooling down */
@@ -605,53 +608,52 @@ const A=(()=>{
     const curve=(f,t0,t1)=>{ const N=Math.max(2,Math.ceil((t1-t0)*60)), c=new Float32Array(N); for(let i=0;i<N;i++) c[i]=f(t0+(t1-t0)*i/(N-1)); return c; };
     const ramp=(param,f,t0,t1)=>{ param.setValueAtTime(f(t0),0); param.setValueCurveAtTime(curve(f,t0,t1),t0,t1-t0); };
     const ET=T.land+1.5;   // the engine is quiet by then
-    /* the rumble under it all, and the roar, its filter opening as it comes near and closing as it spools down */
-    { const g=oc.createGain(); ramp(g.gain,t=>.55*eng(t),0,ET); g.connect(IN);
-      const n=src(0), lp=filt('lowpass',150,.8); n.connect(lp); lp.connect(g); n.stop(ET+.1); }
-    { const g=oc.createGain(); ramp(g.gain,t=>.4*eng(t),0,ET); g.connect(IN); toRoom(g,.3);
-      const n=src(0), bp=filt('bandpass',420,.55), lp=filt('lowpass',900,.7); ramp(lp.frequency,t=>t<T.land?900+2400*Math.pow(eng(t),2):300+2900*Math.pow(eng(t),2.5),0,ET);
-      n.connect(bp); bp.connect(lp); lp.connect(g); n.stop(ET+.1); }
-    /* the crackle: a rattle of tiny bursts, more and harder the nearer and stronger the engine, worked out sample by sample */
-    { const ck=oc.createBuffer(1,len,sr), d=ck.getChannelData(0), tEnd=T.land+.45;
-      for(let t=0;t<tEnd;){ const e=t<T.land?eng(t):eng(t)*(1-(t-T.land)/.45); t+=-Math.log(1-Math.random())/(70+420*e*e);
-        const i0=Math.floor(t*sr), L=Math.floor((.0012+Math.random()*.004)*sr), a=e*(.25+.75*Math.pow(Math.random(),2.5));
-        for(let i=0;i<L&&i0+i<len;i++) d[i0+i]+=(Math.random()*2-1)*a*Math.exp(-5*i/L); }
-      const s=oc.createBufferSource(); s.buffer=ck; const hp=filt('highpass',650,.7), lp=filt('lowpass',6500,.6), g=oc.createGain(); g.gain.value=.55;
-      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(IN); toRoom(g,.35); s.start(0); }
-    /* the engine's note under the noise: low, wavering, and falling as it spools down */
-    { const o=oc.createOscillator(); o.type='sawtooth'; ramp(o.frequency,t=>t<T.land?62+10*eng(t)+2*Math.sin(t*9):30+42*eng(t),0,ET); o.start(0); o.stop(ET);
-      const lp=filt('lowpass',520,1.1), g=oc.createGain(); ramp(g.gain,t=>.07*eng(t),0,ET); o.connect(lp); lp.connect(g); g.connect(IN); }
-    /* the air tearing past, through the cloud, less as it slows to the hover */
-    { const n=src(0), bp=filt('bandpass',1800,.9), g=oc.createGain(); ramp(bp.frequency,t=>1900-1100*Math.min(1,t/T.hov),0,T.hov+.4);
-      g.gain.setValueAtTime(.13,0); g.gain.linearRampToValueAtTime(.05,1.3); g.gain.linearRampToValueAtTime(0,T.hov+.3); n.connect(bp); bp.connect(g); g.connect(IN); toRoom(g,.25); n.stop(T.hov+.5); }
-    /* the hover: the blast thrown back off the pad, and grit rattling across it */
-    { const t0=T.hov-.9, n=src(t0), hp=filt('highpass',1100,.6), lp=filt('lowpass',5200,.6), g=oc.createGain();
-      g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(.09,T.hov+.4); g.gain.setValueAtTime(.09,T.land-.15); g.gain.exponentialRampToValueAtTime(.0001,T.land+.9);
-      n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(IN); toRoom(g,.4); n.stop(T.land+1);
-      for(let t=t0+.3;t<T.land+.3;t+=.02+Math.random()*.07){ const k=t<T.land?(t-t0)/(T.land-t0):1-(t-T.land)/.3, x=src(t), bp=filt('bandpass',2600+Math.random()*2200,3); x.connect(bp); bp.connect(gainAt(t,(.01+Math.random()*.03)*k,.001,.012+Math.random()*.02,IN)); x.stop(t+.06); } }
-    /* struck steel, a heavy thing landing, air let out: as in the launch scene's sound */
-    const clank=(t,g,f=380,deep=1)=>{ const out=oc.createGain(); out.connect(IN); toRoom(out,.45);
-      [[1,1,.22],[2.76,.55,.14],[5.4,.3,.09],[8.93,.16,.05]].forEach(([m,a,dk])=>{ const o=oc.createOscillator(); o.type='sine'; o.frequency.value=f*m*(.98+Math.random()*.04); o.start(t); o.stop(t+dk*8); o.connect(gainAt(t,g*a,.002,dk*5,out)); });
-      const n=src(t), bp=filt('bandpass',2600,1.1); n.connect(bp); bp.connect(gainAt(t,g*.7,.001,.05,out)); n.stop(t+.2);
-      if(deep){ const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(48,t+.22); o.start(t); o.stop(t+.5); o.connect(gainAt(t,g*1.3*deep,.004,.3,out)); } };
+    /* a slow sway, so a held sound breathes and is never a flat hiss: a few slow waves added together, between 1-d and 1 */
+    const sway=(d,s)=>t=>1-d*(.5+.5*(.5*Math.sin(t*1.7+s)+.3*Math.sin(t*2.9+s*2)+.2*Math.sin(t*.7+s*3)));
+    /* the rumble under it all */
+    { const g=oc.createGain(); ramp(g.gain,t=>.5*eng(t),0,ET); g.connect(IN);
+      const n=src(0); chain(n,filt('lowpass',150,.7),g); n.stop(ET+.1); }
+    /* the rush: the engine's roar as a deep, soft band of air, through two gentle filters so nothing bright gets in;
+       opening a little as it comes near, closing as it spools down */
+    { const g=oc.createGain(), sw=sway(.22,1); ramp(g.gain,t=>.5*eng(t)*sw(t),0,ET); g.connect(IN); toRoom(g,.3);
+      const n=src(0), l1=filt('lowpass',500,.5), l2=filt('lowpass',500,.5), f=t=>t<T.land?330+430*Math.pow(eng(t),1.5):170+590*Math.pow(eng(t),2);
+      ramp(l1.frequency,f,0,ET); ramp(l2.frequency,t=>f(t)*1.3,0,ET); chain(n,filt('highpass',90,.5),l1,l2,g); n.stop(ET+.1); }
+    /* the engine's hum in it: a warm low C with a G above (the town's own notes), its harmonics soft and few, so a small
+       speaker has something to carry; rising a touch as it comes near, and sighing down as it spools down */
+    { const pw=oc.createPeriodicWave(new Float32Array(6),new Float32Array([0,1,.5,.28,.12,.05]));
+      [[65.41,.085],[98,.04]].forEach(([f0,a],k)=>{ const o=oc.createOscillator(); o.setPeriodicWave(pw);
+        ramp(o.frequency,t=>t<T.land?f0*(.92+.08*eng(t))*(1+.004*Math.sin(t*3.1+k)):f0*(.58+.42*eng(t)),0,ET); o.start(0); o.stop(ET);
+        const g=oc.createGain(); ramp(g.gain,t=>a*eng(t),0,ET); chain(o,filt('lowpass',650,.5),g); g.connect(IN); toRoom(g,.2); }); }
+    /* the air going past, through the cloud: a soft rush, in slow gusts, falling away as it slows to the hover */
+    { const n=src(0), bp=filt('bandpass',800,.6), lp=filt('lowpass',1400,.5), g=oc.createGain(), sw=sway(.5,4);
+      ramp(bp.frequency,t=>820-360*Math.min(1,t/T.hov),0,T.hov+.4); ramp(g.gain,t=>(t<1.3?.15-.07*t/1.3:Math.max(0,.08*(1-(t-1.3)/(T.hov+.3-1.3))))*sw(t),0,T.hov+.4);
+      chain(n,bp,lp,g); g.connect(IN); toRoom(g,.3); n.stop(T.hov+.5); }
+    /* the hover: a steady breath of thrust thrown back off the pad, soft-edged */
+    { const t0=T.hov-.9, n=src(t0), g=oc.createGain();
+      g.gain.setValueAtTime(0,0); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(.08,T.hov+.4); g.gain.setValueAtTime(.08,T.land-.15); g.gain.exponentialRampToValueAtTime(.0001,T.land+.9);
+      chain(n,filt('highpass',220,.5),filt('lowpass',1000,.5),filt('lowpass',1300,.5),g); g.connect(IN); toRoom(g,.35); n.stop(T.land+1); }
+    /* a heavy thing set down softly, a muffled knock (tuned, and in the town's key), air let out in a breath */
     const thud=(t,g)=>{ const out=oc.createGain(); out.connect(IN); toRoom(out,.3);
-      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(82,t); o.frequency.exponentialRampToValueAtTime(42,t+.35); o.start(t); o.stop(t+.7); o.connect(gainAt(t,g,.004,.45,out));
-      const o2=oc.createOscillator(); o2.type='triangle'; o2.frequency.setValueAtTime(165,t); o2.frequency.exponentialRampToValueAtTime(90,t+.25); o2.start(t); o2.stop(t+.5); o2.connect(gainAt(t,g*.35,.003,.25,out));
-      const n=src(t), lp=filt('lowpass',420,.8); n.connect(lp); lp.connect(gainAt(t,g*.8,.002,.12,out)); n.stop(t+.4); };
-    const hiss=(t,dur,g)=>{ const n=src(t), hp=filt('highpass',2200,.6), lp=filt('lowpass',6500,.6); n.connect(hp); hp.connect(lp); const e=gainAt(t,g,.03,dur,IN); lp.connect(e); toRoom(e,.3); n.stop(t+dur+.3); };
-    /* touchdown: the legs take the weight, the frame settles with a groan; the engine cut, and the pressure let go */
-    thud(T.land,.3); clank(T.land,.2,230,.7); clank(T.land+.07,.16,270,.4);
-    { const t=T.land+.18, o=oc.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(150,t); o.frequency.linearRampToValueAtTime(118,t+.55); o.start(t); o.stop(t+.7);
-      const bp=filt('bandpass',600,4); o.connect(bp); bp.connect(gainAt(t,.035,.08,.5,IN)); }
-    hiss(T.land+.35,.9,.045); hiss(T.land+1.3,.5,.025);
-    /* the hatch: the latch, the ram easing it down, the ramp meeting the pad */
-    clank(T.door,.1,520,0);
-    { const o=oc.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(200,T.door+.05); o.frequency.linearRampToValueAtTime(290,T.ramp); o.start(T.door); o.stop(T.ramp+.1);
-      const lp=filt('lowpass',900,.8), a=oc.createGain(); a.gain.setValueAtTime(0,0); a.gain.setValueAtTime(0,T.door+.05); a.gain.linearRampToValueAtTime(.035,T.door+.17); a.gain.setValueAtTime(.035,T.ramp-.1); a.gain.linearRampToValueAtTime(0,T.ramp); o.connect(lp); lp.connect(a); a.connect(IN); }
-    thud(T.ramp,.18); clank(T.ramp,.1,340,.3);
-    /* and the metal ticking as it cools */
-    for(let t=T.land+.9;t<T.end+1.8;t+=.28+Math.random()*.6){ const f=2100+Math.random()*1500, o=oc.createOscillator(); o.type='sine'; o.frequency.value=f; o.start(t); o.stop(t+.12);
-      const g=gainAt(t,.02+Math.random()*.025,.001,.05,IN); o.connect(g); toRoom(g,.5); }
+      const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(82,t); o.frequency.exponentialRampToValueAtTime(42,t+.35); o.start(t); o.stop(t+.8); o.connect(gainAt(t,g,.008,.45,out));
+      const o2=oc.createOscillator(); o2.type='sine'; o2.frequency.setValueAtTime(164,t); o2.frequency.exponentialRampToValueAtTime(92,t+.25); o2.start(t); o2.stop(t+.5); o2.connect(gainAt(t,g*.35,.006,.22,out));
+      const n=src(t); chain(n,filt('lowpass',600,.6),gainAt(t,g*.8,.006,.14,out)); n.stop(t+.4); };
+    const knock=(t,g,f)=>{ const out=oc.createGain(); out.connect(IN); toRoom(out,.4);
+      [[1,1,.14],[2,.3,.07],[3,.08,.04]].forEach(([m,a,dk])=>{ const o=oc.createOscillator(); o.type='sine'; o.frequency.value=f*m; o.start(t); o.stop(t+dk*7); o.connect(gainAt(t,g*a,.003,dk,out)); });
+      const n=src(t); chain(n,filt('lowpass',900,.6),gainAt(t,g*.35,.002,.025,out)); n.stop(t+.15); };
+    const breath=(t,dur,g)=>{ const n=src(t); const e=gainAt(t,g,.18,dur,IN); chain(n,filt('bandpass',700,.6),filt('lowpass',1500,.5),e); toRoom(e,.35); n.stop(t+dur+.5); };
+    /* touchdown: the legs take the weight, the frame settles; the engine cut, and the pressure let go */
+    thud(T.land,.32); knock(T.land+.02,.09,196); knock(T.land+.09,.06,261.6);
+    breath(T.land+.35,1,.05); breath(T.land+1.3,.6,.028);
+    /* the hatch: the latch, the ram easing it down (rising to the town's C), the ramp meeting the pad */
+    knock(T.door,.05,392);
+    { const o=oc.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(196,T.door+.05); o.frequency.linearRampToValueAtTime(261.6,T.ramp); o.start(T.door); o.stop(T.ramp+.1);
+      const o2=oc.createOscillator(); o2.type='sine'; o2.frequency.setValueAtTime(392,T.door+.05); o2.frequency.linearRampToValueAtTime(523.2,T.ramp); o2.start(T.door); o2.stop(T.ramp+.1);
+      const a=oc.createGain(); a.gain.setValueAtTime(0,0); a.gain.setValueAtTime(0,T.door+.05); a.gain.linearRampToValueAtTime(.04,T.door+.2); a.gain.setValueAtTime(.04,T.ramp-.12); a.gain.linearRampToValueAtTime(0,T.ramp);
+      const a2=oc.createGain(); a2.gain.value=.4; o.connect(a); o2.connect(a2); a2.connect(a); a.connect(IN); }
+    thud(T.ramp,.16); knock(T.ramp,.06,196);
+    /* and the metal cooling: now and then a soft high note, on the town's notes, fading into the room */
+    for(let t=T.land+1.1;t<T.end+1.8;t+=.5+Math.random()*.8){ const f=inKey(880+Math.random()*900), o=oc.createOscillator(); o.type='sine'; o.frequency.value=f; o.start(t); o.stop(t+.5);
+      const g=gainAt(t,.012+Math.random()*.01,.004,.12,IN); o.connect(g); toRoom(g,.6); }
     /* set by the hover, the engine at its strongest, which is the loudest of it (a tenth of a second at a time), and
        nothing in it (the touchdown) more than half as loud again */
     const done=bf=>{ const dd=bf.getChannelData(0), E=new Float32Array(Math.ceil(dd.length/(sr/10)));

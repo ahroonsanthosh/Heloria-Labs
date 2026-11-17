@@ -5838,9 +5838,11 @@ $('.crvbk-x',hiBookEl).addEventListener('click',e=>{ e.stopPropagation(); hiPane
 /* a line at the foot of the room until you have done something there: what there is to do */
 function hiHintSet(){ const B=HSI[HSI.b], s=HSI.st, ph=cport(); HSI.hintOn=!HSI.used&&(s==='in'||s==='clock');
   hiHint.textContent=s==='clock'?(ph?'Drag to look up at the bell':'Drag to look round · the bell is over you'):!B?'':B.id==='hall'?(ph?'Tap the model, the notes, the book or the stair':'Tap the model, the noticeboard, the book or the stair · drag to look round'):(ph?'Draw on the board, play, spin, launch':'Draw on the board, play the xylophone, spin the globe, launch the rocket · drag to look round'); }
-/* the tag over the door when you are near, as the workshop has: Go in, and how */
+/* the tag over the door when you are near, as the workshop has: Go in, and how. Every door's tag in town comes up at TAG_NEAR
+   metres from it: a few steps away, as you come up to it, not from across the street (it was seven) */
+const TAG_NEAR=4;
 function hiTagUpdate(live){ const P=player; let on=false, can=false, Bn=null;
-  if(live&&HSI.ok&&started&&HSI.st==='out'&&!hiBusy()){ let bd=7; for(const B of [HSI.hall,HSI.school]){ const d=Math.hypot(P.x-B.ap[0],P.z-B.ap[1]); if(d<bd&&hiV1.copy(stCam.position).applyMatrix4(B.Mi).z>B.D){ bd=d; Bn=B; } }
+  if(live&&HSI.ok&&started&&HSI.st==='out'&&!hiBusy()){ let bd=TAG_NEAR; for(const B of [HSI.hall,HSI.school]){ const d=Math.hypot(P.x-B.ap[0],P.z-B.ap[1]); if(d<bd&&hiV1.copy(stCam.position).applyMatrix4(B.Mi).z>B.D){ bd=d; Bn=B; } }
     if(Bn){ hiP(Bn.M,0,Bn.id==='hall'?(cport()?1.9:2.55):(cport()?1.55:2.05),Bn.D+.25,hiV1).project(stCam); on=hiV1.z<1&&Math.abs(hiV1.x)<.95&&Math.abs(hiV1.y)<.95; can=bd<2.2; HSI.tagP=[+hiV1.x.toFixed(2),+hiV1.y.toFixed(2),+hiV1.z.toFixed(3)];
       if(on) hiTag.style.transform=`translate(${((hiV1.x*.5+.5)*innerWidth).toFixed(1)}px,${((-hiV1.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
   HSI.tagB=on?Bn:null; if(on!==HSI.tagOn){ HSI.tagOn=on; hiTag.classList.toggle('on',on); } if(can!==HSI.tagCan){ HSI.tagCan=can; hiTag.classList.toggle('can',can); } }
@@ -6545,7 +6547,7 @@ const tfBtn=document.createElement('button'); tfBtn.className='btn hit crfire'; 
 tfBtn.addEventListener('pointerdown',e=>{ if(e.button>0) return; e.preventDefault(); e.stopPropagation(); tfFire(); });
 tfBtn.addEventListener('click',e=>{ e.stopPropagation(); if(e.detail===0) tfFire(); });
 function garTagUpdate(live){ const P=player; let on=false, can=false, txt='';
-  if(live&&GAR.M&&started&&GAR.st==='out'&&!garBusy()&&(GAR.shSt==='shut'||GAR.shSt==='open')&&GAR.da<7&&GAR.you.z>GW.d/2+.15){ wsW(GW.ox,cport()?1.45:GW.ot-.12,GW.d/2+.2,gV).project(stCam);   // (on a phone held upright, lower down the shutter, clear of the landmark's card across the top)
+  if(live&&GAR.M&&started&&GAR.st==='out'&&!garBusy()&&(GAR.shSt==='shut'||GAR.shSt==='open')&&GAR.da<TAG_NEAR&&GAR.you.z>GW.d/2+.15){ wsW(GW.ox,cport()?1.45:GW.ot-.12,GW.d/2+.2,gV).project(stCam);   // (on a phone held upright, lower down the shutter, clear of the landmark's card across the top)
     on=gV.z<1&&Math.abs(gV.x)<.95&&Math.abs(gV.y)<.95; can=garNear(); txt=GAR.shSt==='shut'?'Open':'Go in'; GAR.tagP=[+gV.x.toFixed(2),+gV.y.toFixed(2),+gV.z.toFixed(3)];
     if(on) garTag.style.transform=`translate(${((gV.x*.5+.5)*innerWidth).toFixed(1)}px,${((-gV.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
   if(txt&&garTag.textContent!==txt) garTag.textContent=txt;
@@ -7162,7 +7164,7 @@ const poProj=(x,y,z)=>{ poW(x,y,z,poV).project(stCam); return poV; };
 function poTags(live){ let on=false, can=false, txt='', bon=false, bcan=false, btxt='';
   if(live&&PO.M&&started&&PO.st==='out'&&PO.bx.st!=='go'&&!poBusy()&&PO.you.z>PW.d/2+.15){
     const nearBox=PO.db<1.15&&(poHas()||PO.bx.doneT>0);
-    if(PO.dd<7&&!(nearBox&&PO.db<PO.dd)){ const v=poProj(PW.DX,cport()?1.55:1.98,PW.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=poAtDoor(1.2); txt='Go in';
+    if(PO.dd<TAG_NEAR&&!(nearBox&&PO.db<PO.dd)){ const v=poProj(PW.DX,cport()?1.55:1.98,PW.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=poAtDoor(1.2); txt='Go in';
       if(on) poTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
     if((poHas()||PO.bx.doneT>0)&&PO.db<7&&PO.bx.st!=='post'||PO.bx.doneT>0){ const v=poBW(1.32,0,poV).project(stCam); bon=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; bcan=poAtBox()&&poHas(); btxt=PO.bx.doneT>0?'Posted':'Post your card';
       if(bon) boxTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; } }
@@ -7858,7 +7860,7 @@ function pbAimUI(){ const D=PUB.dt, on=PUB.st==='in'&&PUB.ph==='darts'&&D.st==='
   if(PUB.ph==='darts'&&PUB.m.chalk){ const c=pbW(PB.w/2-PB.t-.032,PB.FL+1.48,-.2,pbV).project(stCam); PUB.chalkSeen=c.z<1&&Math.abs(c.x)<.85&&Math.abs(c.y)<.85; } }
 const pbProj=(x,y,z)=>{ pbW(x,y,z,pbV).project(stCam); return pbV; };
 function pbTags(live){ let on=false, can=false;
-  if(live&&PUB.M&&started&&PUB.st==='out'&&!pbBusy()&&PUB.you.z>PB.d/2+.15&&PUB.dd<7){ const v=pbProj(PB.DX,cport()?1.55:1.98,PB.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=pbAtDoor(1.2);
+  if(live&&PUB.M&&started&&PUB.st==='out'&&!pbBusy()&&PUB.you.z>PB.d/2+.15&&PUB.dd<TAG_NEAR){ const v=pbProj(PB.DX,cport()?1.55:1.98,PB.d/2+.25); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=pbAtDoor(1.2);
     if(on) pbTag.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
   if(pbTag.textContent!=='Go in') pbTag.textContent='Go in';
   if(on!==PUB.tagOn){ PUB.tagOn=on; pbTag.classList.toggle('on',on); } if(can!==PUB.tagCan){ PUB.tagCan=can; pbTag.classList.toggle('can',can); } }
@@ -9789,7 +9791,7 @@ function wiReset(B,leaving){ const was=B.on||B.k>0; if(leaving&&B.warm){ B.warm=
 
 /* ---------- the tag over the door, the buttons, clicks, drags and keys ---------- */
 function wiTag(B,live){ let on=false, can=false; const tg=B.tag;
-  if(live&&B.M&&started&&B.st==='out'&&!B.busy()&&B.you.z>B.F+.15&&B.dd<7){ const v=wiW(B,B.DX,cport()?B.tagY[0]:B.tagY[1],B.tagZ,wiV).project(stCam); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=B.open()&&wiAtDoor(B,1.2);
+  if(live&&B.M&&started&&B.st==='out'&&!B.busy()&&B.you.z>B.F+.15&&B.dd<TAG_NEAR){ const v=wiW(B,B.DX,cport()?B.tagY[0]:B.tagY[1],B.tagZ,wiV).project(stCam); on=v.z<1&&Math.abs(v.x)<.95&&Math.abs(v.y)<.95; can=B.open()&&wiAtDoor(B,1.2);
     if(on) tg.style.transform=`translate(${((v.x*.5+.5)*innerWidth).toFixed(1)}px,${((-v.y*.5+.5)*innerHeight).toFixed(1)}px) translate(-50%,-100%)`; }
   const tx=B.tagText(); if(tg.textContent!==tx) tg.textContent=tx;
   if(on!==B.tagOn){ B.tagOn=on; tg.classList.toggle('on',on); } if(can!==B.tagCan){ B.tagCan=can; tg.classList.toggle('can',can); } }
