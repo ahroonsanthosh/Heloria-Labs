@@ -151,7 +151,11 @@ async function soundOrAsk(){ A.start(); let pol=null; try{ pol=navigator.getAuto
   if(S.mode!=='load') return; if(!A.waiting||pol==='allowed') descend(); else askLand(); }
 const hostShown=()=>{ if(HOST.shown) return true; try{ const f=window.frameElement; return !!f&&+getComputedStyle(f).opacity>.9; }catch(e){ return false; } };
 /* (the one line, quiet, where the name was being built: what to do, on a phone or not) */
-function askLand(){ if(DSC.on) return; S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask'); }
+function askLand(){ if(DSC.on) return; S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask');
+  /* (the second given to the sound to start falls while Earth is being built, and a page that busy may hear late that it
+     has: should it turn out to be running after all, with no click, down it comes by itself, as it would have) */
+  const late=()=>{ if(!S.ask||S.mode!=='load'||DSC.on) return; if(A.on&&!A.waiting){ $('#load').classList.remove('ask'); descend(); } else setTimeout(late,200); };
+  setTimeout(late,200); }
 
 /* ---------- Land: straight down to Earth, in its own daylight, the colour the front door left you in. Any address of
    this page comes here (the old ones too: #land, and #aetos, where the rocket at the end of the walk used to go) ---------- */
