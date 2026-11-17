@@ -257,7 +257,7 @@ canvas#gl{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 .nogl #ui:not(.on){ display:none; }   /* (the plain page only once Walk is chosen: until then the gate, which has nothing drawn behind it, is all there is) */
 .nogl #places{ display:flex; flex-direction:column; gap:12vh; padding:16vh var(--gut); }
 .nogl .sec{ position:static; visibility:visible; opacity:1; color:var(--ink); text-align:left; }
-.nogl .sec .w,.nogl .sec .sub,.nogl .sec .kind,.nogl .sec .medium,.nogl .sec .no,.nogl .sec .kick,.nogl .sec .mail,.nogl .sec .quiet{ opacity:1; transform:none; filter:none; }
+.nogl .sec .w,.nogl .sec .sub,.nogl .sec .kind,.nogl .sec .medium,.nogl .sec .no,.nogl .sec .kick,.nogl .sec .mail,.nogl .sec .quiet,.nogl .sec .view{ opacity:1; transform:none; filter:none; }
 .nogl #dial,.nogl #cue,.nogl #people{ display:none; }
 .nogl .view{ position:static; color:var(--ink); }
 .nogl .room .label,.nogl .sec .by{ opacity:1; transform:none; }
