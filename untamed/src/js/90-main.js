@@ -103,6 +103,11 @@ async function outWhenReady(){ while(!S.ready||performance.now()-DSC.t0<DSC_MIN)
 /* the way down over: the cloud stopped and its sound let go (once out of the cloud; or the plain page instead; or the tests'
    straight way onto Earth) */
 function dscStop(){ DSC.out=true; A.cloud(0); DSC.an.forEach(an=>{ try{ an&&an.cancel(); }catch(e){} }); }
+/* the graphics card done with everything sent to it so far: a fence put in after it, and asked about once a turn, never
+   waited on (that would hold the page), for at most a few seconds */
+async function gpuDone(ms=6000){ let gl=null, f=null; try{ gl=renderer.getContext(); if(!gl.fenceSync) return; f=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0); gl.flush(); }catch(e){ return; }
+  const t0=performance.now(); try{ while(performance.now()-t0<ms){ if(gl.getSyncParameter(f,gl.SYNC_STATUS)===gl.SIGNALED) break; await wait(30); } }catch(e){} finally{ try{ gl.deleteSync(f); }catch(e){} }
+  DSC.gpu=Math.round(performance.now()-t0); }
 /* (the one line under the name, until the way down begins: what is being made; and, where the sound waits for a click, that) */
 const bootLine=t=>{ if(!S.ask) $('#boot').textContent=t; };
 async function boot(){
@@ -121,7 +126,11 @@ async function boot(){
     if(!rtWorks()){ document.documentElement.classList.add('nogl'); delete ST.cr; dscStop(); setP(1); $('#load').classList.add('ready'); S.ready=true; return; }
     await warmEarth(st); }
   setP(.9);
-  renderer.setRenderTarget(null); renderer.render(postScene,ortho);
+  /* nothing is drawn onto the page's own picture while the cloud is up: a picture drawn there has to be shown, and to show
+     it the browser waits for the graphics card to finish everything sent to it (Earth's shaders, its first drawing), which
+     would hold the cloud still (seen: three and a half seconds, on a slow one). The card is asked instead, without waiting,
+     whether it has finished, while the cloud goes on moving; Earth's first picture is drawn under the cloud's white */
+  renderer.setRenderTarget(null); await gpuDone();
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
   setP(1); $('#load').classList.add('ready'); S.ready=true; DSC.tr=performance.now();   // (and, if the way down has begun, out of the cloud: see outWhenReady)
 }
