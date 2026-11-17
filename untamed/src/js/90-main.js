@@ -91,7 +91,9 @@ function descend(){ if(DSC.on||S.mode!=='load') return; DSC.on=true; DSC.t0=perf
 /* out through the bottom of the cloud: once Earth is built and ready (and the way down has been long enough to be one), the
    cloud closes in white; the landing begins under the white (its first frames, the heaviest, drawn while nothing shows them),
    in the same white, held there until the cloud has gone; then it fades as the landing always has */
-async function outWhenReady(){ while(!S.ready||performance.now()-DSC.t0<DSC_MIN) await wait(40); if(DSC.out||S.mode!=='landing') return; DSC.out=true; DSC.t1=performance.now();
+async function outWhenReady(){ while(!S.ready||performance.now()-DSC.t0<DSC_MIN) await wait(40);
+  if(window.__TEST) await wait(1500);   // (under the tests' helper, which goes straight onto Earth the moment it is ready: it is given time to, so no landing ever starts under a test)
+  if(DSC.out||S.mode!=='landing') return; DSC.out=true; DSC.t1=performance.now();
   if(!ST.cr){ dscStop(); enterEarth(); return; }   // (Earth could not be made: the plain page instead, see enterEarth)
   const ld=$('#load'); ld.classList.add('out'); await wait(440);
   if(S.mode!=='landing') return;   // (something has already put you on Earth in the meantime: the tests' own straight way in, see earth)

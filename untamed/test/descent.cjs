@@ -113,8 +113,10 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const p2 = await ctx.newPage(); await p2.goto('file://' + html, { timeout: 300000 });
   const c2 = await ctx.newCDPSession(p2); const Q2 = async expr => { const r = await c2.send('Runtime.evaluate', { expression: '(' + expr + ')()', returnByValue: true, userGesture: false, awaitPromise: true }); return r.result ? r.result.value : undefined; };
   { const t0 = Date.now(); while (!(await Q2('() => !!(window.__heloria && window.__heloria.S.ready)')) && Date.now() - t0 < 300000) await W(150); }
-  await Q2('() => window.__heloria.earth()'); await W(4000);
-  const s2 = await Q2("() => ({ mode: window.__heloria.S.mode, cut: window.__heloria.ST.cr._dbg.cut().on, load: getComputedStyle(document.querySelector('#load')).visibility, cloud: window.__heloria.A._loops().find(l => l.name === 'cloud').vol })");
+  await Q2('() => window.__heloria.earth()');
+  /* (the way down fades out as frames are drawn: on this machine's software drawing, Earth's frames are slow, so it is given time) */
+  const S2 = "() => ({ mode: window.__heloria.S.mode, cut: window.__heloria.ST.cr._dbg.cut().on, load: getComputedStyle(document.querySelector('#load')).visibility, cloud: window.__heloria.A._loops().find(l => l.name === 'cloud').vol })";
+  let s2 = null; { const t0 = Date.now(); while (Date.now() - t0 < 25000) { s2 = await Q2(S2); if (s2.cut || s2.load === 'hidden') break; await W(250); } await W(3000); s2 = await Q2(S2); }
   rec(s2.mode === 'station' && !s2.cut && s2.load === 'hidden' && s2.cloud < .5, 'straight onto Earth (the tests\' way in): no landing comes after it, and the way down is put away', s2);
 
   console.log(`\nSUMMARY ${pass} passed, ${fail} failed` + (fail ? ': ' + failed.join('; ') : ''));
