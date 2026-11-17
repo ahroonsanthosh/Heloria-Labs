@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="landing">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs: Earth</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. Land on a small drawn town on Earth, where the three of us are waiting to talk about Aetos, Pharos, Ogive and Kríos.">
+<meta name="description" content="Heloria Labs. We dare to build where others hesitate. Land on a small drawn town on Earth, where the three of us are waiting to talk about Aetos, Pharos, Ogive and Kríos.">
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs: Earth">
-<meta property="og:description" content="A software lab in Ireland. We build for problems that make a real difference.">
+<meta property="og:description" content="We dare to build where others hesitate.">
 <meta property="og:image" content="../assets/img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -16,7 +16,7 @@
 <link rel="icon" href="/assets/img/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/assets/img/icon-180.png">
 <link rel="preload" href="../assets/fonts/doto-latin.woff2?v=ca1cd7ff15" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="../assets/untamed.css?v=7738cded79">
+<link rel="stylesheet" href="../assets/untamed.css?v=2a90534797">
 </head>
 <body>
 <canvas id="gl" aria-hidden="true"></canvas>
@@ -24,6 +24,7 @@
 
 <!-- LOADER + ENTER -->
 <section class="layer" id="load" aria-label="Heloria Labs">
+  <div id="sky" aria-hidden="true"><canvas class="c1"></canvas><canvas class="c2"></canvas><canvas class="c3"></canvas><i class="wh"></i></div>
   <h1 id="mark" class="disp" aria-label="Heloria">Heloria</h1>
   <span id="boot" class="ui" aria-hidden="true"></span>
 </section>
@@ -97,7 +98,7 @@
 <!-- shown only when WebGL is unavailable -->
 <main id="nogl">
   <h1 class="disp">Heloria</h1>
-  <p class="lede">A software lab in Ireland. We build for problems that make a real difference. This page is normally a small drawn town on Earth, where the three of us are waiting to talk, but your browser could not start WebGL, so here is the plain version.</p>
+  <p class="lede">We dare to build where others hesitate. We build for problems that make a real difference. This page is normally a small drawn town on Earth, where the three of us are waiting to talk, but your browser could not start WebGL, so here is the plain version.</p>
   <section><span class="ui mute">Projects</span><ul>
     <li><a href="https://github.com/ahroonsanthosh/Aetos" target="_blank" rel="noopener">Aetos</a><span>Counter-drone command software</span></li>
     <li><a href="https://github.com/ahroonsanthosh/pharos" target="_blank" rel="noopener">Pharos</a><span>GPS-free drone navigation</span></li>
@@ -114,6 +115,6 @@
 
 
 <script src="../assets/vendor/three.min.js?v=ccabb6c3b0"></script>
-<script src="../assets/untamed.js?v=88354930c7"></script>
+<script src="../assets/untamed.js?v=33653fac93"></script>
 </body>
 </html>
