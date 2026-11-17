@@ -83,6 +83,14 @@ const W = ms => new Promise(r => setTimeout(r, ms));
     rec(lp && lp.ready && (lp.playing || lp.vol > 0), 'the way down is heard from then', lp);
   }
 
+  /* (and heard all the way down, until the cloud opens: listened to every quarter of a second; the warming behind the cloud,
+     which hushes Earth's own sounds, must leave the way down's be) */
+  { const S = []; const t0 = Date.now();
+    while (Date.now() - t0 < 300000) { const q = await Q("() => { const c = window.__heloria.A._loops().find(l => l.name === 'cloud'); return { out: window.__heloria.DSC.out, ready: window.__heloria.S.ready, on: c.playing && c.vol > .3 }; }");
+      if (q.out) break; S.push(q); await W(250); }
+    const heard = S.filter(q => q.on).length, afterReady = S.filter(q => q.ready);
+    rec(S.length > 0 && heard / S.length > .9 && afterReady.every(q => q.on), 'heard all the way down until the cloud opens, the warming behind it too', { samples: S.length, heard, lastSamples: S.slice(-4) }); }
+
   /* 3. out of the cloud, onto the landing */
   rec(await until("() => window.__D.ev.some(e => e[0] === 'cut')", 300000), 'the landing begins');
   await until("() => window.__D.ev.some(e => e[0] === 'off')", 30000);

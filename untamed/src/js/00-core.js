@@ -741,8 +741,8 @@ const A=(()=>{
       else if(n.ten){ const t0=ctx.currentTime; n.teng.gain.cancelScheduledValues(t0); n.teng.gain.setTargetAtTime(0,t0,.08); try{ n.ten.stop(t0+.7); }catch(e){} n.ten=null; } },
     /* every continuous layer to silence (the score up high excepted: the white page carries it on), on the way to the white
        page and away from it */
-    cloud(v){ CLD.want=clamp(v||0,0,1); },   // the way down through the cloud (see CLD)
-    hush(){ CLD.want=0; TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
+    cloud(v){ CLD.want=clamp(v||0,0,1); },   // the way down through the cloud (see CLD): its own, so hushing Earth's sounds (as leaving Earth does, and the warming behind the cloud) leaves it be
+    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
     /* a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
