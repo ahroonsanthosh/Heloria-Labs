@@ -842,9 +842,11 @@ const A=(()=>{
     /* the landing's sound (see LS above): landAt(t) keeps it in step with the landing (true while there is one to play),
        landClock() where it has got to, landEnd(cut) lets it ring out (or, the landing skipped, stops it) */
     landAt(t){ const el=LS.el; if(!el) return false; el._want=true; if(!on||muted||away){ if(!el.paused) el.pause(); return true; }
-      if(el.paused){ if(t<LS.len-.3){ try{ el.currentTime=t; }catch(e){} const p=el.play(); if(p&&p.catch) p.catch(()=>{}); } }
-      else if(Math.abs(el.currentTime-t)>.4){ try{ el.currentTime=t; }catch(e){} } return true; },
-    landClock(){ const el=LS.el; return el&&!el.paused&&!el.seeking&&el.readyState>=3?el.currentTime:null; },
+      /* (played to its end, it is over: the scene goes on to its end with it, and the landing is never heard twice. Only the
+         sound behind the scene, never ahead of it, is moved on: the scene follows the sound, as landClock gives it) */
+      if(el.paused){ if(el.ended&&t>.5) return true; if(t<LS.len-.3){ try{ el.currentTime=t; }catch(e){} const p=el.play(); if(p&&p.catch) p.catch(()=>{}); } }
+      else if(t-el.currentTime>.4){ try{ el.currentTime=t; }catch(e){} } return true; },
+    landClock(){ const el=LS.el; return el&&(!el.paused||el.ended)&&!el.seeking&&el.readyState>=3?el.currentTime:null; },
     landEnd(cut){ const el=LS.el; if(!el) return; el._want=false; if(cut&&!el.paused) el.pause(); },
     _land(full){ if(full) return LS.env?Array.from(LS.env,v=>+v.toFixed(3)):null; const el=LS.el; return el?{t:+el.currentTime.toFixed(2),paused:el.paused,len:LS.len,rms:+LS.rms.toFixed(4),peak:+Math.max(...LS.env).toFixed(4),
       lv:+(LS.env[clamp(Math.floor(el.currentTime*10),0,LS.env.length-1)]||0).toFixed(4)}:{ready:false,busy:LS.busy,fail:LS.fail}; },
