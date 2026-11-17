@@ -2359,7 +2359,7 @@ async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot
   /* flags: the tricolour by the landing pad, a pennant at the jetty, a small one on top of the lighthouse */
   const pick=(L,r)=>L.find(([x,z])=>slFree(x,z,r));
   { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
-  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[9.4,-14]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the last two by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first)
+  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[11.5,-11.5],[11,-11.5],[9.4,-14]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the later ones by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first. [9.4,-14] last of all: it is where that house's washing line goes)
   if(PH&&MK.ph){ const M=PH.M; kitTo('ph'); cyl(M,'#3e4448',0,6.24,0,.014,.62,'cyl8'); kitTo();
     slFlag(PH.x,PH.z,0,.42,.2,['#cf4a36','#f4efe6'],MK.ph.g,6.84); }
   /* frost: in each pane of every window, white crystals creeping in from the corners and along the bottom */
@@ -2423,7 +2423,7 @@ async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot
   SL.built=true;
   /* the visitor's own weather, asked for once Earth is made (never in the tests, which ask for it themselves) */
   if(!window.__TEST) slFetch();
-  st._dbg.life={SL,WIND,FLAGS,PF,DR,LP,ICE,SLK,SLCHIM,slSun,slWhere,slOff,slHour,slMoon,slShower,slFold,slWxKind,slBank,walkable,
+  st._dbg.life={SL,WIND,FLAGS,PF,DR,LP,ICE,SLK,SLCHIM,slSun,slWhere,slOff,slHour,slMoon,slShower,slFold,slWxKind,slBank,walkable,slFree,pathDist,
     set(o){ if('weather' in o&&o.weather==null) SKYSET.weather=null; if('tz' in o){ SL.tzSet=o.tz||null; SL.key=''; } if('aurora' in o) SL.aurSet=o.aurora==null?null:!!o.aurora; if('temp' in o){ SL.tempSet=o.temp; SL.key=''; } if('meteors' in o) SL.metSet=o.meteors;
       if('wind' in o) WIND.set=o.wind; if('real' in o){ SL.real=o.real; WIND.real=null; } skyClock(); skyApply(); },
     step(sec,world){ for(let i=0;i<sec*10;i++){ skyUpdate(.1,G.uTime.value+i*.1); if(world) slWorld(.1,G.uTime.value+i*.1); } },
@@ -9588,14 +9588,17 @@ const HM_CLOTH=[['sheet',.62,.5,['#f4f1ea']],['shirt',.3,.36,['#7fa6c9']],['towe
 const HM_NX=4, HM_NY=3, HM_V=(HM_NX+1)*(HM_NY+1);
 /* where the line goes: behind the house if it will go there, else beside it (never in front, where the children come out of
    the door); straight across or at a slant, a shorter line where a long one will not fit; on open grass, clear of
-   everything, and well away from the plots being made into the pub and the fire station */
+   everything, and well away from the plots being made into the pub and the fire station. (A garden by the shore, with a
+   path and a tree in it, may have room only further back or further out, or for a shorter line: those are tried last) */
 function hmPlace(home){ const H=home.H, w=H.w, d=H.d, cands=[];
   for(let lz=-d/2-.9;lz>=-d/2-2.6;lz-=.25) for(let lx=0;lx<=w/2+1.5;lx+=.25) for(const sx of lx?[1,-1]:[1]) cands.push([sx*lx,lz,0]);
   for(let lx=w/2+1;lx<=w/2+2.2;lx+=.25) for(let lz=-d/2;lz<=d/2-.3;lz+=.25) for(const sx of [1,-1]) cands.push([sx*lx,lz,1]);
+  for(let lz=-d/2-2.85;lz>=-d/2-3.6;lz-=.25) for(let lx=0;lx<=w/2+2.2;lx+=.25) for(const sx of lx?[1,-1]:[1]) cands.push([sx*lx,lz,2]);
+  for(let lx=w/2+2.45;lx<=w/2+3.2;lx+=.25) for(let lz=-d/2-.5;lz<=d/2-.3;lz+=.25) for(const sx of [1,-1]) cands.push([sx*lx,lz,2]);
   cands.sort((a,b)=>a[2]-b[2]||Math.abs(a[0])-Math.abs(b[0])||b[1]-a[1]);
   /* (across the way the wind mostly blows, where it can be: off the land at the cliff, see the sky alive) */
   const wa=slFwA(), axes=[[1,0],[0,1],[.71,.71],[.71,-.71]].map(([ax,az])=>{ coV.set(ax,0,az).applyMatrix4(coM.extractRotation(H.M)); return [ax,az,Math.abs(coV.x*Math.cos(wa)+coV.z*Math.sin(wa))]; }).sort((a,b)=>a[2]-b[2]);
-  for(const L of [1.05,.8]) for(const [ax,az] of axes) for(const [cx,cz] of cands){ const pts=[-1,-.5,0,.5,1].map(t=>loc(coV.set(cx+ax*t*L,0,cz+az*t*L).applyMatrix4(H.M).normalize()));
+  for(const L of [1.05,.8,.62]) for(const [ax,az] of axes) for(const [cx,cz] of cands){ const pts=[-1,-.5,0,.5,1].map(t=>loc(coV.set(cx+ax*t*L,0,cz+az*t*L).applyMatrix4(H.M).normalize()));
     if(pts.every(([x,z],i)=>slFree(x,z,i%4===0?.25:.35,1.4)&&HM_OUT.every(([ox,oz])=>Math.hypot(x-ox,z-oz)>4.6)&&!hmFenced(home.x,home.z,x,z)&&TREES.every(([tx,tz,s])=>Math.hypot(x-tx,z-tz)>1.5*s))) return pts; }   // (and out from under a tree's crown, which the line would run through)
   return null; }
 /* a fence between the house and a spot: the garden ends there */
@@ -9653,7 +9656,18 @@ function buildHomes(){ try{ kitTo(); hmFind(); HM.homes.forEach(hmLine); hmLines
 { const up=st.update, en=st.enter;
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built&&!HM.err){ hmLights(dt); hmSmoke(dt); hmShape(dt,t); hmFlaps(dt); } return r; };
   st.enter=function(){ wbRead(); const r=en.apply(this,arguments); wbSigns(); return r; }; }
-st._dbg.homes={HM,WB,hmWant,hmFire,wbRead,wbSigns,greet(){ PO.seen=false; poGreet(); return TALK.txt; },
+st._dbg.homes={HM,WB,hmWant,hmFire,wbRead,wbSigns,
+  /* why a home has no washing line: for each spot tried, what stopped it (for a test, or to find a home a new spot) */
+  why(i=0){ const home=HM.homes[i]; if(!home) return null; const H=home.H, w=H.w, d=H.d, n={}; const add=k=>{ n[k]=(n[k]||0)+1; };
+    const fr=(x,z,r,pr)=>!walkable(x,z)?'walkable':!(isle(at(x,z))>.07)?'shore':!(roadDist(x,z)>RW+SW+r)?'road':!(pathDist(x,z)>r)?'path':OBS.some(o=>Math.hypot(x-o.x,z-o.z)<o.r+r)?'solid':MKT.obs.some(o=>Math.hypot(x-o.x,z-o.z)<o.r0+r)?'market':CLEAR().some(c=>Math.hypot(x-c[0],z-c[1])<r+1.6)?'clear':people.some(p=>Math.hypot(x-p.x,z-p.z)<r+pr)?'person':Math.hypot(x-DM.x,z-DM.z)>r+Math.max(1.6,pr)?null:'busker';
+    for(let lz=-d/2-.9;lz>=-d/2-2.6;lz-=.25) for(let lx=0;lx<=w/2+2.2;lx+=.25) for(const sx of [1,-1]){ const [x,z]=loc(coV.set(sx*lx,0,lz).applyMatrix4(H.M).normalize());
+      const r=fr(x,z,.35,1.4); add(r||(!HM_OUT.every(([ox,oz])=>Math.hypot(x-ox,z-oz)>4.6)?'pub or fire station':TREES.every(([tx,tz,s])=>Math.hypot(x-tx,z-tz)>1.5*s)?'free':'tree')); }
+    const ln={}, al=k=>{ ln[k]=(ln[k]||0)+1; };
+    for(const L of [1.05,.8,.62]) for(const [ax,az] of [[1,0],[0,1],[.71,.71],[.71,-.71]]) for(let lz=-d/2-.9;lz>=-d/2-3.6;lz-=.25) for(let lx=-w/2-3;lx<=w/2+3;lx+=.25){
+      const pts=[-1,-.5,0,.5,1].map(t=>loc(coV.set(lx+ax*t*L,0,lz+az*t*L).applyMatrix4(H.M).normalize())); let why=null;
+      for(let i=0;i<5&&!why;i++){ const [x,z]=pts[i]; why=fr(x,z,i%4===0?.25:.35,1.4)||(!HM_OUT.every(([ox,oz])=>Math.hypot(x-ox,z-oz)>4.6)?'pub/fire':null)||(hmFenced(home.x,home.z,x,z)?'fence':null)||(TREES.every(([tx,tz,s])=>Math.hypot(x-tx,z-tz)>1.5*s)?null:'tree'); }
+      al(why||'FITS'); }
+    return {x:+home.x.toFixed(2),z:+home.z.toFixed(2),w,d,n,ln}; },greet(){ PO.seen=false; poGreet(); return TALK.txt; },
   get state(){ return {homes:HM.homes.map(h=>({x:+h.x.toFixed(2),z:+h.z.toFixed(2),wins:h.wins.length,chim:!!h.chim,fire:+h.fire.toFixed(2),line:!!h.line})),
     wins:HM.wins.map(w=>({role:w.role,k:+w.k.toFixed(2),sil:+w.sil.toFixed(2)})),lit:HM.wins.filter(w=>w.k>.4).length,puffs:HM.puffs,
     lines:HM.lines.map(L=>({x:+L.x.toFixed(2),z:+L.z.toFixed(2),out:L.items.filter(it=>it.k>.5).length,n:L.items.length,lean:+(L.lean||0).toFixed(2)})),back:WB.back,n:WB.n,err:HM.err||null}; }};
