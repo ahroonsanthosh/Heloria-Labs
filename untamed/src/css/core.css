@@ -83,13 +83,27 @@ html:not(.cur) #cur,html:not(.cur) #curd{display:none}
 #load.go #mark .c{transform:translate(var(--tx),var(--ty)) scale(.05);opacity:0;filter:blur(6px)}
 /* the only words on the opening screen: a small prompt that appears once everything is built */
 #boot{position:absolute;left:50%;top:calc(46% + clamp(64px,15vw,260px)*.55);transform:translateX(-50%);color:var(--mute);white-space:nowrap;transition:opacity .5s var(--ease)}
-#load.ready #boot{opacity:0}
+#load.ready #boot,#load.desc #boot{opacity:0}
 #load.ready{cursor:default}
-/* (a browser that holds the sound until a click: the landing waits for one, and says so where the name was being built) */
-#load.ready.ask{cursor:pointer}
-#load.ready.ask #boot{opacity:1;animation:askLand 2.6s ease-in-out infinite}
+/* (a browser that holds the sound until a click: the way down waits for one, and says so where the name was being built) */
+#load.ask{cursor:pointer}
+#load.ask #boot{opacity:1;animation:askLand 2.6s ease-in-out infinite}
 @keyframes askLand{0%,100%{opacity:.5}50%{opacity:1}}
-@media (prefers-reduced-motion:reduce){#load.ready.ask #boot{animation:none}}
+@media (prefers-reduced-motion:reduce){#load.ask #boot{animation:none}}
+/* the way down (see 90-main.js): the cloud the rocket comes down through, three layers drawn once as the page opens and moved
+   by the browser itself (only how far up, so nothing in them is drawn again as they move), so they keep moving while Earth
+   is being built. Drifting, faint, while the name waits; whole as the way down begins; and closing in white at the bottom of
+   the cloud, the white the landing opens in */
+#sky{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(#e4eff3,#d3e3ea);opacity:0;transition:opacity 1s var(--ease)}
+#sky canvas{position:absolute;left:0;top:0;width:100%;height:200%;opacity:0;transition:opacity 1.1s cubic-bezier(.3,0,.2,1);will-change:transform}
+#load.idle #sky{opacity:1}
+#load.idle #sky canvas{opacity:.55}
+#load.desc #sky canvas{opacity:1}
+#load.desc #sky .c2{transition-delay:.15s}
+#load.desc #sky .c3{transition-delay:.35s}
+#sky .wh{position:absolute;inset:0;background:#FFFAF2;opacity:0;transition:opacity .42s cubic-bezier(.5,0,.75,0)}
+#load.out #sky .wh{opacity:1}
+#load.gone{opacity:0!important;transition:opacity .3s linear!important}
 
 /* ---------- chrome ---------- */
 #chrome{z-index:20}
@@ -186,4 +200,4 @@ html.nogl,html.nogl *{cursor:auto!important}
 /* Land opens in daylight: the front door's own last colour, the word in ink */
 html.landing,html.landing body{background:#EAF4F4}
 html.landing #load{background:#EAF4F4;color:#2a241d;--ink:#2a241d;--ink2:#4a4037;--mute:#6f6355;--hair2:rgba(42,36,29,.3)}
-html.landing #load.go #mark .c{transform:translate(0,-18vh) scale(1.15);filter:blur(10px)}
+html.landing #load.go #mark .c{transform:translate(0,-24vh) scale(1.12);filter:none}   /* (lifted away by the browser itself, as the cloud is: no blur, which the page would have to draw) */

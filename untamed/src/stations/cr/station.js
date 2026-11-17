@@ -4589,7 +4589,7 @@ function civPhase(h){ if(!civSchoolDay()) return 'off'; if(h>=CT.to&&h<CT.in) re
   if(h>=CT.in&&h<CT.home) return 'in'; if(h>=CT.home&&h<CT.end) return 'home'; return 'off'; }
 /* what the plaques say: one for who backs us, as the rest of the site says it; one for where we are; one still blank */
 const PLAQ=[{n:'Andrena Ventures',k:'Backs Heloria Labs',t:'Heloria Labs is backed by Andrena Ventures.',lines:[['BACKED BY',.13,.28],['ANDRENA',.25,.52],['VENTURES',.14,.76]]},
-  {n:'Heloria Labs',k:'A software lab in Ireland',t:'Three of us, in Ireland. We build for problems that make a real difference.',lines:[['HELORIA LABS',.2,.38],['A SOFTWARE LAB IN IRELAND',.12,.68]]},
+  {n:'Heloria Labs',k:'Three of us, in Ireland',t:'We dare to build where others hesitate. We build for problems that make a real difference.',lines:[['HELORIA LABS',.2,.38],['THREE OF US, IN IRELAND',.12,.68]]},
   {n:null,lines:[]}];
 /* the plaques, on one sheet: brushed brass, a rim and four screws, the lettering raised. Each: the height of its middle, its
    width and height (as it hangs by the hall's door); where it is on the sheet */

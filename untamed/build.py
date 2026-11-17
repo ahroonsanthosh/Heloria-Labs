@@ -77,20 +77,20 @@ def single(inline_three=False, tamed_url=TAMED_ARTIFACT, minify=False):
 
 def document(tamed_url=TAMED_ARTIFACT):
     """a complete single HTML document, everything inside it"""
-    return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
+    return ('<!doctype html><html lang="en" class="landing"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
             + single(tamed_url=tamed_url) + '</body></html>')
 
 DOC_HEAD = '''<!doctype html>
-<html lang="en">
+<html lang="en" class="landing">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Heloria Labs: Earth</title>
-<meta name="description" content="Heloria Labs is a software lab in Ireland. Land on a small drawn town on Earth, where the three of us are waiting to talk about @NAMES.">
+<meta name="description" content="Heloria Labs. We dare to build where others hesitate. Land on a small drawn town on Earth, where the three of us are waiting to talk about @NAMES.">
 <meta name="theme-color" content="#050504">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Heloria Labs: Earth">
-<meta property="og:description" content="A software lab in Ireland. We build for problems that make a real difference.">
+<meta property="og:description" content="We dare to build where others hesitate.">
 <meta property="og:image" content="{A}img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
@@ -149,7 +149,7 @@ def main():
     if not (a.single or a.artifact):
         a.single = 'dist/untamed.html'
     if a.single:
-        doc = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + single(a.inline_three, minify=a.minify) + '</body></html>'
+        doc = '<!doctype html><html lang="en" class="landing"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + single(a.inline_three, minify=a.minify) + '</body></html>'
         p = a.single if os.path.isabs(a.single) else os.path.join(ROOT, a.single)
         os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w', encoding='utf-8').write(doc); print('single ->', p, len(doc))
     if a.artifact:

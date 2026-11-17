@@ -180,6 +180,8 @@ const A=(()=>{
       if(m&&m.then) m.then(go,e=>{ console.warn('sound',r.name,e); fin(); }); else go(); }
     const done=b=>{ const d=b.getChannelData(0);
       if(r.fade) for(let i=0;i<H;i++){ const k=i/H*Math.PI/2; d[R+i]*=Math.sin(k); d[R+P+i]*=Math.cos(k); }   // in at the top, out over the overlap
+      /* (one made to be as loud as something else is: its level as it plays, between the overlaps, set to norm) */
+      if(r.norm){ let q=0; for(let i=R+H;i<R+P;i++) q+=d[i]*d[i]; const k=r.norm/Math.max(1e-6,Math.sqrt(q/Math.max(1,P-H))); for(let i=R;i<R+N;i++) d[i]*=k; }
       const w=wav(d,R,N,sr); r.url=w.url; r.rms=w.rms; if(BUFP){ r.pcm=d.slice(R,R+N); r.sr=sr; } r.els=[player(r),player(r)];
       KEEP.put(kn,BUFP?new Blob([r.pcm]):w.blob,w.rms); fin(); };
     function go(){ try{ const pr=oc.startRendering(); if(pr&&pr.then) pr.then(done,()=>fin()); else oc.oncomplete=e=>done(e.renderedBuffer); }catch(e){ fin(); } } }
@@ -474,6 +476,24 @@ const A=(()=>{
       const s=oc.createBufferSource(), lp=oc.createBiquadFilter(), k=oc.createGain(); s.buffer=buf; lp.type='lowpass'; lp.frequency.value=4000; k.gain.value=this.ref*.9; s.connect(lp); lp.connect(k); k.connect(b.in); s.start(0);
       const nz=noiseSrc(oc), bl=oc.createBiquadFilter(), bg=oc.createGain(), kb=oc.createGain(); bl.type='bandpass'; bl.frequency.value=240; bl.Q.value=2.5; kb.gain.value=this.ref*nb(oc,240,2.5)*.35;
       bg.gain.setValueAtTime(.5,0); for(let t=0;t<n/sr;t+=.07+rnd()*.09) bg.gain.linearRampToValueAtTime(.25+rnd()*.75,t); nz.connect(bl); bl.connect(bg); bg.connect(kb); kb.connect(b.in); }});
+  /* ---------- the way down through the cloud, before the landing (see the way down, in 90-main.js) ----------
+     The landing's own rush and hum as they are while it is still far off (as the landing's recording has them at its start:
+     the rumble, the deep rush of air, the low C and G of its engine, the air going past through the cloud), held and swaying
+     slowly, for as long as Earth is still being built. It is set exactly as loud as the landing's recording is as it begins
+     (norm), and the two cross as the cloud opens, so one goes into the other unheard */
+  const CLD=loop({name:'cloud',sr:22050,P:8,H:2,ref:1,ios:1,gate:.3,tc:.9,tcOut:.15,norm:.055,make(oc){ const b=bus(oc,1,.9), IN=b.in, room=b.rv, L=oc.length/oc.sampleRate, e=.28;
+      const filt=(type,f,q)=>{ const x=oc.createBiquadFilter(); x.type=type; x.frequency.value=f; x.Q.value=q??.7; return x; };
+      const chain=(...xs)=>{ for(let i=0;i<xs.length-1;i++) xs[i].connect(xs[i+1]); return xs[xs.length-1]; };
+      const toRoom=(node,k)=>{ const g=oc.createGain(); g.gain.value=k; node.connect(g); g.connect(room); };
+      const sway=(d,s)=>t=>1-d*(.5+.5*(.5*Math.sin(t*1.7+s)+.3*Math.sin(t*2.9+s*2)+.2*Math.sin(t*.7+s*3)));
+      const held=(param,f)=>{ const N=Math.ceil(L*30), c=new Float32Array(N); for(let i=0;i<N;i++) c[i]=f(L*i/(N-1)); param.setValueCurveAtTime(c,0,L); };
+      { const g=oc.createGain(); g.gain.value=.5*e; g.connect(IN); chain(noiseSrc(oc),filt('lowpass',150,.7),g); }   // the rumble
+      { const g=oc.createGain(), f=330+430*Math.pow(e,1.5), sw=sway(.22,1); held(g.gain,t=>.5*e*sw(t)); g.connect(IN); toRoom(g,.3);
+        chain(noiseSrc(oc),filt('highpass',90,.5),filt('lowpass',f,.5),filt('lowpass',f*1.3,.5),g); }   // the rush
+      { const pw=oc.createPeriodicWave(new Float32Array(6),new Float32Array([0,1,.5,.28,.12,.05]));
+        [[65.41,.085],[98,.04]].forEach(([f0,a],k)=>{ const o=oc.createOscillator(); o.setPeriodicWave(pw); held(o.frequency,t=>f0*(.92+.08*e)*(1+.004*Math.sin(t*3.1+k))); o.start(0);
+          const g=oc.createGain(); g.gain.value=a*e; chain(o,filt('lowpass',650,.5),g); g.connect(IN); toRoom(g,.2); }); }   // the engine's hum
+      { const g=oc.createGain(), sw=sway(.5,4); held(g.gain,t=>.13*sw(t)); chain(noiseSrc(oc),filt('bandpass',820,.6),filt('lowpass',1400,.5),g); g.connect(IN); toRoom(g,.3); } }});   // the air past, through the cloud
   setInterval(soloEnd,100);
   let making=!!OAC;
   /* what you hear first as you land: Earth's music and the rocket's roar as it comes down */
@@ -481,7 +501,7 @@ const A=(()=>{
   /* made one after another, out of the way of the page starting, in the order you hear them: those first, then the rest of
      Earth's, and last the score up high in the last flight */
   { const Q=[MUS,RD,RO,TH,RAINL,BUSK,SOLO,PAD,SUB]; let qi=0; const go=()=>{
-      if(!qi){ KEEP.want(Q.map(keptAs));
+      if(!qi){ KEEP.want(Q.map(keptAs).concat(keptAs(CLD))); render(CLD);   // (the cloud first: it is heard from the moment the page opens)
         /* what you hear first, which the loader waits for (see firstReady), is made side by side: a browser works out each on
            a thread of its own, so the wait is for the longest of them, not for all of them in turn */
         FIRST.slice(1).forEach(r=>render(r)); landMake(); }
@@ -658,7 +678,9 @@ const A=(()=>{
        nothing in it (the touchdown) more than half as loud again */
     const done=bf=>{ const dd=bf.getChannelData(0), E=new Float32Array(Math.ceil(dd.length/(sr/10)));
       const env=()=>{ for(let k=0;k<E.length;k++){ let q=0, n=0; for(let i=k*sr/10;i<Math.min(dd.length,(k+1)*sr/10);i++,n++) q+=dd[i]*dd[i]; E[k]=Math.sqrt(q/Math.max(1,n)); } };
-      env(); let hv=0; for(let i=Math.round(T.hov*10);i<Math.round((T.land-.1)*10);i++) hv+=E[i]/Math.round((T.land-.1-T.hov)*10); const pk=Math.max(1e-4,...E), k=Math.min(6,.16/Math.max(1e-4,hv),.26/pk); for(let i=0;i<dd.length;i++) dd[i]*=k; env();
+      env(); let hv=0; for(let i=Math.round(T.hov*10);i<Math.round((T.land-.1)*10);i++) hv+=E[i]/Math.round((T.land-.1-T.hov)*10); const pk=Math.max(1e-4,...E), k=Math.min(6,.16/Math.max(1e-4,hv),.26/pk); for(let i=0;i<dd.length;i++) dd[i]*=k;
+      /* (in over its first quarter of a second, as the way down through the cloud goes: the two cross evenly) */
+      { const F=Math.round(.25*sr); for(let i=0;i<F;i++) dd[i]*=Math.sin(i/F*Math.PI/2); } env();
       const w=wav(dd,0,dd.length,sr); LS.url=w.url; LS.rms=w.rms; LS.env=E; LS.busy=false;
       const el=BUFP?new BufPlayer(()=>{ if(LS.bb) return LS.bb; const b=ctx.createBuffer(1,dd.length,sr), ch=b.getChannelData(0); for(let i=0;i<dd.length;i++){ const x=dd[i]; ch[i]=x>1?1:x<-1?-1:(x===x?x:0); } LS.bb=b; return b; }):new Audio();
       el.preload='auto'; if(!BUFP) el.src=LS.url; el._want=false; try{ el.preservesPitch=false; }catch(e){} LS.el=el; };
@@ -719,7 +741,8 @@ const A=(()=>{
       else if(n.ten){ const t0=ctx.currentTime; n.teng.gain.cancelScheduledValues(t0); n.teng.gain.setTargetAtTime(0,t0,.08); try{ n.ten.stop(t0+.7); }catch(e){} n.ten=null; } },
     /* every continuous layer to silence (the score up high excepted: the white page carries it on), on the way to the white
        page and away from it */
-    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
+    cloud(v){ CLD.want=clamp(v||0,0,1); },   // the way down through the cloud (see CLD)
+    hush(){ CLD.want=0; TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
     /* a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);

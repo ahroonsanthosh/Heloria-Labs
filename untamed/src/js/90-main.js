@@ -48,38 +48,97 @@ async function warmEarth(st){ const rt=mkRT(); rt.setSize(64,64);
   await Promise.race([programsReady(),wait(8000)]); takeUp();
   try{ st.render(rt); }catch(e){ console.error('render cr',e); }
   st.exit(); renderer.setRenderTarget(null); rt.dispose(); }
+/* ---------- the way down: from the moment the page opens, the rocket is coming down through the cloud ----------
+   Earth is built while you come down through it, so there is nothing to wait for: no loader, only the way down. The cloud
+   is drawn once, small and soft, as the page opens (three layers, far, middle and near, each a picture that repeats from
+   top to bottom), and moved by the browser itself, not by the page: it keeps moving, smoothly, while the page is busy
+   building Earth, however long that takes on a slow phone. The way down is heard from its first moment (the cloud, in
+   00-core.js), and lasts at least DSC_MIN; once Earth is built and ready to draw, the cloud closes in white, and opens on
+   the landing (in the same white the landing begins in), with Earth already there, every shader made. Where the browser
+   holds the sound until a click or a tap, nothing comes down without it: the cloud drifts, the name waits, and it says so;
+   the click brings it down, and Earth is built meanwhile */
+const DSC={on:false,t0:0,an:[],out:false};
+const DSC_MIN=2200;
+const RMO=matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* one layer of cloud: n clouds, each of a few overlapping puffs, a lit top over a shade underneath, drawn into the top half
+   of the canvas so that it repeats from top to bottom, and copied into the bottom half: moved up by one half, it is back
+   where it began */
+function cloudTile(cv,W,H,seed,n,rMin,rMax,al){ cv.width=W; cv.height=H*2; const c=cv.getContext('2d'); let sd=seed; const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+  c.save(); c.beginPath(); c.rect(0,0,W,H); c.clip();
+  const disc=(x,y,r,col,a)=>{ for(const yy of [y-H,y,y+H]){ if(yy+r<0||yy-r>H) continue; const g=c.createRadialGradient(x,yy,0,x,yy,r);
+      g.addColorStop(0,'rgba('+col+','+a+')'); g.addColorStop(.78,'rgba('+col+','+a+')'); g.addColorStop(1,'rgba('+col+',0)'); c.fillStyle=g; c.fillRect(x-r,yy-r,r*2,r*2); } };
+  for(let i=0;i<n;i++){ const cx=rnd()*W, cy=rnd()*H, R=rMin+rnd()*(rMax-rMin), k=6+Math.floor(rnd()*5), P=[];
+    for(let j=0;j<k;j++){ const u=(rnd()-.5)*2; P.push([cx+u*R*1.1, cy+(rnd()-.5)*R*.35-(1-Math.abs(u))*R*.28, R*(.45+rnd()*.38)*(1.15-Math.abs(u)*.4)]); }
+    for(const [x,y,r] of P) disc(x,y+r*.22,r,'196,210,222',al*.92);   // the shade underneath
+    for(const [x,y,r] of P) disc(x,y-r*.08,r*.9,'255,253,248',al); }   // the lit tops
+  c.restore(); c.drawImage(cv,0,0,W,H,0,H,W,H); }
+/* the cloud drawn, and set drifting slowly (as it does while it waits for a click): far, middle and near, each faster than the
+   one behind it. [smaller than the screen by, seed, clouds, smallest and largest, how solid, seconds to cross the screen] */
+function skyDraw(){ const L=[...document.querySelectorAll('#sky canvas')], vw=Math.max(320,innerWidth), vh=Math.max(320,innerHeight);
+  const spec=[[3,7,10,.05,.11,.8,7.5],[3,13,6,.08,.16,.92,3.6],[4,29,3,.16,.26,.6,1.7]];
+  DSC.an=L.map((cv,i)=>{ const [ds,sd,n,r0,r1,al,sec]=spec[i], W=Math.ceil(vw/ds), H=Math.ceil(vh/ds), big=Math.max(W,H*.75); try{ cloudTile(cv,W,H,sd,n,r0*big,r1*big,al); }catch(e){}
+    if(RMO||!cv.animate) return null;
+    try{ const an=cv.animate([{transform:'translate3d(0,0,0)'},{transform:'translate3d(0,-50%,0)'}],{duration:sec*1000,iterations:Infinity}); an.playbackRate=.06; return an; }catch(e){ return null; } });
+  $('#load').classList.add('idle'); }
+const skyRate=v=>DSC.an.forEach(an=>{ if(!an) return; try{ if(an.updatePlaybackRate) an.updatePlaybackRate(v); else an.playbackRate=v; }catch(e){} });
+/* and down: the name lifts away into the cloud, the cloud gathers speed past you, and the way down is heard */
+function descend(){ if(DSC.on||S.mode!=='load') return; DSC.on=true; DSC.t0=performance.now(); S.ask=false;
+  const ld=$('#load'); ld.classList.remove('ask'); ld.classList.add('desc');
+  $$('.c',$('#mark')).forEach(c=>{ c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; }); ld.classList.add('go');
+  S.mode='landing'; A.start(); A.cloud(1);
+  { let k=0; const up=()=>{ k++; skyRate(Math.min(1,.06+k*.16)); if(k<6) setTimeout(up,90); }; up(); }   // (gathering speed over half a second, not at once)
+  outWhenReady(); }
+/* out through the bottom of the cloud: once Earth is built and ready (and the way down has been long enough to be one), the
+   cloud closes in white; the landing begins under the white (its first frames, the heaviest, drawn while nothing shows them),
+   in the same white, held there until the cloud has gone; then it fades as the landing always has */
+async function outWhenReady(){ while(!S.ready||performance.now()-DSC.t0<DSC_MIN) await wait(40); if(DSC.out||S.mode!=='landing') return; DSC.out=true; DSC.t1=performance.now();
+  if(!ST.cr){ dscStop(); enterEarth(); return; }   // (Earth could not be made: the plain page instead, see enterEarth)
+  const ld=$('#load'); ld.classList.add('out'); await wait(440);
+  if(S.mode!=='landing') return;   // (something has already put you on Earth in the meantime: the tests' own straight way in, see earth)
+  S.flashMin=1; show('#chrome',true); enterEarth(); A.cloud(0);
+  await nextFrame(); await nextFrame(); await nextFrame();
+  ld.classList.add('gone'); await wait(320); S.flashMin=0; show('#load',false); dscStop(); }
+/* the way down over: the cloud stopped and its sound let go (once out of the cloud; or the plain page instead; or the tests'
+   straight way onto Earth) */
+function dscStop(){ DSC.out=true; A.cloud(0); DSC.an.forEach(an=>{ try{ an&&an.cancel(); }catch(e){} }); }
+/* (the one line under the name, until the way down begins: what is being made; and, where the sound waits for a click, that) */
+const bootLine=t=>{ if(!S.ask) $('#boot').textContent=t; };
 async function boot(){
-  const mark=$('#mark'), bootEl=$('#boot'); // the mark's weight is the progress bar; one quiet line says what is being built
+  const mark=$('#mark'); // the mark's weight is the progress bar, where it waits for a click; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
   const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
-  setP(0); try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
+  setP(0); skyDraw(); soundOrAsk();
+  try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
   resize(); setP(.1);
   /* between the parts of Earth, the page's own turn rather than the next frame: a frame due is drawn and a click answered
      all the same, but the build does not stand idle waiting for one (nor for a graphics card busy making shaders) */
-  bootEl.textContent='Building Earth'; await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
+  bootLine('Building Earth'); await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
   const st=ST.cr;
-  if(st){ bootEl.textContent='Warming Earth'; await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets);
+  if(st){ bootLine('Warming Earth'); await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets);
     /* (the graphics card's answer, by now long drawn: where it cannot draw the page's pictures, the plain page instead) */
-    if(!rtWorks()){ document.documentElement.classList.add('nogl'); delete ST.cr; setP(1); $('#load').classList.add('ready'); S.ready=true; return; }
+    if(!rtWorks()){ document.documentElement.classList.add('nogl'); delete ST.cr; dscStop(); setP(1); $('#load').classList.add('ready'); S.ready=true; return; }
     await warmEarth(st); }
   setP(.9);
   renderer.setRenderTarget(null); renderer.render(postScene,ortho);
   try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
-  setP(1); $('#load').classList.add('ready'); S.ready=true;
-  /* and down, by itself, with its sound: once the page has drawn a frame or two of its own (the graphics card caught up with
-     everything just made, so the landing has every frame from its first), the sound is started. Where the browser lets it
-     start without a click here (it carried the click on the front door over, as Chrome does) it is running at once, and
-     down it comes. Where it does not (Safari; anyone come straight to this address in any browser), the landing is never
-     made without its sound: it waits, under the name, for the first click, tap or key (see askLand) */
-  await nextFrame(); await nextFrame(); A.start();
-  /* (a browser that says outright whether it will let the sound start is taken at its word; any other is given a second to
-     get its sound going, as one waking a pair of wireless headphones may need, before the landing waits on a click) */
-  let pol=null; try{ pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):null; }catch(e){}
-  const t0=performance.now(); if(pol!=='allowed'&&pol!=='disallowed') while(A.waiting&&S.mode==='load'&&performance.now()-t0<1000) await wait(25);
-  if(S.mode!=='load') return; if(!A.waiting||pol==='allowed') enter(); else askLand();   // (its sound already running, as inside the front door: down at once)
+  setP(1); $('#load').classList.add('ready'); S.ready=true; DSC.tr=performance.now();   // (and, if the way down has begun, out of the cloud: see outWhenReady)
 }
+/* the sound, asked for as the page opens. Where the browser lets it start without a click here (it carried the click on the
+   front door over, as Chrome does; or Land is inside the front door, whose sound is already going), it is running at once,
+   and down it comes. Where it does not (Safari, or anyone come straight to this address), nothing comes down silent: the cloud
+   drifts, and the name waits, saying so (see askLand), for the first click, tap or key. (A browser that says outright whether
+   it will let the sound start is taken at its word; any other is given a second to get it going, as one waking a pair of
+   wireless headphones may need, while Earth is already being built) */
+async function soundOrAsk(){ A.start(); let pol=null; try{ pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):null; }catch(e){}
+  const t0=performance.now(); if(pol!=='allowed'&&pol!=='disallowed') while(A.waiting&&S.mode==='load'&&performance.now()-t0<1000) await wait(25);
+  /* (inside the front door, Land is asked for at once, behind the front door's own light, and shown only once that has
+     gone over to Land's: the way down waits to be seen, while Earth is built meanwhile. The front door says when it is
+     shown; failing that, Land looks for itself, and after a few seconds goes on regardless) */
+  if(HOST){ const t1=performance.now(); while(S.mode==='load'&&!hostShown()&&performance.now()-t1<6000) await wait(40); }
+  if(S.mode!=='load') return; if(!A.waiting||pol==='allowed') descend(); else askLand(); }
+const hostShown=()=>{ if(HOST.shown) return true; try{ const f=window.frameElement; return !!f&&+getComputedStyle(f).opacity>.9; }catch(e){ return false; } };
 /* (the one line, quiet, where the name was being built: what to do, on a phone or not) */
-function askLand(){ S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask'); }
+function askLand(){ if(DSC.on) return; S.ask=true; const b=$('#boot'); b.textContent=matchMedia('(pointer:coarse)').matches?'Tap to land':'Click to land'; $('#load').classList.add('ask'); }
 
 /* ---------- Land: straight down to Earth, in its own daylight, the colour the front door left you in. Any address of
    this page comes here (the old ones too: #land, and #aetos, where the rocket at the end of the walk used to go) ---------- */
@@ -90,24 +149,12 @@ const PAGE_URL=location.pathname, PRETTY='__PRETTY__'&&/^\/untamed\/(index\.html
 if(PRETTY&&!HOST){ try{ history.replaceState(null,'','/land'); }catch(e){} }
 if(HOST) document.querySelectorAll('a[href]').forEach(a=>{ a.target='_top'; });   // (inside the front door: the way home is the whole page's)
 
-/* ---------- enter: the word lifts away like cloud, and the rocket is already coming down through the sky behind it ---------- */
-function enter(){
-  if(!S.ready||S.mode!=='load') return; A.start();
-  const mark=$('#mark'), cx=innerWidth/2, cy=innerHeight/2;
-  $$('.c',mark).forEach(c=>{ const r=c.getBoundingClientRect(); c.style.setProperty('--tx',(cx-(r.left+r.width/2))+'px'); c.style.setProperty('--ty',(cy-(r.top+r.height/2))+'px'); c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; });
-  $('#load').classList.add('go');
-  S.mode='landing'; A.whoosh(false,2.2,.16);
-  /* (on down unless something has already put you on Earth in the meantime: the tests' own straight way in, see earth) */
-  setTimeout(()=>{ if(S.mode!=='landing') return; show('#chrome',true); enterEarth(); S.flash=.5; },650); setTimeout(()=>show('#load',false),800);
-}
 /* the way in is by itself (see boot). The sound: a browser lets it start only once the page has had a click, a tap or a key.
    Come from the front door, it has (a click there counts here too, in the browsers that carry it to the next page of the
-   same site), and the landing is heard from its first moment. Come straight here (a bookmark, a reload, or a browser that
-   does not carry it), a click, a tap or a key while it loads or as it comes down starts it then, in step with the landing,
-   and a first click on the landing starts the sound rather than skipping it (see the landing) */
+   same site), and the way down is heard from its first moment. Come straight here (a bookmark, a reload, or a browser that
+   does not carry it), the first click, tap or key while the name waits starts the sound and brings it down with it */
 ['pointerdown','mousedown','click','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if(S.mode!=='load') return; if(!A.on||A.waiting) A.start();
-  /* (waiting for it: the same click, tap or key that lets the sound start brings the landing down with it) */
-  if(S.ask&&S.ready){ S.ask=false; $('#load').classList.remove('ask'); enter(); } },{capture:true,passive:true}));
+  if(S.ask){ $('#load').classList.remove('ask'); descend(); } },{capture:true,passive:true}));
 
 /* onto Earth: a flash of white, and it opens on the rocket coming down through the clouds. Should Earth not have been made
    (an error while it was built), the plain page is the way in instead */
@@ -142,6 +189,6 @@ requestAnimationFrame(frame);
 boot();
 /* test helper: straight onto Earth with no transitions */
 function earth(){ const st=ST.cr; if(!st||!S.ready) return false;
-  show('#load',false); show('#chrome',true); A.start();
+  show('#load',false); show('#chrome',true); A.start(); dscStop();
   S.mode='station'; S.stId='cr'; S.st=st; S.stSnap=true; st.enter(); show('#station',true); st.showUI(); return true; }
-window.__heloria={A,finaleWhite,credits,earth,enterEarth,S,ST,post,renderer,stCam,rtW,postScene,ortho};
+window.__heloria={A,finaleWhite,credits,earth,enterEarth,S,ST,post,renderer,stCam,rtW,postScene,ortho,DSC};

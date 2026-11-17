@@ -351,7 +351,7 @@ function landHere(href){
   f.addEventListener('load',title);
   /* (shown once the gate has gone over to Land's light; should the sound not be running even by then, Land opens as its own
      page after all, and asks for its click there) */
-  return ()=>{ if(c.state!=='running'){ f.remove(); delete window.__heloriaHost; return false; } S.mode='land'; f.style.opacity='1'; f.style.pointerEvents='auto'; try{ f.contentWindow.focus(); }catch(e){} title();
+  return ()=>{ if(c.state!=='running'){ f.remove(); delete window.__heloriaHost; return false; } S.mode='land'; f.style.opacity='1'; window.__heloriaHost.shown=true;   // (Land's way down waits for this: see soundOrAsk there) f.style.pointerEvents='auto'; try{ f.contentWindow.focus(); }catch(e){} title();
     A.handOff(); if(PRETTY){ try{ history.pushState({land:1},'',SITE_ROOT+'land'); }catch(e){} }
     setTimeout(()=>{ try{ renderer&&renderer.dispose(); renderer&&renderer.forceContextLoss(); }catch(e){} const cv=document.getElementById('gl'); if(cv) cv.style.visibility='hidden'; },600); return true; };
 }

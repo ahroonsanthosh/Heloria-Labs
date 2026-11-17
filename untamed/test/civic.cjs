@@ -142,7 +142,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(c0.on && c0.n === 'Andrena Ventures' && /backed by Andrena Ventures/.test(c0.t), (mobile ? 'a tap' : 'a click') + ' on the top plaque brings up its card: backed by Andrena Ventures', JSON.stringify({ scr: scr[0].map(v => +v.toFixed(1)), c0 }));
   await wait(500); await ui(true); await shot(pre + 'plaque'); await ui(false);
   if (!mobile) { await page.keyboard.press('Escape'); const ce = await card(); rec(!ce.on, 'Escape puts it away', JSON.stringify(ce)); } else { await tap([vp.width * .5, vp.height * .9]); const ce = await card(); rec(!ce.on, 'a tap elsewhere puts it away', JSON.stringify(ce)); }
-  await tap(scr[1]); const c1 = await card(); rec(c1.on && c1.n === 'Heloria Labs' && /Ireland/.test(c1.k + c1.t), 'the second says where we are: a software lab in Ireland', JSON.stringify(c1));
+  await tap(scr[1]); const c1 = await card(); rec(c1.on && c1.n === 'Heloria Labs' && /Ireland/.test(c1.k + c1.t), 'the second says who and where we are: three of us, in Ireland', JSON.stringify(c1));
   await tap(scr[2]); const c2 = await card(); rec(!c2.on, 'the blank one brings up nothing', JSON.stringify(c2));
   await tap(scr[1]); const away = await C((e, d) => { e.put(4, -5, 0, 0); e.run(10); return document.querySelector('.crplq').classList.contains('on'); });
   rec(!away, 'walking off puts the card away');
