@@ -721,7 +721,7 @@ const A=(()=>{
     firstReady(){ const want=FIRST, t0=performance.now();
       return new Promise(res=>{ const ck=()=>{ if(!OAC||(want.every(r=>r.els.length)&&(LS.el||LS.fail))||performance.now()-t0>3000) res(); else setTimeout(ck,40); }; ck(); }); },
     _loopRms(){ let q=0; if(BUFP&&window.__meter) return 0; /* (where a meter listens to the page, buffer players, the score's too, are heard by it already) */ for(const r of LOOPS) if(r.els.some(e=>!e.paused&&!e.muted)){ const v=IOS?1:clamp(r.vol/r.ref,0,1); q+=(r.rms*v)**2; }
-      if(SC.el&&!SC.el.paused&&!SC.el.muted&&SC.env){ const k=Math.floor(SC.el.currentTime*10); q+=(SC.env[clamp(k,0,SC.env.length-1)]||0)**2; }   // and the cutscene's, where it has got to
+      for(const R of [SC,LS]) if(R.el&&!R.el.paused&&!R.el.muted&&R.env){ const k=Math.floor(R.el.currentTime*10); q+=(R.env[clamp(k,0,R.env.length-1)]||0)**2; }   // and the cutscenes' own (the launch scene's, the landing's), where each has got to
       return Math.sqrt(q); },
     /* the score up high: p {sub, pad} its levels (bright is the old filter's opening, not needed by a recording) */
     update(t,p){ if(!p) return; if(p.sub!=null) SUB.want=Math.max(0,p.sub)*.26; if(p.pad!=null) PAD.want=Math.max(0,p.pad)*.045; },
