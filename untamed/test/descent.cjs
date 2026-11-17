@@ -91,6 +91,14 @@ const W = ms => new Promise(r => setTimeout(r, ms));
     const heard = S.filter(q => q.on).length, afterReady = S.filter(q => q.ready);
     rec(S.length > 0 && heard / S.length > .9 && afterReady.every(q => q.on), 'heard all the way down until the cloud opens, the warming behind it too', { samples: S.length, heard, lastSamples: S.slice(-4) }); }
 
+  /* (and nothing silent between the two: from the cloud closing until a second into the landing, every sample has the cloud's
+     recording or the landing's playing; the landing's first frame, the heaviest, is not waited for) */
+  { const S = []; const t0 = Date.now();
+    while (Date.now() - t0 < 120000) { const q = await Q("() => { const h = window.__heloria, c = h.A._loops().find(l => l.name === 'cloud'), cut = h.ST.cr._dbg.cut(); return { cloud: c.playing ? +c.vol.toFixed(2) : 0, land: h.A.landClock(), ct: cut.on ? +cut.t.toFixed(2) : null, mode: h.S.mode }; }");
+      S.push(q); if ((q.ct !== null && q.ct > 1) || (q.mode === 'station' && q.ct === null && S.length > 3)) break; await W(60); }
+    const gap = S.filter(q => q.cloud < .05 && q.land === null);
+    rec(S.length > 2 && gap.length === 0, 'nothing silent as the way down hands over to the landing\'s own sound', { samples: S.length, silent: gap.length, first: S.slice(0, 3) }); }
+
   /* 3. out of the cloud, onto the landing */
   rec(await until("() => window.__D.ev.some(e => e[0] === 'cut')", 300000), 'the landing begins');
   await until("() => window.__D.ev.some(e => e[0] === 'off')", 30000);

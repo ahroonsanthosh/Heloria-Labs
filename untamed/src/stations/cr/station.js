@@ -1850,7 +1850,10 @@ function placeAtStart(){ const P=player; P.u.copy(at(START[0],START[1])); tang(P
   [P.x,P.z]=START; P.h=standH(START[0],START[1]); C.camH=P.h; C.tgt.copy(P.u).multiplyScalar(R+P.h+C.HEAD); C.dist=rigLimit(START[0],START[1],P.u,P.f,C.pitch,C.D0()); }
 function endCut(){ CUT.on=false; el.classList.remove('cut'); document.documentElement.classList.remove('crcut'); me.visible=true; rocketLanded(); placeAtStart(); cardT=0; started=false; el.classList.remove('walked'); hint.classList.remove('gone'); A.thrust(0); A.roar(0); A.landEnd(false); S.stSnap=true; }
 function skipCut(){ if(CUT.on){ A.landEnd(true); CUT.t=T_END; endCut(); } }
-st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.go=false; document.documentElement.classList.add('crcut'); CUT.landed=false; CUT.door=false; CUT.ph=0; CUT.st=0; CUT.ac=null; CUT.rec=false; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true; };
+st.cutscene=function(){ CUT.on=true; CUT.t=0; CUT.go=false; document.documentElement.classList.add('crcut'); CUT.landed=false; CUT.door=false; CUT.ph=0; CUT.st=0; CUT.ac=null; CUT.rec=false; el.classList.add('cut'); me.visible=false; RK.door.rotation.x=DOOR_SHUT; RK.flame.visible=true; closeTalk(); rocketFly(0,0); CUT.look.copy(fPos); S.stSnap=true;
+  /* its sound from this very moment, not from its first frame: that frame is the heaviest (on a slow phone, a few tenths of a
+     second), and the way down's sound, let go as this begins, must hand over to this one with nothing between them */
+  A.landAt(0); };
 function camAt(x,z,h,o){ return at(x,z,o).multiplyScalar(R+standH(x,z)+h); }
 /* the walk out, as distance from the middle of the rocket toward the hatch: along the floor, down the ramp, onto the pad */
 const rampY=z=>z<HINGE_Z?FLOOR:z<RAMP_END?FLOOR-(z-HINGE_Z)*Math.tan(DROP):0;
