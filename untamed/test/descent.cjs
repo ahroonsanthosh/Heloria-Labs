@@ -103,7 +103,9 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const F = await Q('() => window.__D.flash');
   const beforeGone = F.filter(f => f[2] === 0 && f[0] > T('cut'));   // (from the frame after the landing's first: each frame reads the picture's white as the frame before set it)
   rec(beforeGone.length > 0 && beforeGone.every(f => f[1] >= .999), 'held in the same white until the cloud has gone (no picture shows through the cloud\'s white)', beforeGone.slice(0, 6));
-  rec(T('off') !== null && T('off') - T('cut') < 4000, 'and the cloud is gone soon after', { cut: T('cut'), off: T('off') });
+  /* (it waits under the white for Earth's first three frames, the heaviest, to be drawn: a few hundredths of a second with a
+     graphics card, a second or more each with this machine's software drawing) */
+  rec(T('off') !== null && T('off') - T('cut') < 8000, 'and the cloud is gone once Earth\'s first frames are drawn under it', { cut: T('cut'), off: T('off') });
   const after = await Q("() => ({ land: window.__heloria.A.landClock(), cloud: window.__heloria.A._loops().find(l => l.name === 'cloud'), anims: window.__heloria.DSC.an.filter(a => a).map(a => a.playState), loadShown: getComputedStyle(document.querySelector('#load')).visibility })");
   rec(after.land !== null, 'the landing\'s own recording is heard from its start', { landClock: after.land });
   rec(after.cloud && after.cloud.vol < .5, 'and the cloud\'s recording is let go', after.cloud);
