@@ -86,7 +86,9 @@ function descend(){ if(DSC.on||S.mode!=='load') return; DSC.on=true; DSC.t0=perf
   const ld=$('#load'); ld.classList.remove('ask'); ld.classList.add('desc');
   $$('.c',$('#mark')).forEach(c=>{ c.style.transitionDelay=(Math.random()*.25).toFixed(2)+'s'; }); ld.classList.add('go');
   S.mode='landing'; A.start(); A.cloud(1);
-  { let k=0; const up=()=>{ k++; skyRate(Math.min(1,.06+k*.16)); if(k<6) setTimeout(up,90); }; up(); }   // (gathering speed over half a second, not at once)
+  /* (gathering speed over half a second, not at once: each step by the time gone, so a page too busy to take a step on time
+     catches up at the next rather than lagging behind) */
+  { const t=performance.now(); const up=()=>{ const k=Math.min(1,(performance.now()-t)/540); skyRate(.06+.94*k); if(k<1) setTimeout(up,60); }; up(); }
   outWhenReady(); }
 /* out through the bottom of the cloud: once Earth is built and ready (and the way down has been long enough to be one), the
    cloud closes in white; the landing begins under the white (its first frames, the heaviest, drawn while nothing shows them),

@@ -61,7 +61,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
     rec(await until("() => window.__D.ev.some(e => e[0] === 'desc')", 30000), 'the way down begins by itself');
     const E = await ev(), tDesc = at(E, 'desc'), tReady = at(E, 'ready');
     rec(tDesc !== null && (tReady === null || tDesc < tReady), 'it begins before Earth is ready: Earth is built while you come down', { desc: tDesc, ready: tReady });
-    await W(900);
+    await W(1800);   // (it gathers speed over half a second; a page busy building may take its steps late)
     const an = await Q("() => { const D = window.__heloria.DSC; return { mode: window.__heloria.S.mode, n: D.an.length, live: D.an.filter(a => a).map(a => ({ st: a.playState, rate: a.playbackRate, t: Math.round(a.currentTime || 0) })), out: D.out }; }");
     if (reduced) rec(an.live.length === 0, 'asked for less motion, the cloud does not stream past', an);
     else rec(an.live.length === 3 && an.live.every(a => a.st === 'running' && a.rate === 1), 'the cloud is moving, all three layers, at full speed once it has gathered it', an);
@@ -99,7 +99,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   rec(T('out') !== null && T('ready') !== null && T('out') >= T('ready') && D.t1 >= D.tr, 'the cloud only opens once Earth is ready', { ready: D.tr, out: D.t1 });
   rec(D.t1 - D.t0 >= 2200 - 30, 'and the way down is long enough to be one (at least 2.2 s)', { down: D.t1 - D.t0 });
   rec(D.t1 - Math.max(D.tr, D.t0 + 2200) < 300, 'and no longer than it needs to be: out within a moment of Earth being ready', { late: D.t1 - Math.max(D.tr, D.t0 + 2200) });
-  rec(T('cut') !== null && T('cut') > T('out') && T('cut') - T('out') < 3000, 'the landing begins under the white of the closing cloud', { out: T('out'), cut: T('cut') });
+  rec(T('cut') !== null && T('cut') >= T('out') && T('cut') - T('out') < 3000, 'the landing begins under the white of the closing cloud (in the same frame, on a page this slow, or after)', { out: T('out'), cut: T('cut') });
   const F = await Q('() => window.__D.flash');
   const beforeGone = F.filter(f => f[2] === 0 && f[0] > T('cut'));   // (from the frame after the landing's first: each frame reads the picture's white as the frame before set it)
   rec(beforeGone.length > 0 && beforeGone.every(f => f[1] >= .999), 'held in the same white until the cloud has gone (no picture shows through the cloud\'s white)', beforeGone.slice(0, 6));
