@@ -351,10 +351,21 @@ function landHere(href){
   f.addEventListener('load',title);
   /* (shown once the gate has gone over to Land's light; should the sound not be running even by then, Land opens as its own
      page after all, and asks for its click there) */
-  return ()=>{ if(c.state!=='running'){ f.remove(); delete window.__heloriaHost; return false; } S.mode='land'; f.style.opacity='1'; window.__heloriaHost.shown=true;   // (Land's way down waits for this: see soundOrAsk there) f.style.pointerEvents='auto'; try{ f.contentWindow.focus(); }catch(e){} title();
+  return ()=>{ if(c.state!=='running'){ f.remove(); delete window.__heloriaHost; return false; } S.mode='land'; f.style.opacity='1'; f.style.pointerEvents='auto';
+    window.__heloriaHost.shown=true;   // (Land's way down waits for this: see soundOrAsk there)
+    try{ const a=document.activeElement; if(a&&a!==document.body&&a.blur) a.blur(); f.focus(); f.contentWindow.focus(); }catch(e){} title(); keysToLand(f);
     A.handOff(); if(PRETTY){ try{ history.pushState({land:1},'',SITE_ROOT+'land'); }catch(e){} }
     setTimeout(()=>{ try{ renderer&&renderer.dispose(); renderer&&renderer.forceContextLoss(); }catch(e){} const cv=document.getElementById('gl'); if(cv) cv.style.visibility='hidden'; },600); return true; };
 }
+/* the keyboard, Land's while it is shown. The click on Land leaves it on the link here, and a page cannot always hand it to
+   a page inside it without a click of the visitor's own (Safari keeps it), so every key pressed while it is still here is
+   passed on to Land, as if pressed there, and goes no further here: walking (W, A, S, D and the arrows), going in, Escape,
+   the postcard. (A key with Cmd, Ctrl or Alt is the browser's own, and is left to it. Once Land has the keyboard itself,
+   a key never comes here at all, so nothing is passed twice) */
+function keysToLand(f){ const pass=e=>{ if(S.mode!=='land'||e.metaKey||e.ctrlKey||e.altKey) return; let d=null; try{ d=f.contentDocument; }catch(err){} if(!d||!f.contentWindow) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    try{ const K=f.contentWindow.KeyboardEvent||KeyboardEvent; (d.activeElement||d.body||d.documentElement).dispatchEvent(new K(e.type,{key:e.key,code:e.code,location:e.location,repeat:e.repeat,shiftKey:e.shiftKey,bubbles:true,cancelable:true,composed:true})); }catch(err){} };
+  addEventListener('keydown',pass,true); addEventListener('keyup',pass,true); }
 window.__landHere=landHere;   // (for the tests)
 /* Land is a page of its own: once the front door is in and the browser is idle, Land's script and styles are asked for (at
    the very addresses Land asks for, which the build writes into the page), so going in finds them already kept */

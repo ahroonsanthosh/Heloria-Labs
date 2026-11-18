@@ -36,6 +36,21 @@ const { chromium } = require('/opt/node-tools/node_modules/playwright');
   rec(land !== null && land < 1.5, 'heard from the start of the landing', JSON.stringify({ firstHeardAt: land }));
   const links = await fr.evaluate(() => [...document.querySelectorAll('a[href]')].map(a => a.target));
   rec(links.length > 0 && links.every(t => t === '_top'), 'Land\'s ways home leave it for the whole page', JSON.stringify(links));
+  /* the mouse and the keyboard are Land's: it takes the pointer (a click or a drag lands on it), and the walking keys walk
+     you, whichever page the browser has left the keyboard with */
+  const pe = await page.evaluate(() => getComputedStyle(document.querySelector('iframe[title="Land"]')).pointerEvents);
+  rec(pe === 'auto', 'the mouse reaches Land (a click or a drag lands on it, not on the front door under it)', pe);
+  await fr.waitForFunction(() => !window.__heloria.ST.cr._dbg.cut().on, null, { timeout: 120000, polling: 250 }).catch(() => {});
+  await W(1200);
+  const p0 = await fr.evaluate(() => { const P = window.__heloria.ST.cr._dbg.player; return { x: P.x, z: P.z }; });
+  /* (held until Earth has drawn a few frames with it held: on this machine's software drawing, a busy moment can pass two
+     seconds without one) */
+  await page.keyboard.down('KeyW');
+  let walk = null; { const t0 = Date.now(); while (Date.now() - t0 < 30000) { await W(400); walk = await fr.evaluate(() => { const P = window.__heloria.ST.cr._dbg.player; return { speed: +P.speed.toFixed(2), x: P.x, z: P.z }; }); if (walk.speed > .5 && Math.hypot(walk.x - p0.x, walk.z - p0.z) > .01) break; } }
+  await page.keyboard.up('KeyW'); await W(400);
+  rec(walk.speed > .5 && Math.hypot(walk.x - p0.x, walk.z - p0.z) > .01, 'W walks you, with no click in Land first', JSON.stringify({ speed: walk.speed, moved: +Math.hypot(walk.x - p0.x, walk.z - p0.z).toFixed(3) }));
+  const scrolled = await page.evaluate(() => ({ mode: window.__tamed.S.mode, target: window.__tamed.SC ? window.__tamed.SC.target : null }));
+  rec(scrolled.mode === 'land', 'and the front door under it takes no part in it', JSON.stringify(scrolled));
   const drawn = await page.evaluate(() => new Promise(r => { const f0 = window.__tamed.S.frame; setTimeout(() => r({ f0, f1: window.__tamed.S.frame }), 1500); }));
   rec(drawn.f0 === drawn.f1, 'the walk is not drawn under it', JSON.stringify(drawn));
   if (/^\/(land)?$/.test(top.path) || top.path === '/land') rec(top.path === '/land', 'the address says /land', top.path);

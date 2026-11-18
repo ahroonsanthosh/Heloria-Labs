@@ -126,6 +126,15 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   const dB = lv ? 20 * Math.log10(lv.cloud / lv.landStart) : 99;
   rec(lv && Math.abs(dB) < 2.5, 'the cloud\'s recording is as loud as the landing\'s as it begins (within 2.5 dB)', Object.assign({ dB: +dB.toFixed(2) }, lv || {}));
 
+  /* and once down, the walking keys walk you, with no click on the page first (held until Earth has drawn a few frames
+     with it held: this machine's software drawing can pass two seconds without one) */
+  { await until("() => !window.__heloria.ST.cr._dbg.cut().on", 120000); await W(1200);
+    const P0 = await Q("() => { const P = window.__heloria.ST.cr._dbg.player; return { x: P.x, z: P.z }; }");
+    await page.keyboard.down('KeyW'); let pw = null; const t0 = Date.now();
+    while (Date.now() - t0 < 30000) { await W(400); pw = await Q("() => { const P = window.__heloria.ST.cr._dbg.player; return { speed: +P.speed.toFixed(2), x: P.x, z: P.z }; }"); if (pw.speed > .5 && Math.hypot(pw.x - P0.x, pw.z - P0.z) > .01) break; }
+    await page.keyboard.up('KeyW');
+    rec(pw && pw.speed > .5 && Math.hypot(pw.x - P0.x, pw.z - P0.z) > .01, 'once down, W walks you, with no click first', { speed: pw && pw.speed, moved: pw && +Math.hypot(pw.x - P0.x, pw.z - P0.z).toFixed(3) }); }
+
   /* 4. the tests' straight way onto Earth never brings a landing after it */
   rec(errs.length === 0, 'no errors on the page', errs.slice(0, 4));
   const p2 = await ctx.newPage(); await p2.goto('file://' + html, { timeout: 300000 });
