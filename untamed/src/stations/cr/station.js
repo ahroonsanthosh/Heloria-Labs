@@ -750,9 +750,10 @@ function part(){ let P=new Float32Array(2304), N=new Float32Array(2304), C=new F
     P[i]=a.x; P[i+1]=a.y; P[i+2]=a.z; P[i+3]=b.x; P[i+4]=b.y; P[i+5]=b.z; P[i+6]=c.x; P[i+7]=c.y; P[i+8]=c.z;
     N[i]=na.x; N[i+1]=na.y; N[i+2]=na.z; N[i+3]=nb.x; N[i+4]=nb.y; N[i+5]=nb.z; N[i+6]=nc.x; N[i+7]=nc.y; N[i+8]=nc.z;
     const r=k.r, gg=k.g, bb=k.b; C[i]=r; C[i+1]=gg; C[i+2]=bb; C[i+3]=r; C[i+4]=gg; C[i+5]=bb; C[i+6]=r; C[i+7]=gg; C[i+8]=bb; };
-  /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap */
+  /* rows of points (each {p, n}) joined into quads, round to the start of each row again if wrap; col a colour, or col(i, j)
+     the colour of each quad */
   o.grid=(G,col,wrap)=>{ for(let i=0;i<G.length-1;i++) for(let j=0;j<G[i].length-(wrap?0:1);j++){ const j2=(j+1)%G[i].length, a=G[i][j], b=G[i][j2], c=G[i+1][j2], d=G[i+1][j];
-    o.tri(a.p,a.n,b.p,b.n,c.p,c.n,col); o.tri(a.p,a.n,c.p,c.n,d.p,d.n,col); } };
+    const k=typeof col==='function'?col(i,j):col; o.tri(a.p,a.n,b.p,b.n,c.p,c.n,k); o.tri(a.p,a.n,c.p,c.n,d.p,d.n,k); } };
   /* the same, seen from both sides (a collar) */
   o.grid2=(G,col,wrap)=>{ o.grid(G,col,wrap); o.grid(G.map(r=>r.map(v=>({p:v.p,n:v.n.clone().negate()}))),col,wrap); };
   /* one of the shapes in FG, placed by a matrix; at x,y,z, scaled, turned; or with its own axes laid along a, b and c */
@@ -787,6 +788,23 @@ const headF=(w,h,d,jaw,chin,ang=0)=>{ const q=1-ang, qy=1-ang*.45, F=u0=>{ let u
   return v3(u.x*w*(1-jaw*lo),u.y*h,u.z*d*lerp(1.07,1-.05*(1-lo),fr)+chin*lo*Math.max(0,u.z)); };
   if(ang) F.pre=(X,Y,u)=>{ const x=Math.sign(X)*Math.pow(Math.min(1,Math.abs(X)),1/q), y=Y<0?-Math.pow(Math.min(1,-Y),1/qy):Y; return u.set(x,y,Math.sqrt(Math.max(.01,1-x*x-y*y))).normalize(); };
   return F; };
+/* an angular head (Ahroon's), made in rows from the crown down: a round skull; a flat face from the brow to the cheekbones,
+   widest at the cheekbones; the cheeks drawn in straight down to the corners of the jaw; the jaw straight in from them to
+   a square chin; a flat underside. Each row a rounded square (e: 1 round, lower squarer), so the sides of the face are planes
+   too. w, h, d as for headF; jaw and chin the width there, as a share of w; cheek how far the cheeks are drawn in. The rows
+   of skin() fall on its corners (the cheekbones' row, the jaw's and the chin's), so its edges are sharp. (pre: as headF's) */
+const headCut=(w,h,d,{jaw=.86,chin=.38,cheek=.03,e=.75,cf=.012}={})=>{ const yb=-.342, yj=-.643, yc=-.94, sg=(v,q)=>Math.sign(v)*Math.pow(Math.abs(v),q);
+  const row=Y=>{ let P, Zf, Zb;
+    if(Y>=.15){ const s=(Y-.15)/.85, rr=Math.sqrt(Math.max(0,1-s*s)); P=rr; Zf=d*rr; Zb=-1.07*d*rr; }
+    else if(Y>=yb){ P=1+.025*Math.exp(-(((Y+.2)/.12)**2)); Zf=d; Zb=-d*lerp(1.07,1,(.15-Y)/(.15-yb)); }
+    else if(Y>=yj){ const t=(yb-Y)/(yb-yj); P=lerp(1,jaw,t)-cheek*Math.sin(Math.PI*t); Zf=d*lerp(1,.96,t); Zb=-d*lerp(1,.25,sstep(.3,1,t)); }
+    else { const t=Math.min(1,(yj-Y)/(yj-yc)); P=lerp(jaw,chin,t); Zf=d*lerp(.96,.97,t)+cf*t; Zb=-d*lerp(.25,-.4,t); }
+    if(Y<yc){ const t=(yc-Y)/(1+yc), zf=d*.97+cf, zb=d*.4, zm=(zf+zb)/2; return [chin*(1-t),lerp(zf,zm,t),lerp(zb,zm,t),h*(yc+.25*(Y-yc))]; }
+    return [P,Zf,Zb,h*Y]; };
+  const F=u=>{ const Y=clamp(u.y,-1,1), r=Math.hypot(u.x,u.z), cx=r>1e-9?u.x/r:0, cz=r>1e-9?u.z/r:1, [P,Zf,Zb,y]=row(Y);
+    return v3(P*w*sg(cx,e),y,(Zf+Zb)/2+(Zf-Zb)/2*sg(cz,e)); };
+  F.pre=(X,Y,u)=>{ const y=clamp(Y,-.999,.999), cx=sg(clamp(X,-1,1),1/e), r=Math.sqrt(1-y*y); return u.set(cx*r,y,Math.sqrt(Math.max(0,1-cx*cx))*r); };
+  return F; };
 function fnorm(f,u){ const t1=v3().crossVectors(u,Math.abs(u.y)<.9?fY:fX).normalize(), t2=v3().crossVectors(u,t1), p=f(u),
   n=f(t1.multiplyScalar(.01).add(u).normalize()).sub(p).cross(f(t2.multiplyScalar(.01).add(u).normalize()).sub(p)).normalize(); return n.dot(p)<0?n.negate():n; }
 function skin(f,n=26,m=18){ return Array.from({length:m+1},(_,i)=>{ const th=Math.PI*i/m; return Array.from({length:n},(_,j)=>{ const ph=TAU*j/n, u=v3(Math.sin(th)*Math.sin(ph),Math.cos(th),Math.sin(th)*Math.cos(ph)); return {p:f(u),n:fnorm(f,u)}; }); }); }
@@ -818,8 +836,9 @@ function band(B,S,xs,top,bot,col,off=.003){ B.grid([xs.map(x=>S(x,top(x),off)),x
 const oval=(x,y,rx,ry,n=12)=>Array.from({length:n},(_,i)=>[x+Math.cos(TAU*i/n)*rx,y+Math.sin(TAU*i/n)*ry]);
 /* hair that hugs the head out to a hairline: edge(a) is how far down from the crown it comes (a is the way round: 0 in front, a
    quarter turn to his left), lift(t,a) how far it stands off the skin, t going from the crown (0) to the hairline (1). Its
-   edge turns in under the skin, so the pen draws the hairline. Gives back at(t,a,up), a point on the hair (up above it) and the
-   normal there, and lump(), to lay a shape on it */
+   edge turns in under the skin, so the pen draws the hairline. (col may be col(i, j): row i of n from the crown, column j of
+   m round from the front.) Gives back at(t,a,up), a point on the hair (up above it) and the normal there, and lump(), to lay
+   a shape on it */
 function cap(B,f,col,edge,lift,tilt=.25,n=12,m=40){ const A=v3(0,Math.cos(tilt),-Math.sin(tilt)), F=v3(0,Math.sin(tilt),Math.cos(tilt));
   const dir=(th,a)=>A.clone().multiplyScalar(Math.cos(th)).addScaledVector(F,Math.sin(th)*Math.cos(a)).addScaledVector(fX,Math.sin(th)*Math.sin(a)).normalize();
   const at=(t,a,up=0)=>{ const u=dir(edge(a)*t,a), nn=fnorm(f,u); return {p:f(u).addScaledVector(nn,lift(t,a)+up),n:nn}; };
@@ -827,11 +846,12 @@ function cap(B,f,col,edge,lift,tilt=.25,n=12,m=40){ const A=v3(0,Math.cos(tilt),
   for(let i=1;i<=n;i++) G[i].forEach((v,j)=>{ const k=v3().subVectors(G[i][(j+1)%m].p,G[i][(j+m-1)%m].p).cross(v3().subVectors(G[Math.min(n,i+1)][j].p,G[i-1][j].p)).normalize(); if(k.dot(v.n)<0) k.negate(); v.k=k; });
   for(let i=1;i<=n;i++) G[i].forEach(v=>{ v.n=v.k; });
   for(let j=0;j<m;j++){ const a=TAU*j/m, th=edge(a), u=dir(th,a), nn=fnorm(f,u), tg=f(dir(th+.03,a)).sub(f(u)).normalize(); E.push({p:G[n][j].p,n:tg}); I.push({p:f(u).addScaledVector(nn,-.005),n:tg}); }
-  B.grid(G,col,true); B.grid([E,I],col,true);
+  B.grid(G,col,true); B.grid([E,I],typeof col==='function'?(i,j)=>col(n-1,j):col,true);
   /* a shape laid on it at p, long along L, its sizes r: long, wide, deep */
   const lump=(g,c,p,n,L,r)=>{ const l=L.clone().normalize(), s=v3().crossVectors(n,l); if(s.lengthSq()<1e-6) s.crossVectors(fX,l); s.normalize(); const d=v3().crossVectors(l,s).normalize(); B.along(g,c,p,l.multiplyScalar(r[0]),s.multiplyScalar(r[1]),d.multiplyScalar(r[2])); };
   return {at,lump}; }
-const burns=(a,w=1.22,k=.3)=>k*Math.exp(-(((Math.abs(a)-w)/.13)**2));   // sideburns, just in front of the ears
+/* sideburns, just in front of the ears (both of them: a runs from 0 right round to TAU, so it is folded back to 0..PI first) */
+const burns=(a,w=1.22,k=.3)=>k*Math.exp(-(((Math.acos(Math.cos(a))-w)/.13)**2));
 /* hair, each of us as in our photo: tight black curls with short sides; a light brown crop pushed up at the front; dark
    waves swept back and up. (short is for you, the visitor) */
 const HAIR={
@@ -849,19 +869,19 @@ const HAIR={
     const H=cap(B,f,c,edge,(t,a)=>.011+.012*(1-t)+.07*fr(a)*sstep(0,.72,t)*sstep(1,.86,t)+.011*sstep(.05,.4,t)*(.5+.5*Math.cos(a*11+2.2*Math.sin(t*6)))**2,.25,14,80);
     for(const a of [-.4,-.22]){ const q=H.at(.97,a,-.002), L=v3(a-.2,-1,.3); H.lump(FG.sph,c,q.p.addScaledVector(L.clone().normalize(),.026),q.n,L,[.04,.013,.008]); } },
   short:(B,f,c)=>{ const edge=a=>1.3-.36*Math.cos(a)+burns(a,1.22,.2); cap(B,f,c,edge,(t,a)=>.012+.012*(1-t)); },
-  /* a taper, as in Ahroon's photos: loose dark curls piled on top, a few fallen forward onto the forehead, and the sides and
-     the back cut close and fading out down to the ears and the nape: three bands, each shorter, and nearer the skin's colour,
-     than the one above it */
-  taper:(B,f,c,o)=>{ const sk=C3(o&&o.skin||'#c48a6a'), hc=C3(c), mix=k=>sk.clone().lerp(hc,k), c2=hc.clone().lerp(C3('#5c3c2a'),.3), r=seeded(17),
+  /* a taper, as in Ahroon's photos: loose dark curls on top, a few fallen forward onto the forehead, and the sides and the
+     back cut short and close to the head, getting shorter as they go down, and only at the very edge, at the sideburns and
+     the nape, thinning out to the skin. One surface, shaded row by row (no bands), its curls only on top */
+  taper:(B,f,c,o)=>{ const sk=C3(o&&o.skin||'#c48a6a'), hc=C3(c), c2=hc.clone().lerp(C3('#5c3c2a'),.3), r=seeded(17), N=30, M=48,
       side=a=>sstep(.15,.85,1-Math.cos(a)),   // 0 in front, 1 at the sides and the back
-      edge=a=>1.33-.36*Math.cos(a)+burns(a,1.2,.12);
-    cap(B,f,mix(.3),edge,()=>.002,.25,10,48);   // the fade, down to the skin
-    cap(B,f,mix(.52),a=>edge(a)-.1*side(a),()=>.0034,.25,10,48);
-    cap(B,f,mix(.72),a=>edge(a)-.2*side(a),()=>.0048,.25,10,48);
-    cap(B,f,mix(.88),a=>edge(a)-.31*side(a),()=>.0064,.25,10,48);
-    const H=cap(B,f,c,a=>edge(a)-.46*side(a),(t,a)=>.009+.026*(1-t*t)*(1-.35*side(a)),.25,12,48);
-    // the curls: loose, piled highest at the front of the crown, thinning toward where the taper begins
-    for(let k=0;k<72;k++){ const t=Math.sqrt((k+.5)/72)*.96, a=k*2.39996, rr=.025+r()*.014+.006*Math.max(0,Math.cos(a))*(1-t), q=H.at(t,a,rr*.34);
+      edge=a=>{ const e=Math.acos(Math.cos(a)); return (e<Math.PI/2?1.45-.5*Math.cos(e):1.45+.5*sstep(1.72,2.2,e))+burns(a,1.18,.26); },   // (the forehead; the top of the ear, sideburns before it; straight down behind it to the neck)
+      top=a=>lerp(.98,.52,side(a)),   // how far down the curls come: to the forehead in front, the top of the head elsewhere
+      short=(t,a)=>sstep(top(a)-.06,top(a)+.3,t)*side(a),
+      tone=(i,j)=>{ const t=(i+.5)/N, a=TAU*(j+.5)/M, k=side(a)*(.1*short(t,a)+.5*sstep(.8,1,t)**1.4); return hc.clone().lerp(sk,k); };
+    const H=cap(B,f,tone,edge,(t,a)=>.0035+.024*(1-t*t)*(1-.85*short(t,a)),.25,N,M);
+    // the curls: loose, piled highest at the front of the crown, smaller where the short sides begin
+    for(let k=0;k<120;k++){ const t=Math.sqrt((k+.5)/120)*.98, a=k*2.39996, lim=top(a); if(t>lim) continue;
+      const rr=(.022+r()*.013+.006*Math.max(0,Math.cos(a))*(1-t))*(1-.35*sstep(lim-.2,lim,t)), q=H.at(t,a,rr*.3);
       B.put(FG.ball,k%3?c:c2,q.p.x,q.p.y,q.p.z,rr,rr*.84,rr,r()*3,r()*3,r()*3); }
     for(let k=0;k<6;k++){ const a=(k/5-.5)*1.15, rr=.019+r()*.008, q=H.at(.985,a,rr*.2); B.put(FG.ball,k%2?c2:c,q.p.x,q.p.y-.008,q.p.z,rr,rr*.9,rr,r()*3,r()*3,0); } },
   /* yours, the visitor's: a short crop, a little longer on top and pushed forward into a soft fringe, its texture in pieces
@@ -898,9 +918,9 @@ function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F
     line(B,S,[[-ex+gw,cy+gh*.45],[0,cy+gh*.62],[ex-gw,cy+gh*.45]],.0042,gc,.0062); }
   return ey; }
 /* each of us, a little more ourselves. build broadens the shoulders (arm: the arms); head is the shape of the head (half width,
-   height, depth, how much the jaw narrows, how far the chin comes forward); funnel and zip make a quarter-zip (funnel: how far
-   open its collar is), polo a polo's collar and buttons; under is the shirt collar showing beneath; watch on the left wrist;
-   vt a lean, athletic V (in at the waist, out at the chest and shoulders);
+   height, depth, how much the jaw narrows, how far the chin comes forward), and cut makes it angular (see headCut); funnel
+   and zip make a quarter-zip (funnel: how far open its collar is), polo a polo's collar and buttons; under is the shirt
+   collar showing beneath; watch on the left wrist; vt a lean, athletic V (in at the waist, out at the chest and shoulders);
    mous(tache), goatee, cheeks, mouth; prop is the thing we carry for our project */
 /* (made in parts: the torso, the legs, the arms, the head, the face, the hair; all at once by figure, or a part at a time by
    figureA, with the frame drawn between, for someone built after you land) */
@@ -983,7 +1003,7 @@ function* figureG(o){ const g=new T.Group(), body=new T.Group(); g.add(body); co
     fa.add(Fm.mesh()); fore.push(fa); body.add(a); return a; });
   yield;
   // the head
-  const head=new T.Group(); head.position.y=1.165; body.add(head); const H=part(), E=part(), hd=o.head||[.152,.172,.16,.14,.024], f=headF(...hd);
+  const head=new T.Group(); head.position.y=1.165; body.add(head); const H=part(), E=part(), hd=o.head||[.152,.172,.16,.14,.024], f=o.cut?headCut(hd[0],hd[1],hd[2],o.cut):headF(...hd);
   H.grid(skin(f),sk,true); yield;
   [-1,1].forEach(s=>H.put(FG.sph,sk,s*hd[0]*.97,-.022,-.008,.02,.038,.028,0,s*.35));   // ears
   const ey=face(H,E,f,o); yield;
@@ -1018,11 +1038,11 @@ function linesFor(i){ const back=MET.has(i), again=!!MET.back;
     'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
-    /* (as in his photos: a warm, light brown; a long, angular face, the jaw and cheekbones squared off; straight, heavy brows
-       set low over narrower eyes; a long, strong nose; a shadow of stubble; loose curls on top of a taper; and a fitted black
-       t-shirt on a lean, athletic build, the arms of someone who does calisthenics) */
+    /* (as in his photos: a warm, light brown; a long, angular face, high cheekbones, the cheeks straight down to a sharp jaw
+       and a square chin; straight, heavy brows set low over narrower eyes; a long, strong nose; clean-shaven; loose curls on
+       top of a taper; and a fitted black t-shirt on a lean, athletic build, the arms of someone who does calisthenics) */
     look:{shirt:'#1e1f24',crew:true,short:true,watch:'#1c1d20',build:1.05,arm:1.14,depth:.66,vt:1,pants:'#3d4350',shoes:'#2b2b2e',skin:'#c8866a',
-      head:[.142,.186,.158,.2,.036,.42],face:{bw:.019,by:.043,arch:.002,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',stubble:'#8c6450',hair:'taper',hairC:'#1b1411',prop:'drone'}},
+      head:[.144,.19,.158],cut:{jaw:.86,chin:.38},face:{bw:.018,by:.043,arch:.003,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',hair:'taper',hairC:'#1b1411',prop:'drone'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
     look:{shirt:'#262524',short:true,polo:'#1c1b1a',build:1.14,arm:1.2,depth:.74,pants:'#4a4f5a',shoes:'#ece7dc',sole:'#cfc8bb',skin:'#e8b898',
       head:[.16,.172,.164,.1,.024],face:{rh:.016,bw:.011,arch:.011,by:.054},mouth:'grin',cheeks:true,hair:'textured',hairC:'#9a6842',prop:'rocket'}},
