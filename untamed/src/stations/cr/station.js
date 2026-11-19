@@ -788,18 +788,16 @@ const headF=(w,h,d,jaw,chin,ang=0)=>{ const q=1-ang, qy=1-ang*.45, F=u0=>{ let u
   return v3(u.x*w*(1-jaw*lo),u.y*h,u.z*d*lerp(1.07,1-.05*(1-lo),fr)+chin*lo*Math.max(0,u.z)); };
   if(ang) F.pre=(X,Y,u)=>{ const x=Math.sign(X)*Math.pow(Math.min(1,Math.abs(X)),1/q), y=Y<0?-Math.pow(Math.min(1,-Y),1/qy):Y; return u.set(x,y,Math.sqrt(Math.max(.01,1-x*x-y*y))).normalize(); };
   return F; };
-/* an angular head (Ahroon's), made in rows from the crown down: a round skull; a flat face from the brow to the cheekbones,
-   widest at the cheekbones; the cheeks drawn in straight down to the corners of the jaw; the jaw straight in from them to
-   a square chin; a flat underside. Each row a rounded square (e: 1 round, lower squarer), so the sides of the face are planes
-   too. w, h, d as for headF; jaw and chin the width there, as a share of w; cheek how far the cheeks are drawn in. The rows
-   of skin() fall on its corners (the cheekbones' row, the jaw's and the chin's), so its edges are sharp. (pre: as headF's) */
-const headCut=(w,h,d,{jaw=.86,chin=.38,cheek=.03,e=.75,cf=.012}={})=>{ const yb=-.342, yj=-.643, yc=-.94, sg=(v,q)=>Math.sign(v)*Math.pow(Math.abs(v),q);
+/* a lean head (Ahroon's), made in rows from the crown down: a round skull; a flat face from the brow to the cheekbones,
+   widest at the cheekbones; below them, the face narrowing smoothly all the way to a rounded chin (no corner at the jaw:
+   fall is how late it narrows, higher fuller); a rounded underside. Each row a rounded square (e: 1 round, lower squarer).
+   w, h, d as for headF; chin the chin's width, as a share of w; flat how flat under the chin. (pre: as headF's) */
+const headCut=(w,h,d,{chin=.55,fall=1.6,e=.92,flat=.7}={})=>{ const yb=-.342, yc=-.94, sg=(v,q)=>Math.sign(v)*Math.pow(Math.abs(v),q);
   const row=Y=>{ let P, Zf, Zb;
     if(Y>=.15){ const s=(Y-.15)/.85, rr=Math.sqrt(Math.max(0,1-s*s)); P=rr; Zf=d*rr; Zb=-1.07*d*rr; }
-    else if(Y>=yb){ P=1+.025*Math.exp(-(((Y+.2)/.12)**2)); Zf=d; Zb=-d*lerp(1.07,1,(.15-Y)/(.15-yb)); }
-    else if(Y>=yj){ const t=(yb-Y)/(yb-yj); P=lerp(1,jaw,t)-cheek*Math.sin(Math.PI*t); Zf=d*lerp(1,.96,t); Zb=-d*lerp(1,.25,sstep(.3,1,t)); }
-    else { const t=Math.min(1,(yj-Y)/(yj-yc)); P=lerp(jaw,chin,t); Zf=d*lerp(.96,.97,t)+cf*t; Zb=-d*lerp(.25,-.4,t); }
-    if(Y<yc){ const t=(yc-Y)/(1+yc), zf=d*.97+cf, zb=d*.4, zm=(zf+zb)/2; return [chin*(1-t),lerp(zf,zm,t),lerp(zb,zm,t),h*(yc+.25*(Y-yc))]; }
+    else if(Y>=yb){ P=1+.012*Math.exp(-(((Y+.2)/.14)**2)); Zf=d; Zb=-d*lerp(1.07,1,(.15-Y)/(.15-yb)); }
+    else { const t=Math.min(1,(yb-Y)/(yb-yc)); P=1-(1-chin)*Math.pow(t,fall); Zf=d*lerp(1,.95,t); Zb=-d*(1-1.4*sstep(.15,1,t)); }
+    if(Y<yc){ const t=(yc-Y)/(1+yc), zf=d*.95, zb=d*.4, zm=(zf+zb)/2, k=Math.sqrt(Math.max(0,1-t*t)); return [chin*k,lerp(zm,zf,k),lerp(zm,zb,k),h*(yc+flat*(Y-yc))]; }
     return [P,Zf,Zb,h*Y]; };
   const F=u=>{ const Y=clamp(u.y,-1,1), r=Math.hypot(u.x,u.z), cx=r>1e-9?u.x/r:0, cz=r>1e-9?u.z/r:1, [P,Zf,Zb,y]=row(Y);
     return v3(P*w*sg(cx,e),y,(Zf+Zb)/2+(Zf-Zb)/2*sg(cz,e)); };
@@ -918,7 +916,7 @@ function face(B,E,f,o){ const F=o.face||{}, S=(x,y,off)=>onFace(f,x,y,off), ey=F
     line(B,S,[[-ex+gw,cy+gh*.45],[0,cy+gh*.62],[ex-gw,cy+gh*.45]],.0042,gc,.0062); }
   return ey; }
 /* each of us, a little more ourselves. build broadens the shoulders (arm: the arms); head is the shape of the head (half width,
-   height, depth, how much the jaw narrows, how far the chin comes forward), and cut makes it angular (see headCut); funnel
+   height, depth, how much the jaw narrows, how far the chin comes forward), and cut makes it lean (see headCut); funnel
    and zip make a quarter-zip (funnel: how far open its collar is), polo a polo's collar and buttons; under is the shirt
    collar showing beneath; watch on the left wrist; vt a lean, athletic V (in at the waist, out at the chest and shoulders);
    mous(tache), goatee, cheeks, mouth; prop is the thing we carry for our project */
@@ -1004,7 +1002,7 @@ function* figureG(o){ const g=new T.Group(), body=new T.Group(); g.add(body); co
   yield;
   // the head
   const head=new T.Group(); head.position.y=1.165; body.add(head); const H=part(), E=part(), hd=o.head||[.152,.172,.16,.14,.024], f=o.cut?headCut(hd[0],hd[1],hd[2],o.cut):headF(...hd);
-  H.grid(skin(f),sk,true); yield;
+  H.grid(o.cut?skin(f,34,24):skin(f),sk,true); yield;   // (a lean head, finer, so its curves do not show as flat facets)
   [-1,1].forEach(s=>H.put(FG.sph,sk,s*hd[0]*.97,-.022,-.008,.02,.038,.028,0,s*.35));   // ears
   const ey=face(H,E,f,o); yield;
   HAIR[o.hair](H,f,o.hairC,o); yield;
@@ -1038,11 +1036,11 @@ function linesFor(i){ const back=MET.has(i), again=!!MET.back;
     'That\'s me. Say hi any time.']; }
 const CREW=[
   {name:'Ahroon Santhosh',first:'Ahroon',li:'https://www.linkedin.com/in/ahroon-santhosh/',at:AHR,face:START,pitch:520,
-    /* (as in his photos: a warm, light brown; a long, angular face, high cheekbones, the cheeks straight down to a sharp jaw
-       and a square chin; straight, heavy brows set low over narrower eyes; a long, strong nose; clean-shaven; loose curls on
+    /* (as in his photos: a warm, light brown; a long, lean face, cheekbones, and the face narrowing smoothly from them to a
+       rounded chin, no square jaw; straight, heavy brows set low over narrower eyes; a long, strong nose; clean-shaven; loose curls on
        top of a taper; and a fitted black t-shirt on a lean, athletic build, the arms of someone who does calisthenics) */
     look:{shirt:'#1e1f24',crew:true,short:true,watch:'#1c1d20',build:1.05,arm:1.14,depth:.66,vt:1,pants:'#3d4350',shoes:'#2b2b2e',skin:'#c8866a',
-      head:[.144,.19,.158],cut:{jaw:.86,chin:.38},face:{bw:.018,by:.043,arch:.003,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',hair:'taper',hairC:'#1b1411',prop:'drone'}},
+      head:[.144,.188,.158],cut:{chin:.55},face:{bw:.018,by:.043,arch:.003,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',hair:'taper',hairC:'#1b1411',prop:'drone'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
     look:{shirt:'#262524',short:true,polo:'#1c1b1a',build:1.14,arm:1.2,depth:.74,pants:'#4a4f5a',shoes:'#ece7dc',sole:'#cfc8bb',skin:'#e8b898',
       head:[.16,.172,.164,.1,.024],face:{rh:.016,bw:.011,arch:.011,by:.054},mouth:'grin',cheeks:true,hair:'textured',hairC:'#9a6842',prop:'rocket'}},
