@@ -790,9 +790,9 @@ const headF=(w,h,d,jaw,chin,ang=0)=>{ const q=1-ang, qy=1-ang*.45, F=u0=>{ let u
   return F; };
 /* a lean head (Ahroon's), made in rows from the crown down: a round skull; a flat face from the brow to the cheekbones,
    widest at the cheekbones; below them, the face narrowing smoothly all the way to a rounded chin (no corner at the jaw:
-   fall is how late it narrows, higher fuller); a rounded underside. Each row a rounded square (e: 1 round, lower squarer).
+   fall is how late it narrows, higher fuller); a rounded underside. Each row round (e: 1), or squarer (lower).
    w, h, d as for headF; chin the chin's width, as a share of w; flat how flat under the chin. (pre: as headF's) */
-const headCut=(w,h,d,{chin=.55,fall=1.6,e=.92,flat=.7}={})=>{ const yb=-.342, yc=-.94, sg=(v,q)=>Math.sign(v)*Math.pow(Math.abs(v),q);
+const headCut=(w,h,d,{chin=.52,fall=1.3,e=1,flat=1}={})=>{ const yb=-.342, yc=-.94, sg=(v,q)=>Math.sign(v)*Math.pow(Math.abs(v),q);
   const row=Y=>{ let P, Zf, Zb;
     if(Y>=.15){ const s=(Y-.15)/.85, rr=Math.sqrt(Math.max(0,1-s*s)); P=rr; Zf=d*rr; Zb=-1.07*d*rr; }
     else if(Y>=yb){ P=1+.012*Math.exp(-(((Y+.2)/.14)**2)); Zf=d; Zb=-d*lerp(1.07,1,(.15-Y)/(.15-yb)); }
@@ -1040,7 +1040,7 @@ const CREW=[
        rounded chin, no square jaw; straight, heavy brows set low over narrower eyes; a long, strong nose; clean-shaven; loose curls on
        top of a taper; and a fitted black t-shirt on a lean, athletic build, the arms of someone who does calisthenics) */
     look:{shirt:'#1e1f24',crew:true,short:true,watch:'#1c1d20',build:1.05,arm:1.14,depth:.66,vt:1,pants:'#3d4350',shoes:'#2b2b2e',skin:'#c8866a',
-      head:[.144,.188,.158],cut:{chin:.55},face:{bw:.018,by:.043,arch:.003,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',hair:'taper',hairC:'#1b1411',prop:'drone'}},
+      head:[.144,.188,.158],cut:{},face:{bw:.018,by:.043,arch:.003,knit:.002,rh:.018,ex:.056,nose:.045,ns:1.22,mouth:.09},mouth:'smirk',hair:'taper',hairC:'#1b1411',prop:'drone'}},
   {name:'Michael Sweeney Heffernan',first:'Michael',li:'https://www.linkedin.com/in/michael-sweeney-heffernan-589155354',at:[6.1,11.1],face:[5,8.6],pitch:430,
     look:{shirt:'#262524',short:true,polo:'#1c1b1a',build:1.14,arm:1.2,depth:.74,pants:'#4a4f5a',shoes:'#ece7dc',sole:'#cfc8bb',skin:'#e8b898',
       head:[.16,.172,.164,.1,.024],face:{rh:.016,bw:.011,arch:.011,by:.054},mouth:'grin',cheeks:true,hair:'textured',hairC:'#9a6842',prop:'rocket'}},
