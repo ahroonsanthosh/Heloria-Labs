@@ -22,7 +22,7 @@ The site has two ways in. Point at one on the front door and you see where it go
 <tr>
 <td valign="top"><b>Walk.</b> A pavilion in still water at golden hour, with a room of light for each project. Two minutes.
 At the end a rocket goes up from the far shore: catch it and it takes you down to Earth.</td>
-<td valign="top"><b>Land.</b> Straight down to a little drawn town, where the three of us are waiting to talk. Four minutes.
+<td valign="top"><b>Land.</b> Down through the cloud to a little drawn town, where the three of us are waiting to talk. Four minutes.
 When you have met us, the last flight takes you back up.</td>
 </tr>
 </table>
@@ -45,6 +45,11 @@ finishes with a photo and a link, and a board outside the café books a chat wit
   busy. A browser pauses for a moment each time it loops a file, so two players take turns on every recording and
   overlap across the seam. Each recording is then kept in the browser's own store, so a second visit plays the very
   same recordings without working anything out. Leave the page and the sound stops; come back and it picks up again.
+- Land has no loading screen. From the first moment the rocket is coming down through the cloud, and Earth is built
+  behind it. The cloud is drawn once and moved by the browser itself, so it keeps moving smoothly however long a slow
+  phone takes. When Earth is ready, every shader made, the cloud closes in white and opens on the landing. Where the
+  browser holds the sound until a click (Safari, or anyone who comes straight to `/land`), the cloud drifts under the
+  name and asks for one, and that click brings it down with its sound.
 - Earth is a small toon-shaded planet with real pathfinding: click any of us and you walk over, round the fences and
   the trees, and we pick up the conversation where you left it.
 - Earth keeps your time. The sun stands where it would at your hour and on your date, so an evening visit gets a sunset
@@ -70,7 +75,7 @@ finishes with a photo and a link, and a board outside the café books a chat wit
 - Every project is one entry in [`projects.json`](projects.json). A new entry gets a room on the walk and a building in
   town with its card and postcard stamp, and the walk after the rooms moves along to make space for it. See
   [ADDING-A-PROJECT.md](ADDING-A-PROJECT.md).
-- No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2 MB.
+- No framework. Plain JavaScript and three.js, built by a short Python script into a static site of about 2.5 MB.
 
 ## Running it
 
@@ -114,13 +119,22 @@ node untamed/test/shot.cjs --html dist/untamed.html --earth --settle 2500 --scen
 node tools/site-smoke.cjs docs
 ```
 
+```bash
+node untamed/test/descent.cjs dist/untamed.html
+```
+
 Add `--mobile` to any of them for a phone. To test exactly what the site serves, build the page with `--minify`
 (`python3 tamed/build.py --minify --single dist/tamed.html`, and the same for `untamed/build.py`).
 `tamed/test/sound.cjs` and `untamed/test/sound.cjs` (with `--meter`) listen to every stage and report how loud it is, and `untamed/test/leave.cjs` checks the sound stops when you leave the
 page. `tamed/test/pond.cjs` checks the stepping stones and the koi at the start of the walk, and `tamed/test/flow.cjs` the
-gate's two ways and the rocket at the end of the walk. `untamed/test/entry.cjs` lands from the loader (run it once more with
-`--hash aetos`: every address of the page lands, the old ones too), and `untamed/test/buttons.cjs` presses every button
-from the loader to the white page. `--earth` goes straight onto Earth, past the loader and the landing.
+gate's two ways and the rocket at the end of the walk. `untamed/test/entry.cjs` lands from the way down (run it once more
+with `--hash aetos`: every address of the page lands, the old ones too), and `untamed/test/buttons.cjs` presses every
+button from the way down to the white page. `untamed/test/descent.cjs` watches Land from its very first picture: the way
+down through the cloud, heard all the way, not left before Earth is ready, and out into the landing's own white. It runs on
+its own rather than through `shot.cjs`, and takes `--real-autoplay` (the sound held until a click, as in Safari),
+`--reduced` (less motion) and `--cpu 4` (as slow as a phone). `tamed/test/landin.cjs http://127.0.0.1:8000/`, against
+the built site served as above, opens Land inside the front door, as Safari and Firefox on a computer have it, and checks it
+comes down by itself, heard from the start. `--earth` goes straight onto Earth, past the way down and the landing.
 On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `lighthouse.cjs` steers the light and brings
 the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `cafe.cjs` goes into the café, orders
 every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
@@ -131,7 +145,9 @@ every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it
 Escape, and nothing of it left behind), and `weather-sound.cjs` (with `--meter`) listens
 to the rain, the crickets and the foghorn; any of them takes `--query date=12-24` and the like.
 
-Land's loader makes Earth and compiles every shader it draws with before it lets you in, so nothing is made after. The
+Land makes Earth while you come down through the cloud and compiles every shader it draws with before the cloud opens,
+so nothing is compiled after. The rooms indoors (the town hall, the school, the lighthouse, the post office, the pub) are
+built a little at a time once you have landed; the tests build them up front unless given `--late` (see `late.cjs`). The
 front door makes its gallery after the gate only where the browser compiles shaders in the background; a test can ask for
 that anyway with `window.__GLATE = true` in an init script.
 </details>
