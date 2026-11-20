@@ -2410,9 +2410,13 @@ function slWorld(dt,t){ if(!SL.built) return; const warm=SL.warm&&!S.ready; if(S
 /* ---------- building it all, with the town (after the market, before the town's static mesh is made) ---------- */
 async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot(PH.x,PH.z));
   /* flags: the tricolour by the landing pad, a pennant at the jetty, a small one on top of the lighthouse */
-  const pick=(L,r)=>L.find(([x,z])=>slFree(x,z,r));
-  { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
-  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[11.5,-11.5],[11,-11.5],[9.4,-14]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the later ones by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first. [9.4,-14] last of all: it is where that house's washing line goes)
+  /* (a spot is free of the trees' crowns too, not only their trunks: a crown spreads to some 1.5 m at a flag's height, and the
+     cloth flies out up to its length from the pole. The first spot in the list clear of every crown; failing that, of the free
+     ones, the one furthest from any) */
+  const crown=(x,z,cl)=>Math.min(9,...TREES.map(([tx,tz,s])=>Math.hypot(x-tx,z-tz)-1.5*s-cl)),
+    pick=(L,r,cl=0)=>{ const ok=L.filter(([x,z])=>slFree(x,z,r)); return ok.find(([x,z])=>crown(x,z,cl)>0)||ok.sort((a,b)=>crown(b[0],b[1],cl)-crown(a[0],a[1],cl))[0]; };
+  { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5,.95); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
+  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[11.5,-11.5],[11,-11.5],[9.4,-14]],.45,.75); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the later ones by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first. [9.4,-14] last of all: it is where that house's washing line goes)
   if(PH&&MK.ph){ const M=PH.M; kitTo('ph'); cyl(M,'#3e4448',0,6.24,0,.014,.62,'cyl8'); kitTo();
     slFlag(PH.x,PH.z,0,.42,.2,['#cf4a36','#f4efe6'],MK.ph.g,6.84); }
   /* frost: in each pane of every window, white crystals creeping in from the corners and along the bottom */
@@ -3731,7 +3735,11 @@ const SOLE_X=[.03,.125];   // (a shoe's inner and outer edge, out from the figur
 function soleUp(gy,b,y0,z0,y1,z1,g0,g1,d){ const m=Math.max(g0-y0,g1-y1); if(d<=0||Math.abs(g1-g0)<.005) return m;
   const ym=(y0+y1)/2, zm=(z0+z1)/2, gm=gy(zm,b); if(Math.abs(gm-(g0+g1)/2)<.003) return Math.max(m,gm-ym);
   return Math.max(m,soleUp(gy,b,y0,z0,ym,zm,g0,gm,d-1),soleUp(gy,b,ym,zm,y1,z1,gm,g1,d-1)); }
-function plantH(gy,ph=0,amt=0,sc=1){ const th=.72*amt*Math.sin(ph); let lo=9, U=-9;   // (sc: the figure's size, a child's smaller)
+function plantH(gy0,ph=0,amt=0,sc=1){ const th=.72*amt*Math.sin(ph); let lo=9, U=-9;   // (sc: the figure's size, a child's smaller)
+  /* (the body turns a little with each stride, the legs with it (animate: .08 of the stride either way), which swings the foot
+     behind out to the side by a couple of centimetres: the ground is read where the shoes are turned to, or the outer edge of
+     the foot behind is let into a kerb that runs across the way at a slant) */
+  const ps=.08*amt*Math.sin(ph), cp=Math.cos(ps), sp=Math.sin(ps), gy=ps?((z,b)=>gy0(z*cp-b*sp,b*cp+z*sp)):gy0;
   for(const [a,sd] of [[th,-1],[-th,1]]){ const ca=Math.cos(a), sa=Math.sin(a), [[ya,za],[yb,zb]]=SOLE;
     const y0=(.5+ya*ca-za*sa)*sc, z0=(ya*sa+za*ca)*sc, y1=(.5+yb*ca-zb*sa)*sc, z1=(yb*sa+zb*ca)*sc; lo=Math.min(lo,y0,y1);
     for(const e of SOLE_X){ const b=sd*e*sc; U=Math.max(U,soleUp(gy,b,y0,z0,y1,z1,gy(z0,b),gy(z1,b),6)); } }
