@@ -136,7 +136,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const c = window.__meterCtx; if (!c || !c.__an) return null; const A = h.A, an = c.createAnalyser(); an.fftSize = 32768; c.__an.connect(an); const buf = new Float32Array(an.fftSize);
     const keep = { music: A.music, cricket: A.cricket, chirp: A.chirp, busk: A.busk }; A.music(0); A.busk(0, 0, 0); A.music = () => {}; A.cricket = () => {}; A.chirp = () => {}; A.busk = () => {};
     /* (and the town held still and its beds quiet while we listen: the sea, the wind, the chipper's fryer and the engines came after this was written) */
-    const up = h.ST.cr.update; h.ST.cr.update = () => {}; A.hush();
+    const up = h.ST.cr.update; h.ST.cr.update = () => {}; A.hush(); A.update(0, { sub: 0, pad: 0 });   // (the town's pad and its low hum too: set each frame by the town, held at their last while it is held)
     const sleep = ms => new Promise(r => setTimeout(r, ms)), lv = d => Math.pow(Math.max(0, 1 - d / 14), 1.5);
     const read = () => { an.getFloatTimeDomainData(buf); let pk = 0, best = 0; const W = Math.round(c.sampleRate * .01); for (let i = 0; i + W <= buf.length; i += W >> 1) { let q = 0; for (let j = i; j < i + W; j++) q += buf[j] * buf[j]; best = Math.max(best, q / W); } for (const v of buf) pk = Math.max(pk, Math.abs(v)); return { pk: +(20 * Math.log10(pk + 1e-9)).toFixed(1), rms10: +(10 * Math.log10(best + 1e-12)).toFixed(1) }; };
     await sleep(2500); const floor = read(); const out = { floor };
