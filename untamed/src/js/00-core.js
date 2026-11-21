@@ -742,7 +742,8 @@ const A=(()=>{
     /* every continuous layer to silence (the score up high excepted: the white page carries it on), on the way to the white
        page and away from it */
     cloud(v){ CLD.want=clamp(v||0,0,1); },   // the way down through the cloud (see CLD): its own, so hushing Earth's sounds (as leaving Earth does, and the warming behind the cloud) leaves it be
-    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop(); },
+    hush(){ TH.want=MUS.want=RAINL.want=BUSK.want=SOLO.want=TWIND.want=LHUM.want=SEAW.want=FRYL.want=0; BK.duck=1; RR.lvl=0; roarMix(); this.whine(0); scoreStop();
+      if(n.eng) for(const id of [...n.eng.keys()]) this.engine(id,-1); },   // (and the traffic's engines let go: each is held at its last level until the town next sets it, which a held or hidden town does not)
     /* a short bright click, placed left or right */
     pebble(p){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, s=shot(); const b=ctx.createBiquadFilter(); b.type='bandpass'; b.frequency.value=2200+Math.random()*3800; b.Q.value=7;
       const a=ctx.createGain(); a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(.05+Math.random()*.05,t0+.003); a.gain.exponentialRampToValueAtTime(.0001,t0+.05+Math.random()*.05);
