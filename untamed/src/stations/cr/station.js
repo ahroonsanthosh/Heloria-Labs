@@ -389,13 +389,22 @@ function bench(x,z,yaw){ const M=frameAt(x,z,yaw); [-.6,.6].forEach(s=>{ box(M,'
   for(let k=0;k<3;k++) box(M,'#b8834f',0,.42,-.14+k*.14,1.46,.05,.12); for(let k=0;k<2;k++) box(M,'#b8834f',0,.56+k*.15,-.22,1.46,.1,.04,0,-.12); obs(x,z,.6,1); }
 const LEAF=['#4f7f4a','#5f9256','#6fa25f','#7fae66'];
 const TREES=[];
+const FLAGPOLES=[[-.6,-15.9],[11,-11.5]];   // where the flags stand (see buildSkyLife: the first spot in each list, kept for them): no tree's crown grows into a pole
 /* the trees, bushes and rocks, and where each lies in the town's mesh, so that one growing through a building can be moved
    clear of it once they are all laid out (see wildClear, after the trees) */
 const WILD=[], wildAt=()=>({K:KK,k0:KK.n}), wildDone=(w,x,z,kind,s)=>{ w.k1=KK.n; Object.assign(w,{x,z,kind,s,ob:OBS[OBS.length-1]}); WILD.push(w); };
 function tree(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU), th=1.25*s; TREES.push([x,z,s]); w.tr=TREES[TREES.length-1];
   put(M,'cyl8','#7a5a42',0,th/2,0,.12*s,th,.12*s); put(M,'cyl8','#7a5a42',.2*s,th*.82,0,.05*s,.62*s,.05*s,0,0,-.75);
   const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453), lc=LEAF.map(c=>{ const q=C3(c).clone(); q.b+=tk*.012; return q; });   // which colour this tree turns in autumn, hidden in its leaves' blue
-  const n=5+Math.floor(rnd()*3); for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0, bs=(k?.48+rnd()*.3:.82)*s; put(M,'blob',lc[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))],Math.cos(a)*rr,th+.45*s+(k?rnd()*.55*s-.1:.2*s),Math.sin(a)*rr,bs,bs*.86,bs); }
+  /* (a flag's pole near it (FLAGPOLES): the part of the crown that would grow into it leans away, or is smaller where it cannot) */
+  const poles=FLAGPOLES.filter(([px,pz])=>Math.hypot(px-x,pz-z)<3.2).map(([px,pz])=>V.copy(at(px,pz)).multiplyScalar(R+standH(px,pz)).applyMatrix4(new T.Matrix4().copy(M).invert()).clone());
+  const n=5+Math.floor(rnd()*3), crown=[]; for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0; let bs=(k?.48+rnd()*.3:.82)*s; const cl=lc[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))], y=th+.45*s+(k?rnd()*.55*s-.1:.2*s);
+    let lx=Math.cos(a)*rr, lz=Math.sin(a)*rr;
+    for(const p of poles){ const dx=lx-p.x, dz=lz-p.z, dd=Math.hypot(dx,dz), want=bs+.16; if(dd>=want) continue;
+      if(want-dd>=.45) bs=Math.max(.2*s,dd-.16);   // (smaller, as far as it can be; then, as needed, leaning away too)
+      const w2=bs+.16; if(dd<w2&&dd>1e-3){ lx=p.x+dx/dd*w2; lz=p.z+dz/dd*w2; } }
+    put(M,'blob',cl,lx,y,lz,bs,bs*.86,bs); crown.push([...loc(V.set(lx,y,lz).applyMatrix4(M).normalize()),bs]); }
+  w.tr[3]=crown;   // (where each part of its crown is, and how big, kept for anything set up near it later: a flag's pole)
   obs(x,z,.26*s,3.5); wildDone(w,x,z,'tree',s); }
 function pine(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); OBS[OBS.length-1].leaf=.7*s; wildDone(w,x,z,'pine',s); }   // (leaf: how far its lowest boughs reach at a walker's hips: see buildNav)
@@ -2410,13 +2419,17 @@ function slWorld(dt,t){ if(!SL.built) return; const warm=SL.warm&&!S.ready; if(S
 /* ---------- building it all, with the town (after the market, before the town's static mesh is made) ---------- */
 async function buildSkyLife(gap){ if(PH) SL.fogD=(l=>[PH.x/l,PH.z/l])(Math.hypot(PH.x,PH.z));
   /* flags: the tricolour by the landing pad, a pennant at the jetty, a small one on top of the lighthouse */
-  /* (a spot is free of the trees' crowns too, not only their trunks: a crown spreads to some 1.5 m at a flag's height, and the
-     cloth flies out up to its length from the pole. The first spot in the list clear of every crown; failing that, of the free
-     ones, the one furthest from any) */
-  const crown=(x,z,cl)=>Math.min(9,...TREES.map(([tx,tz,s])=>Math.hypot(x-tx,z-tz)-1.5*s-cl)),
-    pick=(L,r,cl=0)=>{ const ok=L.filter(([x,z])=>slFree(x,z,r)); return ok.find(([x,z])=>crown(x,z,cl)>0)||ok.sort((a,b)=>crown(b[0],b[1],cl)-crown(a[0],a[1],cl))[0]; };
-  { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5,.95); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
-  { const p=pick([[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[11.5,-11.5],[11,-11.5],[9.4,-14]],.45,.75); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the later ones by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first. [9.4,-14] last of all: it is where that house's washing line goes)
+  /* (a spot is free of the trees' crowns too, not only their trunks: a crown spreads some four times as far, at a flag's height
+     (each tree keeps how far its own does); and it leaves a home its garden, where its washing line will go (the homes are laid out after the flags). The first spot in the
+     list that is; failing that, the nearest to one of them, looked for in rings round each; failing that, as before) */
+  const crown=(x,z)=>TREES.every(([tx,tz,s,cr])=>cr?cr.every(([bx,bz,bs])=>Math.hypot(x-bx,z-bz)>bs+.1):Math.hypot(x-tx,z-tz)>1.5*s),
+    homes=HOUSES.filter(H=>H.plain&&H.M!==CAFE.M).map(H=>loc(V3.setFromMatrixPosition(H.M).normalize())),
+    good=(x,z,r)=>slFree(x,z,r)&&crown(x,z)&&homes.every(([hx,hz])=>Math.hypot(x-hx,z-hz)>3.5),
+    pick=(L,r)=>{ for(const [x,z] of L) if(good(x,z,r)) return [x,z];
+      for(const d of [.4,.8,1.2,1.6,2]) for(const [x,z] of L) for(let k=0;k<8;k++){ const a=k*Math.PI/4, q=[x+Math.cos(a)*d,z+Math.sin(a)*d]; if(good(q[0],q[1],r)) return q; }
+      return L.find(([x,z])=>slFree(x,z,r)); };
+  { const p=pick([[-.6,-15.9],[-6.1,-14.1],[-.2,-13.9],[-6.4,-12.6],[-5.7,-15.5]],.5); if(p) slFlag(p[0],p[1],4.2,.95,.58,['#2f8f4e','#f4f1ea','#ef8a3c']); }
+  { const p=pick([[11,-11.5],[9.4,-12.3],[11.9,-12.1],[8.4,-11.6],[12.6,-13.2],[9,-13.4],[11.4,-13.6],[11.5,-11.5],[9.4,-14]],.45); if(p) slFlag(p[0],p[1],3.4,.75,.36,['#c8483a','#f4f1ea']); }   // (the later ones by the jetty's end of the path, either side of it: the path to it bends round the house by the café now, over the first. [9.4,-14] last of all: it is where that house's washing line goes)
   if(PH&&MK.ph){ const M=PH.M; kitTo('ph'); cyl(M,'#3e4448',0,6.24,0,.014,.62,'cyl8'); kitTo();
     slFlag(PH.x,PH.z,0,.42,.2,['#cf4a36','#f4efe6'],MK.ph.g,6.84); }
   /* frost: in each pane of every window, white crystals creeping in from the corners and along the bottom */
