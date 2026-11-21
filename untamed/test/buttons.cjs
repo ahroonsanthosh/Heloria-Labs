@@ -140,7 +140,9 @@ module.exports = async ({ page, shot, wait, H, log, mobile }) => {
   /* Land again: the page from its start, the loader and the rocket coming down */
   { const fresh = page.waitForEvent('load', { timeout: 180000 }).then(() => true).catch(() => false);
     await tap('#finAgain', 'Land again'); rec(await fresh, 'Land again opens the page afresh');
-    rec(await until(() => !!window.__heloria && window.__heloria.S.ready && window.__heloria.S.mode === 'load', null, 600000), 'at its loader, ready to land again'); }
+    /* (since the way down through the cloud, the page comes down by itself once it is ready, as on a first visit: it does not
+       wait at its loader to be asked) */
+    rec(await until(() => !!window.__heloria && window.__heloria.S.ready && window.__heloria.S.mode !== 'load', null, 600000), 'loaded afresh, and down again by itself, as on a first visit'); }
 
   const fails = results.filter(r => !r.ok);
   console.log('\nSUMMARY ' + (results.length - fails.length) + ' passed, ' + fails.length + ' failed');
