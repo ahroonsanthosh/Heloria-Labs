@@ -8315,7 +8315,8 @@ function fsPose(dt,t){ const D=FS.dr, c=FS.dt, open=FS.door>.05||D!=='idle', inR
     else if(day==='chat'){ const o=FS.ff[1-i]; fy=Math.atan2(o.x-q.x,o.z-q.z); }
     else if(u<.02) fy=i?-.3:.25;
     q.yaw+=angWrap(fy-q.yaw)*Math.min(1,(dt||1)*7);
-    const y=z<FW.cz+FW.d/2-.05?FW.FL:fsGroundY(x,z); fsW(x,y,z,fsV); const nU=z<FW.cz+FW.d/2?FS.up:at(...fsXZ(x,z),fsV2); fsD(Math.sin(q.yaw),0,Math.cos(q.yaw),fsV3);
+    /* (up the step from the forecourt and down it again as the feet go, as anyone at a door: see plantH; sat down, the floor) */
+    const fl=(a_,b_)=>b_<FW.cz+FW.d/2-.05?FW.FL:fsGroundY(a_,b_), y=sit>0?fl(x,z):stepY(fl,x,z,q.yaw,q.ph+(dt||0)*q.sp*4.6,clamp(q.sp/2.2,0,1)); fsW(x,y,z,fsV); const nU=z<FW.cz+FW.d/2?FS.up:at(...fsXZ(x,z),fsV2); fsD(Math.sin(q.yaw),0,Math.cos(q.yaw),fsV3);
     sT.crossVectors(nU,tang(nU,fsV3,fsV3)).normalize(); Mf.makeBasis(sT,nU,fsV3); f.quaternion.setFromRotationMatrix(Mf); f.position.copy(fsV);
     [q.ob.x,q.ob.z]=fsXZ(x,z);
     d.arms.forEach(a=>a.rotation.set(0,0,0)); d.fore.forEach(a=>a.rotation.set(0,0,0));   // (whatever the hose had them holding, let go first)
