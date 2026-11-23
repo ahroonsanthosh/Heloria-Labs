@@ -22,6 +22,25 @@ import argparse, importlib.util, os, re, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+# The site runs where it is meant to, and nowhere else: a copy of its pages put up elsewhere shows where the real one is and
+# does nothing more. (Its scripts are the deployed site's alone: the single-file builds and the artifact are left as they are.)
+# The address is not written out but checked by a fingerprint of it, so a search of the code for the name does not find the
+# check; anyone set on it can still take it out, but a copy lifted as it is does not work. Here too, for trying it out: the
+# machine itself (localhost, 127.0.0.1, a file opened from disk), and the Web Archive, which keeps the real site as it was.
+def _fp(d):
+    x = 5381
+    for c in d: x = ((x * 33) ^ ord(c)) & 0xffffffff
+    return x
+_NOTE = ('<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Heloria Labs</title></head>'
+         '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#f4efe6;color:#2a241d;'
+         'font:17px/1.5 system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box"><div>'
+         '<p style="font-size:22px;margin:0 0 6px">This is a copy of Heloria Labs.</p>'
+         '<p style="margin:0">The real one is at <a href="https://helorialabs.com" style="color:inherit">helorialabs.com</a>.</p></div></body>')
+LOCK = ("(function(){var L=location,h=(L.hostname||'').toLowerCase();"
+        "if(L.protocol==='file:'||h==='localhost'||h==='127.0.0.1'||h==='[::1]'||h==='::1'||h==='web.archive.org')return;"
+        "var d=h.split('.').slice(-2).join('.'),x=5381;for(var i=0;i<d.length;i++)x=((x*33)^d.charCodeAt(i))>>>0;if(x===%d)return;"
+        "try{document.documentElement.innerHTML=atob('%s');}catch(e){}throw 0;})();\n") % (_fp('helorialabs.com'), __import__('base64').b64encode(_NOTE.encode()).decode())
+
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, path))
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
@@ -100,8 +119,8 @@ def main():
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(out)
-    untamed.write_site(out, minify=not a.no_minify)   # first: it also lays down the shared files in assets/
-    tamed.write_site(out, minify=not a.no_minify)
+    untamed.write_site(out, minify=not a.no_minify, lock=LOCK)   # first: it also lays down the shared files in assets/
+    tamed.write_site(out, minify=not a.no_minify, lock=LOCK)
     # Land is a page of its own: the front door asks for Land's script and styles while you are still there, at the lowest
     # priority (once everything of its own is in), at the very addresses Land asks for, so going in finds them already kept
     land = open(os.path.join(out, 'untamed', 'index.html'), encoding='utf-8').read()

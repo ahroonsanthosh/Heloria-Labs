@@ -398,14 +398,17 @@ function tree(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU), th=1.25*s; T
   const tk=fract(Math.sin(x*12.9898+z*78.233)*43758.5453), lc=LEAF.map(c=>{ const q=C3(c).clone(); q.b+=tk*.012; return q; });   // which colour this tree turns in autumn, hidden in its leaves' blue
   /* (a flag's pole near it (FLAGPOLES): the part of the crown that would grow into it leans away, or is smaller where it cannot) */
   const poles=FLAGPOLES.filter(([px,pz])=>Math.hypot(px-x,pz-z)<3.2).map(([px,pz])=>V.copy(at(px,pz)).multiplyScalar(R+standH(px,pz)).applyMatrix4(new T.Matrix4().copy(M).invert()).clone());
+  let low=0;   // (how far out from the trunk its leaves reach below a walker's shoulders, 1.5 m: see leaf below)
   const n=5+Math.floor(rnd()*3), crown=[]; for(let k=0;k<n;k++){ const a=rnd()*TAU, rr=k?(.42+rnd()*.25)*s:0; let bs=(k?.48+rnd()*.3:.82)*s; const cl=lc[Math.min(3,Math.floor(rnd()*3)+(k>2?1:0))], y=th+.45*s+(k?rnd()*.55*s-.1:.2*s);
     let lx=Math.cos(a)*rr, lz=Math.sin(a)*rr;
     for(const p of poles){ const dx=lx-p.x, dz=lz-p.z, dd=Math.hypot(dx,dz), want=bs+.16; if(dd>=want) continue;
       if(want-dd>=.45) bs=Math.max(.2*s,dd-.16);   // (smaller, as far as it can be; then, as needed, leaning away too)
       const w2=bs+.16; if(dd<w2&&dd>1e-3){ lx=p.x+dx/dd*w2; lz=p.z+dz/dd*w2; } }
-    put(M,'blob',cl,lx,y,lz,bs,bs*.86,bs); crown.push([...loc(V.set(lx,y,lz).applyMatrix4(M).normalize()),bs]); }
+    put(M,'blob',cl,lx,y,lz,bs,bs*.86,bs); crown.push([...loc(V.set(lx,y,lz).applyMatrix4(M).normalize()),bs]);
+    { const hy=bs*.86, h=Math.min(1.5,y); if(y-hy<1.5) low=Math.max(low,Math.hypot(lx,lz)+bs*Math.sqrt(Math.max(0,1-((y-h)/hy)**2))); } }
   w.tr[3]=crown;   // (where each part of its crown is, and how big, kept for anything set up near it later: a flag's pole)
-  obs(x,z,.26*s,3.5); wildDone(w,x,z,'tree',s); }
+  obs(x,z,.26*s,3.5); if(low>0) OBS[OBS.length-1].leaf=low;   // (leaf, as a pine's or a bush's: so a way found for someone keeps out from under the low part of it, not through the leaves)
+  wildDone(w,x,z,'tree',s); }
 function pine(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); OBS[OBS.length-1].leaf=.7*s; wildDone(w,x,z,'pine',s); }   // (leaf: how far its lowest boughs reach at a walker's hips: see buildNav)
 function bush(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); for(let k=0;k<3;k++) put(M,'blob',LEAF[1+(k%2)],(k-1)*.32*s,.26*s,(rnd()-.5)*.2*s,.36*s,.3*s,.34*s); obs(x,z,.42*s,.6); OBS[OBS.length-1].leaf=.68*s; wildDone(w,x,z,'bush',s); }   // (leaf: how far its leaves reach, which walking keeps clear of: see buildNav)
@@ -5546,7 +5549,9 @@ async function hiBuildSchool(step=lateNo){ const S_=CIV.school, M=S_.B, F=SCH.FL
     hiRod(M,'#9aa0a3',V(hx-.04,ty+.05,hz-.13),V(hx-.04,ty+.14,hz-.13),.006); B.hamAt={x:hx,y:ty+.05,z:hz}; B.ham={st:'run',t:0,a:0,v:9,look:0,seen:0,px:hx,pz:hz-.13,rev:0};
     hiHit(B,'hamster',.3,.3,.48,hiTf(M,hx,ty+.15,hz)); }
   await step(); /* ---- the bell rope by the door, up through the ceiling to the bell on the roof ---- */
-  await step(); { const rx=1.22, rz=-.12; box(M,'#5a3d2c',rx,top-.04,rz,.1,.04,.1); put(M,'cyl','#3a3d40',rx,top-.07,rz,.035,.02,.035,0,0,Math.PI/2); B.ropeAt=[rx,rz]; B.rope={t:9,n:0}; hiHit(B,'rope',.12,1.3,.12,hiTf(M,rx,1.75,rz)); }
+  /* (the bell rope: not straight in line with the rocket from where you stand, or the rocket seems to climb it and its
+     parachute to hang on it) */
+  await step(); { const rx=1.22, rz=.35; box(M,'#5a3d2c',rx,top-.04,rz,.1,.04,.1); put(M,'cyl','#3a3d40',rx,top-.07,rz,.035,.02,.035,0,0,Math.PI/2); B.ropeAt=[rx,rz]; B.rope={t:9,n:0}; hiHit(B,'rope',.12,1.3,.12,hiTf(M,rx,1.75,rz)); }
   await step(); /* ---- coat pegs by the door, the children's bags on them; the paintings and posters on the walls ---- */
   await step(); [[-.62,'#3f7fd0'],[-.48,'#e9873a'],[.5,'#5cae6e'],[.64,'#f2c14e']].forEach(([x,c])=>{ const P_=sub(M,x,1.18,iz-.02,Math.PI); box(P_,'#b5885a',0,0,.02,.04,.04,.06); box(P_,c,0,-.26,.05,.12,.2,.06); box(P_,tint(c,-.3),0,-.08,.05,.02,.1,.01); });
   box(M,'#b5885a',0,1.16,iz-.03,1.6,.06,.03);
@@ -5785,8 +5790,10 @@ function hiRocketStep(B,dt){ const r=B.rk, [px,py,pz]=B.rkAt, top=SCH.CH-.3-py; 
   if(r.st==='up'){ const u=r.t/.6; r.y=top*Math.min(1,u*u); r.puff-=dt; if(r.puff<0&&u<.8){ r.puff=.05; puff(hiP(B.M,px,py+r.y,pz),hiD(B.M,(Math.random()-.5)*.3,-.4,(Math.random()-.5)*.3),.03+Math.random()*.02,.8); }
     if(u>=1){ r.st='chute'; r.t=0; A.chutePop(.017,hiPan(B.rocket)); } }
   else if(r.st==='chute'){ r.y=Math.max(0,top-.24*r.t); r.x=.05*Math.sin(r.t*1.6); r.sw=.3*Math.sin(r.t*2.2); if(r.y<=0){ r.st='landed'; r.t=0; A.tick(); } }
-  else if(r.st==='landed'&&r.t>3.5){ r.st='pad'; r.t=0; r.x=0; r.sw=0; r.y=0; }
-  B.rocket.matrix.copy(hiTf(B.M,px+r.x,py+r.y,pz,0,r.st==='landed'?1.45*Math.min(1,r.t/.3):0,r.st==='chute'?r.sw*.4:0));
+  /* (down, it lies where it fell until it is tapped again: then it is stood back up on its pad, and goes) */
+  else if(r.st==='stand'){ const u=Math.min(1,r.t/.35); r.x=r.x0*(1-u); r.sw=0; if(u>=1) hiGo_(B); }
+  const roll=r.st==='landed'?1.45*Math.min(1,r.t/.3):r.st==='stand'?1.45*(1-sstep(0,1,r.t/.35)):0;
+  B.rocket.matrix.copy(hiTf(B.M,px+r.x,py+r.y,pz,0,roll,r.st==='chute'?r.sw*.4:0));
   const cv=r.st==='chute'||(r.st==='landed'&&r.t<1.2); if(B.chute.visible!==cv) B.chute.visible=cv;
   if(cv){ const k=r.st==='chute'?Math.min(1,.2+r.t/.3):1-r.t/1.2; B.chute.matrix.copy(hiTf(B.M,px+r.x,py+r.y+.52,pz,0,0,r.sw*.5)).multiply(hiM.makeScale(k,k*(r.st==='landed'?.4:1),k)); } }
 function hiHamStep(B,dt,t){ const H=B.ham, a0=B.hamAt, e=hiV5.set(B.S[0],0,B.S[1]); H.t+=dt;
@@ -5868,7 +5875,10 @@ function hiPickBoard(cx,cy){ const B=HSI.school; hiNdc.set(cx/innerWidth*2-1,-(c
 function hiWipe(B){ if(B.bd.wipe) return; B.bd.wipe={t:0,s:-1}; A.chalk(.032,true); }
 const HXF=[0,1,2,3,4,5,6,7];
 function hiXylo(B,i){ const q=B.xylo[i]; q.t=0; const ml=B.mallet[i<4?0:1]; ml.t=0; ml.i=i; A.xylo(HXF[i],.0075,hiPan(q.m)); HSI.xy.push(i); if(HSI.xy.length>40) HSI.xy.shift(); }
-function hiLaunch(B){ const r=B.rk; if(r.st==='up'||r.st==='chute') return; Object.assign(r,{st:'up',t:0,y:0,x:0,sw:0,puff:0,n:(r.n||0)+1}); A.rocketWhoosh(.03,hiPan(B.rocket)); }
+function hiLaunch(B){ const r=B.rk; if(r.st==='up'||r.st==='chute'||r.st==='stand') return;
+  if(r.st==='landed'){ Object.assign(r,{st:'stand',t:0,x0:r.x}); A.tick(); return; }   // (lying where it came down: stood up first)
+  hiGo_(B); }
+const hiGo_=B=>{ const r=B.rk; Object.assign(r,{st:'up',t:0,y:0,x:0,sw:0,puff:0,n:(r.n||0)+1}); A.rocketWhoosh(.03,hiPan(B.rocket)); };
 function hiRing(B){ if(B.rope.t<.8) return; B.rope.t=0; B.rope.n++; CIV.bellT=1.9; A.schoolBell(CGAIN.bell*.95,0); HSI.bells.push({g:+(CGAIN.bell*.95).toFixed(4),pulled:true}); }
 
 /* ---------- what comes up over the room: a building's card from the model, a note to read, the visitor book ---------- */

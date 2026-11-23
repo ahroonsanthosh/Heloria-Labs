@@ -105,7 +105,7 @@ DOC_HEAD = '''<!doctype html>
 <body>
 '''
 
-def write_site(out, minify=True):
+def write_site(out, minify=True, lock=''):
     """Land's part of the deployed site: out/untamed/index.html, its css and js in out/assets/, and the shared files both
     pages use (the portraits, the icon, three.js) in out/assets/img and out/assets/vendor. The social image is the walk's,
     which the walk's build writes to out/assets/img/og.jpg"""
@@ -121,7 +121,7 @@ def write_site(out, minify=True):
     # each photograph's address carries a fingerprint of the file, so a browser holding last week's picture fetches the new one
     pfp = lambda n: hashlib.sha1(open(os.path.join(SRC, 'assets', 'img', n + '.webp'), 'rb').read()).hexdigest()[:10]
     js = js.replace('__PHOTOS__', json.dumps([A + 'img/%s.webp?v=%s' % (n, pfp(n)) for n in CREW])).replace('__CAFE__', 'true' if CAFE_LIVE else 'false')
-    js = wrap_js(js)
+    js = wrap_js(lock + js)   # (lock: the site's own check that it is where it should be, first; see tools/build.py)
     if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
         M = minifier(); css, js = M.css(css), M.js(js)
     open(os.path.join(out, 'assets', 'untamed.css'), 'w', encoding='utf-8').write(css)

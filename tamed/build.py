@@ -142,7 +142,7 @@ def ahead(out):
     return ' '.join(found)
 
 
-def write_site(out, minify=True):
+def write_site(out, minify=True, lock=''):
     """Tamed's part of the deployed site: out/index.html (the front door, with the two ways in), its css and js in
     out/assets/, and the site's social image, out/assets/img/og.jpg (Land's page shows it too). The portraits and three.js
     are the shared files the untamed build puts in out/assets/img and vendor."""
@@ -152,6 +152,7 @@ def write_site(out, minify=True):
     css, html, app = parts(dict(SITE_LINKS, __AHEAD__=ahead(out)), ['assets/img/%s.webp?v=%s' % (n, pfp(os.path.join(PHOTO_DIR, n + '.webp'))) for n in PEOPLE],
                            'assets/img/land.webp?v=' + pfp(os.path.join(SRC, 'assets', 'land.webp')))
     css = FONTS.face_css(['doto', 'isans', 'caslon']) + css   # the type from the site itself (see tools/fonts.py)
+    app = lock + app   # (the site's own check that it is where it should be, first; see tools/build.py)
     if minify:   # smaller to fetch and quicker to read on a phone; the same page (see tools/minify.py)
         M = minifier(); css, app = M.css(css), M.js(app)
     head = read('head.html').strip().replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
