@@ -3825,11 +3825,12 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
   if(P.speed>.01){ const u0=P.u.clone(), f0=P.f.clone(); walk(P,P.speed*dt); let [x,z]=loc(P.u);
     if(!walkable(x,z)){ P.u.copy(u0); P.f.copy(f0); P.speed*=.2; if(P.path) P.stuck=(P.stuck||0)+.4; else P.tgt=null; }
     else { let tx=null,tz=null, held=null; if(P.tgt) [tx,tz]=loc(V.copy(P.tgt).normalize());
-      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(o.tl) held=o; if(tx!==null&&!P.path&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
+      for(const o of OBS){ const dx=x-o.x, dz=z-o.z, d=Math.hypot(dx,dz), m=o.r+.28; if(d<m&&d>1e-4){ x=o.x+dx/d*m; z=o.z+dz/d*m; if(o.tl||people.some(p=>p.ob===o)) held=o; if(tx!==null&&!P.path&&Math.hypot(tx-o.x,tz-o.z)<m+.3) P.tgt=null; } }
       if(walkable(x,z)) at(x,z,P.u); else P.u.copy(u0); tang(P.u,P.f,P.f);
-      /* held against something that moves (a van or the bus stopped to let you by, someone walking) while walking a way you
-         were given: the way runs through it, and it is waiting for you. Step round it, the way the town's walkers step round
-         you, on the side nearer where you are going */
+      /* held against something that moves (a van or the bus stopped to let you by, someone walking, or one of us standing
+         where the way runs: the grid leaves us out, as we move) while walking a way you were given: the way runs through it.
+         Ahroon by the pad stood on the way from the pier to Michael, and you walked into him for good. Step round it, the way
+         the town's walkers step round you, on the side nearer where you are going */
       if(held&&P.path&&!ix&&!iz){ P.held=(P.held||0)+dt; if(P.held>.7){ P.held=0; const [qx,qz]=loc(P.u), ox=qx-held.x, oz=qz-held.z, ol=Math.hypot(ox,oz)||1, px=-oz/ol, pz=ox/ol,
           [nx,nz]=P.path[P.path.length-1], sg=((nx-qx)*px+(nz-qz)*pz)>=0?1:-1;
           /* (where you were going is where it stands, parked: close enough, you are there) */
@@ -3839,11 +3840,12 @@ st.update=function(dt,t){ if(!st.built) return; const P=player; cardT+=dt; if(ca
           if(step){ P.path.unshift(step); P.tgt=at(step[0],step[1]).multiplyScalar(R); P.rounds=(P.rounds||0)+1; } } } }
       else P.held=Math.max(0,(P.held||0)-dt); } }
   [P.x,P.z]=loc(P.u); P.h=damp(P.h,standH(P.x,P.z),14,dt);
+  const moved=dt>0&&P.lx!=null?Math.hypot(P.x-P.lx,P.z-P.lz)/dt:P.speed; P.lx=P.x; P.lz=P.z;   // (how fast you really go: pressed against something, as fast as you walk and going nowhere)
   /* walked over to someone: talk on arrival. Held up on the way, or they have moved: find the way again; after a few tries,
      close enough is close enough */
   if(TALK.goal&&!TALK.p){ const g=TALK.goal, dg=Math.hypot(P.x-g.x,P.z-g.z);
     if(dg<2.5) talkTo(g);
-    else { P.stuck=Math.max(0,(P.stuck||0)+(P.speed<.3?dt:-dt*.5));
+    else { P.stuck=Math.max(0,(P.stuck||0)+(Math.min(P.speed,moved)<.3?dt:-dt*.5));
       if(P.stuck>.7||(Math.hypot(g.x-(P.goalX??g.x),g.z-(P.goalZ??g.z))>1.2)){ P.stuck=0; P.tries=(P.tries||0)+1; if(P.tries>3){ if(dg<6) talkTo(g); else { TALK.goal=null; P.path=null; P.tgt=null; } } else walkTo(g); }
       else if(!P.tgt&&!P.path) TALK.goal=null; } }
   P.ph+=dt*P.speed*4.6; standOn(me,P.u,P.f,footH(P.u,P.f,P.ph,clamp(P.speed/2.7,0,1))); animate(me,P.ph,clamp(P.speed/2.7,0,1),0,t,9);   // (your feet on the kerb or the boards as you reach them; the camera follows P.h, smoothed)
