@@ -10,7 +10,7 @@
    show them) and the hour strikes louder than in the street; back down. The school, in a lesson: the six children at their
    desks (none at break); Ms Kavanagh talks; chalk on the blackboard (a drag that draws and does not look round) and the
    duster wiping it; the xylophone's eight notes, low to high; the globe spun by a drag; the rocket up to the ceiling and
-   down on its parachute; Nibbles stopping to look when you look at him; the bell rope ringing the bell on the roof. Going in,
+   down on its parachute, lying where it lands until tapped again, when it is stood up and goes; Nibbles stopping to look when you look at him; the bell rope ringing the bell on the roof. Going in,
    and everything done in there, compiles nothing new. With --meter each new sound is measured against a footstep.
    Pictures of each room and of each thing done, by day and by night. The station's clock is stepped by hand where timing is
    not the point, as in earth.cjs. */
@@ -251,6 +251,13 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   await D((d, I) => I.run(.4)); s = await st(); const top = s.rocket.y; rec(s.rocket.st === 'chute' && top > 1.1 && (await sounds('chutePop')).length === 1, 'it goes up to the ceiling and its parachute opens', JSON.stringify(s.rocket));
   await D((d, I) => I.run(2)); await look(-.95, .3); await frames(3); await shot(pre + 'school-10-parachute');
   r = await until(s => s.rocket.st === 'landed', 30 * 9); s = await st(); rec(r.done && s.rocket.y === 0, 'and floats down to land on the table', JSON.stringify(s.rocket));
+  /* where it lands it stays, lying on its side, until it is tapped again: then it is stood up and goes */
+  await D((d, I) => I.run(6)); s = await st(); rec(s.rocket.st === 'landed', 'and stays lying there: it does not spring upright by itself', JSON.stringify(s.rocket));
+  await look(-.95, -.22); await frames(3); await clearSnd();
+  await tap(await D((d, I) => I.screen('rocket')), 'the rocket, lying down'); const lay = (await st()).rocket;
+  await D((d, I) => I.run(.5)); s = await st();
+  rec(lay.st === 'stand' && (s.rocket.st === 'up' || s.rocket.st === 'chute') && s.rocket.n === 2 && (await sounds('rocketWhoosh')).length === 1, 'a tap on it lying there stands it up, and it goes up again', JSON.stringify({ lay, now: s.rocket }));
+  r = await until(s => s.rocket.st === 'landed', 30 * 12); rec(r.done, 'and lands again', JSON.stringify((await st()).rocket));
   /* Nibbles: look at him and he stops and looks back; look away and he goes back to his wheel */
   await look(-1.6, -.36); await clearSnd(); const w0 = (await st()).ham; await D((d, I) => I.run(2)); let hm = await D((d, I) => I.ham());
   rec(hm.st === 'look' && hm.head < -.2, 'look at Nibbles and he stops, comes to the front of his cage and looks up at you', JSON.stringify({ w0, hm }));

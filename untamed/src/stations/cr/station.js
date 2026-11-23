@@ -283,7 +283,12 @@ const OBS=[]; const obs=(x,z,r,h=3)=>OBS.push({x,z,r,h});
 /* an obstacle at a point in a thing's own frame */
 const _oa=new T.Vector3(); function obsAt(M,lx,lz,r,h=1.2){ const [x,z]=loc(_oa.set(lx,0,lz).applyMatrix4(M).normalize()); obs(x,z,r,h); }
 function obsRect(x,z,yaw,w,d,h=3){ const ax=w>=d, L=ax?w:d, Wd=ax?d:w, n=Math.max(1,Math.ceil(L/Wd)), ux=ax?Math.cos(yaw):Math.sin(yaw), uz=ax?-Math.sin(yaw):Math.cos(yaw);
-  for(let k=0;k<n;k++){ const t=(n===1?0:(k/(n-1)-.5))*(L-Wd); obs(x+ux*t,z+uz*t,Wd/2+.12,h); } }
+  for(let k=0;k<n;k++){ const t=(n===1?0:(k/(n-1)-.5))*(L-Wd); obs(x+ux*t,z+uz*t,Wd/2+.12,h); OBS[OBS.length-1].rk={dx:-ux*t,dz:-uz*t,ux,uz,hl:L/2,hw:Wd/2,b2:Math.hypot(L/2+Math.abs(t)+.3,Wd/2+.3)**2}; } }
+/* (and the rectangle each of those circles stands for, kept on it (rk: its middle from the circle, its long way, its half length
+   and half width), so the walking grid keeps clear of its corners too: a corner is further out than the circles reach, and a
+   way cut past it diagonally brushed the stone footing round a house. It moves with the circle: see wildMove) */
+const inRect=(o,x,z,m)=>{ const k=o.rk; if(!k||(x-o.x)**2+(z-o.z)**2>=k.b2) return false; const px=x-o.x-k.dx, pz=z-o.z-k.dz;   // (b2: nothing of it, .3 out, is further from the circle than this)
+   return Math.abs(px*k.ux+pz*k.uz)<k.hl+m&&Math.abs(pz*k.ux-px*k.uz)<k.hw+m; };
 
 /* ---------- roads and paths ---------- */
 const LOOP=[[-3,-8.7],[2.5,-8.9],[7.4,-6.4],[9.3,-.8],[8.6,4.8],[5,8.6],[-.5,9.6],[-5.8,8],[-8.8,3.4],[-9,-2.4],[-7,-7.1]];
@@ -407,7 +412,7 @@ function tree(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU), th=1.25*s; T
     put(M,'blob',cl,lx,y,lz,bs,bs*.86,bs); crown.push([...loc(V.set(lx,y,lz).applyMatrix4(M).normalize()),bs]);
     { const hy=bs*.86, h=Math.min(1.5,y); if(y-hy<1.5) low=Math.max(low,Math.hypot(lx,lz)+bs*Math.sqrt(Math.max(0,1-((y-h)/hy)**2))); } }
   w.tr[3]=crown;   // (where each part of its crown is, and how big, kept for anything set up near it later: a flag's pole)
-  obs(x,z,.26*s,3.5); if(low>0) OBS[OBS.length-1].leaf=low;   // (leaf, as a pine's or a bush's: so a way found for someone keeps out from under the low part of it, not through the leaves)
+  obs(x,z,.26*s,3.5); if(low>0) OBS[OBS.length-1].canopy=low;   // (canopy: so a way found for someone goes round the low part of it where it can, not through the leaves: see buildNav)
   wildDone(w,x,z,'tree',s); }
 function pine(x,z,s=1){ const w=wildAt(), M=frameAt(x,z,rnd()*TAU); put(M,'cyl8','#6b4e3e',0,.35*s,0,.1*s,.7*s,.1*s);
   for(let k=0;k<3;k++){ const r=(1-k*.25)*.82*s, hh=1.2*s; put(M,'cone8',k%2?'#3f6c4f':'#4a7b57',0,.55*s+k*.62*s+hh/2,0,r,hh,r); } obs(x,z,.3*s,3.5); OBS[OBS.length-1].leaf=.7*s; wildDone(w,x,z,'pine',s); }   // (leaf: how far its lowest boughs reach at a walker's hips: see buildNav)
@@ -595,7 +600,7 @@ function buildNature(){
    nothing else round town moves) */
 /* (and last, a path or a road changed since the wild was laid out round it, as it now is: see WAS) */
 function wildClear(){ wildMove(); for(const g of WAS) if(g.fn) g.fn(); }
-function wildMove(){ for(const g of WAS){ if(g.fn) continue; if(g.xz){ for(const o of g.obs){ o.x=g.xz[0]; o.z=g.xz[1]; } continue; } if(g.dxz){ for(const o of g.obs){ o.x+=g.dxz[0]; o.z+=g.dxz[1]; } continue; } const i0=OBS.length; obsRect(...g.to); OBS.splice(i0).forEach((o,i)=>{ if(g.obs[i]) Object.assign(g.obs[i],{x:o.x,z:o.z,r:o.r}); }); }   // (the moved house solid where it stands now)
+function wildMove(){ for(const g of WAS){ if(g.fn) continue; if(g.xz){ for(const o of g.obs){ o.x=g.xz[0]; o.z=g.xz[1]; o.rk=null; } continue; } if(g.dxz){ for(const o of g.obs){ o.x+=g.dxz[0]; o.z+=g.dxz[1]; } continue; } const i0=OBS.length; obsRect(...g.to); OBS.splice(i0).forEach((o,i)=>{ if(g.obs[i]) Object.assign(g.obs[i],{x:o.x,z:o.z,r:o.r,rk:o.rk}); }); }   // (the moved house solid where it stands now)
   const Mi=new T.Matrix4(), v=new T.Vector3(), q=new T.Quaternion(), A=new T.Vector3(), B=new T.Vector3(), [ja,jb]=JETTY;
   const inside=(H,p,m)=>{ const lx=Math.abs(p.x), lz=Math.abs(p.z), hw=H.w/2+.09+m, hd=H.d/2+.09+m; if(lx>hw||lz>hd||p.y<-.1) return false;
     return p.y<(H.flat?H.h+.3:H.h+1.35*Math.max(0,1-lz/(H.d/2+.31)))+m; };   // (its walls, and its roof: flat, or pitched front to back)
@@ -3381,11 +3386,16 @@ const tang=(u,to,o)=>o.copy(to).addScaledVector(u,-u.dot(to)).normalize();
 function walkable(x,z){ if(onJetty(x,z)||onPier(x,z)!==false) return true; const h=grid(GH,x,z); if(h>-.04) return true; return grid(GB,x,z)>.45&&h>-.72; }
 /* ---------- finding the way: a grid over the town, so walking over to someone goes round houses, fences and the water ---------- */
 const NAV={S:.4,O:-25.4,N:0,free:null};   // (out to -25.4: the same cells as ever, and a few more at the edge, so the path finder reaches the end of the harbour pier)
-function buildNav(){ const S=NAV.S, N=NAV.N=Math.ceil(-2*NAV.O/S)+1, f=NAV.free=new Uint8Array(N*N), fixed=OBS.filter(o=>!people.some(p=>p.ob===o));
-  NAV.leafy=fixed.filter(o=>o.leaf).map(o=>({x:o.x,z:o.z,c:o.leaf+.15}));   // (see navLeaf)
+/* (how far a way keeps out past the reach of a tree's low leaves: a walker's half width, and the corner a walker cuts as it turns
+   from one leg of its way to the next, which is to the inside of the turn, the tree's side when the way bends round one) */
+const CANOPY_M=.45;
+/* (under a tree's low leaves (canopy) is not shut, as a pine's boughs are: it costs more to cross (NAV.soft), so a way goes round
+   them where there is one, and under them only where there is no other) */
+function buildNav(){ const S=NAV.S, N=NAV.N=Math.ceil(-2*NAV.O/S)+1, f=NAV.free=new Uint8Array(N*N), sf=NAV.soft=new Uint8Array(N*N), fixed=OBS.filter(o=>!people.some(p=>p.ob===o)), cans=fixed.filter(o=>o.canopy);
+  NAV.leafy=fixed.filter(o=>o.leaf||o.canopy).map(o=>({x:o.x,z:o.z,c:o.leaf?o.leaf+.15:o.canopy+CANOPY_M}));   // (see navLeaf)
   for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const x=NAV.O+i*S, z=NAV.O+j*S; let ok=walkable(x,z);
-    if(ok) for(const o of fixed){ const dx=x-o.x, dz=z-o.z, m=Math.max(o.r+.3,(o.leaf||0)+.2); if(dx*dx+dz*dz<m*m){ ok=false; break; } }   // (a bush or a pine: clear of its leaves and boughs, so nobody walks into them)
-    f[j*N+i]=ok?1:0; } }
+    if(ok) for(const o of fixed){ const dx=x-o.x, dz=z-o.z, m=Math.max(o.r+.3,(o.leaf||0)+.2); if(dx*dx+dz*dz<m*m||(o.rk&&inRect(o,x,z,.3))){ ok=false; break; } }   // (a bush or a pine: clear of its leaves and boughs, so nobody walks into them)
+    f[j*N+i]=ok?1:0; for(const o of cans){ const m=o.canopy+CANOPY_M; if((x-o.x)**2+(z-o.z)**2<m*m){ sf[j*N+i]=1; break; } } } }   // (every cell under one, shut now or not: one opened later, when what stood there moves off, is under it still)
 /* a straight way clear of the leaves and boughs of the bushes and pines (theirs reach further than the grid's cells round them
    keep: a way pulled tight past one would brush through them), by its distance from each, a walker's half width more */
 function navLeaf(x0,z0,x1,z1){ const L=NAV.leafy; if(!L) return true; const ex=x1-x0, ez=z1-z0, l2=ex*ex+ez*ez||1, a0=Math.min(x0,x1)-1.3, a1=Math.max(x0,x1)+1.3, b0=Math.min(z0,z1)-1.3, b1=Math.max(z0,z1)+1.3;
@@ -3405,7 +3415,7 @@ function navPath(x0,z0,gx,gz,reach){ if(!NAV.free) return null; const N=NAV.N, S
     if(dg<=reach&&dg>=1){ end=k; break; }
     for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ if(!di&&!dj) continue; const ni=i+di, nj=j+dj; if(!navOK(ni,nj)) continue;
       if(di&&dj&&(!navOK(i+di,j)||!navOK(i,j+dj))) continue;   // never across a corner
-      const nk=nj*N+ni, ng=g[k]+(di&&dj?1.4142:1)*S; if(ng<g[nk]){ g[nk]=ng; from[nk]=k; push(ng+H(ni,nj),nk); } } }
+      const nk=nj*N+ni, ng=g[k]+(di&&dj?1.4142:1)*S*(NAV.soft&&NAV.soft[nk]?6:1); if(ng<g[nk]){ g[nk]=ng; from[nk]=k; push(ng+H(ni,nj),nk); } } }
   if(end<0) return null;
   const cells=[]; for(let k=end;k>=0;k=from[k]) cells.push(xy(k)); cells.reverse();
   const out=[]; let a=[x0,z0];   // pulled tight: from each corner, the farthest point along the way that it can see
@@ -4856,7 +4866,7 @@ function civSolids(){ const Hm=CIV.hall.M, S=CIV.school, people_=new Set(people.
   /* the grid round the school, made again as buildNav makes it */
   if(NAV.free){ const N=NAV.N, fixed=OBS.filter(o=>!people_.has(o)), xs=[], zs=[]; for(const [lx,lz] of [[-3.4,-2.6],[4.2,-2.6],[4.2,3.4],[-3.4,3.4]]){ const [px,pz]=ciXZ(S.M,lx,lz); xs.push(px); zs.push(pz); }
     for(let j=Math.floor((Math.min(...zs)-NAV.O)/NAV.S);j<=Math.ceil((Math.max(...zs)-NAV.O)/NAV.S);j++) for(let i=Math.floor((Math.min(...xs)-NAV.O)/NAV.S);i<=Math.ceil((Math.max(...xs)-NAV.O)/NAV.S);i++){
-      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let ok=walkable(x,z); if(ok) for(const o of fixed){ const m=o.r+.3; if((x-o.x)**2+(z-o.z)**2<m*m){ ok=false; break; } } NAV.free[j*N+i]=ok?1:0; } }
+      if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let ok=walkable(x,z); if(ok) for(const o of fixed){ const m=o.r+.3; if((x-o.x)**2+(z-o.z)**2<m*m||(o.rk&&inRect(o,x,z,.3))){ ok=false; break; } } NAV.free[j*N+i]=ok?1:0; } }
   /* no grass through the tarmac */
   const gr=sc.children.find(o=>o.isInstancedMesh&&o.material&&o.material.uniforms&&o.material.uniforms.uHoleOn&&o.material.uniforms.uTime&&o.count>100);
   if(gr){ const [x0,x1,z0,z1]=CY.tar, Mi=ciMi.copy(S.M).invert(), Z=new T.Matrix4().makeScale(0,0,0); let n=0;
@@ -7720,7 +7730,7 @@ function pbSolids(){ const M=PUB.M, f=PB.d/2, gone=new Set(PUB.obs0); for(let i=
 function pfRegrid(M,x0,x1,z0,z1){ if(!NAV.free) return; const N=NAV.N, mine=new Set(people.map(p=>p.ob)), fixed=OBS.filter(o=>!mine.has(o)&&o.r>0), xs=[], zs=[];
   for(const [lx,lz] of [[x0,z0],[x1,z0],[x1,z1],[x0,z1]]){ const [px,pz]=loc(pbV.set(lx,0,lz).applyMatrix4(M).normalize()); xs.push(px); zs.push(pz); }
   for(let j=Math.floor((Math.min(...zs)-NAV.O)/NAV.S);j<=Math.ceil((Math.max(...zs)-NAV.O)/NAV.S);j++) for(let i=Math.floor((Math.min(...xs)-NAV.O)/NAV.S);i<=Math.ceil((Math.max(...xs)-NAV.O)/NAV.S);i++){
-    if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let ok=walkable(x,z); if(ok) for(const o of fixed){ const m=o.r+.3; if((x-o.x)**2+(z-o.z)**2<m*m){ ok=false; break; } } NAV.free[j*N+i]=ok?1:0; } }
+    if(i<0||j<0||i>=N||j>=N) continue; const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let ok=walkable(x,z); if(ok) for(const o of fixed){ const m=o.r+.3; if((x-o.x)**2+(z-o.z)**2<m*m||(o.rk&&inRect(o,x,z,.3))){ ok=false; break; } } NAV.free[j*N+i]=ok?1:0; } }
 function pfTufts(M,x0,x1,z0,z1){ const gr=sc.children.find(o=>o.isInstancedMesh&&o.material&&o.material.uniforms&&o.material.uniforms.uHoleOn&&o.material.uniforms.uTime&&o.count>100); if(!gr) return 0;
   const Mi=pbM2.copy(M).invert(), Z=new T.Matrix4().makeScale(0,0,0); let n=0;
   for(let i=0;i<gr.count;i++){ gr.getMatrixAt(i,pbM); pbV.setFromMatrixPosition(pbM).applyMatrix4(Mi); if(pbV.x>x0&&pbV.x<x1&&pbV.z>z0&&pbV.z<z1&&pbV.lengthSq()>1e-8){ gr.setMatrixAt(i,Z); n++; } }
@@ -9122,7 +9132,10 @@ function tlDog(dt,t){ const D=DOG, P=player; if(!D.g) return; const d=Math.hypot
   tlMove(D,wx,wz,sp,dt,.75);
   if(sp===0&&D.st==='follow'){ const ex=P.x-D.x, ez=P.z-D.z, l=Math.hypot(ex,ez)||1; D.fx=damp(D.fx,ex/l,4,dt); D.fz=damp(D.fz,ez/l,4,dt); }
   D.sit=damp(D.sit,sit,5,dt); D.lie=damp(D.lie,lie,3,dt); D.wag=Math.max(0,D.wag-dt*.3);
-  at(D.x,D.z,D.u); tang(D.u,at(D.x+D.fx,D.z+D.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) D.f.copy(tlV2); standOn(D.g,D.u,D.f,standH(D.x,D.z));
+  at(D.x,D.z,D.u); tang(D.u,at(D.x+D.fx,D.z+D.fz,tlV3),tlV2); if(tlV2.lengthSq()>.5) D.f.copy(tlV2);
+  /* (on its paws, front and back: over a kerb it tilts, the front pair up on the pavement and the back pair still in the road, not
+     the height under its middle for all four, which left one pair sunk in the kerb) */
+  { const fl=Math.hypot(D.fx,D.fz)||1, ax=D.fx/fl*.14, az=D.fz/fl*.14, hf=standH(D.x+ax,D.z+az), hb=standH(D.x-ax,D.z-az); standOn(D.g,D.u,D.f,(hf+hb)/2); if(hf!==hb) D.g.rotateX(-Math.atan2(hf-hb,.28)); }
   /* its legs: a walk or a trot, the diagonal pairs together; sitting, its back legs fold; lying down, all of it does */
   D.ph+=dt*D.v*(D.v>1?8.5:6.5); const p=D.parts, amp=.55*Math.min(1,D.v/1.1)*(1-D.lie), s_=D.sit, l_=D.lie;
   p.legs.forEach(L=>{ const sw=Math.sin(D.ph+(L.s*L.f>0?0:Math.PI))*amp; L.g.rotation.x=L.f>0?sw-1.35*l_:sw-1.25*s_-1.4*l_; L.g.position.y=.22-(L.f<0?.08*s_:0)-.1*l_; });
@@ -11424,11 +11437,16 @@ function prWay(){ const n=NAV.N, F=NAV.free; if(!F) return 0; const id=(i,j)=>j*
   const town=new Uint8Array(n*n), q=[navNear(...navIJ(0,-4))]; town[id(...q[0])]=1;
   while(q.length){ const [i,j]=q.pop(); for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){ const a=i+di, b=j+dj; if((!di&&!dj)||!free(a,b)||town[id(a,b)]||(di&&dj&&(!free(i+di,j)||!free(i,j+dj)))) continue; town[id(a,b)]=1; q.push([a,b]); } }
   let s=navIJ(...PR.Hc); if(!free(...s)) s=navNear(...s); if(!s||town[id(...s)]) return 0;
-  const near=OBS.filter(o=>!o.tr&&Math.hypot(o.x-cx,o.z-cz)<16), loose=new Map(), ok=(i,j)=>{ if(!inn(i,j)) return false; if(F[id(i,j)]) return true; const k=id(i,j); if(loose.has(k)) return loose.get(k);
-    const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let v=Math.hypot(x-cx,z-cz)<12&&walkable(x,z); if(v) for(const o of near){ const dx=x-o.x, dz=z-o.z, m=o.r+.16; if(dx*dx+dz*dz<m*m){ v=false; break; } } loose.set(k,v); return v; };
-  const from=new Map([[id(...s),-1]]), qq=[s]; let end=null;
-  for(let h=0;h<qq.length&&!end;h++){ const [i,j]=qq[h]; for(let dj=-1;dj<=1&&!end;dj++) for(let di=-1;di<=1&&!end;di++){ const a=i+di, b=j+dj, k=id(a,b);
-    if((!di&&!dj)||from.has(k)||!ok(a,b)||(di&&dj&&(!ok(i+di,j)||!ok(i,j+dj)))) continue; from.set(k,id(i,j)); if(town[k]) end=k; else qq.push([a,b]); } }
+  /* (first a way out from under the low leaves of the trees, as the grid keeps its ways where it can (see buildNav): one under
+     them walks you through the leaves; and only if there is none, the nearest way as before) */
+  const near=OBS.filter(o=>!o.tr&&Math.hypot(o.x-cx,o.z-cz)<16);
+  let from, end=null;
+  for(const leafy of [true,false]){ const loose=new Map(), ok=(i,j)=>{ if(!inn(i,j)) return false; if(F[id(i,j)]) return true; const k=id(i,j); if(loose.has(k)) return loose.get(k);
+      const x=NAV.O+i*NAV.S, z=NAV.O+j*NAV.S; let v=Math.hypot(x-cx,z-cz)<12&&walkable(x,z); if(v) for(const o of near){ const dx=x-o.x, dz=z-o.z, m=leafy&&o.canopy?Math.max(o.r+.16,o.canopy+CANOPY_M):o.r+.16; if(dx*dx+dz*dz<m*m){ v=false; break; } } loose.set(k,v); return v; };
+    from=new Map([[id(...s),-1]]); const qq=[s]; end=null;
+    for(let h=0;h<qq.length&&!end;h++){ const [i,j]=qq[h]; for(let dj=-1;dj<=1&&!end;dj++) for(let di=-1;di<=1&&!end;di++){ const a=i+di, b=j+dj, k=id(a,b);
+      if((!di&&!dj)||from.has(k)||!ok(a,b)||(di&&dj&&(!ok(i+di,j)||!ok(i,j+dj)))) continue; from.set(k,id(i,j)); if(town[k]) end=k; else qq.push([a,b]); } }
+    if(end!=null){ PRM.leafy=leafy; break; } }
   let opened=0; for(let k=end, p=end==null?-1:from.get(end); k!=null&&k>=0; k=p, p=k>=0?from.get(k):-1){ if(!F[k]) opened++; F[k]=1; if(p>=0){ const i=k%n, j=(k-i)/n, i2=p%n, j2=(p-i2)/n; if(i!==i2&&j!==j2){ F[id(i,j2)]=1; F[id(i2,j)]=1; } } }
   PRM.opened=opened; return opened; }
 
