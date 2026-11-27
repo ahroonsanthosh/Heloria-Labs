@@ -90,7 +90,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     views[nm] = await N((n, d, h, tm) => { d.closeTalk(); d.sky.set({ time: tm, weather: 'clear' }); if (d.cliff.CL.st === 'sat') { d.cliff.stand(); n.run(60); } const [ax, az] = d.cliff.M.sitA; n.put(ax, az, 30, -6.4); n.run(2); d.cliff.sit(); n.run(150);
       return 1; }, tm);
     await frames(3); await shot(pre + 'neil-2-view-' + nm);
-    views[nm] = await N((n, d) => { const W = innerWidth, Hh = innerHeight, pts = [[33, -6.9, 1.2], [31.9, -14.2, 1.6], [30.6, .4, 1.2]].map(([x, z, y]) => d.neil.farScreen(x, z, y));
+    views[nm] = await N((n, d) => { const W = innerWidth, Hh = innerHeight, F = d.neil.FAR, pts = [[...F.F, 1.2], [...F.CM, 1.6], [...F.TS, 1.2]].map(([x, z, y]) => d.neil.farScreen(x, z, y));
       return { st: d.cliff.CL.st, lk: d.neil.state.far.lk, pts: pts.map(p => ({ on: p.xy[0] > 0 && p.xy[0] < W && p.xy[1] > 0 && p.xy[1] < Hh && p.xy[2] < 1, clear: p.clear, xy: p.xy.map(v => Math.round(v * 100) / 100) })) }; }); }
   rec(views.day.st === 'sat' && views.day.pts.filter(p => p.on && p.clear).length >= 2, 'from the bench on the cliff his place is on the screen, over the horizon', JSON.stringify(views.day));
   rec(views.night.lk > .9 && views.day.lk < .1, 'its lights are on by night, not by day', JSON.stringify({ day: views.day.lk, night: views.night.lk }));

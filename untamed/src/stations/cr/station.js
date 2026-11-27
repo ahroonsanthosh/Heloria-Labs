@@ -11850,25 +11850,25 @@ function neilStep(dt,t){ if(!NL.ok||NL.gone) return; const P=player, d=Math.hypo
 
 /* ---------- his place, across the sea to the west (the planet's +x, the way the bench on the cliff looks out): over the curve
    of the world from the town, only what stands up above the horizon from the cliff, and paler for the haze over the water.
-   Flat farmland a little above the sea (it is Indiana), his bins and his machines in the yard, the hub going up in Camden
+   Flat farmland up a low bank from the sea (it is Indiana), near enough from the bench to make out his machines, his bins and his machines in the yard, the hub going up in Camden
    with a crane over it, and his test stand, where an engine is fired now and then. Seen, not walked: nothing over there is
    solid, on the walking grid or in the town's lists. Drawn smaller than the town's own things are, which reads as further ---------- */
 const FAR={ok:false,err:null,grp:null,mat:null,fogR:{value:new T.Vector2(4,28)},fogA:{value:.8},lights:null,lk:0,
-  F:[33.0,-6.9], CM:[31.9,-14.2], TS:[30.6,.4], S:.55,
+  F:[30.0,-6.9], CM:[28.9,-13.2], TS:[27.6,-1.0], S:.7,
   fire:{on:false,t:0,next:40,n:0,snd:-1,heard:[],flame:null,jet:null,glow:null,cloud:null,P:[],exit:new T.Vector3(),out:new T.Vector3(),up:new T.Vector3(),bell:new T.Vector3()}};
-/* the coast, out along x: land from about 29 m out, in bays and points, its ends at north and south going down under the sea */
-const farCoast=z=>28.9+.8*Math.sin(z*.41+.6)+.45*Math.sin(z*1.13+2.1)+.22*Math.sin(z*2.7)+3*sstep(4.5,9,z)+3*sstep(-18.5,-23,z);
+/* the coast, out along x: land from about 26 m out (just past the islet below the cliff), in bays and points, its ends at north and south going down under the sea */
+const farCoast=z=>25.9+.8*Math.sin(z*.41+.6)+.45*Math.sin(z*1.13+2.1)+.22*Math.sin(z*2.7)+3*sstep(4.5,9,z)+3*sstep(-18.5,-23,z);
 /* how high the land is, as the town's heights are (from the planet's radius; the sea is at WATER) */
-function farH(x,z){ const e=x-farCoast(z), top=.34+.1*sstep(0,6,e)+.025*Math.sin(x*1.7+z*.9);
+function farH(x,z){ const e=x-farCoast(z), top=.64+.1*sstep(0,6,e)+.025*Math.sin(x*1.7+z*.9);
   if(e<-1.4) return WATER-.8; return WATER+(e<0?lerp(-.6,top*.35,sstep(-1.4,0,e)):lerp(top*.35,top,sstep(0,.9,e))); }
 /* the season's colours for each of his fields: corn, beans, hay; in winter stubble (and snow, as the town has it) */
-function farField(x,z){ const fx=Math.floor((x-28.2)/3.5), fz=Math.floor((z+30.4)/3.1), hh=Math.abs(Math.sin(fx*127.1+fz*311.7)*43758.5)%1, doy=SKY.doy||200;
+function farField(x,z){ const fx=Math.floor((x-25.2)/3.5), fz=Math.floor((z+30.4)/3.1), hh=Math.abs(Math.sin(fx*127.1+fz*311.7)*43758.5)%1, doy=SKY.doy||200;
   const kind=hh<.45?0:hh<.85?1:2, ph=doy<60||doy>335?0:doy<140?1:doy<245?2:doy<292?3:4;
   const PAL=[['#b39a6e','#a38f6c','#8c8f62'],['#7a5c42','#6e533d','#79a04a'],['#3d7a32','#5f9a3d','#7aa24c'],['#c4a04f','#c9a03a','#8aa158'],['#bfa477','#ab9068','#7f9555']];
-  const ex=((x-28.2)/3.5)%1, ez=((z+30.4)/3.1)%1, edge=Math.min(ex,1-ex)<.07||Math.min(ez,1-ez)<.07;
+  const ex=((x-25.2)/3.5)%1, ez=((z+30.4)/3.1)%1, edge=Math.min(ex,1-ex)<.07||Math.min(ez,1-ez)<.07;
   return edge?'#6f8a48':PAL[ph][kind]; }
 /* the land: a grid over the coast and the farms, each corner on the round world at its height, its colour from what is there */
-async function farLand(step){ const X0=27, X1=41.5, Z0=-21, Z1=9, ST=.4, nx=Math.round((X1-X0)/ST)+1, nz=Math.round((Z1-Z0)/ST)+1, Pp=new Float32Array(nx*nz*3), Cc=new Float32Array(nx*nz*3), I=[], hs=new Float32Array(nx*nz);
+async function farLand(step){ const X0=24, X1=38.5, Z0=-21, Z1=9, ST=.4, nx=Math.round((X1-X0)/ST)+1, nz=Math.round((Z1-Z0)/ST)+1, Pp=new Float32Array(nx*nz*3), Cc=new Float32Array(nx*nz*3), I=[], hs=new Float32Array(nx*nz);
   const F=FAR.F, CM=FAR.CM, col=new T.Color();
   for(let j=0;j<nz;j++){ if(j%6===5) await step(); for(let i=0;i<nx;i++){ const x=X0+i*ST, z=Z0+j*ST, h=farH(x,z), k=j*nx+i; hs[k]=h; at(x,z,nlV).multiplyScalar(R+h); Pp.set([nlV.x,nlV.y,nlV.z],k*3);
     const e=x-farCoast(z); let c;
@@ -11954,10 +11954,10 @@ async function farCamden(step){ const [cx,cz]=FAR.CM, M=farAt(cx,cz);
   farRod(C,'#2a2a2a',[2.1,MH,0],[2.1,MH-1.5,0],.006); box(C,'#e3a91c',2.1,MH-1.62,0,.1,.12,.08);
   farLight(C,0,MH+.66,0,'#ff4a36',.55,.7,0); farLight(C,2.75,MH+.2,0,'#ff4a36',.42,1.5,0); }
 /* his test stand, by the shore north of the farm: a concrete pad and its flame trench, a steel tower over the trench with the
-   engine in it, firing down; the blockhouse well back from it, and a tank of propellant. The trench opens toward the sea, so
-   when it fires the flame comes out that way and the cloud boils up over the shore */
+   engine in it, firing down; the blockhouse well back from it, and a tank of propellant. The trench runs along the shore toward
+   the farm, so when it fires the flame comes out sideways to the town and the cloud boils up over the shore */
 async function farStand(step){ const [x,z]=FAR.TS, M=frameAt(x,z,yawTo(x,z,CLF.x,CLF.z),farH(x,z)+.18,FAR.S), TH=2.7, W=.62;   // (up on a low berm by the shore, so it shows over the curve)
-  box(M,'#9c9a92',0,-.3,0,2.7,.3,2.7); box(M,'#b5b2ab',0,0,0,2.2,.12,2.2); box(M,'#8f8b84',0,.12,0,.9,.18,.9); box(M,'#55524d',.45,.02,0,1.4,.12,.5);   // (the trench along the shore, so its flame and cloud are seen side on from the town)
+  box(M,'#9c9a92',0,-.3,0,2.7,.3,2.7); box(M,'#b5b2ab',0,0,0,2.2,.12,2.2); box(M,'#8f8b84',0,.12,0,.9,.18,.9); box(M,'#55524d',-.45,.02,0,1.4,.12,.5);   // (the trench along the shore, toward the farm, so its flame and cloud are seen side on from the town, and in the frame on a phone)
   for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]) box(M,'#6d7680',a*W/2,.3,b*W/2,.06,TH-.3,.06);
   for(let k=1;k<6;k++){ const y=.3+k*(TH-.3)/5; box(M,'#7d8891',0,y-.03,-W/2,W,.04,.04); box(M,'#7d8891',0,y-.03,W/2,W,.04,.04); box(M,'#7d8891',-W/2,y-.03,0,.04,.04,W); box(M,'#7d8891',W/2,y-.03,0,.04,.04,W);
     farRod(M,'#7d8891',[-W/2,y-(TH-.3)/5,-W/2],[W/2,y,-W/2],.012); farRod(M,'#7d8891',[W/2,y-(TH-.3)/5,W/2],[-W/2,y,W/2],.012); }
@@ -11965,15 +11965,15 @@ async function farStand(step){ const [x,z]=FAR.TS, M=frameAt(x,z,yawTo(x,z,CLF.x
   await step();
   /* the engine: its tanks up in the tower, the chamber, the bell down over the trench */
   cyl(M,'#eeece6',0,1.2,0,.18,1.0,'cyl'); cyl(M,'#d9d5cc',0,1.0,0,.11,.2,'cyl8'); put(M,'cone','#3f4246',0,.78,0,.16,.32,.16,0,Math.PI,0);
-  nlV.set(0,.6,0).applyMatrix4(M); FAR.fire.bell.copy(nlV); nlV.set(1.1,.15,0).applyMatrix4(M); FAR.fire.exit.copy(nlV);
-  FAR.fire.out.set(1,0,0).transformDirection(M); FAR.fire.up.copy(at(x,z));
+  nlV.set(0,.6,0).applyMatrix4(M); FAR.fire.bell.copy(nlV); nlV.set(-1.1,.15,0).applyMatrix4(M); FAR.fire.exit.copy(nlV);
+  FAR.fire.out.set(-1,0,0).transformDirection(M); FAR.fire.up.copy(at(x,z));
   farLight(M,0,TH+.08,0,'#ff4a36',.5,.4,0); FAR.fire.M=M;
   /* the blockhouse, low and thick, its slit of a window toward the stand; the propellant tank on its saddles */
   box(M,'#a7a49c',-2.2,0,-1.6,1.1,.5,.8); box(M,'#3c4044',-2.2,.3,-1.19,.6,.08,.02); farLight(M,-2.2,.34,-1.15,'#ffe0a8',.3,0,1);
   put(M,'cyl','#f0efea',1.7,.32,-1.3,.26,1.3,.26,0,0,Math.PI/2); [-.45,.45].forEach(o=>box(M,'#8f8b84',1.7+o,0,-1.3,.08,.12,.4)); }
-/* the haze over the water: as the town's (the weather's own, so sea fog takes it all), but from nearer and thicker, so it
-   reads as far off */
-function farHaze(){ const r=LU.uFogR.value; FAR.fogR.value.set(r.x*.25,r.y*.55); FAR.fogA.value=Math.min(.96,LU.uFogA.value+.25); }
+/* the haze over the water: as the town's (the weather's own, so sea fog takes it all), but from nearer and a little thicker,
+   so it reads as across the water (not so thick that his place is lost in it) */
+function farHaze(){ const r=LU.uFogR.value; FAR.fogR.value.set(r.x*.25,r.y*.55); FAR.fogA.value=Math.min(.96,LU.uFogA.value+.1); }
 async function farBuild(step){
   FAR.mat=toonMat('#ffffff',{vc:true,side:T.DoubleSide,fresh:true}); FAR.mat.uniforms.uFogR=FAR.fogR; FAR.mat.uniforms.uFogA=FAR.fogA; farHaze();
   const grp=new T.Group(); grp.name='far'; sc.add(grp); FAR.grp=grp;
@@ -11995,10 +11995,13 @@ async function farBuild(step){
   /* a firing: the flame down out of the bell and the jet out of the trench (bright, flickering), a glow round it, and the
      cloud: puffs that come out with the jet and boil up and away with the wind, a long while after it stops */
   { const fl=(r,h)=>{ const g=new T.ConeGeometry(r,h,12,1,true); g.rotateX(Math.PI); g.translate(0,-h/2,0); return g; };   // (wide at its top, the tip h down)
-    const fm=()=>new T.ShaderMaterial({uniforms:{uK:{value:0},uT:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+    /* (not added to what is behind it but laid over it, white-hot at the bell and orange toward its tip, so it is seen by day
+       against the pale haze as well as by night) */
+    const fm=h=>new T.ShaderMaterial({uniforms:{uK:{value:0},uT:{value:0},uH:{value:h}},transparent:true,depthWrite:false,side:T.DoubleSide,
       vertexShader:`varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-      fragmentShader:`uniform float uK,uT; varying vec3 vP; void main(){ float k=uK*(.85+.15*sin(uT*61.+vP.y*40.)); gl_FragColor=vec4(vec3(1.,.9,.62)*k*1.6,1.); }`});
-    const flame=new T.Mesh(fl(.13,.5),fm()), jet=new T.Mesh(fl(.22,1.3),fm()); [flame,jet].forEach(m=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; m.layers.set(1); m.renderOrder=8; m.visible=false; grp.add(m); });
+      fragmentShader:`uniform float uK,uT,uH; varying vec3 vP; void main(){ float u=clamp(-vP.y/uH,0.,1.), f=.85+.15*sin(uT*61.+vP.y*40.);
+        gl_FragColor=vec4(mix(vec3(1.,.96,.8),vec3(1.,.52,.14),u),clamp(uK*f*(1.-.75*u*u),0.,1.)); }`});
+    const flame=new T.Mesh(fl(.13,.5),fm(.5)), jet=new T.Mesh(fl(.22,1.3),fm(1.3)); [flame,jet].forEach(m=>{ m.matrixAutoUpdate=false; m.frustumCulled=false; m.layers.set(1); m.renderOrder=8; m.visible=false; grp.add(m); });
     FAR.fire.flame=flame; FAR.fire.jet=jet;
     const gg=new T.BufferGeometry(); gg.setAttribute('position',new T.BufferAttribute(new Float32Array(3),3));
     const glow=new T.Points(gg,new T.ShaderMaterial({uniforms:{uK:{value:0},uH:{value:800},uS:{value:1.9}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
@@ -12028,7 +12031,7 @@ function farStep(dt,t){ if(!FAR.ok) return; const P=player, F=FAR.fire;
   /* the firing itself: the light up in the first half second, held with a flicker, and cut; the sound after it, from over the
      water (heard a second and more later, as anything that far off is), from out on the west side only */
   let k=0; if(F.on){ F.t+=dt; const T0=.45, T1=7.6; k=F.t<T0?sstep(0,T0,F.t):F.t<T1?1:Math.max(0,1-(F.t-T1)/.35); if(F.t>T1+.4){ F.on=false; k=0; }
-    if(F.snd>0&&F.t>=F.snd){ F.snd=-1; const dd=Math.hypot(P.x-FAR.TS[0],P.z-FAR.TS[1]), kk=clamp(1-(dd-13)/24,0,1)**1.5*(tlIn()?.3:1)*(TALK.p?.6:1), gg=.0125*kk;   // (from the cliff about as loud as a footstep: it is a long way off)
+    if(F.snd>0&&F.t>=F.snd){ F.snd=-1; const dd=Math.hypot(P.x-FAR.TS[0],P.z-FAR.TS[1]), kk=clamp(1-(dd-10)/24,0,1)**1.5*(tlIn()?.3:1)*(TALK.p?.6:1), gg=.0125*kk;   // (from the cliff about as loud as a footstep: it is a long way off)
       F.heard.push(+gg.toFixed(4)); if(gg>.004&&!tlQuiet()&&A.testFire) A.testFire(gg,civPan(FAR.TS[0],FAR.TS[1]),T1-F.snd+.3); }
     /* the cloud: puffs out of the trench with the jet, slowing, rising, spreading */
     if(k>.3){ F.acc=(F.acc||0)+dt*13; while(F.acc>=1){ F.acc--; const q=F.P[F.k++%F.P.length], sp=1.2+Math.random()*.7, j=(Math.random()-.5)*.7;
@@ -12037,7 +12040,7 @@ function farStep(dt,t){ if(!FAR.ok) return; const P=player, F=FAR.fire;
   const fl=F.flame, jt=F.jet; fl.visible=jt.visible=F.glow.visible=vis&&k>.001;
   if(fl.visible){ const fk=k*(.9+.1*Math.sin(t*47)); for(const [m,s,len] of [[fl,1,1],[jt,1.05,1]]){ m.material.uniforms.uK.value=fk; m.material.uniforms.uT.value=t; }
     fl.matrix.copy(F.M).multiply(new T.Matrix4().compose(nlV.set(0,.62,0),new T.Quaternion(),nlW.set(1,.85+.25*Math.sin(t*31),1)));
-    jt.matrix.copy(F.M).multiply(new T.Matrix4().compose(nlV.set(.25,.16,0),new T.Quaternion().setFromAxisAngle(nlH.set(0,0,1),Math.PI/2),nlW.set(1,.7+.3*k+.12*Math.sin(t*23),1)));
+    jt.matrix.copy(F.M).multiply(new T.Matrix4().compose(nlV.set(-.25,.16,0),new T.Quaternion().setFromAxisAngle(nlH.set(0,0,1),-Math.PI/2),nlW.set(1,.7+.3*k+.12*Math.sin(t*23),1)));
     const gp=F.glow.geometry.attributes.position; nlV.copy(F.exit).addScaledVector(F.up,.45); gp.setXYZ(0,nlV.x,nlV.y,nlV.z); gp.needsUpdate=true; F.glow.material.uniforms.uK.value=k*(.07+.93*FAR.lk); F.glow.material.uniforms.uH.value=colRT.height||innerHeight; }
   /* the puffs: the wind takes them as it takes the town's smoke */
   let live=0; const cg=F.cloud.geometry, Pp=cg.attributes.position, Ss=cg.attributes.aS;
