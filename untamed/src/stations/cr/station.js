@@ -11854,13 +11854,18 @@ function neilStep(dt,t){ if(!NL.ok||NL.gone) return; const P=player, d=Math.hypo
    with a crane over it, and his test stand, where an engine is fired now and then. Seen, not walked: nothing over there is
    solid, on the walking grid or in the town's lists. Drawn smaller than the town's own things are, which reads as further ---------- */
 const FAR={ok:false,err:null,grp:null,mat:null,fogR:{value:new T.Vector2(4,28)},fogA:{value:.8},lights:null,lk:0,
-  F:[30.0,-6.9], CM:[28.9,-13.2], TS:[27.6,-1.0], S:.7,
+  F:[30.5,-6.9], CM:[29.4,-13.2], TS:[28.4,-1.0], S:.7,
   fire:{on:false,t:0,next:40,n:0,snd:-1,heard:[],flame:null,jet:null,glow:null,cloud:null,P:[],exit:new T.Vector3(),out:new T.Vector3(),up:new T.Vector3(),bell:new T.Vector3()}};
-/* the coast, out along x: land from about 26 m out (just past the islet below the cliff), in bays and points, its ends at north and south going down under the sea */
-const farCoast=z=>25.9+.8*Math.sin(z*.41+.6)+.45*Math.sin(z*1.13+2.1)+.22*Math.sin(z*2.7)+3*sstep(4.5,9,z)+3*sstep(-18.5,-23,z);
+/* the coast, out along x: land from about 26 m out (just past the islet below the cliff), in bays and points; past his test
+   stand to the north and past Camden to the south it turns away west and runs down into the sea, so the land ends in shore and
+   water, as land does, not in the air */
+const farCoast=z=>25.9+.8*Math.sin(z*.41+.6)+.45*Math.sin(z*1.13+2.1)+.22*Math.sin(z*2.7)+14*sstep(3.5,10,z)+14*sstep(-16.5,-22,z);
 /* how high the land is, as the town's heights are (from the planet's radius; the sea is at WATER) */
-function farH(x,z){ const e=x-farCoast(z), top=.64+.1*sstep(0,6,e)+.025*Math.sin(x*1.7+z*.9);
-  if(e<-1.4) return WATER-.8; return WATER+(e<0?lerp(-.6,top*.35,sstep(-1.4,0,e)):lerp(top*.35,top,sstep(0,.9,e))); }
+function farH(x,z){ const e=x-farCoast(z), top=.7;   // (flat, up its bank from the shore: it is Indiana, and all he has built stands flush on it)
+  if(e<-1.4) return WATER-.8; const h=WATER+(e<0?lerp(-.6,top*.35,sstep(-1.4,0,e)):lerp(top*.35,top,sstep(0,.9,e)));
+  /* past Camden to the south and past the test stand to the north it slopes down into the sea, in sight of the cliff (before
+     it would go over the curve and look cut off against the sky); and its far shore, out of sight, before the land's last edge */
+  return lerp(h,WATER-.8,Math.min(1,sstep(-16.1,-18.6,z)+sstep(2.6,5.6,z)+sstep(36,38.2,x))); }
 /* the season's colours for each of his fields: corn, beans, hay; in winter stubble (and snow, as the town has it) */
 function farField(x,z){ const fx=Math.floor((x-25.2)/3.5), fz=Math.floor((z+30.4)/3.1), hh=Math.abs(Math.sin(fx*127.1+fz*311.7)*43758.5)%1, doy=SKY.doy||200;
   const kind=hh<.45?0:hh<.85?1:2, ph=doy<60||doy>335?0:doy<140?1:doy<245?2:doy<292?3:4;
@@ -11872,7 +11877,7 @@ async function farLand(step){ const X0=24, X1=38.5, Z0=-21, Z1=9, ST=.4, nx=Math
   const F=FAR.F, CM=FAR.CM, col=new T.Color();
   for(let j=0;j<nz;j++){ if(j%6===5) await step(); for(let i=0;i<nx;i++){ const x=X0+i*ST, z=Z0+j*ST, h=farH(x,z), k=j*nx+i; hs[k]=h; at(x,z,nlV).multiplyScalar(R+h); Pp.set([nlV.x,nlV.y,nlV.z],k*3);
     const e=x-farCoast(z); let c;
-    if(e<.25) c=e<-.2?'#b9ab84':'#d2c49a';   // the shore: sand, wet under the water's edge
+    if(e<.25||h<WATER+.12) c=h<WATER+.02?'#b9ab84':'#d2c49a';   // the shore: sand, wet under the water's edge (round its ends and its far side too)
     else if(Math.hypot(x-F[0]+1.7,z-F[1])<2.9) c='#b9b09e';   // the farmyard's gravel, out in front of the bins
     else if(Math.hypot(x-CM[0],z-CM[1])<2.6) c='#a8a39a';   // the town's streets and lots
     else if(Math.hypot(x-FAR.TS[0],z-FAR.TS[1])<1) c='#a7a49e';   // the test stand's pad
@@ -11956,7 +11961,7 @@ async function farCamden(step){ const [cx,cz]=FAR.CM, M=farAt(cx,cz);
 /* his test stand, by the shore north of the farm: a concrete pad and its flame trench, a steel tower over the trench with the
    engine in it, firing down; the blockhouse well back from it, and a tank of propellant. The trench runs along the shore toward
    the farm, so when it fires the flame comes out sideways to the town and the cloud boils up over the shore */
-async function farStand(step){ const [x,z]=FAR.TS, M=frameAt(x,z,yawTo(x,z,CLF.x,CLF.z),farH(x,z)+.18,FAR.S), TH=2.7, W=.62;   // (up on a low berm by the shore, so it shows over the curve)
+async function farStand(step){ const [x,z]=FAR.TS, M=frameAt(x,z,yawTo(x,z,CLF.x,CLF.z),farH(x,z),FAR.S), TH=2.7, W=.62;   // (back from the top of the bank, so its pad is on the flat)
   box(M,'#9c9a92',0,-.3,0,2.7,.3,2.7); box(M,'#b5b2ab',0,0,0,2.2,.12,2.2); box(M,'#8f8b84',0,.12,0,.9,.18,.9); box(M,'#55524d',-.45,.02,0,1.4,.12,.5);   // (the trench along the shore, toward the farm, so its flame and cloud are seen side on from the town, and in the frame on a phone)
   for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]) box(M,'#6d7680',a*W/2,.3,b*W/2,.06,TH-.3,.06);
   for(let k=1;k<6;k++){ const y=.3+k*(TH-.3)/5; box(M,'#7d8891',0,y-.03,-W/2,W,.04,.04); box(M,'#7d8891',0,y-.03,W/2,W,.04,.04); box(M,'#7d8891',-W/2,y-.03,0,.04,.04,W); box(M,'#7d8891',W/2,y-.03,0,.04,.04,W);
