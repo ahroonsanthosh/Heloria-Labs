@@ -59,8 +59,8 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   rec(!!nx && nx.status === 'next' && list.st.plots.some(p => p.id === 'next' && p.kind === 'site' && p.up), 'the plot marked next is a building site', JSON.stringify(list.st.plots));
   rec(!!nx && nx.sign === 'COMING SOON' && nx.sub === 'Heloria Labs', 'its sign says COMING SOON, with Heloria Labs under it, and nothing else', JSON.stringify(nx && { sign: nx.sign, sub: nx.sub }));
 
-  /* ---------- where it stands: clear of everything ---------- */
-  const where = await C((c, d) => { const e = c.e(), P = c.P(), mine = new Set(P.obs), corners = [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(([a, b]) => d.grow.xz(e, a * e.w, b * e.d));
+  /* ---------- where it stands: clear of everything (Neil and his tractor at its gate are the site's own, and go with it) ---------- */
+  const where = await C((c, d) => { const e = c.e(), P = c.P(), mine = new Set([...P.obs, ...(d.neil ? d.neil.NL.obs : [])]), corners = [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(([a, b]) => d.grow.xz(e, a * e.w, b * e.d));
     const others = d.OBS.filter(o => !mine.has(o) && !o.tl && !d.people.some(p => p.ob === o) && d.grow.rectD(e, o.x, o.z) < o.r);
     const trees = d.grow.TREES.filter(([x, z]) => d.grow.rectD(e, x, z) < .6).length, ph = d.INST.ph;
     return { why: d.grow.check(e, mine), others: others.length, trees, cleared: d.grow.TG.cleared.length, clearedLeft: d.grow.TG.cleared.filter(o => d.OBS.includes(o)).length, tufts: P.tufts,
