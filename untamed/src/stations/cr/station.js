@@ -12022,7 +12022,7 @@ function farStep(dt,t){ if(!FAR.ok) return; const P=player, F=FAR.fire;
   /* the firing itself: the light up in the first half second, held with a flicker, and cut; the sound after it, from over the
      water (heard a second and more later, as anything that far off is), from out on the west side only */
   let k=0; if(F.on){ F.t+=dt; const T0=.45, T1=7.6; k=F.t<T0?sstep(0,T0,F.t):F.t<T1?1:Math.max(0,1-(F.t-T1)/.35); if(F.t>T1+.4){ F.on=false; k=0; }
-    if(F.snd>0&&F.t>=F.snd){ F.snd=-1; const dd=Math.hypot(P.x-FAR.TS[0],P.z-FAR.TS[1]), kk=clamp(1-(dd-13)/24,0,1)**1.5*(tlIn()?.3:1)*(TALK.p?.6:1), gg=.016*kk;   // (from the cliff about as loud as a footstep: it is a long way off)
+    if(F.snd>0&&F.t>=F.snd){ F.snd=-1; const dd=Math.hypot(P.x-FAR.TS[0],P.z-FAR.TS[1]), kk=clamp(1-(dd-13)/24,0,1)**1.5*(tlIn()?.3:1)*(TALK.p?.6:1), gg=.0125*kk;   // (from the cliff about as loud as a footstep: it is a long way off)
       F.heard.push(+gg.toFixed(4)); if(gg>.004&&!tlQuiet()&&A.testFire) A.testFire(gg,civPan(FAR.TS[0],FAR.TS[1]),T1-F.snd+.3); }
     /* the cloud: puffs out of the trench with the jet, slowing, rising, spreading */
     if(k>.3){ F.acc=(F.acc||0)+dt*13; while(F.acc>=1){ F.acc--; const q=F.P[F.k++%F.P.length], sp=1.2+Math.random()*.7, j=(Math.random()-.5)*.7;

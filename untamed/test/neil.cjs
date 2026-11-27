@@ -101,7 +101,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
   const f1 = await N((n, d) => { d.sky.set({ time: '15:30', weather: 'clear' }); const F = d.neil.FAR.fire; for (let i = 0; i < 30 * 12 && F.on; i++) n.run(1); n.run(30); F.next = 999; n.calls.length = 0; const n0 = F.n; d.neil.fire(); n.run(30);
     const a = { on: F.on, flame: F.flame.visible, glow: F.glow.visible }; n.run(30 * 1.5); const b = { cloud: F.cloud.visible, calls: n.calls.slice() }; n.run(30 * 7); const c = { on: F.on, cloud: F.cloud.visible }; n.run(30 * 30); return { n: F.n - n0, a, b, c, gone: !F.cloud.visible }; });
   rec(f1.n === 1 && f1.a.on && f1.a.flame && f1.b.cloud, 'a firing: the flame under the stand, and the cloud boiling out of the trench', JSON.stringify(f1));
-  rec(f1.b.calls.length === 1 && f1.b.calls[0].g > .008, 'and its sound, from over the water a moment later, heard from the cliff', JSON.stringify(f1.b.calls));
+  rec(f1.b.calls.length === 1 && f1.b.calls[0].g > .006, 'and its sound, from over the water a moment later, heard from the cliff', JSON.stringify(f1.b.calls));
   rec(!f1.c.on && f1.c.cloud && f1.gone, 'it stops after about eight seconds; its cloud drifts on a while, then is gone', JSON.stringify({ c: f1.c, gone: f1.gone }));
   await N((n, d) => { if (d.cliff.CL.st === 'sat') { d.cliff.stand(); n.run(60); } const [ax, az] = d.cliff.M.sitA; n.put(ax, az, 30, -6.4); n.run(2); d.cliff.sit(); n.run(150); d.neil.fire(); n.run(30 * 4); }); await frames(3); await shot(pre + 'neil-3-firing');
   await N((n, d) => { n.run(30 * 30); d.sky.set({ time: '22:40', weather: 'clear' }); n.run(10); d.neil.fire(); n.run(30 * 3); }); await frames(3); await shot(pre + 'neil-4-firing-night');
@@ -116,7 +116,7 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const lv = await page.evaluate(async () => { const A = window.__heloria.A, W = ms => new Promise(r => setTimeout(r, ms)), out = {};
       const meas = async (name, f, ms = 1600) => { await W(500); f(); let pk = 0, db = -200; const t0 = performance.now(); while (performance.now() - t0 < ms) { const m = window.__meter(); pk = Math.max(pk, m.pk); db = Math.max(db, m.db); await W(20); } out[name] = { pk: +pk.toFixed(4), db }; };
       await meas('silence', () => {}); await meas('step (pavement)', () => A.step(1)); await meas('step (grass)', () => A.step(0));
-      await meas('a firing, from the cliff', () => A.testFire(.016, 0, 3), 4500); return out; });
+      await meas('a firing, from the cliff', () => A.testFire(.0125, 0, 3), 4500); return out; });
     await H(h => { h.S.st = h.__st; });
     for (const [k, v] of Object.entries(lv)) log(('  ' + k).padEnd(30), 'peak', String(v.pk).padEnd(8), 'loudest', v.db, 'dB');
     const ref = Math.max(lv['step (pavement)'].db, lv['step (grass)'].db), f = lv['a firing, from the cliff'].db;
