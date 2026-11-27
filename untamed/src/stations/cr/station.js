@@ -11691,7 +11691,8 @@ function tgInk(root){ root.traverse(o=>{ if(!o.isMesh||!o.layers.isEnabled(0)||!
 /* takes a plot's things down (its building or its site) and its solids off the list and the walking grid */
 function tgDown(e){ const P=TG.plots[e.id]; if(!P||!P.up) return; P.up=false; P.g.visible=false; P.act=null; if(e.proj) delete INST[e.id];
   const gone=new Set(P.obs); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
-  pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+1.2); baked=false; }
+  pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+1.2); baked=false;
+  if(P.onDown){ const f=P.onDown; P.onDown=null; f(P); } }   // (whatever came with it, as Neil at the site for what is next, goes too)
 /* puts up a plot's building or site (taking down whatever stood on the same ground first) */
 function tgBuild(e){ for(const o of TOWN_GROWS){ if(o!==e&&TG.plots[o.id]&&TG.plots[o.id].up&&tgOverlap(e,o)) tgDown(o); }
   if(TG.plots[e.id]) tgDown(e);
@@ -11790,9 +11791,14 @@ async function nlBuild(step){ const e=TOWN_GROWS.find(q=>q.status==='next'), P=e
   addEventListener('keydown',ev=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on||!(ev.code==='KeyE'||ev.code==='Enter')) return;
     if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
     if(NL.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<NL.d)&&!(DM.d<NL.d)&&!regNear(NL.d)){ neilAsk(); ev.preventDefault(); } },true);
-  NL.ok=true; }
+  NL.ok=true; if(P.up) P.onDown=nlDown; else nlDown(P); }
+/* the site gives way to its finished building: he and his tractor go with it, and the ground they stood on is walked again */
+function nlDown(P){ NL.gone=true; NL.goal=false; NL.d=99; if(TALK.p===NLP) closeTalk(); NL.grp.visible=false; NL.lb.classList.remove('on','can','ask');
+  if(NL.hov){ NL.hov=false; const ce=$('#cur'); if(ce&&!hov&&!DM.hov&&!REG.hov) ce.classList.remove('big'); }
+  const gone=new Set(NL.obs); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1);
+  const e=P.e; pfRegrid(P.M,-e.w/2-1,e.w/2+1,-e.d/2-1,e.d/2+2.2); baked=false; }
 /* what you tapped: him under the pointer, or close enough to him on the screen */
-function pickNeil(e){ if(!NL.g||!NL.grp.visible||!inSight(NL.x,NL.z)) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
+function pickNeil(e){ if(!NL.g||NL.gone||!NL.grp.visible||!inSight(NL.x,NL.z)) return null; ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1)); ray.setFromCamera(ndc,stCam); ray.layers.set(0); hits.length=0;
   ray.intersectObjects(NL.pick,true,hits); if(hits.length) return {direct:true,dist:hits[0].distance};
   const h0=R+standH(NL.x,NL.z), f=nlV.copy(NL.u).multiplyScalar(h0).project(stCam); if(f.z>1) return null;
   const fx=(f.x*.5+.5)*innerWidth, fy=(-f.y*.5+.5)*innerHeight, hd=nlV.copy(NL.u).multiplyScalar(h0+1.6).project(stCam), hx=(hd.x*.5+.5)*innerWidth, hy=(-hd.y*.5+.5)*innerHeight;
@@ -11808,11 +11814,11 @@ function neilTap(e,p){ if(!NL.ok||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS
   else if(p||b||r) return false;
   neilAsk(); return true; }
 /* asking him: beside him he turns and talks; from further off you walk over first */
-function neilAsk(){ if(!NL.ok||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
+function neilAsk(){ if(!NL.ok||NL.gone||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on) return; const P=player; began();
   if(NL.d<3.2){ NL.goal=false; NLP.lines=NL.met?NLP.L1:NLP.L0; NL.talkN++; openTalk(NLP,0); return; }
   TALK.goal=null; DM.goal=false; REG.goal=null; const path=navPath(P.x,P.z,NL.x,NL.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(NL.x,NL.z).multiplyScalar(R); }
   NL.goal=true; P.stuck=0; A.tick(); NL.lb.classList.add('ask'); }
-function neilStep(dt,t){ if(!NL.ok) return; const P=player, d=Math.hypot(P.x-NL.x,P.z-NL.z), talking=TALK.p===NLP; NL.d=d;
+function neilStep(dt,t){ if(!NL.ok||NL.gone) return; const P=player, d=Math.hypot(P.x-NL.x,P.z-NL.z), talking=TALK.p===NLP; NL.d=d;
   /* walking over: talk on arrival; set off somewhere else (or asked by someone else) and it is forgotten */
   if(NL.goal){ if(TALK.goal||TALK.p||DM.goal||REG.goal||CAFE.st!=='out'||FIN.on||CUT.on) NL.goal=false;
     else if(d<2.6||(!P.path&&!P.tgt&&d<3.4)){ NL.goal=false; P.path=null; P.tgt=null; neilAsk(); } else if(!P.path&&!P.tgt) NL.goal=false; }

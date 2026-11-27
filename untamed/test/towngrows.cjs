@@ -153,9 +153,10 @@ module.exports = async ({ page, shot, wait, H, vp, log, mobile }) => {
     const glass = P ? Math.round(c.col(P.kit, '#7fa3b4') / 36) : 0, Hh = d.grow.HOUSES[d.grow.HOUSES.length - 1];
     return { made: !!P, kind: P && P.kind, up: P && P.up, skip: d.grow.TG.skip, siteUp: site.up, siteShown: site.g.visible, siteObsLeft: siteObs.filter(o => d.OBS.includes(o)).length,
       houses: d.grow.HOUSES.length - H0, plain: Hh.plain, obs: P ? P.obs.length : 0, inList: P ? P.obs.every(o => d.OBS.includes(o)) : false, glass, kit: P && P.kit.material.uniforms.uKit.value,
-      sign: !!(P && P.sign), state: d.grow.state.plots }; });
+      sign: !!(P && P.sign), state: d.grow.state.plots,
+      neil: d.neil && d.neil.NL.ok ? { gone: !!d.neil.NL.gone, shown: d.neil.NL.grp.visible, left: d.neil.NL.obs.filter(o => d.OBS.includes(o)).length } : null }; });
   rec(built.made && built.kind === 'built' && built.up && built.skip.length === 0, 'an entry marked built is put up on its plot', JSON.stringify({ made: built.made, kind: built.kind, skip: built.skip }));
-  rec(!built.siteUp && !built.siteShown && built.siteObsLeft === 0, 'the site on that ground makes way for it', JSON.stringify({ up: built.siteUp, shown: built.siteShown, left: built.siteObsLeft }));
+  rec(!built.siteUp && !built.siteShown && built.siteObsLeft === 0 && (!built.neil || (built.neil.gone && !built.neil.shown && built.neil.left === 0)), 'the site on that ground makes way for it (and Neil and his tractor with it)', JSON.stringify({ up: built.siteUp, shown: built.siteShown, left: built.siteObsLeft, neil: built.neil }));
   rec(built.houses === 1 && built.plain === false && built.glass >= 4 && built.kit === 1 && built.sign, 'it is one of the town\'s houses, with the kit\'s glass in its windows (lit at night as the rest are) and its sign over the door', JSON.stringify({ houses: built.houses, glass: built.glass, kit: built.kit }));
   rec(built.obs >= 2 && built.inList, 'it is solid, as the town\'s buildings are', JSON.stringify({ obs: built.obs }));
   const navs2 = await C((c, d, h, s) => { d.sky.set({ time: '03:00', date: '07-14' }); c.run(30); return c.walks(s.street || [-3.2, -12]); }, spots);
