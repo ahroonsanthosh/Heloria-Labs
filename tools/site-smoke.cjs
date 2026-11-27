@@ -33,7 +33,7 @@ const srv = http.createServer((req, res) => {
   /* the other way in: Land, and an old address of the orbit lands there too */
   await p.goto(url('untamed/#aetos'), { timeout: 180000 });
   check(await p.waitForFunction(() => window.__heloria && window.__heloria.S.ready, null, { timeout: 240000 }).then(() => true).catch(() => false), 'Land boots at untamed/ (from the old address untamed/#aetos)');
-  check(await p.evaluate(() => document.documentElement.classList.contains('landing') && /to land$/.test(document.querySelector('#beginT').textContent)), 'and it is Land');
+  check(await p.evaluate(() => document.documentElement.classList.contains('landing') && !!document.querySelector('#load #mark')), 'and it is Land (its way down, under the name)');
   const back = await p.evaluate(() => { const a = document.querySelector('#finWalk'); return a && { href: a.href, target: a.getAttribute('target') }; });
   check(back && back.href === url('') && !back.target, 'its white page links back to the walk (' + (back && back.href) + ')');
   check(await p.evaluate(() => [...document.images].every(i => i.complete)) !== false, 'images there load');

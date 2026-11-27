@@ -213,4 +213,18 @@ boot();
 function earth(){ const st=ST.cr; if(!st||!S.ready) return false;
   show('#load',false); show('#chrome',true); A.start(); dscStop();
   S.mode='station'; S.stId='cr'; S.st=st; S.stSnap=true; st.enter(); show('#station',true); st.showUI(); return true; }
+/* ?diag: how long each part of the way in took on this device, its graphics card, and whether it makes shaders in the
+   background, in a small panel over the page (as the Walk's ?diag has it), to be read off a phone and sent back */
+if(/[?&]diag(=|&|$)/.test(location.search)){ const el=document.createElement('pre'); el.id='diag';
+  el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:2147483647;margin:0;padding:8px 10px;max-width:calc(100vw - 16px);white-space:pre-wrap;font:11px/1.35 ui-monospace,Menlo,monospace;color:#1d1a16;background:rgba(255,253,248,.92);border:1px solid #2a241d;pointer-events:none';
+  let gpu='?', par='?'; try{ const gl=renderer.getContext(), ext=gl.getExtension('WEBGL_debug_renderer_info'); gpu=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER); par=gl.getExtension('KHR_parallel_shader_compile')?'yes':'no'; }catch(e){}
+  let walk=0; const row=(n,ms)=>(n+'                          ').slice(0,26)+(ms==null?'      -':String(Math.round(ms)).padStart(7)+' ms');
+  const tick=()=>{ if(!document.body) return; if(!el.parentNode) document.body.appendChild(el); const p=DSC.ph||{}, c=ST.cr&&ST.cr._dbg&&ST.cr._dbg.cut?ST.cr._dbg.cut():null;
+    if(!walk&&S.mode==='station'&&c&&!c.on&&DSC.t1) walk=performance.now();
+    const d=(a,b)=>p[a]!=null&&p[b]!=null?p[b]-p[a]:null;
+    el.textContent='Heloria Land, the way in\n'+navigator.userAgent+'\nGPU: '+gpu+'\nshaders made in the background: '+par+'\n\n'
+      +[row('page and scripts',p.start),row('building Earth',d('start','built')),row('sending shaders',d('built','compiled')),row('warming Earth',d('compiled','warmed')),
+        row('graphics card catching up',d('warmed','gpu')),row('first sounds',d('gpu','heard')),row('ready (from page open)',DSC.tr||null),
+        row('out of the cloud',DSC.t1||null),row('landing scene',walk&&DSC.t1?walk-DSC.t1:null),row('walking (from page open)',walk||null)].join('\n'); };
+  setInterval(tick,400); }
 window.__heloria={A,finaleWhite,credits,earth,enterEarth,S,ST,post,renderer,stCam,rtW,postScene,ortho,DSC};
