@@ -341,8 +341,9 @@ function standH(x,z){ if(onJetty(x,z)) return DECK+.08;   /* (the tops of the je
 
 /* ---------- signs: painted boards with the dot-matrix type, drawn on a canvas ---------- */
 /* a canvas lettered in Doto is drawn at once, and drawn again when the font comes only if it had not come yet: the page
-   waits for its fonts before Earth is made, so it almost always has, and a second painting (and a second upload of the
-   picture) would be the same picture again */
+   asks for the font as it opens and builds Earth meanwhile (see boot), so it has usually come by the time the signs are
+   lettered; if not, they are lettered again when it comes, still under the cloud (a second painting of one that had it
+   would be the same picture again) */
 function dotoLater(fn){ if(!document.fonts||!document.fonts.load) return; let has=false; try{ has=document.fonts.check('900 40px Doto'); }catch(e){}
   if(!has) document.fonts.load('900 40px Doto').then(fn).catch(()=>{}); }
 const SIGN_F=`uniform sampler2D uMap; varying vec3 vN; varying vec3 vW; varying vec3 vC; varying vec2 vUv; ${LIGHT} ${NEAR}
@@ -1898,7 +1899,7 @@ function rocketPose(pos,axis,wob=0){ rkY.copy(axis); rkZ.copy(RKN).addScaledVect
 function bez(s,o){ const a=1-s; return o.copy(B0).multiplyScalar(a*a*a).addScaledVector(B1,3*a*a*s).addScaledVector(B2,3*a*s*s).addScaledVector(B3,s*s*s); }
 function bezD(s,o){ const a=1-s; o.copy(B1).sub(B0).multiplyScalar(3*a*a); o.addScaledVector(V.copy(B2).sub(B1),6*a*s); return o.addScaledVector(V.copy(B3).sub(B2),3*s*s); }
 /* where the rocket is c seconds in: down the curve, slowing all the way to a hover over the pad, then a gentle last drop */
-const T_HOV=3, T_LAND=4.2, T_DOOR=4.6, T_OUT=5.45, T_WALK=7.1, T_CAM=6.1, T_END=7.6;
+const T_HOV=2.1, T_LAND=3.0, T_DOOR=3.3, T_OUT=4.15, T_WALK=5.45, T_CAM=4.8, T_END=5.9;   // (the landing's sound, made to match, has the same times: see LS in the core)
 function flight(c,pos,vel){ if(c<T_HOV){ const u=c/T_HOV, sv=1-Math.pow(1-u,3), ds=3*Math.pow(1-u,2)/T_HOV; bez(sv,pos); bezD(sv,vel).multiplyScalar(ds); }
   else { const u=clamp((c-T_HOV)/(T_LAND-T_HOV),0,1), k=u*u*(3-2*u); pos.copy(padTop).addScaledVector(PADU,1.7*(1-k)); vel.copy(PADU).multiplyScalar(-1.7*6*u*(1-u)/(T_LAND-T_HOV)); } }
 const fPos=new T.Vector3(), fVel=new T.Vector3(), fAx=new T.Vector3();
@@ -10042,10 +10043,10 @@ function lhGdoorPose(){ const d=LHI.m.gdoor; if(!d) return; const [hx,hy,hz]=LHI
 const LHLOG=[
   [{h:'KEEPER\'S LOG',t:['Heloria Labs.'],title:true},
    {h:'HELORIA LABS',t:['Three of us, in Ireland.','Ahroon Santhosh, Michael Sweeney Heffernan, Abraham Sabu Kurian.','We build around hard problems.','We dare to build where others hesitate.']}],
-  [{h:'AETOS',t:['Counter-drone command software.','When the sky fills with drones, Aetos tracks every one, tells friend from threat, and puts the one that matters in front of the operator.','Led by Ahroon Santhosh.']},
-   {h:'PHAROS',t:['GPS-free drone navigation.','With GPS jammed or gone, the drone finds where it is by matching what its camera sees to the map, and says so when it is not sure.','Led by Ahroon Santhosh.','Take the light, and a drone that has lost its way locks onto it and follows it home: Pharos in small.']}],
-  [{h:'OGIVE',t:['AI tools for OpenRocket.','Name the height. Ogive reworks the rocket in OpenRocket, one design at a time, until the simulated flight reaches it.','Led by Michael Sweeney Heffernan.']},
-   {h:'KRÍOS',t:['Voice practice for sales teams.','Reps rehearse the calls that matter out loud, against a buyer who answers back, before a real one ever hears them.','Built by Michael Sweeney Heffernan. Our group project.','Abraham Sabu Kurian works on Kríos.']}],
+  [{h:'AETOS',t:['Counter-drone software.','Drones are cheap now, and they don\'t come one at a time. Aetos keeps track of everything in the air and works out which ones are ours, so the operator can focus on the few that aren\'t.','Led by Ahroon Santhosh.']},
+   {h:'PHAROS',t:['Drone navigation without GPS.','GPS is easy to jam. When it\'s gone, Pharos has the drone look down and match what it sees to a map to work out where it is. If it isn\'t sure, it says so instead of guessing.','Led by Ahroon Santhosh.','Take the light, and a drone that has lost its way locks onto it and follows it home: Pharos in small.']}],
+  [{h:'OGIVE',t:['AI tools for OpenRocket.','Tell it how high you want the rocket to go. Ogive tweaks the design in OpenRocket and reruns the sim, again and again, until the flight gets there.','Led by Michael Sweeney Heffernan.']},
+   {h:'KRÍOS',t:['Sales call practice, out loud.','Rehearse your sales calls out loud with a buyer who pushes back. Better to get caught out by a price objection here than on a real call.','Built by Michael Sweeney Heffernan. Our group project.','Abraham Sabu Kurian works on Kríos.']}],
   [{h:'BACKED',t:['Backed by Andrena Ventures.','Challenging what\'s impossible.','Always looking for builders. Show us something you\'ve built: contact@helorialabs.com']},
    {h:'TODAY',today:true}]];
 /* today's entry: the moment and the weather as the postcard's postmark has them */
@@ -11780,7 +11781,6 @@ async function nlBuild(step){ const e=TOWN_GROWS.find(q=>q.status==='next'), P=e
   NL.x=NLP.x=x; NL.z=NLP.z=z; at(x,z,NL.u); NLP.dir.copy(NL.u); tang(NL.u,at(fx,fz),NL.f0); NL.f.copy(NL.f0);
   standOn(g,NL.u,NL.f,standH(x,z)); grp.add(g); NL.g=g; NL.pick=[g];
   obs(x,z,.26,1.4); NL.ob=OBS[OBS.length-1]; NL.obs.push(NL.ob);
-  for(const o of NL.obs) nlMark(o);
   registerInk(grp); if(PF.figs) PF.figs.push(g);
   /* his tag; a tap on it asks him */
   const lb=document.createElement('span'); lb.className='crl ui'; lb.textContent='Neil'; $('#crLabels',el).appendChild(lb); NL.lb=lb;
@@ -11791,7 +11791,21 @@ async function nlBuild(step){ const e=TOWN_GROWS.find(q=>q.status==='next'), P=e
   addEventListener('keydown',ev=>{ if(S.st!==st||S.mode!=='station'||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=0||PHS.on||!(ev.code==='KeyE'||ev.code==='Enter')) return;
     if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('a,button')) return;
     if(NL.d<3.4&&!people.some(q=>Math.hypot(player.x-q.x,player.z-q.z)<NL.d)&&!(DM.d<NL.d)&&!regNear(NL.d)){ neilAsk(); ev.preventDefault(); } },true);
-  NL.ok=true; if(P.up) P.onDown=nlDown; else nlDown(P); }
+  NL.ok=true;
+  /* made after you have landed: he and his tractor are not put in the street while you can see the spot (they would appear
+     there in front of you), but the moment it is off the screen or out of sight; made behind the loader, at once */
+  if(S.ready&&!LATE.now){ NL.pend=true; grp.visible=false; const gone=new Set(NL.obs); for(let i=OBS.length-1;i>=0;i--) if(gone.has(OBS[i])) OBS.splice(i,1); }
+  else nlPut();
+  if(P.up) P.onDown=nlDown; else nlDown(P); }
+/* he and his tractor, there in the street: solid, and on the walking grid */
+function nlPut(){ NL.pend=false; for(const o of NL.obs){ if(!OBS.includes(o)) OBS.push(o); nlMark(o); } }
+/* whether his spot is on the screen now, and in sight (not behind a house): him, head and feet, and his tractor's ends */
+function nlSeen(){ const P=player; if(Math.hypot(P.x-NL.x,P.z-NL.z)>27) return false; stCam.updateMatrixWorld();
+  const [tx,tz,ty]=NL.trAt, c=Math.cos(ty), s_=Math.sin(ty);
+  for(const [x,z] of [[NL.x,NL.z],[tx,tz],[tx+s_*1,tz+c*1],[tx-s_*1,tz-c*1]]) for(const h of [.1,1.6]){
+    at(x,z,nlW).multiplyScalar(R+standH(x,z)+h); nlV.copy(nlW).project(stCam);
+    if(nlV.z<1&&Math.abs(nlV.x)<1.2&&Math.abs(nlV.y)<1.2&&inSight(x,z)) return true; }
+  return false; }
 /* the site gives way to its finished building: he and his tractor go with it, and the ground they stood on is walked again */
 function nlDown(P){ NL.gone=true; NL.goal=false; NL.d=99; if(TALK.p===NLP) closeTalk(); NL.grp.visible=false; NL.lb.classList.remove('on','can','ask');
   if(NL.hov){ NL.hov=false; const ce=$('#cur'); if(ce&&!hov&&!DM.hov&&!REG.hov) ce.classList.remove('big'); }
@@ -11818,7 +11832,8 @@ function neilAsk(){ if(!NL.ok||NL.gone||FIN.on||CUT.on||CAFE.on||TALK.p||GLN.t>=
   if(NL.d<3.2){ NL.goal=false; NLP.lines=NL.met?NLP.L1:NLP.L0; NL.talkN++; openTalk(NLP,0); return; }
   TALK.goal=null; DM.goal=false; REG.goal=null; const path=navPath(P.x,P.z,NL.x,NL.z,2.2); if(path){ P.path=path; P.tgt=null; } else { P.path=null; P.tgt=at(NL.x,NL.z).multiplyScalar(R); }
   NL.goal=true; P.stuck=0; A.tick(); NL.lb.classList.add('ask'); }
-function neilStep(dt,t){ if(!NL.ok||NL.gone) return; const P=player, d=Math.hypot(P.x-NL.x,P.z-NL.z), talking=TALK.p===NLP; NL.d=d;
+function neilStep(dt,t){ if(!NL.ok||NL.gone) return;
+  if(NL.pend){ if(nlSeen()) return; NL.grp.visible=true; nlPut(); } const P=player, d=Math.hypot(P.x-NL.x,P.z-NL.z), talking=TALK.p===NLP; NL.d=d;
   /* walking over: talk on arrival; set off somewhere else (or asked by someone else) and it is forgotten */
   if(NL.goal){ if(TALK.goal||TALK.p||DM.goal||REG.goal||CAFE.st!=='out'||FIN.on||CUT.on) NL.goal=false;
     else if(d<2.6||(!P.path&&!P.tgt&&d<3.4)){ NL.goal=false; P.path=null; P.tgt=null; neilAsk(); } else if(!P.path&&!P.tgt) NL.goal=false; }
@@ -12056,7 +12071,7 @@ function farStep(dt,t){ if(!FAR.ok) return; const P=player, F=FAR.fire;
     const day=1-SKY.night; U.uC.value.setRGB(lerp(.24,.95,day),lerp(.26,.93,day),lerp(.32,.9,day)); } }
 { const b=st.build, up=st.update;
   st.build=async function(){ await b.apply(this,arguments);
-    late('neil',async step=>{ try{ await nlBuild(step); }catch(err){ NL.err=String(err&&err.stack||err); console.warn('neil',err); kitTo(); } },-.5);   // (before the market's people, who are out of sight till evening: he is in the street)
+    late('neil',async step=>{ try{ await nlBuild(step); }catch(err){ NL.err=String(err&&err.stack||err); console.warn('neil',err); kitTo(); } },.9);   // (first after the school's children: he is out in the street, the rooms are not)
     late('his place over the sea',async step=>{ try{ await farBuild(step); }catch(err){ FAR.err=String(err&&err.stack||err); console.warn('his place over the sea',err); kitTo(); } },-.7); };
   st.update=function(dt,t){ const r=up.apply(this,arguments); if(st.built){
       if(NL.ok&&!NL.err){ try{ neilStep(Math.min(dt,.05),t); }catch(err){ NL.err=String(err&&err.stack||err); console.error('neil',err); } }

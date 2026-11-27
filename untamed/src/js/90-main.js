@@ -116,24 +116,29 @@ async function boot(){
   const mark=$('#mark'); // the mark's weight is the progress bar, where it waits for a click; one quiet line says what is being built
   mark.textContent=''; [...'Heloria'].forEach(ch=>{ const c=document.createElement('span'); c.className='c'; c.textContent=ch; mark.appendChild(c); });
   const setP=v=>{ mark.style.fontWeight=Math.round(100+700*v); };
+  const ph=DSC.ph={}, pt=k=>{ ph[k]=Math.round(performance.now()); };   // (when each part of the way in was done, for the tests)
   setP(0); skyDraw(); soundOrAsk();
-  try{ await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){}
+  /* the fonts asked for now and not waited for: Earth is built meanwhile (its signs are lettered at once and again when the
+     dot-matrix type comes, if it had not; see dotoLater), and they are waited for (if they are still coming) once it is
+     built, before the landing's words are shown. Waited for first, they held the whole build up by as long as they took
+     to come (up to two and a half seconds on a slow connection) */
+  const fontsIn=(async()=>{ try{ if(document.fonts.load) document.fonts.load('900 40px Doto').catch(()=>{}); await Promise.race([document.fonts.ready,wait(2500)]); }catch(e){} })();
   resize(); setP(.1);
   /* between the parts of Earth, the page's own turn rather than the next frame: a frame due is drawn and a click answered
      all the same, but the build does not stand idle waiting for one (nor for a graphics card busy making shaders) */
-  bootLine('Building Earth'); await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
-  const st=ST.cr;
-  if(st){ bootLine('Warming Earth'); await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets);
+  pt('start'); bootLine('Building Earth'); await nextFrame(); if(ST.cr) ST.cr.pace=nextSlice; try{ await ST.cr.build(); }catch(err){ console.error('build cr',err); delete ST.cr; } if(ST.cr) delete ST.cr.pace; setP(.6);
+  await fontsIn; const st=ST.cr; pt('built');
+  if(st){ bootLine('Warming Earth'); await nextFrame(); await compileQuiet(st.scene,stCam,st.matSets); pt('compiled');
     /* (the graphics card's answer, by now long drawn: where it cannot draw the page's pictures, the plain page instead) */
     if(!rtWorks()){ document.documentElement.classList.add('nogl'); delete ST.cr; dscStop(); setP(1); $('#load').classList.add('ready'); S.ready=true; return; }
-    await warmEarth(st); }
+    await warmEarth(st); pt('warmed'); }
   setP(.9);
   /* nothing is drawn onto the page's own picture while the cloud is up: a picture drawn there has to be shown, and to show
      it the browser waits for the graphics card to finish everything sent to it (Earth's shaders, its first drawing), which
      would hold the cloud still (seen: three and a half seconds, on a slow one). The card is asked instead, without waiting,
      whether it has finished, while the cloud goes on moving; Earth's first picture is drawn under the cloud's white */
-  renderer.setRenderTarget(null); await gpuDone();
-  try{ await A.firstReady(); }catch(e){}   // (what you hear first, made: see firstReady)
+  renderer.setRenderTarget(null); await gpuDone(); pt('gpu');
+  try{ await A.firstReady(); }catch(e){} pt('heard');   // (what you hear first, made: see firstReady)
   setP(1); $('#load').classList.add('ready'); S.ready=true; DSC.tr=performance.now();   // (and, if the way down has begun, out of the cloud: see outWhenReady)
 }
 /* the sound, asked for as the page opens. Where the browser lets it start without a click here (it carried the click on the

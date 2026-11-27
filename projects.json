@@ -19,8 +19,8 @@
   "projects": [
     {
       "id": "aetos", "land": "ae", "name": "Aetos",
-      "kind": "Counter-drone command software",
-      "walk": "When the sky fills with drones, Aetos tracks every one, tells friend from threat, and puts the one that matters in front of the operator.",
+      "kind": "Counter-drone software",
+      "walk": "Drones are cheap now, and they don't come one at a time. Aetos keeps track of everything in the air and works out which ones are ours, so the operator can focus on the few that aren't.",
       "card": "It reads a sky full of drones and marks the one that matters.",
       "by": "Led by Ahroon Santhosh",
       "href": "https://github.com/ahroonsanthosh/Aetos", "linkText": "github.com/ahroonsanthosh/Aetos",
@@ -28,8 +28,8 @@
     },
     {
       "id": "pharos", "land": "ph", "name": "Pharos",
-      "kind": "GPS-free drone navigation",
-      "walk": "With GPS jammed or gone, the drone finds where it is by matching what its camera sees to the map, and says so when it is not sure.",
+      "kind": "Drone navigation without GPS",
+      "walk": "GPS is easy to jam. When it's gone, Pharos has the drone look down and match what it sees to a map to work out where it is. If it isn't sure, it says so instead of guessing.",
       "card": "No GPS, so the drone finds itself by matching what it sees to the map.",
       "by": "Led by Ahroon Santhosh",
       "href": "https://github.com/ahroonsanthosh/pharos", "linkText": "github.com/ahroonsanthosh/pharos",
@@ -38,7 +38,7 @@
     {
       "id": "ogive", "land": "og", "name": "Ogive",
       "kind": "AI tools for OpenRocket",
-      "walk": "Name the height. Ogive reworks the rocket in OpenRocket, one design at a time, until the simulated flight reaches it.",
+      "walk": "Tell it how high you want the rocket to go. Ogive tweaks the design in OpenRocket and reruns the sim, again and again, until the flight gets there.",
       "card": "Name the height, and it reworks the rocket until it gets there.",
       "by": "Led by Michael Sweeney Heffernan",
       "href": "https://github.com/michaelsheffernan/ogive", "linkText": "github.com/michaelsheffernan/ogive",
@@ -46,8 +46,8 @@
     },
     {
       "id": "krios", "land": "kr", "name": "Kríos",
-      "kind": "Voice practice for sales teams",
-      "walk": "Reps rehearse the calls that matter out loud, against a buyer who answers back, before a real one ever hears them.",
+      "kind": "Sales call practice, out loud",
+      "walk": "Rehearse your sales calls out loud with a buyer who pushes back. Better to get caught out by a price objection here than on a real call.",
       "card": "Rehearse the call out loud, and a buyer answers back.",
       "by": "Built by Michael Sweeney Heffernan. Our group project.",
       "href": "https://krios.ie", "linkText": "krios.ie",

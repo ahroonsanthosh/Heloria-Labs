@@ -614,7 +614,7 @@ const A=(()=>{
      key, as the metal cools */
   const LS={url:null,el:null,busy:false,fail:false,len:0,env:null,rms:0};
   function landMake(){ if(!OAC||LS.url||LS.busy) return; LS.busy=true;
-    const T={hov:3,land:4.2,door:4.6,ramp:5.4,end:7.6}, sr=32000, len=Math.ceil((T.end+2.2)*sr); LS.len=len/sr; let oc;
+    const T={hov:2.1,land:3.0,door:3.3,ramp:4.1,end:5.9}, sr=32000, len=Math.ceil((T.end+2.2)*sr); LS.len=len/sr; let oc;
     try{ oc=new OAC(1,len,sr); }catch(e){ LS.busy=false; LS.fail=true; return; }
     const b=bus(oc,1,.9), IN=b.in, room=b.rv;
     const nz=oc.createBuffer(1,len,sr), nd=nz.getChannelData(0); for(let i=0;i<len;i++) nd[i]=Math.random()*2-1;

@@ -49,6 +49,18 @@ module.exports = async ({ page, H, wait, log }) => {
   const mk1 = await H(h => { const M = h.ST.cr._dbg.market.MKT; return { figs: M.figs.length, placed: M.figs.every(f => f.g.parent === M.g), obs: M.obs.length, open: h.ST.cr._dbg.market.open(), vis: M.g.visible }; });
   rec(mk1.figs === 7 && mk1.placed && mk1.obs === mk0.obs && !mk1.open && !mk1.vis, 'the market\'s seven people are there, in their places, out of sight till evening', JSON.stringify(mk1));
   rec((s1.tops[2] || 0) < 50 && s1.max < 400, 'a little at a time: the page is held only briefly at once by the building (a hitch or two on this busy machine aside)', JSON.stringify(s1.tops) + ' ms, the longest at ' + JSON.stringify(s1.at) + ', in ' + s1.slices + ' turns; the longest wait on the graphics card ' + s1.gmax + ' ms (this machine\'s software drawing: seconds behind; on a graphics card, nothing)');
+  /* Neil, made after the landing: first of what is out in the street, and never put there in front of you. Looked at, his
+     spot stays empty; looked away from, he is there; looked at again, he still is */
+  rec(s1.log[0] && (s1.log[0][0] === 'neil' || (s1.log[0][0] === 'school children' && s1.log[1][0] === 'neil')), 'Neil is the first made after the landing (after the school\'s children, when they are indoors)', JSON.stringify(s1.log.map(x => x[0])));
+  /* (the camera as it is drawn: each pose is held for a few drawn frames, so the spot is judged from where the camera is) */
+  const nlPose = async (k) => { await H((h, k) => { const d = h.ST.cr._dbg, N = d.neil.NL, P = d.player, x = N.x + 5.5, z = N.z + 1.5, f = k === 'away' ? [N.x + 14, N.z + 4] : [N.x, N.z];
+      P.x = x; P.z = z; P.u.copy(d.at(x, z)); const t = d.at(f[0], f[1]); P.f.copy(t).addScaledVector(P.u, -P.u.dot(t)).normalize(); d.cam.f.copy(P.f); P.tgt = null; P.path = null; P.speed = 0; }, k);
+    await frames(45); return H(h => { const d = h.ST.cr._dbg, N = d.neil.NL; return { pend: !!N.pend, shown: N.grp.visible, solid: N.obs.filter(o => d.OBS.includes(o)).length, of: N.obs.length }; }); };
+  const nl = { pend0: await H(h => !!h.ST.cr._dbg.neil.NL.pend) };
+  await H(h => { const d = h.ST.cr._dbg, N = d.neil.NL; N.pend = true; N.grp.visible = false; const gone = new Set(N.obs); for (let i = d.OBS.length - 1; i >= 0; i--) if (gone.has(d.OBS[i])) d.OBS.splice(i, 1); });   // (as it is made after a landing, whatever this machine's timing)
+  nl.facing = await nlPose('facing'); nl.away = await nlPose('away'); nl.back = await nlPose('back');
+  rec(nl.facing.pend && !nl.facing.shown && nl.facing.solid === 0, 'while his spot is on the screen he is not put there in front of you', JSON.stringify(nl));
+  rec(!nl.away.pend && nl.away.shown && nl.away.solid === nl.away.of && nl.away.of > 0 && nl.back.shown, 'looked away from, he and his tractor are there, solid; looked back at, still there', JSON.stringify(nl));
   const err = await H(h => ({ hsi: h.ST.cr._dbg.civic.inside.err, lh: h.ST.cr._dbg.lighthouse.err, late: h.ST.cr._dbg.late.state.log.map(x => x[0]) }));
   rec(!err.hsi && !err.lh, 'with no errors', JSON.stringify(err));
 

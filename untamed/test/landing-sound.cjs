@@ -27,9 +27,9 @@ module.exports = async ({ page, shot, wait, log, mobile, quiet }) => {
     rec(await untilQ("() => window.__heloria.S.mode === 'station' && window.__heloria.ST.cr._dbg.cut().on", 30000), 'the rocket comes down onto Earth');
     let land = null, mus = null; const t0 = Date.now(); let shotDone = false;
     while (Date.now() - t0 < 180000) { const q = await Q(NOW); if (q.on && q.land !== null && land === null) land = q.t; if (q.on && q.loops > 0 && mus === null) mus = q.t;
-      if (!shotDone && q.t > 3.2) { shotDone = true; await shot(pre + 'ls-hover'); } if (!q.on) break; await wait(150); }
+      if (!shotDone && q.t > 2.3) { shotDone = true; await shot(pre + 'ls-hover'); } if (!q.on) break; await wait(150); }
     rec(land !== null && land < 1.5, 'the landing\'s own recording is heard from the start of the landing', JSON.stringify({ firstHeardAt: land }));
-    rec(mus !== null && mus < 4.8, 'the town\'s music is up by the touchdown (4.2 s)', JSON.stringify({ firstHeardAt: mus }));
+    rec(mus !== null && mus < 3.6, 'the town\'s music is up by the touchdown (3 s)', JSON.stringify({ firstHeardAt: mus }));
   } else {
     rec(how.ask && how.boot === (mobile ? 'Tap to land' : 'Click to land') && how.ctx !== 'running', 'where the browser holds the sound, the landing waits under the name and says so: "' + how.boot + '"', JSON.stringify(how));
     await wait(2500); const b0 = await Q(LOADQ);

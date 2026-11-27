@@ -104,6 +104,7 @@ const W = ms => new Promise(r => setTimeout(r, ms));
   await until("() => window.__D.ev.some(e => e[0] === 'off')", 30000);
   const E = await ev(), T = k => at(E, k), D = await Q("() => { const D = window.__heloria.DSC; return { t0: Math.round(D.t0), t1: Math.round(D.t1), tr: Math.round(D.tr) }; }");
   console.log('times (ms from the page opening): ' + E.map(e => e[0] + ' ' + e[1]).join(', '));
+  console.log('the way in, part by part (ms from the page opening): ' + JSON.stringify(await Q("() => window.__heloria.DSC.ph || null")) + ', the graphics card waited on ' + JSON.stringify(await Q("() => window.__heloria.DSC.gpu")) + ' ms');
   rec(T('out') !== null && T('ready') !== null && T('out') >= T('ready') && D.t1 >= D.tr, 'the cloud only opens once Earth is ready', { ready: D.tr, out: D.t1 });
   rec(D.t1 - D.t0 >= 2200 - 30, 'and the way down is long enough to be one (at least 2.2 s)', { down: D.t1 - D.t0 });
   rec(D.t1 - Math.max(D.tr, D.t0 + 2200) < 300, 'and no longer than it needs to be: out within a moment of Earth being ready', { late: D.t1 - Math.max(D.tr, D.t0 + 2200) });
