@@ -125,6 +125,7 @@ On Earth, `sky.cjs` runs the day round, the weather and the street lamps, `light
 the drone home, `cliff.cjs` sits on the bench on the cliff and flies the kite, `cafe.cjs` goes into the café, orders
 every drink and looks into each cup, `busker.cjs` listens to Diarmuid outside it and asks him for a solo,
 `regulars.cjs` has a word with Gideon and Owen at their table outside it (a click, a tap, E, a name tag),
+`neil.cjs` talks to Neil at the site for what is next and looks west from the cliff to his place over the sea (and a firing on his test stand),
 `garage.cjs` opens the workshop's shutter (a click, a tap, E), goes into the garage, looks round and comes out again,
 `civic-inside.cjs` goes into the town hall and the school and does everything there is to do in each,
 `postcard.cjs` takes a postcard, `launch.cjs` says yes to Ahroon and plays the launch scene before the last flight (Skip,

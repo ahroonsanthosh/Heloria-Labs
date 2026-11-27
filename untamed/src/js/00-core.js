@@ -781,6 +781,22 @@ const A=(()=>{
       const end=Math.max(t+.8,t0+dur); a.gain.exponentialRampToValueAtTime(.0001,end); s.connect(lp); lp.connect(a); a.connect(o); s.start(t0,Math.random()*8); s.stop(end+.05);
       const os=ctx.createOscillator(), og=ctx.createGain(); os.type='sine'; os.frequency.setValueAtTime(64,t0); os.frequency.exponentialRampToValueAtTime(34,t0+1.3);
       og.gain.setValueAtTime(0,t0); og.gain.linearRampToValueAtTime(g*.55*(.3+.7*nr),t0+.06); og.gain.exponentialRampToValueAtTime(.0001,t0+1.4); os.connect(og); og.connect(o); os.start(t0); os.stop(t0+1.5); },
+    /* an engine on Neil's test stand, over the water to the west: heard a long way off, so all low roar and no hiss; it comes in
+       with a thump and swells over half a second, holds for dur seconds, wavering and crackling, and stops dead, its rumble
+       rolling on off the water a moment after. g is the level, p where it is, left to right */
+    testFire(g=.05,p=0,dur=7.2){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, o=this._skyOut(p*.6,.45), end=t0+dur;
+      const s=shot(), lp=ctx.createBiquadFilter(), a=ctx.createGain(); lp.type='lowpass'; lp.Q.value=.6; lp.frequency.setValueAtTime(300,t0); lp.frequency.linearRampToValueAtTime(560,t0+.6); lp.frequency.linearRampToValueAtTime(470,end);
+      a.gain.setValueAtTime(0,t0); a.gain.linearRampToValueAtTime(g,t0+.55); for(let t=t0+.8;t<end-.2;t+=.28+Math.random()*.32) a.gain.linearRampToValueAtTime(g*(.78+Math.random()*.24),t);
+      a.gain.linearRampToValueAtTime(g*.9,end); a.gain.linearRampToValueAtTime(g*.22,end+.12); a.gain.exponentialRampToValueAtTime(.0001,end+2.2);
+      s.connect(lp); lp.connect(a); a.connect(o); s.start(t0,Math.random()*8); s.stop(end+2.3);
+      /* the crackle: short bursts of a higher band, many a second, in the roar */
+      const c=shot(), bp=ctx.createBiquadFilter(), ca=ctx.createGain(); bp.type='bandpass'; bp.Q.value=1.4; bp.frequency.value=900; ca.gain.setValueAtTime(0,t0);
+      for(let t=t0+.4;t<end;t+=.05+Math.random()*.09){ ca.gain.setValueAtTime(0,t); ca.gain.linearRampToValueAtTime(g*.16*(.4+Math.random()),t+.012); ca.gain.linearRampToValueAtTime(0,t+.04); }
+      c.connect(bp); bp.connect(ca); ca.connect(o); c.start(t0,Math.random()*8); c.stop(end+.1);
+      /* the thump as it lights, and the low hum under it all */
+      const os=ctx.createOscillator(), og=ctx.createGain(); os.type='sine'; os.frequency.setValueAtTime(58,t0); os.frequency.exponentialRampToValueAtTime(41,t0+.5);
+      og.gain.setValueAtTime(0,t0); og.gain.linearRampToValueAtTime(g*.7,t0+.05); og.gain.exponentialRampToValueAtTime(g*.22,t0+.6); og.gain.setValueAtTime(g*.22,end); og.gain.exponentialRampToValueAtTime(.0001,end+1.6);
+      os.connect(og); og.connect(o); os.start(t0); os.stop(end+1.7); },
     /* a gust going by: a soft rush that rises, turns over and falls away in two seconds or so, low and dark */
     gust(g=.02,p=0){ if(!on||muted||!ctx) return; const t0=ctx.currentTime, dur=1.5+Math.random()*1.1, s=shot(), b=ctx.createBiquadFilter(), lp=ctx.createBiquadFilter(), a=ctx.createGain(), o=this._skyOut(p,.25);
       b.type='bandpass'; b.Q.value=.8; b.frequency.setValueAtTime(300,t0); b.frequency.linearRampToValueAtTime(560+Math.random()*180,t0+dur*.45); b.frequency.linearRampToValueAtTime(280,t0+dur);
